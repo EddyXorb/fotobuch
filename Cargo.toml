@@ -1,0 +1,32 @@
+[package]
+name = "photobook-solver"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "photobook-solver"
+path = "src/main.rs"
+
+[dependencies]
+# CLI argument parsing
+clap = { version = "4", features = ["derive"] }
+
+# Error handling
+anyhow = "1"
+thiserror = "2"
+
+# Date/time parsing for folder names
+chrono = "0.4"
+
+# Image metadata (EXIF)
+kamadak-exif = "0.6"
+
+# Typst compiler + PDF export
+typst = "0.14"
+typst-pdf = "0.14"
+typst-kit = { version = "0.14", features = ["fonts"] }
+comemo = "0.5"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
