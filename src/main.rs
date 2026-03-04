@@ -1,6 +1,6 @@
 mod models;
 mod scanner;
-mod solver;
+mod old_solver;
 mod typst_export;
 
 use anyhow::{Context, Result};
@@ -88,7 +88,7 @@ fn main() -> Result<()> {
 
     // 2. Solve layout.
     info!("Solving layout ...");
-    let pages = solver::solve(&groups, &config);
+    let pages = old_solver::solve(&groups, &config);
     info!("Generated {} pages", pages.len());
 
     // 3. Generate Typst source.
