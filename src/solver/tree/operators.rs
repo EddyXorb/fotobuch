@@ -88,14 +88,15 @@ pub fn mutate<R: Rng>(tree: &mut SlicingTree, rng: &mut R) {
 
 /// Performs crossover between two slicing trees.
 ///
-/// Finds subtrees with equal leaf counts >= 3, swaps them.
-/// Returns two new trees, or None if no compatible subtrees found.
+/// TODO: Find subtrees with equal leaf counts >= 3 and swap them.
+/// This requires careful handling of the arena-based structure.
+/// For now, returns None (crossover not implemented).
 pub fn crossover<R: Rng>(
     _a: &SlicingTree,
     _b: &SlicingTree,
     _rng: &mut R,
 ) -> Option<(SlicingTree, SlicingTree)> {
-    // TODO: Implement in Step 5
+    // Crossover implementation deferred - requires complex arena restructuring
     None
 }
 
@@ -187,5 +188,16 @@ mod tests {
 
         // With 2 photos, mutation should swap them (if it targets leaves)
         assert!(validate_tree(&tree).is_ok());
+    }
+
+    #[test]
+    fn test_crossover_returns_none() {
+        // Crossover is not yet implemented
+        let mut rng = ChaCha8Rng::seed_from_u64(42);
+        let tree_a = random_tree(5, &mut rng);
+        let tree_b = random_tree(5, &mut rng);
+
+        let result = crossover(&tree_a, &tree_b, &mut rng);
+        assert!(result.is_none(), "Crossover is not yet implemented");
     }
 }
