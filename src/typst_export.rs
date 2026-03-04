@@ -58,10 +58,10 @@ fn render_page(page: &Page, base_dir: &Path) -> String {
 /// Paths are relative to `base_dir` so Typst can resolve them via the World.
 /// Falls back to the absolute path if the photo is outside `base_dir`.
 fn render_placement(p: &Placement, base_dir: &Path) -> String {
-    // Use root-relative paths ("/group/photo.jpg") so the .typ file works both
+    // Use root-relative paths ("group/photo.jpg") so the .typ file works both
     // via our World implementation and via `typst compile --root <base_dir>`.
     let path = match p.photo.path.strip_prefix(base_dir) {
-        Ok(rel) => format!("/{}", rel.to_string_lossy().replace('\\', "/")),
+        Ok(rel) => format!("{}", rel.to_string_lossy().replace('\\', "/")),
         Err(_) => p.photo.path.to_string_lossy().replace('\\', "/"),
     };
 
