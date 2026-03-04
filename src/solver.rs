@@ -76,7 +76,12 @@ fn layout_page(photos: Vec<Photo>, config: &BookConfig) -> Page {
     let origin_y = config.margin_mm;
     let gap = config.gap_mm;
 
-    debug!("Laying out {} photos on page ({} x {} mm usable)", photos.len(), usable_w, usable_h);
+    debug!(
+        "Laying out {} photos on page ({} x {} mm usable)",
+        photos.len(),
+        usable_w,
+        usable_h
+    );
 
     let placements = match photos.len() {
         0 => vec![],
@@ -129,7 +134,13 @@ fn layout_three(photos: &[Photo], x: f64, y: f64, w: f64, h: f64, gap: f64) -> V
     vec![
         make_placement(&photos[0], x, y, left_w, h),
         make_placement(&photos[1], x + left_w + gap, y, right_w, cell_h),
-        make_placement(&photos[2], x + left_w + gap, y + cell_h + gap, right_w, cell_h),
+        make_placement(
+            &photos[2],
+            x + left_w + gap,
+            y + cell_h + gap,
+            right_w,
+            cell_h,
+        ),
     ]
 }
 
@@ -142,7 +153,13 @@ fn layout_grid(photos: &[Photo], x: f64, y: f64, w: f64, h: f64, gap: f64) -> Ve
         make_placement(&photos[0], x, y, cell_w, cell_h),
         make_placement(&photos[1], x + cell_w + gap, y, cell_w, cell_h),
         make_placement(&photos[2], x, y + cell_h + gap, cell_w, cell_h),
-        make_placement(&photos[3], x + cell_w + gap, y + cell_h + gap, cell_w, cell_h),
+        make_placement(
+            &photos[3],
+            x + cell_w + gap,
+            y + cell_h + gap,
+            cell_w,
+            cell_h,
+        ),
     ]
 }
 
@@ -159,12 +176,16 @@ fn make_placement(photo: &Photo, x: f64, y: f64, w: f64, h: f64) -> Placement {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::PathBuf;
     use crate::models::Photo;
+    use std::path::PathBuf;
 
     fn dummy_photo(landscape: bool) -> Photo {
         let mut p = Photo::new(PathBuf::from("test.jpg"));
-        p.dimensions = Some(if landscape { (4000, 3000) } else { (3000, 4000) });
+        p.dimensions = Some(if landscape {
+            (4000, 3000)
+        } else {
+            (3000, 4000)
+        });
         p
     }
 

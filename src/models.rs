@@ -1,5 +1,5 @@
-use std::path::PathBuf;
 use chrono::NaiveDateTime;
+use std::path::PathBuf;
 
 /// A single photo with metadata.
 #[derive(Debug, Clone)]
@@ -22,9 +22,7 @@ impl Photo {
 
     /// Whether the photo is in landscape orientation.
     pub fn is_landscape(&self) -> bool {
-        self.dimensions
-            .map(|(w, h)| w >= h)
-            .unwrap_or(true)
+        self.dimensions.map(|(w, h)| w >= h).unwrap_or(true)
     }
 
     pub fn aspect_ratio(&self) -> f64 {
