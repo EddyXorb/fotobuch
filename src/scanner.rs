@@ -1,6 +1,6 @@
-use std::path::{Path, PathBuf};
 use anyhow::{Context, Result};
 use chrono::NaiveDateTime;
+use std::path::{Path, PathBuf};
 use tracing::{debug, warn};
 
 use crate::models::{Photo, PhotoGroup};
@@ -24,13 +24,11 @@ pub fn scan_photo_dirs(root: &Path) -> Result<Vec<PhotoGroup>> {
         .collect();
 
     // Sort groups chronologically; groups without a timestamp go last.
-    groups.sort_by(|a, b| {
-        match (a.timestamp, b.timestamp) {
-            (Some(ta), Some(tb)) => ta.cmp(&tb),
-            (Some(_), None) => std::cmp::Ordering::Less,
-            (None, Some(_)) => std::cmp::Ordering::Greater,
-            (None, None) => a.label.cmp(&b.label),
-        }
+    groups.sort_by(|a, b| match (a.timestamp, b.timestamp) {
+        (Some(ta), Some(tb)) => ta.cmp(&tb),
+        (Some(_), None) => std::cmp::Ordering::Less,
+        (None, Some(_)) => std::cmp::Ordering::Greater,
+        (None, None) => a.label.cmp(&b.label),
     });
 
     Ok(groups)
@@ -38,8 +36,8 @@ pub fn scan_photo_dirs(root: &Path) -> Result<Vec<PhotoGroup>> {
 
 /// Returns all direct subdirectories of the given root path.
 fn read_subdirs(root: &Path) -> Result<Vec<PathBuf>> {
-    let entries = std::fs::read_dir(root)
-        .with_context(|| format!("Cannot read directory {:?}", root))?;
+    let entries =
+        std::fs::read_dir(root).with_context(|| format!("Cannot read directory {:?}", root))?;
 
     let dirs = entries
         .filter_map(|e| e.ok())
@@ -84,8 +82,7 @@ fn load_group(dir: &Path) -> Result<PhotoGroup> {
 
 /// Reads all supported image files from a directory (non-recursive).
 fn read_photos(dir: &Path) -> Result<Vec<Photo>> {
-    let entries = std::fs::read_dir(dir)
-        .with_context(|| format!("Cannot read {:?}", dir))?;
+    let entries = std::fs::read_dir(dir).with_context(|| format!("Cannot read {:?}", dir))?;
 
     let photos = entries
         .filter_map(|e| e.ok())
@@ -163,31 +160,32 @@ fn exif_u32(exif: &exif::Exif, tag: exif::Tag) -> Option<u32> {
 pub fn parse_timestamp_from_name(name: &str) -> Option<NaiveDateTime> {
     // Extract the leading date-like part (up to the first non-date character after the date).
     let formats_datetime = [
-        "%Y-%m-%d_%H-%M-%S",
-        "%Y-%m-%d %H-%M",
-        "%Y-%m-%d_%H-%M",
-        "%Y%m%d_%H%M%S",
-        "%Y%m%d_%H%M",
+        ("%Y-%m-%d_%H-%M-%S", 19),
+        ("%Y-%m-%d %H-%M", 16),
+        ("%Y-%m-%d_%H-%M", 16),
+        ("%Y%m%d_%H%M%S", 15),
+        ("%Y%m%d_%H%M", 13),
+        ("%Y-%m-%d@%H%M%S", 16),
     ];
 
-    let formats_date = [
-        "%Y-%m-%d",
-        "%Y%m%d",
-        "%Y_%m_%d",
-    ];
+    let formats_date = [("%Y-%m-%d", 10), ("%Y%m%d", 8), ("%Y_%m_%d", 10)];
 
     // Try to match from the start of the string.
-    for fmt in &formats_datetime {
-        if let Ok(dt) = NaiveDateTime::parse_from_str(&name[..name.len().min(20)], fmt) {
-            return Some(dt);
+    for (fmt, len) in &formats_datetime {
+        if name.len() >= *len {
+            if let Ok(dt) = NaiveDateTime::parse_from_str(&name[..*len], fmt) {
+                return Some(dt);
+            }
         }
     }
 
     // Date-only formats: produce midnight timestamp.
-    for fmt in &formats_date {
-        let candidate = &name[..name.len().min(10)];
-        if let Ok(date) = chrono::NaiveDate::parse_from_str(candidate, fmt) {
-            return Some(date.and_hms_opt(0, 0, 0).unwrap());
+    for (fmt, len) in &formats_date {
+        if name.len() >= *len {
+            let candidate = &name[..*len];
+            if let Ok(date) = chrono::NaiveDate::parse_from_str(candidate, fmt) {
+                return Some(date.and_hms_opt(0, 0, 0).unwrap());
+            }
         }
     }
 
