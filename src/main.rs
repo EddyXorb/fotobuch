@@ -3,9 +3,9 @@ mod scanner;
 mod solver;
 mod typst_export;
 
-use std::path::PathBuf;
 use anyhow::{Context, Result};
 use clap::Parser;
+use std::path::PathBuf;
 use tracing::info;
 
 use models::BookConfig;
@@ -66,13 +66,14 @@ fn main() -> Result<()> {
         max_photos_per_page: args.max_photos,
     };
 
-    let base_dir = args.input.canonicalize()
+    let base_dir = args
+        .input
+        .canonicalize()
         .unwrap_or_else(|_| args.input.clone());
 
     // 1. Scan photo directories.
     info!("Scanning {:?} ...", base_dir);
-    let groups = scanner::scan_photo_dirs(&base_dir)
-        .context("Failed to scan input directory")?;
+    let groups = scanner::scan_photo_dirs(&base_dir).context("Failed to scan input directory")?;
 
     let total_photos: usize = groups.iter().map(|g| g.photos.len()).sum();
     info!(
@@ -104,11 +105,10 @@ fn main() -> Result<()> {
     // 4. Compile to PDF.
     info!("Compiling to PDF ...");
 
-    let pdf_bytes = typst_export::compile_to_pdf(&typ_source, &base_dir)
-        .context("Typst compilation failed")?;
+    let pdf_bytes =
+        typst_export::compile_to_pdf(&typ_source, &base_dir).context("Typst compilation failed")?;
 
-    typst_export::write_pdf(&pdf_bytes, &args.output)
-        .context("Failed to write PDF")?;
+    typst_export::write_pdf(&pdf_bytes, &args.output).context("Failed to write PDF")?;
 
     info!("Done. PDF written to {:?}", args.output);
 
