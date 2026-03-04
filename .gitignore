@@ -1,4 +1,5 @@
 target*
 output*
 *.pdf
-*.typ.vscode/
+*.typ
+.vscode/
