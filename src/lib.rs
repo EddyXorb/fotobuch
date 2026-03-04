@@ -10,6 +10,9 @@
 //! - `output/`: Result export (JSON, Typst)
 
 pub mod model;
+pub mod solver;
 
 // Re-export commonly used types
 pub use model::{Canvas, FitnessWeights, LayoutResult, Photo, PhotoPlacement};
+pub use solver::{run_ga, solve_layout, total_cost, Cut, Node, SlicingTree};
+
