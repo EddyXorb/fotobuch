@@ -7,6 +7,10 @@ edition = "2024"
 name = "photobook-solver"
 path = "src/main.rs"
 
+[lib]
+name = "photobook_solver"
+path = "src/lib.rs"
+
 [dependencies]
 # CLI argument parsing
 clap = { version = "4", features = ["derive"] }
@@ -30,3 +34,6 @@ comemo = "0.5"
 # Logging
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[dev-dependencies]
+approx = "0.5"

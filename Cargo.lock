@@ -1771,6 +1771,7 @@ name = "photobook-solver"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "approx",
  "chrono",
  "clap",
  "comemo",
