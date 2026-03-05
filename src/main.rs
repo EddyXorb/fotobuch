@@ -1,116 +1,223 @@
-mod models;
-mod scanner;
-mod old_solver;
-mod typst_export;
+//! Photobook layout solver using slicing tree genetic algorithm.
 
 use anyhow::{Context, Result};
 use clap::Parser;
+use photobook_solver::*;
 use std::path::PathBuf;
+use std::time::Instant;
 use tracing::info;
 
-use models::BookConfig;
-
-/// Photobook solver: distributes photos from timestamped directories
-/// across pages and exports to Typst (.typ) and PDF.
+/// Photobook layout solver: optimizes photo placement on a canvas using genetic algorithms.
 #[derive(Parser, Debug)]
-#[command(version, about)]
+#[command(version, about, long_about = None)]
 struct Args {
-    /// Root directory containing timestamped photo subdirectories.
+    /// Root directory containing photo subdirectories
     #[arg(short, long)]
     input: PathBuf,
 
-    /// Output PDF file path.
-    #[arg(short, long, default_value = "photobook.pdf")]
+    /// Output file path (extension determines format: .json or .typ)
+    #[arg(short, long, default_value = "layout.json")]
     output: PathBuf,
 
-    /// Also write the intermediate .typ source file alongside the PDF.
-    #[arg(long, default_value_t = true)]
-    write_typ: bool,
-
-    /// Page width in mm.
+    // === Canvas Parameters ===
+    /// Canvas width in mm
     #[arg(long, default_value_t = 297.0)]
-    page_width: f64,
+    width: f64,
 
-    /// Page height in mm.
+    /// Canvas height in mm
     #[arg(long, default_value_t = 210.0)]
-    page_height: f64,
+    height: f64,
 
-    /// Margin on all sides in mm.
-    #[arg(long, default_value_t = 10.0)]
-    margin: f64,
+    /// Gap between photos in mm
+    #[arg(long, default_value_t = 5.0)]
+    beta: f64,
 
-    /// Gap between photos in mm.
-    #[arg(long, default_value_t = 3.0)]
-    gap: f64,
+    /// Bleed over paper edge in mm
+    #[arg(long, default_value_t = 0.0)]
+    bleed: f64,
 
-    /// Maximum photos per page.
-    #[arg(long, default_value_t = 4)]
-    max_photos: usize,
+    // === GA Parameters ===
+    /// Population size per island
+    #[arg(long, default_value_t = 300)]
+    population: usize,
+
+    /// Maximum generations
+    #[arg(long, default_value_t = 100)]
+    generations: usize,
+
+    /// Mutation rate (0.0-1.0)
+    #[arg(long, default_value_t = 0.2)]
+    mutation_rate: f64,
+
+    /// Crossover rate (0.0-1.0)
+    #[arg(long, default_value_t = 0.7)]
+    crossover_rate: f64,
+
+    // === Island Model Parameters ===
+    /// Number of islands (default: number of CPU cores)
+    #[arg(long)]
+    islands: Option<usize>,
+
+    /// Generations between migrations
+    #[arg(long, default_value_t = 5)]
+    migration_interval: usize,
+
+    /// Number of migrants per migration
+    #[arg(long, default_value_t = 2)]
+    migrants: usize,
+
+    /// Timeout in seconds (0 = no timeout)
+    #[arg(long, default_value_t = 30)]
+    timeout: u64,
+
+    /// Random seed for reproducibility
+    #[arg(long)]
+    seed: Option<u64>,
+
+    // === Fitness Weights ===
+    /// Weight for size distribution cost
+    #[arg(long, default_value_t = 1.0)]
+    w_size: f64,
+
+    /// Weight for canvas coverage cost
+    #[arg(long, default_value_t = 0.15)]
+    w_coverage: f64,
+
+    /// Weight for barycenter cost
+    #[arg(long, default_value_t = 0.5)]
+    w_barycenter: f64,
+
+    /// Weight for reading order cost
+    #[arg(long, default_value_t = 0.3)]
+    w_order: f64,
+
+    /// Verbose output (progress and fitness)
+    #[arg(short, long)]
+    verbose: bool,
 }
 
 fn main() -> Result<()> {
+    // Initialize logging
+    let log_level = if std::env::var("RUST_LOG").is_ok() {
+        tracing_subscriber::EnvFilter::from_default_env()
+    } else {
+        tracing_subscriber::EnvFilter::new("info")
+    };
+
     tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::from_default_env()
-                .add_directive(tracing::Level::INFO.into()),
-        )
+        .with_env_filter(log_level)
         .init();
 
     let args = Args::parse();
 
-    let config = BookConfig {
-        page_width_mm: args.page_width,
-        page_height_mm: args.page_height,
-        margin_mm: args.margin,
-        gap_mm: args.gap,
-        max_photos_per_page: args.max_photos,
+    // 1. Load photos
+    info!("Loading photos from {:?}...", args.input);
+    let photo_infos = load_photos_from_dir(&args.input)
+        .context("Failed to load photos")?;
+
+    if photo_infos.is_empty() {
+        anyhow::bail!("No photos found in {:?}", args.input);
+    }
+
+    info!("Loaded {} photos", photo_infos.len());
+
+    // Extract photos and paths
+    let photos: Vec<Photo> = photo_infos.iter().map(|pi| pi.photo.clone()).collect();
+    let photo_paths: Vec<String> = photo_infos
+        .iter()
+        .map(|pi| pi.path.to_string_lossy().to_string())
+        .collect();
+
+    // 2. Configure solver
+    let canvas = Canvas::new(args.width, args.height, args.beta, args.bleed);
+    
+    let weights = FitnessWeights {
+        w_size: args.w_size,
+        w_coverage: args.w_coverage,
+        w_barycenter: args.w_barycenter,
+        w_order: args.w_order,
     };
 
-    let base_dir = args
-        .input
-        .canonicalize()
-        .unwrap_or_else(|_| args.input.clone());
+    let ga_config = GaConfig {
+        population: args.population,
+        generations: args.generations,
+        mutation_rate: args.mutation_rate,
+        crossover_rate: args.crossover_rate,
+        tournament_size: 3,
+        elitism_ratio: 0.05,
+    };
 
-    // 1. Scan photo directories.
-    info!("Scanning {:?} ...", base_dir);
-    let groups = scanner::scan_photo_dirs(&base_dir).context("Failed to scan input directory")?;
+    let island_config = IslandConfig {
+        islands: args.islands.unwrap_or_else(|| {
+            std::thread::available_parallelism()
+                .map(|n| n.get())
+                .unwrap_or(4)
+        }),
+        migration_interval: args.migration_interval,
+        migrants: args.migrants,
+        timeout: if args.timeout > 0 {
+            Some(std::time::Duration::from_secs(args.timeout))
+        } else {
+            None
+        },
+    };
 
-    let total_photos: usize = groups.iter().map(|g| g.photos.len()).sum();
-    info!(
-        "Found {} groups with {} photos total",
-        groups.len(),
-        total_photos
+    let seed = args.seed.unwrap_or_else(|| {
+        use std::time::SystemTime;
+        SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
+    });
+
+    info!("Configuration:");
+    info!("  Canvas: {}x{} mm, β={} mm", canvas.width, canvas.height, canvas.beta);
+    info!("  Islands: {}, Population: {}/island, Generations: {}", 
+        island_config.islands, ga_config.population, ga_config.generations);
+    info!("  Weights: size={}, coverage={}, bary={}, order={}", 
+        weights.w_size, weights.w_coverage, weights.w_barycenter, weights.w_order);
+    info!("  Seed: {}", seed);
+
+    // 3. Run solver
+    info!("Running genetic algorithm...");
+    let start = Instant::now();
+    
+    let (best_tree, best_layout, best_fitness) = run_island_ga(
+        &photos,
+        &canvas,
+        &weights,
+        &ga_config,
+        &island_config,
+        seed,
     );
 
-    if total_photos == 0 {
-        anyhow::bail!("No supported images found in {:?}", base_dir);
+    let elapsed = start.elapsed();
+    info!("Optimization completed in {:.2}s", elapsed.as_secs_f64());
+    info!("Best fitness: {:.6}", best_fitness);
+    info!("Tree nodes: {}, Leaf count: {}", best_tree.len(), best_tree.leaf_count());
+
+    // 4. Export result
+    let output_ext = args.output.extension().and_then(|s| s.to_str());
+    
+    match output_ext {
+        Some("json") => {
+            info!("Exporting to JSON: {:?}", args.output);
+            export_json(&best_layout, &args.output)
+                .context("Failed to export JSON")?;
+        }
+        Some("typ") => {
+            info!("Exporting to Typst: {:?}", args.output);
+            export_typst(&best_layout, &photo_paths, &args.output)
+                .context("Failed to export Typst")?;
+        }
+        _ => {
+            anyhow::bail!(
+                "Unsupported output format: {:?}. Use .json or .typ",
+                output_ext
+            );
+        }
     }
 
-    // 2. Solve layout.
-    info!("Solving layout ...");
-    let pages = old_solver::solve(&groups, &config);
-    info!("Generated {} pages", pages.len());
-
-    // 3. Generate Typst source.
-    let typ_source = typst_export::generate_typ(&pages, &config, &base_dir);
-
-    if args.write_typ {
-        let stem = args.output.file_stem().unwrap_or("photobook".as_ref());
-        let typ_path = base_dir.join(stem).with_extension("typ");
-        typst_export::write_typ_file(&typ_source, &typ_path)
-            .context("Failed to write .typ file")?;
-        info!("Written .typ source to {:?}", typ_path);
-    }
-
-    // 4. Compile to PDF.
-    info!("Compiling to PDF ...");
-
-    let pdf_bytes =
-        typst_export::compile_to_pdf(&typ_source, &base_dir).context("Typst compilation failed")?;
-
-    typst_export::write_pdf(&pdf_bytes, &args.output).context("Failed to write PDF")?;
-
-    info!("Done. PDF written to {:?}", args.output);
-
+    info!("Done!");
     Ok(())
 }
