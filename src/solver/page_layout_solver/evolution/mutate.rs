@@ -1,7 +1,34 @@
 //! Mutation operator for slicing trees.
 
+use super::super::individual::LayoutIndividual;
+use super::EvaluationContext;
 use crate::solver::page_layout_solver::tree::{Cut, Node, SlicingTree};
 use rand::Rng;
+
+/// Applies mutation to individuals with given rate.
+pub(super) fn apply_mutation<R: Rng>(
+    individuals: &mut [LayoutIndividual],
+    mutation_rate: f64,
+    context: &EvaluationContext,
+    rng: &mut R,
+) {
+    for individual in individuals.iter_mut() {
+        if rng.r#gen::<f64>() < mutation_rate {
+            mutate_individual(individual, context, rng);
+        }
+    }
+}
+
+/// Mutates a single individual.
+fn mutate_individual<R: Rng>(
+    individual: &mut LayoutIndividual,
+    context: &EvaluationContext,
+    rng: &mut R,
+) {
+    let mut tree = individual.tree().clone();
+    mutate(&mut tree, rng);
+    *individual = LayoutIndividual::from_tree(tree, context);
+}
 
 /// Mutates a slicing tree by swapping the labels of two random nodes of the same type.
 ///

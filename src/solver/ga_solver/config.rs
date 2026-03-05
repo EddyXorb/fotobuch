@@ -11,15 +11,6 @@ pub struct Config {
     /// Maximum number of generations.
     pub generations: usize,
 
-    /// Mutation probability (0.0 to 1.0).
-    pub mutation_rate: f64,
-
-    /// Crossover probability (0.0 to 1.0).
-    pub crossover_rate: f64,
-
-    /// Tournament selection size.
-    pub tournament_size: usize,
-
     /// Elitism ratio - proportion of best individuals to keep unchanged (0.0 to 1.0).
     pub elitism_ratio: f64,
 

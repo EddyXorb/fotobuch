@@ -1,7 +1,52 @@
 //! Crossover operator for slicing trees.
 
+use super::super::individual::LayoutIndividual;
+use super::EvaluationContext;
 use crate::solver::page_layout_solver::tree::{Cut, Node, SlicingTree};
 use rand::Rng;
+
+/// Applies crossover to parents with given rate.
+pub(super) fn apply_crossover<R: Rng>(
+    parents: &[LayoutIndividual],
+    crossover_rate: f64,
+    context: &EvaluationContext,
+    rng: &mut R,
+) -> Vec<LayoutIndividual> {
+    let mut offspring = Vec::with_capacity(parents.len());
+
+    for chunk in parents.chunks_exact(2) {
+        if rng.r#gen::<f64>() < crossover_rate {
+            crossover_pair(chunk, context, rng, &mut offspring);
+        } else {
+            offspring.extend_from_slice(chunk);
+        }
+    }
+    
+    // Handle odd parent
+    if parents.len() % 2 == 1 {
+        offspring.push(parents.last().unwrap().clone());
+    }
+    
+    offspring
+}
+
+/// Performs crossover on a pair of parents.
+fn crossover_pair<R: Rng>(
+    pair: &[LayoutIndividual],
+    context: &EvaluationContext,
+    rng: &mut R,
+    offspring: &mut Vec<LayoutIndividual>,
+) {
+    let tree_a = pair[0].tree();
+    let tree_b = pair[1].tree();
+
+    if let Some((child_a, child_b)) = crossover(tree_a, tree_b, rng) {
+        offspring.push(LayoutIndividual::from_tree(child_a, context));
+        offspring.push(LayoutIndividual::from_tree(child_b, context));
+    } else {
+        offspring.extend_from_slice(pair);
+    }
+}
 
 /// Performs crossover between two slicing trees.
 ///
