@@ -6,9 +6,9 @@
 //!
 //! The tree is stored in an arena (Vec) for efficient cloning.
 
-pub(super) mod build;
-pub(super) mod crossover;
-pub(super) mod mutate;
+pub(in crate::solver) mod build;
+pub(in crate::solver) mod crossover;
+pub(in crate::solver) mod mutate;
 pub(super) mod validate;
 
 use std::fmt;
