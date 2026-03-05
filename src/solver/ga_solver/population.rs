@@ -3,7 +3,7 @@
 use super::types::LayoutIndividual;
 use crate::models::{Canvas, FitnessWeights, Photo};
 use super::super::page_layout_solver::tree::build::random_tree;
-use super::super::page_layout_solver::layout_solver::solve_layout;
+use super::super::page_layout_solver::solver::solve_layout;
 use super::super::page_layout_solver::fitness::total_cost;
 use rand::Rng;
 

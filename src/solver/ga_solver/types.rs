@@ -30,7 +30,7 @@ impl Phenotype for PageLayout {
     type Context = LayoutContext<'static>;
     
     fn from_genome(genome: &Self::Genome, context: &Self::Context) -> Self {
-        use super::super::page_layout_solver::layout_solver::solve_layout;
+        use super::super::page_layout_solver::solver::solve_layout;
         solve_layout(genome, context.photos, &context.canvas)
     }
     

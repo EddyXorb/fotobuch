@@ -2,7 +2,7 @@
 
 use super::types::LayoutIndividual;
 use super::super::page_layout_solver::tree::SlicingTree;
-use super::super::page_layout_solver::layout_solver::solve_layout;
+use super::super::page_layout_solver::solver::solve_layout;
 use super::super::page_layout_solver::fitness::total_cost;
 use crate::models::{Canvas, FitnessWeights, Photo};
 
