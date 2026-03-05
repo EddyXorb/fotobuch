@@ -10,15 +10,13 @@ mod canvas;
 mod layout;
 mod photo;
 mod photo_group;
-mod photo_info;
 mod request;
 mod weights;
 
 // Re-export all public types
 pub use canvas::Canvas;
 pub use layout::{LayoutResult, PhotoPlacement};
-pub use photo::Photo;
+pub use photo::{Photo, PhotoInfo};
 pub use photo_group::{PhotoGroup, ScannedPhoto};
-pub use photo_info::PhotoInfo;
 pub use request::SolverRequest;
 pub use weights::FitnessWeights;
