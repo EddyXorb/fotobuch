@@ -3,9 +3,15 @@
 //! Generates SVG files showing the tree structure with cuts and photo indices.
 
 use super::super::tree::{Cut, Node, SlicingTree};
-use std::fmt::Write;
+use std::fmt::{self, Write};
 use std::fs;
 use std::path::Path;
+
+// Layout constants for tree visualization
+const NODE_RADIUS: f64 = 25.0;
+const LEVEL_HEIGHT: f64 = 80.0;
+const MIN_H_SPACING: f64 = 60.0;
+const CANVAS_PADDING: f64 = 20.0;
 
 /// Layout information for a node in the visualization.
 #[derive(Debug, Clone, Copy)]
@@ -32,16 +38,13 @@ pub fn visualize_tree<P: AsRef<Path>>(
     tree: &SlicingTree,
     output_path: P,
 ) -> std::io::Result<()> {
-    let svg = generate_svg(tree);
+    let svg = generate_svg(tree)
+        .map_err(std::io::Error::other)?;
     fs::write(output_path, svg)
 }
 
 /// Generates SVG content for the tree.
-fn generate_svg(tree: &SlicingTree) -> String {
-    const NODE_RADIUS: f64 = 25.0;
-    const LEVEL_HEIGHT: f64 = 80.0;
-    const MIN_H_SPACING: f64 = 60.0;
-    
+fn generate_svg(tree: &SlicingTree) -> Result<String, fmt::Error> {
     // Calculate layout for all nodes
     let layouts = calculate_layouts(tree, NODE_RADIUS, MIN_H_SPACING);
     
@@ -51,8 +54,8 @@ fn generate_svg(tree: &SlicingTree) -> String {
         .map(|l| l.x + l.subtree_width / 2.0)
         .fold(0.0, f64::max);
     let max_depth = calculate_depth(tree, 0);
-    let canvas_width = max_x + NODE_RADIUS * 2.0 + 20.0;
-    let canvas_height = (max_depth as f64) * LEVEL_HEIGHT + NODE_RADIUS * 2.0 + 20.0;
+    let canvas_width = max_x + NODE_RADIUS * 2.0 + CANVAS_PADDING;
+    let canvas_height = (max_depth as f64) * LEVEL_HEIGHT + NODE_RADIUS * 2.0 + CANVAS_PADDING;
     
     let mut svg = String::new();
     
@@ -61,7 +64,7 @@ fn generate_svg(tree: &SlicingTree) -> String {
         &mut svg,
         r#"<svg xmlns="http://www.w3.org/2000/svg" width="{}" height="{}" viewBox="0 0 {} {}">"#,
         canvas_width, canvas_height, canvas_width, canvas_height
-    ).unwrap();
+    )?;
     
     // Style definitions
     writeln!(&mut svg, r#"<style>
@@ -70,17 +73,17 @@ fn generate_svg(tree: &SlicingTree) -> String {
         .node-text {{ fill: white; font-family: Arial, sans-serif; font-size: 14px; font-weight: bold; text-anchor: middle; dominant-baseline: middle; }}
         .edge {{ stroke: #333; stroke-width: 2; fill: none; }}
         .cut-label {{ fill: #333; font-family: Arial, sans-serif; font-size: 12px; font-weight: bold; }}
-    </style>"#).unwrap();
+    </style>"#)?;
     
     // Draw edges first (so they appear under nodes)
-    draw_edges(&mut svg, tree, &layouts, NODE_RADIUS, LEVEL_HEIGHT);
+    draw_edges(&mut svg, tree, &layouts)?;
     
     // Draw nodes
-    draw_nodes(&mut svg, tree, &layouts, NODE_RADIUS, LEVEL_HEIGHT);
+    draw_nodes(&mut svg, tree, &layouts)?;
     
-    writeln!(&mut svg, "</svg>").unwrap();
+    writeln!(&mut svg, "</svg>")?;
     
-    svg
+    Ok(svg)
 }
 
 /// Calculates layout positions for all nodes.
@@ -166,10 +169,8 @@ fn draw_edges(
     svg: &mut String,
     tree: &SlicingTree,
     layouts: &[NodeLayout],
-    _node_radius: f64,
-    _level_height: f64,
-) {
-    writeln!(svg, r#"<g class="edges">"#).unwrap();
+) -> fmt::Result {
+    writeln!(svg, r#"<g class="edges">"#)?;
     
     for (idx, node) in tree.nodes().iter().enumerate() {
         if let Node::Internal { left, right, .. } = node {
@@ -182,18 +183,19 @@ fn draw_edges(
                 svg,
                 r#"<line class="edge" x1="{}" y1="{}" x2="{}" y2="{}"/>"#,
                 parent.x, parent.y, left_child.x, left_child.y
-            ).unwrap();
+            )?;
             
             // Draw edge to right child
             writeln!(
                 svg,
                 r#"<line class="edge" x1="{}" y1="{}" x2="{}" y2="{}"/>"#,
                 parent.x, parent.y, right_child.x, right_child.y
-            ).unwrap();
+            )?;
         }
     }
     
-    writeln!(svg, "</g>").unwrap();
+    writeln!(svg, "</g>")?;
+    Ok(())
 }
 
 /// Draws nodes with labels.
@@ -201,10 +203,8 @@ fn draw_nodes(
     svg: &mut String,
     tree: &SlicingTree,
     layouts: &[NodeLayout],
-    node_radius: f64,
-    _level_height: f64,
-) {
-    writeln!(svg, r#"<g class="nodes">"#).unwrap();
+) -> fmt::Result {
+    writeln!(svg, r#"<g class="nodes">"#)?;
     
     for (idx, node) in tree.nodes().iter().enumerate() {
         let layout = &layouts[idx];
@@ -215,23 +215,23 @@ fn draw_nodes(
                 writeln!(
                     svg,
                     r#"<circle class="leaf-node" cx="{}" cy="{}" r="{}"/>"#,
-                    layout.x, layout.y, node_radius
-                ).unwrap();
+                    layout.x, layout.y, NODE_RADIUS
+                )?;
                 
                 // Draw photo index
                 writeln!(
                     svg,
                     r#"<text class="node-text" x="{}" y="{}">{}</text>"#,
                     layout.x, layout.y, photo_idx
-                ).unwrap();
+                )?;
             }
             Node::Internal { cut, .. } => {
                 // Draw internal node (blue circle)
                 writeln!(
                     svg,
                     r#"<circle class="internal-node" cx="{}" cy="{}" r="{}"/>"#,
-                    layout.x, layout.y, node_radius
-                ).unwrap();
+                    layout.x, layout.y, NODE_RADIUS
+                )?;
                 
                 // Draw cut type
                 let cut_str = match cut {
@@ -242,12 +242,13 @@ fn draw_nodes(
                     svg,
                     r#"<text class="node-text" x="{}" y="{}">{}</text>"#,
                     layout.x, layout.y, cut_str
-                ).unwrap();
+                )?;
             }
         }
     }
     
-    writeln!(svg, "</g>").unwrap();
+    writeln!(svg, "</g>")?;
+    Ok(())
 }
 
 /// Calculates the maximum depth of the tree.
@@ -275,7 +276,7 @@ mod tests {
             parent: None,
         }]);
         
-        let svg = generate_svg(&tree);
+        let svg = generate_svg(&tree).unwrap();
         assert!(svg.contains("svg"));
         assert!(svg.contains("leaf-node"));
         assert!(svg.contains(">0</text>"));
@@ -301,7 +302,7 @@ mod tests {
         ];
         let tree = SlicingTree::new(nodes);
         
-        let svg = generate_svg(&tree);
+        let svg = generate_svg(&tree).unwrap();
         assert!(svg.contains("svg"));
         assert!(svg.contains("internal-node"));
         assert!(svg.contains("leaf-node"));
@@ -387,7 +388,7 @@ mod tests {
             },
         ]);
         
-        let svg = generate_svg(&tree);
+        let svg = generate_svg(&tree).unwrap();
         
         // Verify structure
         assert!(svg.contains("svg"));
