@@ -15,7 +15,7 @@ struct Args {
     #[arg(short, long)]
     input: PathBuf,
 
-    /// Output file path (extension determines format: .json or .typ)
+    /// Output file path (extension determines format: .json, .typ, or .pdf)
     #[arg(short, long, default_value = "layout.json")]
     output: PathBuf,
 
@@ -202,7 +202,7 @@ fn main() -> Result<()> {
     match output_ext {
         Some("json") => {
             info!("Exporting to JSON: {:?}", args.output);
-            export_json(&best_layout, &args.output)
+            export_json(&best_layout, &photo_paths, &args.output)
                 .context("Failed to export JSON")?;
         }
         Some("typ") => {
@@ -210,9 +210,14 @@ fn main() -> Result<()> {
             export_typst(&best_layout, &photo_paths, &args.output)
                 .context("Failed to export Typst")?;
         }
+        Some("pdf") => {
+            info!("Compiling to PDF: {:?}", args.output);
+            export_pdf(&best_layout, &photo_paths, &args.input, &args.output)
+                .context("Failed to compile PDF")?;
+        }
         _ => {
             anyhow::bail!(
-                "Unsupported output format: {:?}. Use .json or .typ",
+                "Unsupported output format: {:?}. Use .json, .typ, or .pdf",
                 output_ext
             );
         }

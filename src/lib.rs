@@ -22,5 +22,5 @@ mod models; // Old models module used by scanner
 pub use model::{Canvas, FitnessWeights, LayoutResult, Photo, PhotoPlacement};
 pub use solver::{run_ga, run_island_ga, solve_layout, total_cost, GaConfig, IslandConfig};
 pub use input::{load_photos_from_dir, PhotoInfo};
-pub use output::{export_json, export_typst};
+pub use output::{export_json, export_typst, export_pdf};
 
