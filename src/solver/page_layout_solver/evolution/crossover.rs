@@ -1,6 +1,6 @@
 //! Crossover operator for slicing trees.
 
-use super::{Node, SlicingTree};
+use crate::solver::page_layout_solver::tree::{Cut, Node, SlicingTree};
 use rand::Rng;
 
 /// Performs crossover between two slicing trees.
@@ -105,7 +105,7 @@ fn find_compatible_pairs(
 #[derive(Clone, Debug)]
 enum TopoNode {
     Leaf,
-    Internal { cut: super::Cut },
+    Internal { cut: Cut },
 }
 
 /// Extracts the topology (structure) of a subtree in pre-order.
@@ -274,7 +274,7 @@ fn rebuild_with_graft(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::solver::page_layout_solver::tree::build::random_tree;
+    use crate::solver::page_layout_solver::tree::create::random_tree;
     use crate::solver::page_layout_solver::tree::validate::validate_tree;
     use rand::SeedableRng;
     use rand_chacha::ChaCha8Rng;

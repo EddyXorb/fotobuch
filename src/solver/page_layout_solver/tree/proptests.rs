@@ -2,10 +2,8 @@
 
 #[cfg(test)]
 mod tests {
-    use crate::solver::page_layout_solver::tree::{
-        build::random_tree, crossover::crossover, mutate::mutate, validate::validate_tree,
-        SlicingTree,
-    };
+    use crate::solver::page_layout_solver::tree::{create::random_tree, validate::validate_tree, SlicingTree};
+    use crate::solver::page_layout_solver::evolution::{crossover::crossover, mutate::mutate};
     use proptest::prelude::*;
     use rand::SeedableRng;
     use rand_chacha::ChaCha8Rng;

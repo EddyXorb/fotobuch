@@ -7,5 +7,5 @@
 
 ## Rust specific
 
-- do not use mod.rs files for subfolders, instead use the same name for the module in root and include every module in the same named subfolder in the root-file
+- **do not use mod.rs files for subfolders**, instead use the same name for the module in root and include every module in the same named subfolder in the root-file
 - benutze clippy --fix vor jedem commit

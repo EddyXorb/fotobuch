@@ -1,6 +1,6 @@
 //! Mutation operator for slicing trees.
 
-use super::{Node, SlicingTree};
+use crate::solver::page_layout_solver::tree::{Cut, Node, SlicingTree};
 use rand::Rng;
 
 /// Mutates a slicing tree by swapping the labels of two random nodes of the same type.
@@ -101,7 +101,7 @@ fn swap_random_internals<R: Rng>(tree: &mut SlicingTree, internal_indices: &[u16
 }
 
 /// Extracts cut types from two internal nodes.
-fn extract_cut_types(tree: &SlicingTree, idx1: u16, idx2: u16) -> (super::Cut, super::Cut) {
+fn extract_cut_types(tree: &SlicingTree, idx1: u16, idx2: u16) -> (Cut, Cut) {
     let c1 = match tree.node(idx1) {
         Node::Internal { cut, .. } => *cut,
         _ => panic!("Expected internal node"),
@@ -114,7 +114,7 @@ fn extract_cut_types(tree: &SlicingTree, idx1: u16, idx2: u16) -> (super::Cut, s
 }
 
 /// Sets the cut type of an internal node.
-fn set_cut_type(tree: &mut SlicingTree, idx: u16, cut: super::Cut) {
+fn set_cut_type(tree: &mut SlicingTree, idx: u16, cut: Cut) {
     if let Node::Internal { cut: c, .. } = tree.node_mut(idx) {
         *c = cut;
     }
@@ -123,7 +123,7 @@ fn set_cut_type(tree: &mut SlicingTree, idx: u16, cut: super::Cut) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::solver::page_layout_solver::tree::build::random_tree;
+    use crate::solver::page_layout_solver::tree::create::random_tree;
     use crate::solver::page_layout_solver::tree::validate::validate_tree;
     use rand::SeedableRng;
     use rand_chacha::ChaCha8Rng;
