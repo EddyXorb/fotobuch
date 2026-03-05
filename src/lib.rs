@@ -16,6 +16,7 @@
 //!     tournament_size: 3,
 //!     elitism_ratio: 0.05,
 //!     weights: FitnessWeights::default(),
+//!     timeout: Some(std::time::Duration::from_secs(30)),
 //!     island_config: Some(IslandConfig::default()),
 //! };
 //!

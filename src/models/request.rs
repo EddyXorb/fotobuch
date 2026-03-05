@@ -66,11 +66,11 @@ mod tests {
                 w_barycenter: 0.5,
                 w_order: 0.3,
             },
+            timeout: None,
             island_config: Some(IslandConfig {
                 islands: 4,
                 migration_interval: 5,
                 migrants: 2,
-                timeout: None,
             }),
         };
 
