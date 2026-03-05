@@ -6,7 +6,7 @@
 //! - `fitness`: Fitness function components
 //! - `ga`: Genetic algorithm
 
-pub mod tree;
-pub mod layout_solver;
-pub mod fitness;
-pub mod ga;
+pub(super) mod tree;
+pub(super) mod layout_solver;
+pub(super) mod fitness;
+pub(super) mod ga;

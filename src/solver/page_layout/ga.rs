@@ -1,7 +1,8 @@
 //! Genetic algorithm main loop for photo layout optimization.
 
 use crate::models::{Canvas, FitnessWeights, LayoutResult, Photo};
-use super::tree::{random_tree, SlicingTree};
+use super::tree::SlicingTree;
+use super::tree::build::random_tree;
 use super::tree::operators::{mutate, crossover};
 use super::layout_solver::solve_layout;
 use super::fitness::total_cost;
@@ -184,7 +185,7 @@ impl Default for IslandConfig {
 ///
 /// Each island runs on its own thread. The best individuals migrate between islands
 /// every `migration_interval` generations. Returns the globally best solution found.
-pub fn run_island_ga(
+pub(crate) fn run_island_ga(
     photos: &[Photo],
     canvas: &Canvas,
     weights: &FitnessWeights,

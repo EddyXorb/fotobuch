@@ -4,7 +4,7 @@
 //! - `solver`: High-level solver orchestration
 //! - `page_layout`: Single-page layout optimization (tree, fitness, GA)
 
-pub mod page_layout;
+pub(crate) mod page_layout;
 pub mod solver;
 
 // Re-export commonly used types from page_layout
