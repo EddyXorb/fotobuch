@@ -356,7 +356,7 @@ fn rebuild_with_graft(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::solver::tree::{random_tree, validate_tree};
+    use crate::solver::page_layout::tree::{random_tree, validate_tree};
     use rand::SeedableRng;
     use rand_chacha::ChaCha8Rng;
 
