@@ -17,7 +17,7 @@ pub mod output;
 
 // Re-export commonly used types
 pub use models::{Canvas, FitnessWeights, LayoutResult, Photo, PhotoPlacement, PhotoGroup, PhotoInfo, SolverRequest};
-pub use solver::{run_ga, run_island_ga, run_solver, solve_layout, total_cost, GaConfig, IslandConfig};
+pub use solver::{run_ga, run_solver, solve_layout, total_cost, GaConfig, IslandConfig};
 pub use input::load_photos_from_dir;
 pub use output::{export_json, export_typst, export_pdf};
 

@@ -120,17 +120,15 @@ fn enrich_photo_metadata(photo: &mut ScannedPhoto) {
     };
 
     // Parse DateTimeOriginal from EXIF.
-    if let Some(field) = exif.get_field(exif::Tag::DateTimeOriginal, exif::In::PRIMARY) {
-        if let exif::Value::Ascii(ref vec) = field.value {
-            if let Some(bytes) = vec.first() {
+    if let Some(field) = exif.get_field(exif::Tag::DateTimeOriginal, exif::In::PRIMARY)
+        && let exif::Value::Ascii(ref vec) = field.value
+            && let Some(bytes) = vec.first() {
                 let s = String::from_utf8_lossy(bytes);
                 // EXIF datetime format: "YYYY:MM:DD HH:MM:SS"
                 if let Ok(dt) = NaiveDateTime::parse_from_str(&s, "%Y:%m:%d %H:%M:%S") {
                     photo.timestamp = Some(dt);
                 }
             }
-        }
-    }
 
     // Read pixel dimensions.
     let width = exif_u32(&exif, exif::Tag::PixelXDimension);
@@ -172,11 +170,10 @@ pub fn parse_timestamp_from_name(name: &str) -> Option<NaiveDateTime> {
 
     // Try to match from the start of the string.
     for (fmt, len) in &formats_datetime {
-        if name.len() >= *len {
-            if let Ok(dt) = NaiveDateTime::parse_from_str(&name[..*len], fmt) {
+        if name.len() >= *len
+            && let Ok(dt) = NaiveDateTime::parse_from_str(&name[..*len], fmt) {
                 return Some(dt);
             }
-        }
     }
 
     // Date-only formats: produce midnight timestamp.

@@ -267,11 +267,10 @@ fn run_island<R: Rng>(
     // Evolution loop
     for generation in 0..ga_config.generations {
         // Check timeout
-        if let Some(timeout) = island_config.timeout {
-            if start_time.elapsed() > timeout {
+        if let Some(timeout) = island_config.timeout
+            && start_time.elapsed() > timeout {
                 break;
             }
-        }
 
         // Sort by fitness (lower is better)
         population.sort_by(|a, b| a.fitness.partial_cmp(&b.fitness).unwrap());
