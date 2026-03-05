@@ -376,23 +376,32 @@ fn test_cli_exact_output() {
         "Should have exactly 3 photo placements"
     );
 
-    // Verify all test photos are referenced
+    // Verify exact positions and dimensions for deterministic output with seed 1772727622
+    // These specific values ensure the solver produces consistent results
+    
+    // Photo 1: test3.jpg (group2) - large photo on the right
     assert!(
-        content.contains("test.jpg"),
-        "Should reference test.jpg from group1"
-    );
-    assert!(
-        content.contains("test2.jpg"),
-        "Should reference test2.jpg from group2"
-    );
-    assert!(
-        content.contains("test3.jpg"),
-        "Should reference test3.jpg from group2"
+        content.contains("#place(top + left, dx: 100.67mm, dy: 6.83mm, block(width: 196.33mm, height: 196.33mm, clip: true, image(\"tests/fixtures/test_photos/group2/test3.jpg\""),
+        "test3.jpg should be at x=100.67mm, y=6.83mm with size 196.33x196.33mm"
     );
 
-    // Verify numeric format (2 decimal places)
-    let has_two_decimals = content.contains(".00mm") || content.contains(char::is_numeric);
-    assert!(has_two_decimals, "Should format numbers with precision");
+    // Photo 2: test.jpg (group1) - small photo on top left
+    assert!(
+        content.contains("#place(top + left, dx: 0.00mm, dy: 6.83mm, block(width: 95.67mm, height: 95.67mm, clip: true, image(\"tests/fixtures/test_photos/group1/test.jpg\""),
+        "test.jpg should be at x=0.00mm, y=6.83mm with size 95.67x95.67mm"
+    );
+
+    // Photo 3: test2.jpg (group2) - small photo on bottom left
+    assert!(
+        content.contains("#place(top + left, dx: 0.00mm, dy: 107.50mm, block(width: 95.67mm, height: 95.67mm, clip: true, image(\"tests/fixtures/test_photos/group2/test2.jpg\""),
+        "test2.jpg should be at x=0.00mm, y=107.50mm with size 95.67x95.67mm"
+    );
+
+    // Verify the complete format of one placement for completeness
+    assert!(
+        content.contains("fit: \"cover\")))"),
+        "Should have proper closing with fit: cover"
+    );
 
     // Cleanup
     let _ = fs::remove_file(output_path);
