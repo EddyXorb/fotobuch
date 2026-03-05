@@ -27,6 +27,9 @@ pub struct GaConfig {
     /// Fitness function weights.
     pub weights: FitnessWeights,
     
+    /// Optional timeout for the entire optimization run.
+    pub timeout: Option<Duration>,
+    
     /// Optional island model configuration for parallel evolution.
     /// If None, runs a standard single-population GA.
     pub island_config: Option<IslandConfig>,
@@ -42,6 +45,7 @@ impl Default for GaConfig {
             tournament_size: 3,
             elitism_ratio: 0.05,
             weights: FitnessWeights::default(),
+            timeout: Some(Duration::from_secs(30)),
             island_config: Some(IslandConfig::default()),
         }
     }
@@ -62,9 +66,6 @@ pub struct IslandConfig {
     
     /// Number of individuals to migrate per island per migration event.
     pub migrants: usize,
-    
-    /// Optional timeout for the entire optimization run (all islands).
-    pub timeout: Option<Duration>,
 }
 
 impl Default for IslandConfig {
@@ -77,7 +78,6 @@ impl Default for IslandConfig {
             islands,
             migration_interval: 5,
             migrants: 2,
-            timeout: Some(Duration::from_secs(30)),
         }
     }
 }
@@ -100,6 +100,5 @@ mod tests {
         assert!(config.islands >= 1);
         assert_eq!(config.migration_interval, 5);
         assert_eq!(config.migrants, 2);
-        assert!(config.timeout.is_some());
     }
 }

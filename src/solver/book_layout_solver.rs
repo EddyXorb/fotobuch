@@ -7,7 +7,7 @@
 //! - Apply page layout solver to each page
 
 use crate::models::{BookLayout, Canvas, GaConfig, Photo};
-use super::page_layout_solver::ga::run_island_ga;
+use super::page_layout_solver::ga::run_ga;
 
 /// Solves the book layout problem by distributing photos across pages.
 ///
@@ -48,7 +48,7 @@ pub(crate) fn solve_book_layout(
     }
     
     // Current stub implementation: place all photos on a single page
-    let (_tree, page_layout, _fitness) = run_island_ga(
+    let (_tree, page_layout, _fitness) = run_ga(
         photos,
         canvas,
         ga_config,
@@ -81,6 +81,7 @@ mod tests {
             tournament_size: 3,
             elitism_ratio: 0.05,
             weights: FitnessWeights::default(),
+            timeout: None,
             island_config: Some(IslandConfig::default()),
         };
         

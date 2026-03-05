@@ -150,11 +150,6 @@ impl Args {
             }),
             migration_interval: self.island.migration_interval,
             migrants: self.island.migrants,
-            timeout: if self.island.timeout > 0 {
-                Some(std::time::Duration::from_secs(self.island.timeout))
-            } else {
-                None
-            },
         };
 
         let ga_config = GaConfig {
@@ -165,6 +160,11 @@ impl Args {
             tournament_size: 3,
             elitism_ratio: 0.05,
             weights,
+            timeout: if self.island.timeout > 0 {
+                Some(std::time::Duration::from_secs(self.island.timeout))
+            } else {
+                None
+            },
             island_config: Some(island_config),
         };
 
