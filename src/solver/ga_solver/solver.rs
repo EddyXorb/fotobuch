@@ -188,11 +188,10 @@ where
             }
 
             // Check for timeout
-            if let Some(timeout) = self.config.timeout {
-                if start_time.elapsed() >= timeout {
+            if let Some(timeout) = self.config.timeout
+                && start_time.elapsed() >= timeout {
                     break;
                 }
-            }
         }
 
         // Return the globally best individual
