@@ -162,9 +162,6 @@ mod tests {
         let config = Config {
             population: 4,
             generations: 10,
-            mutation_rate: 0.3,
-            crossover_rate: 0.7,
-            tournament_size: 2,
             elitism_ratio: 0.25,
             timeout: None,
             islands: 2,
@@ -189,9 +186,6 @@ mod tests {
         let config = Config {
             population: 1,
             generations: 1000000,
-            mutation_rate: 0.3,
-            crossover_rate: 0.7,
-            tournament_size: 2,
             elitism_ratio: 0.25,
             timeout: Some(Duration::from_millis(1)),
             islands: 1,
