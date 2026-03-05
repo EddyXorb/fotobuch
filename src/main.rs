@@ -13,7 +13,7 @@ fn main() -> Result<()> {
     let args = Args::parse();
 
     let request = args.into_solver_request()?;
-    run_solver(&request)?;
+    let _book_layout = run_solver(&request)?;
 
     info!("Done!");
     Ok(())

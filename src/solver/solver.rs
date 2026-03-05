@@ -16,7 +16,9 @@ use tracing::info;
 /// 1. Loading and validating photos from the input directory
 /// 2. Running the book layout solver to distribute photos across pages
 /// 3. Exporting the result in the requested format (JSON/Typst/PDF)
-pub fn run_solver(request: &SolverRequest) -> Result<()> {
+///
+/// Returns the generated `BookLayout` for inspection and testing.
+pub fn run_solver(request: &SolverRequest) -> Result<BookLayout> {
     log_configuration(request);
     
     let (photos, photo_paths) = load_and_validate_photos(&request.input)?;
@@ -28,7 +30,7 @@ pub fn run_solver(request: &SolverRequest) -> Result<()> {
     );
     export_result(&book_layout, &photo_paths, &request.input, &request.output)?;
     
-    Ok(())
+    Ok(book_layout)
 }
 
 /// Log the solver configuration for user visibility.
