@@ -192,9 +192,6 @@ pub fn run_island_ga(
     island_config: &IslandConfig,
     seed: u64,
 ) -> (SlicingTree, LayoutResult, f64) {
-    use rand::SeedableRng;
-    use rand_chacha::ChaCha8Rng;
-
     let start_time = Instant::now();
     let num_islands = island_config.islands;
     
@@ -214,7 +211,8 @@ pub fn run_island_ga(
                 
                 scope.spawn(move || {
                     // Each island gets its own RNG seeded differently
-                    let mut rng = ChaCha8Rng::seed_from_u64(seed.wrapping_add(island_id as u64));
+                    use rand::{rngs::StdRng, SeedableRng};
+                    let mut rng = StdRng::seed_from_u64(seed.wrapping_add(island_id as u64));
                     
                     run_island(
                         &photos,
