@@ -6,13 +6,9 @@
 //!
 //! The tree is stored in an arena (Vec) for efficient cloning.
 
-pub mod build;
-pub mod validate;
-pub mod operators;
-
-pub use build::random_tree;
-pub use validate::validate_tree;
-pub use operators::{crossover, mutate};
+pub(super) mod build;
+pub(super) mod validate;
+pub(super) mod operators;
 
 use std::fmt;
 

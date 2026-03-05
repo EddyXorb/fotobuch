@@ -1,5 +1,6 @@
 //! Validation functions for slicing trees.
 
+#[cfg(test)]
 use super::{Node, SlicingTree};
 
 /// Validates that a slicing tree satisfies all invariants.
@@ -12,7 +13,8 @@ use super::{Node, SlicingTree};
 /// 5. Root has parent=None
 ///
 /// Returns Ok(()) if valid, Err(String) with error message otherwise.
-pub fn validate_tree(tree: &SlicingTree) -> Result<(), String> {
+#[cfg(test)]
+pub(crate) fn validate_tree(tree: &SlicingTree) -> Result<(), String> {
     if tree.is_empty() {
         return Err("Tree is empty".to_string());
     }

@@ -11,7 +11,7 @@ use rand::Rng;
 /// 3. Shuffle photo indices randomly across all leaves
 ///
 /// Returns a tree with N leaves and N-1 internal nodes.
-pub fn random_tree<R: Rng>(n: usize, rng: &mut R) -> SlicingTree {
+pub(crate) fn random_tree<R: Rng>(n: usize, rng: &mut R) -> SlicingTree {
     assert!(n > 0, "Cannot create tree with 0 photos");
 
     if n == 1 {

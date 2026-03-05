@@ -9,7 +9,7 @@ use rand::Rng;
 /// If both nodes are internal, swap their cut type.
 ///
 /// The tree structure remains unchanged.
-pub fn mutate<R: Rng>(tree: &mut SlicingTree, rng: &mut R) {
+pub(crate) fn mutate<R: Rng>(tree: &mut SlicingTree, rng: &mut R) {
     let n = tree.len();
     if n < 2 {
         return; // Nothing to swap
@@ -92,7 +92,7 @@ pub fn mutate<R: Rng>(tree: &mut SlicingTree, rng: &mut R) {
 /// The topology (structure and cuts) is swapped, but photo labels remain in their original tree.
 ///
 /// Returns None if no compatible subtrees exist.
-pub fn crossover<R: Rng>(
+pub(crate) fn crossover<R: Rng>(
     tree_a: &SlicingTree,
     tree_b: &SlicingTree,
     rng: &mut R,
@@ -356,7 +356,8 @@ fn rebuild_with_graft(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::solver::page_layout::tree::{random_tree, validate_tree};
+    use crate::solver::page_layout::tree::build::random_tree;
+    use crate::solver::page_layout::tree::validate::validate_tree;
     use rand::SeedableRng;
     use rand_chacha::ChaCha8Rng;
 

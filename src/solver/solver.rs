@@ -11,7 +11,6 @@ use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 use tracing::info;
-
 /// Run the complete photobook solver workflow from a solver request.
 ///
 /// This is the main entry point that coordinates:

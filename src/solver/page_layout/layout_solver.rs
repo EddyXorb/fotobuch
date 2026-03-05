@@ -290,7 +290,8 @@ fn compute_positions_recursive(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::solver::page_layout::tree::{random_tree, validate_tree};
+    use crate::solver::page_layout::tree::build::random_tree;
+    use crate::solver::page_layout::tree::validate::validate_tree;
     use approx::assert_relative_eq;
     use rand::Rng;
     use rand::SeedableRng;
