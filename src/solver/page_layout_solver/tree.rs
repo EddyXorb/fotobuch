@@ -6,8 +6,8 @@
 //!
 //! The tree is stored in an arena (Vec) for efficient cloning.
 
-pub(in crate::solver) mod create;
-pub(in crate::solver) mod visualize;
+pub(super) mod create;
+pub(super) mod visualize;
 pub(super) mod validate;
 
 #[cfg(test)]

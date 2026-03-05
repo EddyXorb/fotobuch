@@ -65,7 +65,7 @@ pub(super) fn run_ga(
     // Run GA
     let mut ga = GeneticAlgorithm::new(config, evolution);
     let best = ga.solve(initial_pop).expect("GA returned no solution");
-
+    
     // Extract results
     let tree = best.tree().clone();
     let layout = best.layout().clone();
@@ -80,8 +80,8 @@ fn create_initial_population(
     population_size: usize,
     seed: u64,
 ) -> Vec<LayoutIndividual> {
-    use rand::rngs::StdRng;
     use rand::SeedableRng;
+    use rand::rngs::StdRng;
 
     let mut rng = StdRng::seed_from_u64(seed);
 

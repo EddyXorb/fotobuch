@@ -3,3 +3,4 @@ target*
 *.pdf
 *.typ
 .vscode/
+*.jpg
