@@ -65,12 +65,13 @@ impl PhotoInfo {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_fixtures::*;
     
     #[test]
     fn test_new_photo() {
-        let photo = Photo::new(1.5, 1.0, "test".to_string());
-        assert_eq!(photo.aspect_ratio, 1.5);
-        assert_eq!(photo.area_weight, 1.0);
+        let photo = landscape_photo("test");
+        assert_eq!(photo.aspect_ratio, LANDSCAPE_ASPECT);
+        assert_eq!(photo.area_weight, DEFAULT_AREA_WEIGHT);
         assert_eq!(photo.group, "test");
         assert!(photo.timestamp.is_none());
     }
@@ -78,39 +79,39 @@ mod tests {
     #[test]
     #[should_panic(expected = "Aspect ratio must be positive")]
     fn test_new_photo_negative_aspect_ratio() {
-        Photo::new(-1.0, 1.0, "test".to_string());
+        Photo::new(-1.0, DEFAULT_AREA_WEIGHT, "test".to_string());
     }
     
     #[test]
     #[should_panic(expected = "Area weight must be positive")]
     fn test_new_photo_negative_area_weight() {
-        Photo::new(1.5, -1.0, "test".to_string());
+        Photo::new(LANDSCAPE_ASPECT, -1.0, "test".to_string());
     }
     
     #[test]
     fn test_is_landscape() {
-        let landscape = Photo::new(1.5, 1.0, "test".to_string());
+        let landscape = landscape_photo("test");
         assert!(landscape.is_landscape());
         assert!(!landscape.is_portrait());
         
-        let square = Photo::new(1.0, 1.0, "test".to_string());
+        let square = square_photo("test");
         assert!(square.is_landscape());
         assert!(!square.is_portrait());
     }
     
     #[test]
     fn test_is_portrait() {
-        let portrait = Photo::new(0.75, 1.0, "test".to_string());
+        let portrait = portrait_photo("test");
         assert!(portrait.is_portrait());
         assert!(!portrait.is_landscape());
     }
     
     #[test]
     fn test_photo_info_creation() {
-        let photo = Photo::new(1.5, 1.0, "test".to_string());
+        let photo = landscape_photo("test");
         let info = PhotoInfo::new(PathBuf::from("test.jpg"), photo);
         
-        assert_eq!(info.photo.aspect_ratio, 1.5);
+        assert_eq!(info.photo.aspect_ratio, LANDSCAPE_ASPECT);
         assert_eq!(info.path, PathBuf::from("test.jpg"));
     }
 }

@@ -43,6 +43,9 @@ pub mod models;
 pub mod output;
 pub mod solver;
 
+#[cfg(test)]
+mod test_fixtures;
+
 // Re-export core API types for convenience
 pub use input::loader::load_photos_from_dir;
 pub use models::{BookLayout, Canvas, FitnessWeights, GaConfig, IslandConfig, PageLayout, Photo, SolverRequest};
