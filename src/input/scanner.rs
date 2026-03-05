@@ -9,8 +9,8 @@ const SUPPORTED_EXTENSIONS: &[&str] = &["jpg", "jpeg", "png", "webp", "tiff", "t
 
 /// Scans a root directory and returns all photo groups, sorted chronologically.
 ///
-/// Each subdirectory becomes one group. The group timestamp is parsed from
-/// the directory name, with EXIF data used as fallback per individual photo.
+/// Each subdirectory becomes one group. If the root directory itself contains photos,
+/// they are grouped under the root directory's name.
 pub fn scan_photo_dirs(root: &Path) -> Result<Vec<PhotoGroup>> {
     let mut groups: Vec<PhotoGroup> = read_subdirs(root)?
         .into_iter()
@@ -22,6 +22,12 @@ pub fn scan_photo_dirs(root: &Path) -> Result<Vec<PhotoGroup>> {
             }
         })
         .collect();
+
+    // Check if the root directory itself contains photos
+    if let Ok(root_group) = load_group(root)
+        && !root_group.photos.is_empty() {
+            groups.push(root_group);
+        }
 
     // Sort groups chronologically; groups without a timestamp go last.
     groups.sort_by(|a, b| match (a.timestamp, b.timestamp) {
