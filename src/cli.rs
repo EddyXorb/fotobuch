@@ -15,7 +15,31 @@ pub struct Args {
     #[arg(short, long, default_value = "layout.json")]
     pub output: PathBuf,
 
-    // === Canvas Parameters ===
+    /// Random seed for reproducibility
+    #[arg(long)]
+    pub seed: Option<u64>,
+
+    /// Verbose output (progress and fitness)
+    #[arg(short, long)]
+    pub verbose: bool,
+
+    #[command(flatten)]
+    pub canvas: CanvasArgs,
+
+    #[command(flatten)]
+    pub ga: GaArgs,
+
+    #[command(flatten)]
+    pub island: IslandArgs,
+
+    #[command(flatten)]
+    pub weights: WeightsArgs,
+}
+
+/// Canvas dimensions and spacing parameters.
+#[derive(Parser, Debug)]
+#[command(next_help_heading = "Canvas Parameters")]
+pub struct CanvasArgs {
     /// Canvas width in mm
     #[arg(long, default_value_t = 297.0)]
     pub width: f64,
@@ -31,8 +55,12 @@ pub struct Args {
     /// Bleed over paper edge in mm
     #[arg(long, default_value_t = 0.0)]
     pub bleed: f64,
+}
 
-    // === GA Parameters ===
+/// Genetic algorithm parameters.
+#[derive(Parser, Debug)]
+#[command(next_help_heading = "Genetic Algorithm Parameters")]
+pub struct GaArgs {
     /// Population size per island
     #[arg(long, default_value_t = 300)]
     pub population: usize,
@@ -48,8 +76,12 @@ pub struct Args {
     /// Crossover rate (0.0-1.0)
     #[arg(long, default_value_t = 0.7)]
     pub crossover_rate: f64,
+}
 
-    // === Island Model Parameters ===
+/// Island model parameters for parallel evolution.
+#[derive(Parser, Debug)]
+#[command(next_help_heading = "Island Model Parameters")]
+pub struct IslandArgs {
     /// Number of islands (default: number of CPU cores)
     #[arg(long)]
     pub islands: Option<usize>,
@@ -65,12 +97,12 @@ pub struct Args {
     /// Timeout in seconds (0 = no timeout)
     #[arg(long, default_value_t = 30)]
     pub timeout: u64,
+}
 
-    /// Random seed for reproducibility
-    #[arg(long)]
-    pub seed: Option<u64>,
-
-    // === Fitness Weights ===
+/// Fitness function weight parameters.
+#[derive(Parser, Debug)]
+#[command(next_help_heading = "Fitness Weights")]
+pub struct WeightsArgs {
     /// Weight for size distribution cost
     #[arg(long, default_value_t = 1.0)]
     pub w_size: f64,
@@ -86,10 +118,6 @@ pub struct Args {
     /// Weight for reading order cost
     #[arg(long, default_value_t = 0.3)]
     pub w_order: f64,
-
-    /// Verbose output (progress and fitness)
-    #[arg(short, long)]
-    pub verbose: bool,
 }
 
 impl Args {
@@ -100,34 +128,39 @@ impl Args {
     pub fn into_solver_request(self) -> anyhow::Result<photobook_solver::SolverRequest> {
         use photobook_solver::*;
 
-        let canvas = Canvas::new(self.width, self.height, self.beta, self.bleed);
+        let canvas = Canvas::new(
+            self.canvas.width,
+            self.canvas.height,
+            self.canvas.beta,
+            self.canvas.bleed,
+        );
         
         let weights = FitnessWeights {
-            w_size: self.w_size,
-            w_coverage: self.w_coverage,
-            w_barycenter: self.w_barycenter,
-            w_order: self.w_order,
+            w_size: self.weights.w_size,
+            w_coverage: self.weights.w_coverage,
+            w_barycenter: self.weights.w_barycenter,
+            w_order: self.weights.w_order,
         };
 
         let ga_config = GaConfig {
-            population: self.population,
-            generations: self.generations,
-            mutation_rate: self.mutation_rate,
-            crossover_rate: self.crossover_rate,
+            population: self.ga.population,
+            generations: self.ga.generations,
+            mutation_rate: self.ga.mutation_rate,
+            crossover_rate: self.ga.crossover_rate,
             tournament_size: 3,
             elitism_ratio: 0.05,
         };
 
         let island_config = IslandConfig {
-            islands: self.islands.unwrap_or_else(|| {
+            islands: self.island.islands.unwrap_or_else(|| {
                 std::thread::available_parallelism()
                     .map(|n| n.get())
                     .unwrap_or(4)
             }),
-            migration_interval: self.migration_interval,
-            migrants: self.migrants,
-            timeout: if self.timeout > 0 {
-                Some(std::time::Duration::from_secs(self.timeout))
+            migration_interval: self.island.migration_interval,
+            migrants: self.island.migrants,
+            timeout: if self.island.timeout > 0 {
+                Some(std::time::Duration::from_secs(self.island.timeout))
             } else {
                 None
             },
