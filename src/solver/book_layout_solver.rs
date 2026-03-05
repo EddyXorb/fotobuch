@@ -7,7 +7,7 @@
 //! - Apply page layout solver to each page
 
 use crate::models::{BookLayout, Canvas, GaConfig, Photo};
-use super::ga_solver::run_ga;
+use super::page_layout_solver::run_ga;
 
 /// Solves the book layout problem by distributing photos across pages.
 ///
