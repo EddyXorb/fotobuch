@@ -24,12 +24,7 @@ pub struct SolverRequest {
 
 impl SolverRequest {
     /// Create a new solver request with all required parameters.
-    pub fn new(
-        input: PathBuf,
-        output: PathBuf,
-        canvas: Canvas,
-        ga_config: GaConfig,
-    ) -> Self {
+    pub fn new(input: PathBuf, output: PathBuf, canvas: Canvas, ga_config: GaConfig) -> Self {
         Self {
             input,
             output,
@@ -70,12 +65,7 @@ mod tests {
             seed: 42,
         };
 
-        let request = SolverRequest::new(
-            "input/".into(),
-            "output.pdf".into(),
-            canvas,
-            ga_config,
-        );
+        let request = SolverRequest::new("input/".into(), "output.pdf".into(), canvas, ga_config);
 
         assert_eq!(request.input.to_str().unwrap(), "input/");
         assert_eq!(request.output.to_str().unwrap(), "output.pdf");

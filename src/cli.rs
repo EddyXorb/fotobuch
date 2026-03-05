@@ -134,7 +134,7 @@ impl Args {
             self.canvas.beta,
             self.canvas.bleed,
         );
-        
+
         let weights = FitnessWeights {
             w_size: self.weights.w_size,
             w_coverage: self.weights.w_coverage,

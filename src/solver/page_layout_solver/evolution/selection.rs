@@ -32,11 +32,7 @@ where
 }
 
 /// Runs a single tournament and returns the winner.
-fn run_tournament<'a, I, R>(
-    population: &'a [I],
-    tournament_size: usize,
-    rng: &mut R,
-) -> &'a I
+fn run_tournament<'a, I, R>(population: &'a [I], tournament_size: usize, rng: &mut R) -> &'a I
 where
     I: Individual,
     R: Rng,
@@ -48,7 +44,7 @@ where
     for _ in 1..actual_size {
         let candidate = &population[rng.gen_range(0..population.len())];
         let candidate_fitness = candidate.fitness();
-        
+
         if candidate_fitness < best_fitness {
             best = candidate;
             best_fitness = candidate_fitness;

@@ -8,28 +8,28 @@ use std::time::Duration;
 pub struct GaConfig {
     /// Population size per island.
     pub population: usize,
-    
+
     /// Maximum number of generations.
     pub generations: usize,
-    
+
     /// Mutation probability (0.0 to 1.0).
     pub mutation_rate: f64,
-    
+
     /// Crossover probability (0.0 to 1.0).
     pub crossover_rate: f64,
-    
+
     /// Tournament selection size.
     pub tournament_size: usize,
-    
+
     /// Elitism ratio - proportion of best individuals to keep unchanged (0.0 to 1.0).
     pub elitism_ratio: f64,
-    
+
     /// Fitness function weights.
     pub weights: FitnessWeights,
-    
+
     /// Optional timeout for the entire optimization run.
     pub timeout: Option<Duration>,
-    
+
     /// Island model configuration for parallel evolution.
     pub island_config: IslandConfig,
 
@@ -63,10 +63,10 @@ pub struct IslandConfig {
     /// Number of independent islands (populations).
     /// Defaults to number of available CPU cores.
     pub islands: usize,
-    
+
     /// Generations between migrations.
     pub migration_interval: usize,
-    
+
     /// Number of individuals to migrate per island per migration event.
     pub migrants: usize,
 }
@@ -76,7 +76,7 @@ impl Default for IslandConfig {
         let islands = std::thread::available_parallelism()
             .map(|n| n.get())
             .unwrap_or(4);
-        
+
         Self {
             islands,
             migration_interval: 5,

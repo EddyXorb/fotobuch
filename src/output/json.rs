@@ -2,7 +2,7 @@
 
 use crate::models::{PageLayout, PhotoPlacement};
 use anyhow::{Context, Result};
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use std::path::Path;
 
 /// Serializable layout result for JSON export.
@@ -33,12 +33,12 @@ pub struct PlacementJson {
 /// Exports a layout result to a JSON file with photo paths.
 pub fn export_json(layout: &PageLayout, photo_paths: &[String], output_path: &Path) -> Result<()> {
     let json = layout_to_json(layout, photo_paths);
-    let json_str = serde_json::to_string_pretty(&json)
-        .context("Failed to serialize layout to JSON")?;
-    
+    let json_str =
+        serde_json::to_string_pretty(&json).context("Failed to serialize layout to JSON")?;
+
     std::fs::write(output_path, json_str)
         .with_context(|| format!("Failed to write JSON to {:?}", output_path))?;
-    
+
     Ok(())
 }
 
@@ -64,7 +64,7 @@ fn placement_to_json(placement: &PhotoPlacement, photo_paths: &[String]) -> Plac
         .get(placement.photo_idx as usize)
         .cloned()
         .unwrap_or_else(|| format!("unknown_{}", placement.photo_idx));
-    
+
     PlacementJson {
         photo_idx: placement.photo_idx,
         photo_path,
@@ -99,14 +99,11 @@ mod tests {
                 h: 200.0,
             },
         ];
-        
+
         let layout = PageLayout::new(placements, canvas);
-        let photo_paths = vec![
-            "photo1.jpg".to_string(),
-            "photo2.jpg".to_string(),
-        ];
+        let photo_paths = vec!["photo1.jpg".to_string(), "photo2.jpg".to_string()];
         let json = layout_to_json(&layout, &photo_paths);
-        
+
         assert_eq!(json.placements.len(), 2);
         assert_eq!(json.canvas.width_mm, 1000.0);
         assert_eq!(json.canvas.beta_mm, 5.0);
@@ -117,24 +114,22 @@ mod tests {
     #[test]
     fn test_json_roundtrip() {
         let canvas = Canvas::new(1000.0, 800.0, 5.0, 3.0);
-        let placements = vec![
-            PhotoPlacement {
-                photo_idx: 0,
-                x: 10.0,
-                y: 20.0,
-                w: 300.0,
-                h: 200.0,
-            },
-        ];
-        
+        let placements = vec![PhotoPlacement {
+            photo_idx: 0,
+            x: 10.0,
+            y: 20.0,
+            w: 300.0,
+            h: 200.0,
+        }];
+
         let layout = PageLayout::new(placements, canvas);
         let photo_paths = vec!["photo1.jpg".to_string()];
         let json = layout_to_json(&layout, &photo_paths);
-        
+
         // Serialize and deserialize
         let json_str = serde_json::to_string(&json).unwrap();
         let json_back: LayoutJson = serde_json::from_str(&json_str).unwrap();
-        
+
         assert_eq!(json_back.placements.len(), json.placements.len());
         assert_eq!(json_back.canvas.width_mm, json.canvas.width_mm);
         assert_eq!(json_back.placements[0].photo_path, "photo1.jpg");

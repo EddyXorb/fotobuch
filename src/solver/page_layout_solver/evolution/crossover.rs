@@ -21,12 +21,12 @@ pub(super) fn apply_crossover<R: Rng>(
             offspring.extend_from_slice(chunk);
         }
     }
-    
+
     // Handle odd parent
     if parents.len() % 2 == 1 {
         offspring.push(parents.last().unwrap().clone());
     }
-    
+
     offspring
 }
 
@@ -165,7 +165,9 @@ fn extract_subtree(tree: &SlicingTree, root_idx: u16) -> (Vec<TopoNode>, Vec<u16
                 topo.push(TopoNode::Leaf);
                 labels.push(*photo_idx);
             }
-            Node::Internal { cut, left, right, .. } => {
+            Node::Internal {
+                cut, left, right, ..
+            } => {
                 topo.push(TopoNode::Internal { cut: *cut });
                 walk(nodes, *left, topo, labels);
                 walk(nodes, *right, topo, labels);
@@ -216,7 +218,9 @@ fn rebuild_with_graft(
                     parent,
                 });
             }
-            Node::Internal { cut, left, right, .. } => {
+            Node::Internal {
+                cut, left, right, ..
+            } => {
                 // Push placeholder
                 new_nodes.push(Node::Internal {
                     cut: *cut,

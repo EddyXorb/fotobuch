@@ -4,8 +4,8 @@
 //! Each node stores (α, γ) such that: w = α·h + γ
 //! This allows handling β > 0 without falling back to solving linear systems.
 
-use crate::models::{Canvas, PageLayout, Photo, PhotoPlacement};
 use super::tree::{Cut, Node, SlicingTree};
+use crate::models::{Canvas, PageLayout, Photo, PhotoPlacement};
 
 /// Affine coefficient pair (α, γ) representing the relationship w = α·h + γ.
 #[derive(Debug, Clone, Copy)]
@@ -42,11 +42,7 @@ struct Position {
 /// 3. Compute positions top-down from root
 ///
 /// Returns a PageLayout with all photo placements.
-pub fn solve_layout(
-    tree: &SlicingTree,
-    photos: &[Photo],
-    canvas: &Canvas,
-) -> PageLayout {
+pub fn solve_layout(tree: &SlicingTree, photos: &[Photo], canvas: &Canvas) -> PageLayout {
     if tree.is_empty() {
         return PageLayout::new(vec![], *canvas);
     }
@@ -66,13 +62,7 @@ pub fn solve_layout(
         if let Node::Leaf { photo_idx, .. } = node {
             let dim = dims[idx];
             let pos = positions[idx];
-            placements.push(PhotoPlacement::new(
-                *photo_idx,
-                pos.x,
-                pos.y,
-                dim.w,
-                dim.h,
-            ));
+            placements.push(PhotoPlacement::new(*photo_idx, pos.x, pos.y, dim.w, dim.h));
         }
     }
 
@@ -82,11 +72,7 @@ pub fn solve_layout(
 /// Computes affine coefficients for all nodes (bottom-up).
 ///
 /// For each node, computes (α, γ) such that w = α·h + γ.
-fn compute_coefficients(
-    tree: &SlicingTree,
-    photos: &[Photo],
-    beta: f64,
-) -> Vec<AffineCoeff> {
+fn compute_coefficients(tree: &SlicingTree, photos: &[Photo], beta: f64) -> Vec<AffineCoeff> {
     let mut coeffs = vec![AffineCoeff::new(0.0, 0.0); tree.len()];
     compute_coefficients_recursive(tree, photos, beta, 0, &mut coeffs);
     coeffs
@@ -107,7 +93,9 @@ fn compute_coefficients_recursive(
             coeffs[idx as usize] = coeff;
             coeff
         }
-        Node::Internal { cut, left, right, .. } => {
+        Node::Internal {
+            cut, left, right, ..
+        } => {
             // Recursively compute children first
             let coeff_l = compute_coefficients_recursive(tree, photos, beta, *left, coeffs);
             let coeff_r = compute_coefficients_recursive(tree, photos, beta, *right, coeffs);
@@ -129,7 +117,7 @@ fn compute_coefficients_recursive(
                     // h = h_l + h_r + β
                     //   = (w - γ_l)/α_l + (w - γ_r)/α_r + β
                     //   = w·(1/α_l + 1/α_r) + (-γ_l/α_l - γ_r/α_r + β)
-                    // 
+                    //
                     // Rearranging to w = α·h + γ form:
                     // Let S = 1/α_l + 1/α_r
                     // h = w·S + (-γ_l/α_l - γ_r/α_r + β)
@@ -138,9 +126,9 @@ fn compute_coefficients_recursive(
 
                     let s = 1.0 / coeff_l.alpha + 1.0 / coeff_r.alpha;
                     let alpha = 1.0 / s; // = α_l·α_r/(α_l + α_r)
-                    let gamma = (coeff_l.gamma / coeff_l.alpha 
-                               + coeff_r.gamma / coeff_r.alpha 
-                               - beta) * alpha;
+                    let gamma = (coeff_l.gamma / coeff_l.alpha + coeff_r.gamma / coeff_r.alpha
+                        - beta)
+                        * alpha;
                     AffineCoeff::new(alpha, gamma)
                 }
             };
@@ -161,7 +149,7 @@ fn compute_dimensions(
 
     // Root: determine dimensions based on canvas
     let root_coeff = coeffs[0];
-    
+
     // Try filling height first
     let h_try = canvas.height;
     let w_try = root_coeff.alpha * h_try + root_coeff.gamma;
@@ -175,7 +163,10 @@ fn compute_dimensions(
         (w, h)
     };
 
-    dims[0] = Dimensions { w: root_w, h: root_h };
+    dims[0] = Dimensions {
+        w: root_w,
+        h: root_h,
+    };
 
     // Recursively assign dimensions to children
     compute_dimensions_recursive(tree, coeffs, 0, &mut dims);
@@ -192,7 +183,10 @@ fn compute_dimensions_recursive(
     let node = tree.node(idx);
     let dim = dims[idx as usize];
 
-    if let Node::Internal { cut, left, right, .. } = node {
+    if let Node::Internal {
+        cut, left, right, ..
+    } = node
+    {
         match cut {
             Cut::V => {
                 // V-node: children have same height
@@ -233,11 +227,7 @@ fn compute_dimensions_recursive(
 }
 
 /// Computes positions for all nodes (top-down).
-fn compute_positions(
-    tree: &SlicingTree,
-    dims: &[Dimensions],
-    beta: f64,
-) -> Vec<Position> {
+fn compute_positions(tree: &SlicingTree, dims: &[Dimensions], beta: f64) -> Vec<Position> {
     let mut positions = vec![Position { x: 0.0, y: 0.0 }; tree.len()];
 
     // Root starts at origin
@@ -259,7 +249,10 @@ fn compute_positions_recursive(
     let node = tree.node(idx);
     let pos = positions[idx as usize];
 
-    if let Node::Internal { cut, left, right, .. } = node {
+    if let Node::Internal {
+        cut, left, right, ..
+    } = node
+    {
         let dim_l = dims[*left as usize];
 
         match cut {
@@ -312,12 +305,12 @@ mod tests {
 
         let layout = solve_layout(&tree, &photos, &canvas);
         assert_eq!(layout.placements.len(), 1);
-        
+
         let p = &layout.placements[0];
         assert_eq!(p.photo_idx, 0);
         assert_relative_eq!(p.x, 0.0, epsilon = 1e-6);
         assert_relative_eq!(p.y, 0.0, epsilon = 1e-6);
-        
+
         // Photo should fill height, width = 1.5 * 200 = 300
         assert_relative_eq!(p.h, 200.0, epsilon = 1e-6);
         assert_relative_eq!(p.w, 300.0, epsilon = 1e-6);
@@ -396,7 +389,7 @@ mod tests {
         // Photo 0: h = 300 / 2.0 = 150
         // Photo 1: h = 300 / 3.0 = 100
         // Total height = 250, but canvas is only 200, so it should scale down
-        
+
         // Width is limiting: use full 300
         // 1/a_combined = 1/2 + 1/3 = 5/6, so a_combined = 6/5 = 1.2
         // h_total = w / a = 300 / 1.2 = 250
@@ -470,20 +463,20 @@ mod tests {
                     make_photo(ar)
                 })
                 .collect();
-            
+
             let canvas = Canvas::new(297.0, 210.0, 2.0, 0.0);
             let layout = solve_layout(&tree, &photos, &canvas);
 
             // Basic sanity checks
             assert_eq!(layout.placements.len(), n);
-            
+
             // All photos should be within canvas bounds
             for p in &layout.placements {
                 assert!(p.w > 0.0 && p.h > 0.0);
                 assert!(p.x >= 0.0 && p.y >= 0.0);
                 assert!(p.x + p.w <= canvas.width + 1e-6);
                 assert!(p.y + p.h <= canvas.height + 1e-6);
-                
+
                 // Aspect ratio should match photo
                 let expected_ar = photos[p.photo_idx as usize].aspect_ratio;
                 let actual_ar = p.w / p.h;
