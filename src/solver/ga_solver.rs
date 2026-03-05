@@ -13,14 +13,13 @@
 //! This module has NO dependencies on domain-specific code (photos, layouts, etc.).
 //! It provides only the generic GA framework.
 
-pub mod solver;
-pub mod individual;
-pub mod evolution;
 pub mod config;
+pub mod evolution;
+pub mod individual;
+pub mod solver;
 
 // Re-export main types
-pub use solver::GeneticAlgorithm;
-pub use individual::Individual;
-pub use evolution::EvolutionDynamic;
 pub use config::Config;
-
+pub use evolution::EvolutionDynamic;
+pub use individual::Individual;
+pub use solver::GeneticAlgorithm;

@@ -2,8 +2,8 @@
 //!
 //! Provides the core genetic operators and population structures for parallel island-based GA.
 
-use super::individual::Individual;
 use super::config::Config;
+use super::individual::Individual;
 
 /// Evolution dynamics bundling selection, crossover, and mutation strategies.
 ///

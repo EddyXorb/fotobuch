@@ -3,13 +3,13 @@
 pub struct FitnessWeights {
     /// Weight for size distribution cost C1.
     pub w_size: f64,
-    
+
     /// Weight for canvas coverage cost C2.
     pub w_coverage: f64,
-    
+
     /// Weight for barycenter centering cost C_bary.
     pub w_barycenter: f64,
-    
+
     /// Weight for reading order cost C_order.
     pub w_order: f64,
 }
@@ -21,7 +21,7 @@ impl FitnessWeights {
         assert!(w_coverage >= 0.0, "w_coverage must be non-negative");
         assert!(w_barycenter >= 0.0, "w_barycenter must be non-negative");
         assert!(w_order >= 0.0, "w_order must be non-negative");
-        
+
         Self {
             w_size,
             w_coverage,
@@ -46,7 +46,7 @@ impl Default for FitnessWeights {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_new_weights() {
         let w = FitnessWeights::new(1.0, 0.15, 0.5, 0.3);
@@ -55,13 +55,13 @@ mod tests {
         assert_eq!(w.w_barycenter, 0.5);
         assert_eq!(w.w_order, 0.3);
     }
-    
+
     #[test]
     #[should_panic(expected = "w_size must be non-negative")]
     fn test_new_weights_negative_size() {
         FitnessWeights::new(-1.0, 0.15, 0.5, 0.3);
     }
-    
+
     #[test]
     fn test_default_weights() {
         let w = FitnessWeights::default();
@@ -70,7 +70,7 @@ mod tests {
         assert_eq!(w.w_barycenter, 0.5);
         assert_eq!(w.w_order, 0.3);
     }
-    
+
     #[test]
     fn test_zero_weights() {
         let w = FitnessWeights::new(0.0, 0.0, 0.0, 0.0);

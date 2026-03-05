@@ -71,7 +71,7 @@ pub(crate) fn random_tree<R: Rng>(n: usize, rng: &mut R) -> SlicingTree {
 
     // Now assign photo indices randomly to all leaves
     let mut photo_indices: Vec<u16> = (0..n as u16).collect();
-    
+
     // Fisher-Yates shuffle
     for i in (1..photo_indices.len()).rev() {
         let j = rng.gen_range(0..=i);

@@ -2,7 +2,7 @@
 //!
 //! These tests validate the end-to-end behavior of the solver.
 
-use photobook_solver::{load_photos_from_dir, run_solver, Canvas, GaConfig, SolverRequest};
+use photobook_solver::{Canvas, GaConfig, SolverRequest, load_photos_from_dir, run_solver};
 use std::fs;
 use std::path::PathBuf;
 
@@ -26,7 +26,10 @@ fn test_load_test_photos() {
             photo_info.photo.aspect_ratio > 0.0,
             "Photo should have positive aspect ratio"
         );
-        assert!(!photo_info.photo.group.is_empty(), "Photo should have a group");
+        assert!(
+            !photo_info.photo.group.is_empty(),
+            "Photo should have a group"
+        );
         assert!(photo_info.path.exists(), "Photo file should exist");
     }
 }
@@ -39,14 +42,12 @@ fn test_end_to_end_solver() {
         .join("test_output.typ");
 
     let canvas = Canvas::new(297.0, 210.0, 5.0, 0.0);
-    let ga_config = GaConfig { seed: 1772727622, ..GaConfig::default() };
+    let ga_config = GaConfig {
+        seed: 1772727622,
+        ..GaConfig::default()
+    };
 
-    let request = SolverRequest::new(
-        photo_dir.clone(),
-        output_path.clone(),
-        canvas,
-        ga_config,
-    );
+    let request = SolverRequest::new(photo_dir.clone(), output_path.clone(), canvas, ga_config);
 
     // Run the solver and get the BookLayout
     let book_layout = run_solver(&request).expect("Solver should complete successfully");
@@ -62,9 +63,16 @@ fn test_end_to_end_solver() {
 
     // Verify first page properties
     let first_page = &book_layout.pages[0];
-    assert_eq!(first_page.placements.len(), 3, "First page should have 3 photos");
+    assert_eq!(
+        first_page.placements.len(),
+        3,
+        "First page should have 3 photos"
+    );
     assert_eq!(first_page.canvas.width, 297.0, "Canvas width should match");
-    assert_eq!(first_page.canvas.height, 210.0, "Canvas height should match");
+    assert_eq!(
+        first_page.canvas.height, 210.0,
+        "Canvas height should match"
+    );
 
     // Verify all placements are valid
     for placement in &first_page.placements {
@@ -142,14 +150,12 @@ fn test_baseline_snapshot() {
         .join("test_baseline.typ");
 
     let canvas = Canvas::new(297.0, 210.0, 5.0, 0.0);
-    let ga_config = GaConfig { seed: 1772727622, ..GaConfig::default() };
+    let ga_config = GaConfig {
+        seed: 1772727622,
+        ..GaConfig::default()
+    };
 
-    let request = SolverRequest::new(
-        photo_dir,
-        output_path.clone(),
-        canvas,
-        ga_config,
-    );
+    let request = SolverRequest::new(photo_dir, output_path.clone(), canvas, ga_config);
 
     let book_layout = run_solver(&request).expect("Solver should succeed");
 
@@ -204,7 +210,10 @@ fn test_deterministic_output() {
         .join("test_run2.typ");
 
     let canvas = Canvas::new(297.0, 210.0, 5.0, 0.0);
-    let ga_config = GaConfig { seed: 42, ..GaConfig::default() };
+    let ga_config = GaConfig {
+        seed: 42,
+        ..GaConfig::default()
+    };
 
     // First run
     let request1 = SolverRequest::new(
@@ -242,14 +251,8 @@ fn test_deterministic_output() {
 
     for (p1, p2) in page1.placements.iter().zip(page2.placements.iter()) {
         assert_eq!(p1.photo_idx, p2.photo_idx, "Photo indices should match");
-        assert!(
-            (p1.x - p2.x).abs() < 1e-6,
-            "Photo x positions should match"
-        );
-        assert!(
-            (p1.y - p2.y).abs() < 1e-6,
-            "Photo y positions should match"
-        );
+        assert!((p1.x - p2.x).abs() < 1e-6, "Photo x positions should match");
+        assert!((p1.y - p2.y).abs() < 1e-6, "Photo y positions should match");
         assert!((p1.w - p2.w).abs() < 1e-6, "Photo widths should match");
         assert!((p1.h - p2.h).abs() < 1e-6, "Photo heights should match");
     }
@@ -278,7 +281,10 @@ fn test_different_configurations() {
 
     // Test with A4 landscape
     let canvas = Canvas::new(297.0, 210.0, 5.0, 0.0);
-    let ga_config = GaConfig { seed: 123, ..GaConfig::default() };
+    let ga_config = GaConfig {
+        seed: 123,
+        ..GaConfig::default()
+    };
 
     let request = SolverRequest::new(photo_dir, output_path.clone(), canvas, ga_config);
 
@@ -287,7 +293,11 @@ fn test_different_configurations() {
     // Verify BookLayout
     assert!(!book_layout.is_empty(), "Book layout should not be empty");
     assert_eq!(book_layout.page_count(), 1, "Should have 1 page");
-    assert_eq!(book_layout.total_photo_count(), 3, "Should place all 3 photos");
+    assert_eq!(
+        book_layout.total_photo_count(),
+        3,
+        "Should place all 3 photos"
+    );
 
     // Verify canvas dimensions are preserved
     let page = &book_layout.pages[0];
@@ -367,14 +377,11 @@ fn test_cli_exact_output() {
 
     // Count the number of placements (should be 3 for the 3 test photos)
     let placement_count = content.matches("#place(").count();
-    assert_eq!(
-        placement_count, 3,
-        "Should have exactly 3 photo placements"
-    );
+    assert_eq!(placement_count, 3, "Should have exactly 3 photo placements");
 
     // Verify exact positions and dimensions for deterministic output with seed 1772727622
     // These specific values ensure the solver produces consistent results
-    
+
     // Photo 1: test3.jpg (group2) - large photo on the right
     assert!(
         content.contains("#place(top + left, dx: 100.67mm, dy: 6.83mm, block(width: 196.33mm, height: 196.33mm, clip: true, image(\"tests/fixtures/test_photos/group2/test3.jpg\""),

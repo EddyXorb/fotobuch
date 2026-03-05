@@ -6,10 +6,10 @@ use std::path::PathBuf;
 pub struct ScannedPhoto {
     /// File path to the photo.
     pub path: PathBuf,
-    
+
     /// Timestamp from EXIF data, or derived from the folder name as fallback.
     pub timestamp: Option<NaiveDateTime>,
-    
+
     /// Pixel dimensions (width, height), if readable.
     pub dimensions: Option<(u32, u32)>,
 }
@@ -43,10 +43,10 @@ impl ScannedPhoto {
 pub struct PhotoGroup {
     /// Group label (typically the folder name).
     pub label: String,
-    
+
     /// Group timestamp (typically parsed from folder name).
     pub timestamp: Option<NaiveDateTime>,
-    
+
     /// Photos in this group.
     pub photos: Vec<ScannedPhoto>,
 }
@@ -60,17 +60,17 @@ impl PhotoGroup {
             photos: Vec::new(),
         }
     }
-    
+
     /// Adds a photo to the group.
     pub fn add_photo(&mut self, photo: ScannedPhoto) {
         self.photos.push(photo);
     }
-    
+
     /// Returns the number of photos in the group.
     pub fn len(&self) -> usize {
         self.photos.len()
     }
-    
+
     /// Returns whether the group is empty.
     pub fn is_empty(&self) -> bool {
         self.photos.is_empty()
