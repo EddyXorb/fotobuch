@@ -1,6 +1,6 @@
 //! Fitness function components for the genetic algorithm.
 
-use crate::model::{Canvas, FitnessWeights, LayoutResult, Photo};
+use crate::models::{Canvas, FitnessWeights, LayoutResult, Photo};
 
 /// Computes the total cost of a layout using the given weights.
 ///
@@ -145,7 +145,7 @@ fn cost_reading_order(layout: &LayoutResult, _photos: &[Photo]) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::{Canvas, Photo, PhotoPlacement};
+    use crate::models::{Canvas, Photo, PhotoPlacement};
     use approx::assert_relative_eq;
 
     fn make_photo(aspect_ratio: f64, area_weight: f64) -> Photo {

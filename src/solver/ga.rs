@@ -1,6 +1,6 @@
 //! Genetic algorithm main loop for photo layout optimization.
 
-use crate::model::{Canvas, FitnessWeights, LayoutResult, Photo};
+use crate::models::{Canvas, FitnessWeights, LayoutResult, Photo};
 use super::tree::{random_tree, SlicingTree};
 use super::tree::operators::{mutate, crossover};
 use super::layout_solver::solve_layout;
@@ -374,7 +374,7 @@ mod tests {
     use super::*;
     use rand::SeedableRng;
     use rand_chacha::ChaCha8Rng;
-    use crate::model::Photo;
+    use crate::models::Photo;
 
     #[test]
     fn test_ga_config_default() {

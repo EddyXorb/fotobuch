@@ -2,4 +2,4 @@
 
 pub mod photos;
 
-pub use photos::{load_photos_from_dir, PhotoInfo};
+pub use photos::load_photos_from_dir;

@@ -109,7 +109,7 @@ fn main() -> Result<()> {
     info!("Best fitness: {:.6}", best_fitness);
 
     // 4. Center layout on canvas
-    let centered_layout = center_layout(&best_layout);
+    let centered_layout = best_layout.centered();
 
     // 5. Export result
     let output_ext = args.output.extension().and_then(|s| s.to_str());
