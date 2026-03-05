@@ -91,3 +91,64 @@ pub struct Args {
     #[arg(short, long)]
     pub verbose: bool,
 }
+
+impl Args {
+    /// Convert command-line arguments into a SolverRequest.
+    ///
+    /// This method consumes the Args and creates a complete SolverRequest
+    /// with all configuration parameters.
+    pub fn into_solver_request(self) -> anyhow::Result<photobook_solver::SolverRequest> {
+        use photobook_solver::*;
+
+        let canvas = Canvas::new(self.width, self.height, self.beta, self.bleed);
+        
+        let weights = FitnessWeights {
+            w_size: self.w_size,
+            w_coverage: self.w_coverage,
+            w_barycenter: self.w_barycenter,
+            w_order: self.w_order,
+        };
+
+        let ga_config = GaConfig {
+            population: self.population,
+            generations: self.generations,
+            mutation_rate: self.mutation_rate,
+            crossover_rate: self.crossover_rate,
+            tournament_size: 3,
+            elitism_ratio: 0.05,
+        };
+
+        let island_config = IslandConfig {
+            islands: self.islands.unwrap_or_else(|| {
+                std::thread::available_parallelism()
+                    .map(|n| n.get())
+                    .unwrap_or(4)
+            }),
+            migration_interval: self.migration_interval,
+            migrants: self.migrants,
+            timeout: if self.timeout > 0 {
+                Some(std::time::Duration::from_secs(self.timeout))
+            } else {
+                None
+            },
+        };
+
+        let seed = self.seed.unwrap_or_else(|| {
+            use std::time::SystemTime;
+            SystemTime::now()
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap()
+                .as_secs()
+        });
+
+        Ok(SolverRequest::new(
+            self.input,
+            self.output,
+            canvas,
+            weights,
+            ga_config,
+            island_config,
+            seed,
+        ))
+    }
+}
