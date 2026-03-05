@@ -1,100 +1,13 @@
 //! Photobook layout solver using slicing tree genetic algorithm.
 
+mod cli;
+
 use anyhow::{Context, Result};
 use clap::Parser;
+use cli::Args;
 use photobook_solver::*;
-use std::path::PathBuf;
 use std::time::Instant;
 use tracing::info;
-
-/// Photobook layout solver: optimizes photo placement on a canvas using genetic algorithms.
-#[derive(Parser, Debug)]
-#[command(version, about, long_about = None)]
-struct Args {
-    /// Root directory containing photo subdirectories
-    #[arg(short, long)]
-    input: PathBuf,
-
-    /// Output file path (extension determines format: .json, .typ, or .pdf)
-    #[arg(short, long, default_value = "layout.json")]
-    output: PathBuf,
-
-    // === Canvas Parameters ===
-    /// Canvas width in mm
-    #[arg(long, default_value_t = 297.0)]
-    width: f64,
-
-    /// Canvas height in mm
-    #[arg(long, default_value_t = 210.0)]
-    height: f64,
-
-    /// Gap between photos in mm
-    #[arg(long, default_value_t = 5.0)]
-    beta: f64,
-
-    /// Bleed over paper edge in mm
-    #[arg(long, default_value_t = 0.0)]
-    bleed: f64,
-
-    // === GA Parameters ===
-    /// Population size per island
-    #[arg(long, default_value_t = 300)]
-    population: usize,
-
-    /// Maximum generations
-    #[arg(long, default_value_t = 100)]
-    generations: usize,
-
-    /// Mutation rate (0.0-1.0)
-    #[arg(long, default_value_t = 0.2)]
-    mutation_rate: f64,
-
-    /// Crossover rate (0.0-1.0)
-    #[arg(long, default_value_t = 0.7)]
-    crossover_rate: f64,
-
-    // === Island Model Parameters ===
-    /// Number of islands (default: number of CPU cores)
-    #[arg(long)]
-    islands: Option<usize>,
-
-    /// Generations between migrations
-    #[arg(long, default_value_t = 5)]
-    migration_interval: usize,
-
-    /// Number of migrants per migration
-    #[arg(long, default_value_t = 2)]
-    migrants: usize,
-
-    /// Timeout in seconds (0 = no timeout)
-    #[arg(long, default_value_t = 30)]
-    timeout: u64,
-
-    /// Random seed for reproducibility
-    #[arg(long)]
-    seed: Option<u64>,
-
-    // === Fitness Weights ===
-    /// Weight for size distribution cost
-    #[arg(long, default_value_t = 1.0)]
-    w_size: f64,
-
-    /// Weight for canvas coverage cost
-    #[arg(long, default_value_t = 0.15)]
-    w_coverage: f64,
-
-    /// Weight for barycenter cost
-    #[arg(long, default_value_t = 0.5)]
-    w_barycenter: f64,
-
-    /// Weight for reading order cost
-    #[arg(long, default_value_t = 0.3)]
-    w_order: f64,
-
-    /// Verbose output (progress and fitness)
-    #[arg(short, long)]
-    verbose: bool,
-}
 
 fn main() -> Result<()> {
     // Initialize logging
@@ -182,7 +95,7 @@ fn main() -> Result<()> {
     info!("Running genetic algorithm...");
     let start = Instant::now();
     
-    let (best_tree, best_layout, best_fitness) = run_island_ga(
+    let (_best_tree, best_layout, best_fitness) = run_island_ga(
         &photos,
         &canvas,
         &weights,
@@ -194,25 +107,27 @@ fn main() -> Result<()> {
     let elapsed = start.elapsed();
     info!("Optimization completed in {:.2}s", elapsed.as_secs_f64());
     info!("Best fitness: {:.6}", best_fitness);
-    info!("Tree nodes: {}, Leaf count: {}", best_tree.len(), best_tree.leaf_count());
 
-    // 4. Export result
+    // 4. Center layout on canvas
+    let centered_layout = center_layout(&best_layout);
+
+    // 5. Export result
     let output_ext = args.output.extension().and_then(|s| s.to_str());
     
     match output_ext {
         Some("json") => {
             info!("Exporting to JSON: {:?}", args.output);
-            export_json(&best_layout, &photo_paths, &args.output)
+            export_json(&centered_layout, &photo_paths, &args.output)
                 .context("Failed to export JSON")?;
         }
         Some("typ") => {
             info!("Exporting to Typst: {:?}", args.output);
-            export_typst(&best_layout, &photo_paths, &args.output)
+            export_typst(&centered_layout, &photo_paths, &args.output)
                 .context("Failed to export Typst")?;
         }
         Some("pdf") => {
             info!("Compiling to PDF: {:?}", args.output);
-            export_pdf(&best_layout, &photo_paths, &args.input, &args.output)
+            export_pdf(&centered_layout, &photo_paths, &args.input, &args.output)
                 .context("Failed to compile PDF")?;
         }
         _ => {
