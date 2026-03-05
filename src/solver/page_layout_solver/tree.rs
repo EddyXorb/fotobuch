@@ -12,6 +12,9 @@ pub(in crate::solver) mod mutate;
 pub(in crate::solver) mod visualize;
 pub(super) mod validate;
 
+#[cfg(test)]
+mod proptests;
+
 use std::fmt;
 
 /// Type of cut at an internal node.
