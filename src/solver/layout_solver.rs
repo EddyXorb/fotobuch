@@ -59,7 +59,11 @@ pub fn solve_layout(
     let dims = compute_dimensions(tree, &coeffs, canvas);
 
     // Step 3: Compute positions for all nodes (top-down)
-    let positions = compute_positions(tree, &dims, canvas.beta);
+    // Center the layout on the canvas
+    let root_dim = dims[0];
+    let offset_x = (canvas.width - root_dim.w) / 2.0;
+    let offset_y = (canvas.height - root_dim.h) / 2.0;
+    let positions = compute_positions(tree, &dims, canvas.beta, offset_x, offset_y);
 
     // Extract placements for leaf nodes
     let mut placements = Vec::new();
@@ -238,11 +242,13 @@ fn compute_positions(
     tree: &SlicingTree,
     dims: &[Dimensions],
     beta: f64,
+    offset_x: f64,
+    offset_y: f64,
 ) -> Vec<Position> {
     let mut positions = vec![Position { x: 0.0, y: 0.0 }; tree.len()];
 
-    // Root starts at (0, 0)
-    positions[0] = Position { x: 0.0, y: 0.0 };
+    // Root starts at the centering offset
+    positions[0] = Position { x: offset_x, y: offset_y };
 
     // Recursively assign positions to children
     compute_positions_recursive(tree, dims, beta, 0, &mut positions);
@@ -405,14 +411,17 @@ mod tests {
         let p0 = layout.placements.iter().find(|p| p.photo_idx == 0).unwrap();
         let p1 = layout.placements.iter().find(|p| p.photo_idx == 1).unwrap();
 
+        // Layout is now centered on canvas
+        // Layout width = 240, canvas width = 300 => offset_x = 30
+        // Layout height = 200, canvas height = 200 => offset_y = 0
         assert_relative_eq!(p0.w, 240.0, epsilon = 1e-6);
         assert_relative_eq!(p0.h, 120.0, epsilon = 1e-6);
-        assert_relative_eq!(p0.x, 0.0, epsilon = 1e-6);
+        assert_relative_eq!(p0.x, 30.0, epsilon = 1e-6);
         assert_relative_eq!(p0.y, 0.0, epsilon = 1e-6);
 
         assert_relative_eq!(p1.w, 240.0, epsilon = 1e-6);
         assert_relative_eq!(p1.h, 80.0, epsilon = 1e-6);
-        assert_relative_eq!(p1.x, 0.0, epsilon = 1e-6);
+        assert_relative_eq!(p1.x, 30.0, epsilon = 1e-6);
         assert_relative_eq!(p1.y, 120.0, epsilon = 1e-6);
     }
 
