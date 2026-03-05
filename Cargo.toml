@@ -22,8 +22,9 @@ thiserror = "2"
 # Date/time parsing for folder names
 chrono = "0.4"
 
-# Image metadata (EXIF)
+# Image metadata (EXIF) and dimensions
 kamadak-exif = "0.6"
+image = "0.25"
 
 # Typst compiler + PDF export
 typst = "0.14"

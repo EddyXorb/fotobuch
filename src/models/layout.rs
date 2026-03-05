@@ -22,8 +22,8 @@ pub struct PhotoPlacement {
 impl PhotoPlacement {
     /// Creates a new photo placement.
     pub fn new(photo_idx: u16, x: f64, y: f64, w: f64, h: f64) -> Self {
-        assert!(w > 0.0, "Width must be positive");
-        assert!(h > 0.0, "Height must be positive");
+        assert!(w > 0.0, "Width must be positive: {}", w);
+        assert!(h > 0.0, "Height must be positive: {}", h);
 
         Self {
             photo_idx,
