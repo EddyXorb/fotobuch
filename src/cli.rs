@@ -116,7 +116,7 @@ pub struct WeightsArgs {
     pub w_barycenter: f64,
 
     /// Weight for reading order cost
-    #[arg(long, default_value_t = 0.3)]
+    #[arg(long, default_value_t = 0.0)]
     pub w_order: f64,
 }
 
