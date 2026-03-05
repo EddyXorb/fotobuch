@@ -3,10 +3,7 @@ use chrono::NaiveDateTime;
 use std::path::{Path, PathBuf};
 use tracing::{debug, warn};
 
-use crate::models::{Photo, PhotoGroup};
-
-// Note: This module uses the old models structure and will be gradually deprecated
-// in favor of the new input/photos module.
+use crate::models::{PhotoGroup, ScannedPhoto};
 
 const SUPPORTED_EXTENSIONS: &[&str] = &["jpg", "jpeg", "png", "webp", "tiff", "tif"];
 
@@ -62,7 +59,7 @@ fn load_group(dir: &Path) -> Result<PhotoGroup> {
     let folder_timestamp = parse_timestamp_from_name(&label);
     debug!("Group {:?} -> timestamp: {:?}", label, folder_timestamp);
 
-    let mut photos: Vec<Photo> = read_photos(dir)?;
+    let mut photos: Vec<ScannedPhoto> = read_photos(dir)?;
 
     // Enrich each photo with EXIF timestamp and dimensions.
     for photo in &mut photos {
@@ -84,14 +81,14 @@ fn load_group(dir: &Path) -> Result<PhotoGroup> {
 }
 
 /// Reads all supported image files from a directory (non-recursive).
-fn read_photos(dir: &Path) -> Result<Vec<Photo>> {
+fn read_photos(dir: &Path) -> Result<Vec<ScannedPhoto>> {
     let entries = std::fs::read_dir(dir).with_context(|| format!("Cannot read {:?}", dir))?;
 
     let photos = entries
         .filter_map(|e| e.ok())
         .map(|e| e.path())
         .filter(|p| is_supported_image(p))
-        .map(Photo::new)
+        .map(ScannedPhoto::new)
         .collect();
 
     Ok(photos)
@@ -105,7 +102,7 @@ fn is_supported_image(path: &Path) -> bool {
 }
 
 /// Tries to read EXIF metadata from a photo to get timestamp and dimensions.
-fn enrich_photo_metadata(photo: &mut Photo) {
+fn enrich_photo_metadata(photo: &mut ScannedPhoto) {
     let file = match std::fs::File::open(&photo.path) {
         Ok(f) => f,
         Err(e) => {

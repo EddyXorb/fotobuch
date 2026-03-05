@@ -4,26 +4,23 @@
 //! 
 //! # Architecture
 //!
-//! - `model`: Domain types (Photo, Canvas, Layout, etc.)
+//! - `models`: Domain types (Photo, Canvas, Layout, PhotoGroup, etc.)
 //! - `solver`: Core algorithm (slicing trees, layout solver, genetic algorithm)
-//! - `input`: Data input (CLI, EXIF, manifest)
-//! - `output`: Result export (JSON, Typst)
-//! - `converter`: Conversion between solver and I/O layers
+//! - `input`: Data input and scanning
+//! - `output`: Result export (JSON, Typst, PDF)
+//! - `scanner`: Photo directory scanner
 
-pub mod model;
+pub mod models;
 pub mod solver;
 pub mod input;
 pub mod output;
-pub mod converter;
 
-// Internal modules
-mod scanner;  // Used by input::photos
-mod models;   // Legacy types used by scanner
+// Internal module
+mod scanner;
 
 // Re-export commonly used types
-pub use model::{Canvas, FitnessWeights, LayoutResult, Photo, PhotoPlacement};
+pub use models::{Canvas, FitnessWeights, LayoutResult, Photo, PhotoPlacement, PhotoGroup, PhotoInfo};
 pub use solver::{run_ga, run_island_ga, solve_layout, total_cost, GaConfig, IslandConfig};
-pub use input::{load_photos_from_dir, PhotoInfo};
+pub use input::load_photos_from_dir;
 pub use output::{export_json, export_typst, export_pdf};
-pub use converter::center_layout;
 

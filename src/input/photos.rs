@@ -1,16 +1,9 @@
 //! Photo loading and metadata extraction.
 
-use crate::model::Photo;
+use crate::models::{Photo, PhotoInfo};
 use crate::scanner;
 use anyhow::Result;
-use std::path::{Path, PathBuf};
-
-/// Photo information including path and metadata.
-#[derive(Debug, Clone)]
-pub struct PhotoInfo {
-    pub path: PathBuf,
-    pub photo: Photo,
-}
+use std::path::Path;
 
 /// Loads photos from a directory using the scanner module.
 ///
@@ -45,10 +38,7 @@ pub fn load_photos_from_dir(dir: &Path) -> Result<Vec<PhotoInfo>> {
                 timestamp,
             };
             
-            photo_infos.push(PhotoInfo {
-                path: scanned_photo.path,
-                photo,
-            });
+            photo_infos.push(PhotoInfo::new(scanned_photo.path, photo));
         }
     }
     
@@ -58,14 +48,12 @@ pub fn load_photos_from_dir(dir: &Path) -> Result<Vec<PhotoInfo>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
 
     #[test]
     fn test_photo_info_creation() {
         let photo = Photo::new(1.5, 1.0, "test".to_string());
-        let info = PhotoInfo {
-            path: PathBuf::from("test.jpg"),
-            photo,
-        };
+        let info = PhotoInfo::new(PathBuf::from("test.jpg"), photo);
         
         assert_eq!(info.photo.aspect_ratio, 1.5);
         assert_eq!(info.path, PathBuf::from("test.jpg"));
