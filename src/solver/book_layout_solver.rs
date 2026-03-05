@@ -33,7 +33,8 @@ pub(crate) fn solve_book_layout(
     ga_config: &GaConfig,
     seed: u64,
 ) -> BookLayout {
-    // TODO: In the future, implement intelligent distribution:
+    // FUTURE ENHANCEMENT: Intelligent multi-page distribution
+    // Planned implementation strategy:
     // 1. Group photos by their group field (lexicographic order)
     // 2. Sort photos within each group by timestamp
     // 3. Distribute photos across multiple pages based on:
@@ -41,6 +42,8 @@ pub(crate) fn solve_book_layout(
     //    - Group boundaries (don't split groups across pages if possible)
     //    - Canvas capacity
     // 4. Solve each page independently using run_island_ga
+    //
+    // Current implementation: Single-page layout for all photos
     
     // Handle empty photo case
     if photos.is_empty() {

@@ -270,7 +270,12 @@ fn run_single_island<R: Rng>(
 
         // Track local best
         let current_best = &population[0];
-        if local_best.is_none() || current_best.fitness < local_best.as_ref().unwrap().2 {
+        let should_update = match &local_best {
+            None => true,
+            Some((_, _, fitness)) => current_best.fitness < *fitness,
+        };
+        
+        if should_update {
             local_best = Some((
                 current_best.tree.clone(),
                 current_best.layout.clone(),
@@ -282,8 +287,13 @@ fn run_single_island<R: Rng>(
         if generation % island_config.migration_interval == 0 {
             // Update global best if we have a better solution
             {
-                let mut global = global_best.lock().unwrap();
-                if global.is_none() || current_best.fitness < global.as_ref().unwrap().2 {
+                let mut global = global_best.lock().unwrap_or_else(|e| e.into_inner());
+                let should_update_global = match *global {
+                    None => true,
+                    Some((_, _, fitness)) => current_best.fitness < fitness,
+                };
+                
+                if should_update_global {
                     *global = Some((
                         current_best.tree.clone(),
                         current_best.layout.clone(),
@@ -358,7 +368,7 @@ fn run_single_island<R: Rng>(
     }
 
     // Return local best
-    local_best.unwrap()
+    local_best.expect("Should have found at least one solution")
 }
 
 #[cfg(test)]

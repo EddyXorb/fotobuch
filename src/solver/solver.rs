@@ -110,8 +110,8 @@ fn export_result(
     input_dir: &Path,
     output_path: &PathBuf,
 ) -> Result<()> {
-    // For now, export only the first page
-    // TODO: Support multi-page export for book layouts
+    // Export only the first page (multi-page export planned for future release)
+    // See: book_layout_solver.rs for multi-page layout implementation status
     let first_page = book_layout.pages.first()
         .context("Book layout has no pages")?;
     

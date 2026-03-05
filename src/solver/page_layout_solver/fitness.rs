@@ -90,9 +90,9 @@ fn cost_size_distribution(layout: &PageLayout, photos: &[Photo]) -> f64 {
 
 /// C2: Canvas coverage cost.
 ///
-/// Penalizes empty space on the canvas.
+/// Penalizes empty space on the canvas. Returns a value between 0 and 1,
+/// where 0 means full coverage and 1 means empty canvas.
 fn cost_coverage(layout: &PageLayout) -> f64 {
-    // TODO: Implement in Step 4
     1.0 - layout.coverage_ratio()
 }
 
