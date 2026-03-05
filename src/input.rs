@@ -1,5 +1,6 @@
 //! Input modules for loading photo data.
 
-pub mod photos;
+pub mod loader;
+pub mod scanner;
 
-pub use photos::load_photos_from_dir;
+pub use loader::load_photos_from_dir;
