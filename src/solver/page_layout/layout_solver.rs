@@ -1,7 +1,6 @@
 //! Affine layout solver for slicing trees with β (gap) support.
 //!
 //! Implements the O(N) bottom-up/top-down algorithm with affine coefficients.
-//! 
 //! Each node stores (α, γ) such that: w = α·h + γ
 //! This allows handling β > 0 without falling back to solving linear systems.
 
@@ -291,7 +290,7 @@ fn compute_positions_recursive(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::solver::tree::{random_tree, validate_tree};
+    use crate::solver::page_layout::tree::{random_tree, validate_tree};
     use approx::assert_relative_eq;
     use rand::Rng;
     use rand::SeedableRng;
@@ -492,4 +491,3 @@ mod tests {
         }
     }
 }
-

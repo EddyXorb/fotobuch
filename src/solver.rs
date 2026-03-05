@@ -2,21 +2,17 @@
 //!
 //! This module contains:
 //! - `solver`: High-level solver orchestration
-//! - `tree`: Slicing tree data structure (arena-based)
-//! - `layout_solver`: Affine layout solver (O(N) with β support)
-//! - `fitness`: Fitness function components
-//! - `ga`: Genetic algorithm main loop
+//! - `page_layout`: Single-page layout optimization (tree, fitness, GA)
 
+pub mod page_layout;
 pub mod solver;
-pub mod tree;
-pub mod layout_solver;
-pub mod fitness;
-pub mod ga;
 
-// Re-export commonly used types
-pub use tree::{Cut, Node, SlicingTree};
-pub use layout_solver::solve_layout;
-pub use fitness::total_cost;
-pub use ga::{run_ga, run_island_ga, GaConfig, IslandConfig};
+// Re-export commonly used types from page_layout
+pub use page_layout::tree::{Cut, Node, SlicingTree};
+pub use page_layout::layout_solver::solve_layout;
+pub use page_layout::fitness::total_cost;
+pub use page_layout::ga::{run_ga, run_island_ga, GaConfig, IslandConfig};
+
+// Re-export from solver
 pub use solver::run_solver;
 
