@@ -62,6 +62,15 @@ fn load_and_validate_photos(input_dir: &Path) -> Result<(Vec<Photo>, Vec<String>
         anyhow::bail!("No photos found in {:?}", input_dir);
     }
 
+    for (idx, info) in photo_infos.iter().enumerate() {
+        info!(
+            "  Photo {}: {} (aspect ratio {:.2})",
+            idx,
+            info.path.file_name().unwrap_or_default().to_string_lossy(),
+            info.photo.aspect_ratio
+        );
+    }
+
     info!("Loaded {} photos", photo_infos.len());
 
     let photos: Vec<Photo> = photo_infos.iter().map(|pi| pi.photo.clone()).collect();
