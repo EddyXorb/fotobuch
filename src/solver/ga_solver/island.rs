@@ -1,6 +1,6 @@
 //! Island model with migration for parallel evolution.
 
-use super::types::LayoutIndividual;
+use super::types::{GenerationParams, IslandParams, LayoutIndividual};
 use super::population::{initialize_population, sort_by_fitness, extract_elite};
 use super::generation::generate_offspring;
 use crate::models::{Canvas, FitnessWeights, GaConfig, IslandConfig, Photo};
@@ -22,6 +22,7 @@ pub fn run_island_model(
 ) -> LayoutIndividual {
     let num_islands = island_config.islands;
     let global_best = Arc::new(Mutex::new(None));
+    let params = IslandParams::new(photos, canvas, ga_config, island_config);
     
     // Run islands in parallel
     std::thread::scope(|scope| {
@@ -30,10 +31,7 @@ pub fn run_island_model(
                 spawn_island(
                     scope,
                     island_id,
-                    photos,
-                    canvas,
-                    ga_config,
-                    island_config,
+                    &params,
                     seed,
                     start_time,
                     Arc::clone(&global_best),
@@ -47,22 +45,19 @@ pub fn run_island_model(
 }
 
 /// Spawns a single island thread.
-#[allow(clippy::too_many_arguments)]
 fn spawn_island<'scope>(
     scope: &'scope std::thread::Scope<'scope, '_>,
     island_id: usize,
-    photos: &'scope [Photo],
-    canvas: &'scope Canvas,
-    ga_config: &'scope GaConfig,
-    island_config: &'scope IslandConfig,
+    params: &'scope IslandParams,
     seed: u64,
     start_time: Instant,
     global_best: GlobalBest,
 ) -> std::thread::ScopedJoinHandle<'scope, LayoutIndividual> {
-    let photos = photos.to_vec();
-    let canvas = *canvas;
-    let weights = ga_config.weights;
-    let ga_config = ga_config.clone();
+    let photos = params.photos.to_vec();
+    let canvas = *params.canvas;
+    let weights = params.weights;
+    let ga_config = params.ga_config.clone();
+    let island_config = params.island_config;
     
     scope.spawn(move || {
         use rand::{rngs::StdRng, SeedableRng};
@@ -71,7 +66,7 @@ fn spawn_island<'scope>(
         run_single_island(
             &photos,
             &canvas,
-            &weights,
+            weights,
             &ga_config,
             island_config,
             &mut rng,
@@ -105,6 +100,16 @@ fn run_single_island<R: Rng>(
         rng,
     );
     
+    // Create generation parameters
+    let gen_params = GenerationParams::new(
+        photos,
+        canvas,
+        weights,
+        ga_config.tournament_size,
+        ga_config.crossover_rate,
+        ga_config.mutation_rate,
+    );
+    
     let mut local_best: Option<LayoutIndividual> = None;
     
     // Evolution loop
@@ -136,12 +141,7 @@ fn run_single_island<R: Rng>(
         population = generate_offspring(
             &population,
             elite,
-            photos,
-            canvas,
-            weights,
-            ga_config.tournament_size,
-            ga_config.crossover_rate,
-            ga_config.mutation_rate,
+            &gen_params,
             ga_config.population,
             rng,
         );
