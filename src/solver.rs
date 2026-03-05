@@ -11,7 +11,7 @@ pub mod solver;
 pub use page_layout::tree::{Cut, Node, SlicingTree};
 pub use page_layout::layout_solver::solve_layout;
 pub use page_layout::fitness::total_cost;
-pub use page_layout::ga::{run_ga, run_island_ga, GaConfig, IslandConfig};
+pub use page_layout::ga::{run_ga, GaConfig, IslandConfig};
 
 // Re-export from solver
 pub use solver::run_solver;

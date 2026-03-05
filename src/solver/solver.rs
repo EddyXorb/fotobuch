@@ -4,7 +4,8 @@
 //! coordinating input loading, solver configuration, optimization, and export.
 
 use crate::models::{Canvas, FitnessWeights, LayoutResult, Photo, SolverRequest};
-use crate::solver::{run_island_ga, GaConfig, IslandConfig};
+use crate::solver::{GaConfig, IslandConfig};
+use super::page_layout::ga::run_island_ga;
 use crate::{export_json, export_pdf, export_typst, load_photos_from_dir};
 use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
