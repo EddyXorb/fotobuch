@@ -154,12 +154,12 @@ fn compute_dimensions(
     let h_try = canvas.height;
     let w_try = root_coeff.alpha * h_try + root_coeff.gamma;
 
-    let (root_w, root_h) = if w_try <= canvas.width {
+    let (root_w, root_h) = if w_try > 0.0 && w_try <= canvas.width {
         (w_try, h_try)
     } else {
         // Width is the limiting factor
         let w = canvas.width;
-        let h = (w - root_coeff.gamma) / root_coeff.alpha;
+        let h = ((w - root_coeff.gamma) / root_coeff.alpha).max(0.001);
         (w, h)
     };
 
@@ -194,14 +194,13 @@ fn compute_dimensions_recursive(
                 let coeff_l = coeffs[*left as usize];
                 let coeff_r = coeffs[*right as usize];
 
-                dims[*left as usize] = Dimensions {
-                    w: coeff_l.alpha * h + coeff_l.gamma,
-                    h,
-                };
-                dims[*right as usize] = Dimensions {
-                    w: coeff_r.alpha * h + coeff_r.gamma,
-                    h,
-                };
+                // Ensure positive dimensions. Normally w should always be positive here
+                // since alpha (aspect ratio) > 0 and h > 0, but defend against edge cases.
+                let w_left = (coeff_l.alpha * h + coeff_l.gamma).max(0.001);
+                let w_right = (coeff_r.alpha * h + coeff_r.gamma).max(0.001);
+
+                dims[*left as usize] = Dimensions { w: w_left, h };
+                dims[*right as usize] = Dimensions { w: w_right, h };
             }
             Cut::H => {
                 // H-node: children have same width
@@ -209,14 +208,14 @@ fn compute_dimensions_recursive(
                 let coeff_l = coeffs[*left as usize];
                 let coeff_r = coeffs[*right as usize];
 
-                dims[*left as usize] = Dimensions {
-                    w,
-                    h: (w - coeff_l.gamma) / coeff_l.alpha,
-                };
-                dims[*right as usize] = Dimensions {
-                    w,
-                    h: (w - coeff_r.gamma) / coeff_r.alpha,
-                };
+                // Ensure positive dimensions. If gamma > w, the layout is infeasible
+                // with the current tree structure and beta value. Use a small epsilon
+                // to avoid negative dimensions (these layouts will have poor fitness).
+                let h_left = ((w - coeff_l.gamma) / coeff_l.alpha).max(0.001);
+                let h_right = ((w - coeff_r.gamma) / coeff_r.alpha).max(0.001);
+
+                dims[*left as usize] = Dimensions { w, h: h_left };
+                dims[*right as usize] = Dimensions { w, h: h_right };
             }
         }
 
