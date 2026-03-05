@@ -9,6 +9,7 @@
 pub(in crate::solver) mod build;
 pub(in crate::solver) mod crossover;
 pub(in crate::solver) mod mutate;
+pub(in crate::solver) mod visualize;
 pub(super) mod validate;
 
 use std::fmt;
@@ -148,6 +149,31 @@ impl SlicingTree {
             self.visit_recursive(*left, visitor);
             self.visit_recursive(*right, visitor);
         }
+    }
+    
+    /// Visualizes the tree as an SVG file for debugging.
+    ///
+    /// Generates an SVG file showing the tree structure with:
+    /// - Blue circles for internal nodes (labeled with cut type V/H)
+    /// - Green circles for leaf nodes (labeled with photo index)
+    /// - Lines connecting parent and child nodes
+    ///
+    /// # Arguments
+    ///
+    /// * `output_path` - Path where the SVG file will be written
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` if successful, or an error if file writing fails.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// tree.visualize("debug_tree.svg").unwrap();
+    /// ```
+    #[allow(dead_code)]
+    pub fn visualize<P: AsRef<std::path::Path>>(&self, output_path: P) -> std::io::Result<()> {
+        visualize::visualize_tree(self, output_path)
     }
 }
 
