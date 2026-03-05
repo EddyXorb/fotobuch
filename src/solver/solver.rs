@@ -3,8 +3,7 @@
 //! This module provides the main entry point for running the photobook solver,
 //! coordinating input loading, solver configuration, optimization, and export.
 
-use crate::cli::Args;
-use crate::models::{Canvas, FitnessWeights, LayoutResult, Photo};
+use crate::models::{Canvas, FitnessWeights, LayoutResult, Photo, SolverRequest};
 use crate::solver::{run_island_ga, GaConfig, IslandConfig};
 use crate::{export_json, export_pdf, export_typst, load_photos_from_dir};
 use anyhow::{Context, Result};
@@ -12,19 +11,44 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 use tracing::info;
 
-/// Run the complete photobook solver workflow from command-line arguments.
+/// Run the complete photobook solver workflow from a solver request.
 ///
 /// This is the main entry point that coordinates:
 /// 1. Loading and validating photos from the input directory
-/// 2. Configuring solver parameters from command-line arguments
-/// 3. Running the genetic algorithm optimization
-/// 4. Exporting the result in the requested format (JSON/Typst/PDF)
-pub fn run_solver(args: &Args) -> Result<()> {
-    let (photos, photo_paths) = load_and_validate_photos(&args.input)?;
-    let (canvas, weights, ga_config, island_config, seed) = configure_solver(args);
-    let centered_layout = run_optimization(&photos, &canvas, &weights, &ga_config, &island_config, seed);
-    export_result(&centered_layout, &photo_paths, &args.input, &args.output)?;
+/// 2. Running the genetic algorithm optimization with the provided configuration
+/// 3. Exporting the result in the requested format (JSON/Typst/PDF)
+pub fn run_solver(request: &SolverRequest) -> Result<()> {
+    log_configuration(request);
+    
+    let (photos, photo_paths) = load_and_validate_photos(&request.input)?;
+    let centered_layout = run_optimization(
+        &photos,
+        &request.canvas,
+        &request.weights,
+        &request.ga_config,
+        &request.island_config,
+        request.seed,
+    );
+    export_result(&centered_layout, &photo_paths, &request.input, &request.output)?;
+    
     Ok(())
+}
+
+/// Log the solver configuration for user visibility.
+fn log_configuration(request: &SolverRequest) {
+    info!("Configuration:");
+    info!("  Canvas: {}x{} mm, β={} mm", 
+        request.canvas.width, request.canvas.height, request.canvas.beta);
+    info!("  Islands: {}, Population: {}/island, Generations: {}", 
+        request.island_config.islands, 
+        request.ga_config.population, 
+        request.ga_config.generations);
+    info!("  Weights: size={}, coverage={}, bary={}, order={}", 
+        request.weights.w_size, 
+        request.weights.w_coverage, 
+        request.weights.w_barycenter, 
+        request.weights.w_order);
+    info!("  Seed: {}", request.seed);
 }
 
 /// Load photos from directory and validate that at least one photo exists.
@@ -48,62 +72,6 @@ fn load_and_validate_photos(input_dir: &Path) -> Result<(Vec<Photo>, Vec<String>
         .collect();
 
     Ok((photos, photo_paths))
-}
-
-/// Configure all solver parameters from command line arguments.
-///
-/// Returns tuple of (Canvas, FitnessWeights, GaConfig, IslandConfig, seed).
-fn configure_solver(args: &Args) -> (Canvas, FitnessWeights, GaConfig, IslandConfig, u64) {
-    let canvas = Canvas::new(args.width, args.height, args.beta, args.bleed);
-    
-    let weights = FitnessWeights {
-        w_size: args.w_size,
-        w_coverage: args.w_coverage,
-        w_barycenter: args.w_barycenter,
-        w_order: args.w_order,
-    };
-
-    let ga_config = GaConfig {
-        population: args.population,
-        generations: args.generations,
-        mutation_rate: args.mutation_rate,
-        crossover_rate: args.crossover_rate,
-        tournament_size: 3,
-        elitism_ratio: 0.05,
-    };
-
-    let island_config = IslandConfig {
-        islands: args.islands.unwrap_or_else(|| {
-            std::thread::available_parallelism()
-                .map(|n| n.get())
-                .unwrap_or(4)
-        }),
-        migration_interval: args.migration_interval,
-        migrants: args.migrants,
-        timeout: if args.timeout > 0 {
-            Some(std::time::Duration::from_secs(args.timeout))
-        } else {
-            None
-        },
-    };
-
-    let seed = args.seed.unwrap_or_else(|| {
-        use std::time::SystemTime;
-        SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .unwrap()
-            .as_secs()
-    });
-
-    info!("Configuration:");
-    info!("  Canvas: {}x{} mm, β={} mm", canvas.width, canvas.height, canvas.beta);
-    info!("  Islands: {}, Population: {}/island, Generations: {}", 
-        island_config.islands, ga_config.population, ga_config.generations);
-    info!("  Weights: size={}, coverage={}, bary={}, order={}", 
-        weights.w_size, weights.w_coverage, weights.w_barycenter, weights.w_order);
-    info!("  Seed: {}", seed);
-
-    (canvas, weights, ga_config, island_config, seed)
 }
 
 /// Run genetic algorithm optimization and return centered layout.

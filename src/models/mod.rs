@@ -4,12 +4,14 @@
 //! - **Solver models**: Photo, Canvas, PhotoPlacement, LayoutResult, FitnessWeights
 //! - **Scanner models**: ScannedPhoto, PhotoGroup
 //! - **Bridge models**: PhotoInfo
+//! - **Request models**: SolverRequest
 
 mod canvas;
 mod layout;
 mod photo;
 mod photo_group;
 mod photo_info;
+mod request;
 mod weights;
 
 // Re-export all public types
@@ -18,4 +20,5 @@ pub use layout::{LayoutResult, PhotoPlacement};
 pub use photo::Photo;
 pub use photo_group::{PhotoGroup, ScannedPhoto};
 pub use photo_info::PhotoInfo;
+pub use request::SolverRequest;
 pub use weights::FitnessWeights;
