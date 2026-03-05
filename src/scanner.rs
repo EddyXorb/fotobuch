@@ -5,6 +5,9 @@ use tracing::{debug, warn};
 
 use crate::models::{Photo, PhotoGroup};
 
+// Note: This module uses the old models structure and will be gradually deprecated
+// in favor of the new input/photos module.
+
 const SUPPORTED_EXTENSIONS: &[&str] = &["jpg", "jpeg", "png", "webp", "tiff", "tif"];
 
 /// Scans a root directory and returns all photo groups, sorted chronologically.

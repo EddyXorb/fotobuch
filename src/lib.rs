@@ -11,8 +11,16 @@
 
 pub mod model;
 pub mod solver;
+pub mod input;
+pub mod output;
+
+// Legacy modules (to be migrated or removed)
+mod scanner;
+mod models; // Old models module used by scanner
 
 // Re-export commonly used types
 pub use model::{Canvas, FitnessWeights, LayoutResult, Photo, PhotoPlacement};
-pub use solver::{run_ga, solve_layout, total_cost, Cut, Node, SlicingTree};
+pub use solver::{run_ga, run_island_ga, solve_layout, total_cost, GaConfig, IslandConfig};
+pub use input::{load_photos_from_dir, PhotoInfo};
+pub use output::{export_json, export_typst};
 

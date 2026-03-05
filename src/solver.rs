@@ -15,5 +15,5 @@ pub mod ga;
 pub use tree::{Cut, Node, SlicingTree};
 pub use layout_solver::solve_layout;
 pub use fitness::total_cost;
-pub use ga::run_ga;
+pub use ga::{run_ga, run_island_ga, GaConfig, IslandConfig};
 
