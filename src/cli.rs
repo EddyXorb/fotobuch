@@ -76,6 +76,10 @@ pub struct GaArgs {
     /// Crossover rate (0.0-1.0)
     #[arg(long, default_value_t = 0.7)]
     pub crossover_rate: f64,
+
+    /// Timeout in seconds (0 = no timeout)
+    #[arg(long, default_value_t = 30)]
+    pub timeout: u64,
 }
 
 /// Island model parameters for parallel evolution.
@@ -93,10 +97,6 @@ pub struct IslandArgs {
     /// Number of migrants per migration
     #[arg(long, default_value_t = 2)]
     pub migrants: usize,
-
-    /// Timeout in seconds (0 = no timeout)
-    #[arg(long, default_value_t = 30)]
-    pub timeout: u64,
 }
 
 /// Fitness function weight parameters.
@@ -160,8 +160,8 @@ impl Args {
             tournament_size: 3,
             elitism_ratio: 0.05,
             weights,
-            timeout: if self.island.timeout > 0 {
-                Some(std::time::Duration::from_secs(self.island.timeout))
+            timeout: if self.ga.timeout > 0 {
+                Some(std::time::Duration::from_secs(self.ga.timeout))
             } else {
                 None
             },
