@@ -103,6 +103,11 @@ fn is_supported_image(path: &Path) -> bool {
 
 /// Tries to read EXIF metadata from a photo to get timestamp and dimensions.
 fn enrich_photo_metadata(photo: &mut ScannedPhoto) {
+    // Try to read dimensions from image header first (fast, works for all formats)
+    if let Ok(dimensions) = image::image_dimensions(&photo.path) {
+        photo.dimensions = Some(dimensions);
+    }
+
     let file = match std::fs::File::open(&photo.path) {
         Ok(f) => f,
         Err(e) => {
@@ -131,11 +136,13 @@ fn enrich_photo_metadata(photo: &mut ScannedPhoto) {
         }
     }
 
-    // Read pixel dimensions.
-    let width = exif_u32(&exif, exif::Tag::PixelXDimension);
-    let height = exif_u32(&exif, exif::Tag::PixelYDimension);
-    if let (Some(w), Some(h)) = (width, height) {
-        photo.dimensions = Some((w, h));
+    // Read pixel dimensions from EXIF if not already read from header.
+    if photo.dimensions.is_none() {
+        let width = exif_u32(&exif, exif::Tag::PixelXDimension);
+        let height = exif_u32(&exif, exif::Tag::PixelYDimension);
+        if let (Some(w), Some(h)) = (width, height) {
+            photo.dimensions = Some((w, h));
+        }
     }
 }
 
