@@ -7,6 +7,7 @@ Nach jedem schritt ein commit machen mit beschreibung in knappen worten, mit con
 
 Benutze Rust 2024.
 
+
 ## Projektstruktur
 
 ```
