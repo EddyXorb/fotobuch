@@ -64,10 +64,11 @@ fn load_and_validate_photos(input_dir: &Path) -> Result<(Vec<Photo>, Vec<String>
 
     for (idx, info) in photo_infos.iter().enumerate() {
         info!(
-            "  Photo {}: {} (aspect ratio {:.2})",
+            "  Photo {}: {} (aspect ratio {:.2}, dimensions: {:?})",
             idx,
             info.path.file_name().unwrap_or_default().to_string_lossy(),
-            info.photo.aspect_ratio
+            info.photo.aspect_ratio,
+            info.photo.dimensions
         );
     }
 

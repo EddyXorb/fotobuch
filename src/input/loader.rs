@@ -38,6 +38,7 @@ pub fn load_photos_from_dir(dir: &Path) -> Result<Vec<PhotoInfo>> {
                 area_weight: 1.0, // Default weight
                 group: group_name.clone(),
                 timestamp,
+                dimensions: scanned_photo.dimensions,
             };
 
             photo_infos.push(PhotoInfo::new(scanned_photo.path, photo));

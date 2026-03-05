@@ -16,6 +16,9 @@ pub struct Photo {
 
     /// Timestamp from EXIF or folder name.
     pub timestamp: Option<DateTime<Utc>>,
+
+    /// Absolute pixel dimensions (width, height).
+    pub dimensions: Option<(u32, u32)>,
 }
 
 impl Photo {
@@ -29,6 +32,7 @@ impl Photo {
             area_weight,
             group,
             timestamp: None,
+            dimensions: None,
         }
     }
 
