@@ -142,15 +142,6 @@ impl Args {
             w_order: self.weights.w_order,
         };
 
-        let ga_config = GaConfig {
-            population: self.ga.population,
-            generations: self.ga.generations,
-            mutation_rate: self.ga.mutation_rate,
-            crossover_rate: self.ga.crossover_rate,
-            tournament_size: 3,
-            elitism_ratio: 0.05,
-        };
-
         let island_config = IslandConfig {
             islands: self.island.islands.unwrap_or_else(|| {
                 std::thread::available_parallelism()
@@ -166,6 +157,17 @@ impl Args {
             },
         };
 
+        let ga_config = GaConfig {
+            population: self.ga.population,
+            generations: self.ga.generations,
+            mutation_rate: self.ga.mutation_rate,
+            crossover_rate: self.ga.crossover_rate,
+            tournament_size: 3,
+            elitism_ratio: 0.05,
+            weights,
+            island_config: Some(island_config),
+        };
+
         let seed = self.seed.unwrap_or_else(|| {
             use std::time::SystemTime;
             SystemTime::now()
@@ -178,9 +180,7 @@ impl Args {
             self.input,
             self.output,
             canvas,
-            weights,
             ga_config,
-            island_config,
             seed,
         ))
     }

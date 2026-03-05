@@ -8,13 +8,22 @@
 //! use photobook_solver::{Canvas, FitnessWeights, GaConfig, IslandConfig, SolverRequest, run_solver};
 //! use std::path::PathBuf;
 //!
+//! let ga_config = GaConfig {
+//!     population: 300,
+//!     generations: 100,
+//!     mutation_rate: 0.2,
+//!     crossover_rate: 0.7,
+//!     tournament_size: 3,
+//!     elitism_ratio: 0.05,
+//!     weights: FitnessWeights::default(),
+//!     island_config: Some(IslandConfig::default()),
+//! };
+//!
 //! let request = SolverRequest::new(
 //!     PathBuf::from("photos/"),
 //!     PathBuf::from("output.pdf"),
 //!     Canvas::new(297.0, 210.0, 2.0, 5.0),
-//!     FitnessWeights::default(),
-//!     GaConfig::default(),
-//!     IslandConfig::default(),
+//!     ga_config,
 //!     42,
 //! );
 //!
@@ -35,6 +44,6 @@ pub mod solver;
 
 // Re-export core API types for convenience
 pub use input::loader::load_photos_from_dir;
-pub use models::{Canvas, FitnessWeights, LayoutResult, SolverRequest};
+pub use models::{Canvas, FitnessWeights, GaConfig, IslandConfig, LayoutResult, Photo, SolverRequest};
 pub use output::{export_json, export_pdf, export_typst};
-pub use solver::{run_solver, GaConfig, IslandConfig};
+pub use solver::run_solver;
