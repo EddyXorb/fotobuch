@@ -4,3 +4,4 @@ target*
 *.typ
 .vscode/
 *.jpg
+*.log

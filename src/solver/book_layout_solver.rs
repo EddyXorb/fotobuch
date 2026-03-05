@@ -6,8 +6,8 @@
 //! - Distribute photos across pages optimally
 //! - Apply page layout solver to each page
 
-use crate::models::{BookLayout, Canvas, GaConfig, Photo};
 use super::page_layout_solver::run_ga;
+use crate::models::{BookLayout, Canvas, GaConfig, Photo};
 
 /// Solves the book layout problem by distributing photos across pages.
 ///
@@ -21,8 +21,7 @@ use super::page_layout_solver::run_ga;
 ///
 /// * `photos` - All photos to layout in the book
 /// * `canvas` - Canvas configuration for each page
-/// * `ga_config` - Genetic algorithm configuration
-/// * `seed` - Random seed for reproducibility
+/// * `ga_config` - Genetic algorithm configuration (includes seed)
 ///
 /// # Returns
 ///
@@ -31,35 +30,17 @@ pub(crate) fn solve_book_layout(
     photos: &[Photo],
     canvas: &Canvas,
     ga_config: &GaConfig,
-    seed: u64,
 ) -> BookLayout {
-    // FUTURE ENHANCEMENT: Intelligent multi-page distribution
-    // Planned implementation strategy:
-    // 1. Group photos by their group field (lexicographic order)
-    // 2. Sort photos within each group by timestamp
-    // 3. Distribute photos across multiple pages based on:
-    //    - Target photos per page
-    //    - Group boundaries (don't split groups across pages if possible)
-    //    - Canvas capacity
-    // 4. Solve each page independently using run_island_ga
-    //
-    // Current implementation: Single-page layout for all photos
-    
     // Handle empty photo case
     if photos.is_empty() {
         return BookLayout::new(vec![]);
     }
-    
+
     // Current stub implementation: place all photos on a single page
-    let (_tree, page_layout, _fitness) = run_ga(
-        photos,
-        canvas,
-        ga_config,
-        seed,
-    );
-    
+    let (_tree, page_layout, _fitness) = run_ga(photos, canvas, ga_config);
+
     let centered_page = page_layout.centered();
-    
+
     BookLayout::single_page(centered_page)
 }
 
@@ -74,7 +55,7 @@ mod tests {
             Photo::new(1.5, 1.0, "group1".to_string()),
             Photo::new(1.0, 1.5, "group1".to_string()),
         ];
-        
+
         let canvas = Canvas::new(297.0, 210.0, 5.0, 0.0);
         let ga_config = GaConfig {
             population: 20,
@@ -85,11 +66,12 @@ mod tests {
             elitism_ratio: 0.05,
             weights: FitnessWeights::default(),
             timeout: None,
-            island_config: Some(IslandConfig::default()),
+            island_config: IslandConfig::default(),
+            seed: 42,
         };
-        
-        let book = solve_book_layout(&photos, &canvas, &ga_config, 42);
-        
+
+        let book = solve_book_layout(&photos, &canvas, &ga_config);
+
         assert_eq!(book.page_count(), 1);
         assert_eq!(book.total_photo_count(), 2);
         assert!(!book.is_empty());
@@ -98,12 +80,12 @@ mod tests {
     #[test]
     fn test_solve_book_layout_empty() {
         let photos = vec![];
-        
+
         let canvas = Canvas::new(297.0, 210.0, 5.0, 0.0);
         let ga_config = GaConfig::default();
-        
-        let book = solve_book_layout(&photos, &canvas, &ga_config, 42);
-        
+
+        let book = solve_book_layout(&photos, &canvas, &ga_config);
+
         assert_eq!(book.page_count(), 0);
         assert_eq!(book.total_photo_count(), 0);
         assert!(book.is_empty());

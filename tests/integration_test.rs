@@ -39,14 +39,13 @@ fn test_end_to_end_solver() {
         .join("test_output.typ");
 
     let canvas = Canvas::new(297.0, 210.0, 5.0, 0.0);
-    let ga_config = GaConfig::default();
+    let ga_config = GaConfig { seed: 1772727622, ..GaConfig::default() };
 
     let request = SolverRequest::new(
         photo_dir.clone(),
         output_path.clone(),
         canvas,
         ga_config,
-        1772727622, // Fixed seed for determinism
     );
 
     // Run the solver and get the BookLayout
@@ -143,14 +142,13 @@ fn test_baseline_snapshot() {
         .join("test_baseline.typ");
 
     let canvas = Canvas::new(297.0, 210.0, 5.0, 0.0);
-    let ga_config = GaConfig::default();
+    let ga_config = GaConfig { seed: 1772727622, ..GaConfig::default() };
 
     let request = SolverRequest::new(
         photo_dir,
         output_path.clone(),
         canvas,
         ga_config,
-        1772727622, // Same seed as original run
     );
 
     let book_layout = run_solver(&request).expect("Solver should succeed");
@@ -206,8 +204,7 @@ fn test_deterministic_output() {
         .join("test_run2.typ");
 
     let canvas = Canvas::new(297.0, 210.0, 5.0, 0.0);
-    let ga_config = GaConfig::default();
-    let seed = 42;
+    let ga_config = GaConfig { seed: 42, ..GaConfig::default() };
 
     // First run
     let request1 = SolverRequest::new(
@@ -215,12 +212,11 @@ fn test_deterministic_output() {
         output1.clone(),
         canvas.clone(),
         ga_config.clone(),
-        seed,
     );
     let book_layout1 = run_solver(&request1).expect("First run should succeed");
 
     // Second run
-    let request2 = SolverRequest::new(photo_dir, output2.clone(), canvas, ga_config, seed);
+    let request2 = SolverRequest::new(photo_dir, output2.clone(), canvas, ga_config);
     let book_layout2 = run_solver(&request2).expect("Second run should succeed");
 
     // Compare BookLayout properties
@@ -282,9 +278,9 @@ fn test_different_configurations() {
 
     // Test with A4 landscape
     let canvas = Canvas::new(297.0, 210.0, 5.0, 0.0);
-    let ga_config = GaConfig::default();
+    let ga_config = GaConfig { seed: 123, ..GaConfig::default() };
 
-    let request = SolverRequest::new(photo_dir, output_path.clone(), canvas, ga_config, 123);
+    let request = SolverRequest::new(photo_dir, output_path.clone(), canvas, ga_config);
 
     let book_layout = run_solver(&request).expect("Solver should work with standard config");
 

@@ -152,6 +152,14 @@ impl Args {
             migrants: self.island.migrants,
         };
 
+        let seed = self.seed.unwrap_or_else(|| {
+            use std::time::SystemTime;
+            SystemTime::now()
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap()
+                .as_secs()
+        });
+
         let ga_config = GaConfig {
             population: self.ga.population,
             generations: self.ga.generations,
@@ -165,23 +173,15 @@ impl Args {
             } else {
                 None
             },
-            island_config: Some(island_config),
+            island_config,
+            seed,
         };
-
-        let seed = self.seed.unwrap_or_else(|| {
-            use std::time::SystemTime;
-            SystemTime::now()
-                .duration_since(SystemTime::UNIX_EPOCH)
-                .unwrap()
-                .as_secs()
-        });
 
         Ok(SolverRequest::new(
             self.input,
             self.output,
             canvas,
             ga_config,
-            seed,
         ))
     }
 }

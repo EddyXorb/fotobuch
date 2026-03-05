@@ -15,13 +15,13 @@ mod tree;
 
 pub(super) use evolution::LayoutEvolution;
 pub(super) use individual::LayoutIndividual;
+use tracing::info;
 
 /// Entry point for running GA on a single page layout.
 pub(super) fn run_ga(
     photos: &[crate::models::Photo],
     canvas: &crate::models::Canvas,
     ga_config: &crate::models::GaConfig,
-    seed: u64,
 ) -> (tree::SlicingTree, crate::models::PageLayout, f64) {
     use crate::solver::ga_solver::{Config, GeneticAlgorithm, Individual};
 
@@ -29,7 +29,7 @@ pub(super) fn run_ga(
     let context = evolution::EvaluationContext::new(photos, canvas, &ga_config.weights);
 
     // Create initial population
-    let initial_pop = create_initial_population(&context, ga_config.population, seed);
+    let initial_pop = create_initial_population(&context, ga_config.population, ga_config.seed);
 
     // Create GA configuration
     let config = Config {
@@ -37,21 +37,9 @@ pub(super) fn run_ga(
         generations: ga_config.generations,
         elitism_ratio: ga_config.elitism_ratio,
         timeout: ga_config.timeout,
-        islands: ga_config
-            .island_config
-            .as_ref()
-            .map(|c| c.islands)
-            .unwrap_or(1),
-        migration_interval: ga_config
-            .island_config
-            .as_ref()
-            .map(|c| c.migration_interval)
-            .unwrap_or(10),
-        migrants: ga_config
-            .island_config
-            .as_ref()
-            .map(|c| c.migrants)
-            .unwrap_or(1),
+        islands: ga_config.island_config.islands,
+        migration_interval: ga_config.island_config.migration_interval,
+        migrants: ga_config.island_config.migrants,
     };
 
     // Create evolution dynamics
@@ -65,11 +53,18 @@ pub(super) fn run_ga(
     // Run GA
     let mut ga = GeneticAlgorithm::new(config, evolution);
     let best = ga.solve(initial_pop).expect("GA returned no solution");
-    
+
     // Extract results
     let tree = best.tree().clone();
     let layout = best.layout().clone();
     let fitness = best.fitness();
+
+    // Log cost breakdown
+    let breakdown = fitness::cost_breakdown(&layout, photos, canvas, &ga_config.weights);
+    info!(
+        "Finished layout for one page. Fitness: total={:.4}  size={:.4}  coverage={:.4}  bary={:.4}  order={:.4}",
+        breakdown.total, breakdown.size, breakdown.coverage, breakdown.barycenter, breakdown.order
+    );
 
     (tree, layout, fitness)
 }
