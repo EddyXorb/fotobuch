@@ -181,7 +181,8 @@ pub fn parse_timestamp_from_name(name: &str) -> Option<NaiveDateTime> {
         if name.len() >= *len {
             let candidate = &name[..*len];
             if let Ok(date) = chrono::NaiveDate::parse_from_str(candidate, fmt) {
-                return Some(date.and_hms_opt(0, 0, 0).unwrap());
+                // and_hms_opt should always succeed for midnight (0:0:0)
+                return date.and_hms_opt(0, 0, 0);
             }
         }
     }

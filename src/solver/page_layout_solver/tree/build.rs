@@ -81,7 +81,9 @@ pub(crate) fn random_tree<R: Rng>(n: usize, rng: &mut R) -> SlicingTree {
     let mut photo_iter = photo_indices.into_iter();
     for node in &mut nodes {
         if let Node::Leaf { photo_idx, .. } = node {
-            *photo_idx = photo_iter.next().unwrap();
+            *photo_idx = photo_iter
+                .next()
+                .expect("Photo count should match leaf count");
         }
     }
 
