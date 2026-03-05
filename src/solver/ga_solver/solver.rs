@@ -68,7 +68,7 @@ where
 
     /// Migrates individuals between islands if appropriate.
     fn migrate_if_needed(&self, generation: usize, world: &mut World<I>) {
-        if generation > 0 && generation % self.config.migration_interval == 0 {
+        if generation > 0 && generation.is_multiple_of(self.config.migration_interval) {
             world.migrate(self.config.migrants);
         }
     }
