@@ -9,15 +9,8 @@
 //! use std::path::PathBuf;
 //!
 //! let ga_config = GaConfig {
-//!     population: 300,
-//!     generations: 100,
-//!     mutation_rate: 0.2,
-//!     crossover_rate: 0.7,
-//!     tournament_size: 3,
-//!     elitism_ratio: 0.05,
-//!     weights: FitnessWeights::default(),
-//!     timeout: Some(std::time::Duration::from_secs(30)),
-//!     island_config: Some(IslandConfig::default()),
+//!     seed: 42,
+//!     ..GaConfig::default()
 //! };
 //!
 //! let request = SolverRequest::new(
@@ -25,7 +18,6 @@
 //!     PathBuf::from("output.pdf"),
 //!     Canvas::new(297.0, 210.0, 2.0, 5.0),
 //!     ga_config,
-//!     42,
 //! );
 //!
 //! run_solver(&request).expect("Solver failed");

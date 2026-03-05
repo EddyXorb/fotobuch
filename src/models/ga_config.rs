@@ -30,9 +30,11 @@ pub struct GaConfig {
     /// Optional timeout for the entire optimization run.
     pub timeout: Option<Duration>,
     
-    /// Optional island model configuration for parallel evolution.
-    /// If None, runs a standard single-population GA.
-    pub island_config: Option<IslandConfig>,
+    /// Island model configuration for parallel evolution.
+    pub island_config: IslandConfig,
+
+    /// Random seed for reproducibility.
+    pub seed: u64,
 }
 
 impl Default for GaConfig {
@@ -46,7 +48,8 @@ impl Default for GaConfig {
             elitism_ratio: 0.05,
             weights: FitnessWeights::default(),
             timeout: Some(Duration::from_secs(30)),
-            island_config: Some(IslandConfig::default()),
+            island_config: IslandConfig::default(),
+            seed: 0,
         }
     }
 }
@@ -91,7 +94,7 @@ mod tests {
         let config = GaConfig::default();
         assert_eq!(config.population, 300);
         assert_eq!(config.generations, 100);
-        assert!(config.island_config.is_some());
+        assert!(config.island_config.islands >= 1);
     }
 
     #[test]

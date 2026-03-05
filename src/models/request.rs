@@ -11,18 +11,15 @@ use std::path::PathBuf;
 pub struct SolverRequest {
     /// Input directory containing photos
     pub input: PathBuf,
-    
+
     /// Output file path (extension determines format: .json, .typ, .pdf)
     pub output: PathBuf,
-    
+
     /// Canvas dimensions and spacing parameters
     pub canvas: Canvas,
-    
-    /// Genetic algorithm configuration (includes fitness weights and island config)
+
+    /// Genetic algorithm configuration (includes fitness weights, island config, and seed)
     pub ga_config: GaConfig,
-    
-    /// Random seed for reproducibility
-    pub seed: u64,
 }
 
 impl SolverRequest {
@@ -32,14 +29,12 @@ impl SolverRequest {
         output: PathBuf,
         canvas: Canvas,
         ga_config: GaConfig,
-        seed: u64,
     ) -> Self {
         Self {
             input,
             output,
             canvas,
             ga_config,
-            seed,
         }
     }
 }
@@ -52,7 +47,7 @@ mod tests {
     #[test]
     fn test_solver_request_new() {
         let canvas = Canvas::new(297.0, 210.0, 5.0, 0.0);
-        
+
         let ga_config = GaConfig {
             population: 100,
             generations: 50,
@@ -67,11 +62,12 @@ mod tests {
                 w_order: 0.3,
             },
             timeout: None,
-            island_config: Some(IslandConfig {
+            island_config: IslandConfig {
                 islands: 4,
                 migration_interval: 5,
                 migrants: 2,
-            }),
+            },
+            seed: 42,
         };
 
         let request = SolverRequest::new(
@@ -79,12 +75,11 @@ mod tests {
             "output.pdf".into(),
             canvas,
             ga_config,
-            42,
         );
 
         assert_eq!(request.input.to_str().unwrap(), "input/");
         assert_eq!(request.output.to_str().unwrap(), "output.pdf");
-        assert_eq!(request.seed, 42);
+        assert_eq!(request.ga_config.seed, 42);
         assert_eq!(request.canvas.width, 297.0);
     }
 }

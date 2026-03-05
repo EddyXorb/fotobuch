@@ -3,7 +3,7 @@
 //! This module provides the main entry point for running the photobook solver,
 //! coordinating input loading, solver configuration, optimization, and export.
 
-use crate::models::{BookLayout, Canvas, GaConfig, Photo, SolverRequest};
+use crate::models::{BookLayout, GaConfig, Photo, SolverRequest};
 use super::book_layout_solver::solve_book_layout;
 use crate::{export_json, export_pdf, export_typst, load_photos_from_dir};
 use anyhow::{Context, Result};
@@ -26,7 +26,6 @@ pub fn run_solver(request: &SolverRequest) -> Result<BookLayout> {
         &photos,
         &request.canvas,
         &request.ga_config,
-        request.seed,
     );
     export_result(&book_layout, &photo_paths, &request.input, &request.output)?;
     
@@ -35,8 +34,7 @@ pub fn run_solver(request: &SolverRequest) -> Result<BookLayout> {
 
 /// Log the solver configuration for user visibility.
 fn log_configuration(request: &SolverRequest) {
-    let island_config = request.ga_config.island_config.as_ref();
-    let islands = island_config.map_or(1, |ic| ic.islands);
+    let islands = request.ga_config.island_config.islands;
     
     info!("Configuration:");
     info!("  Canvas: {}x{} mm, β={} mm", 
@@ -50,7 +48,7 @@ fn log_configuration(request: &SolverRequest) {
         request.ga_config.weights.w_coverage, 
         request.ga_config.weights.w_barycenter, 
         request.ga_config.weights.w_order);
-    info!("  Seed: {}", request.seed);
+    info!("  Seed: {}", request.ga_config.seed);
 }
 
 /// Load photos from directory and validate that at least one photo exists.
@@ -79,18 +77,16 @@ fn load_and_validate_photos(input_dir: &Path) -> Result<(Vec<Photo>, Vec<String>
 /// Run book layout optimization and return the result.
 fn run_optimization(
     photos: &[Photo],
-    canvas: &Canvas,
+    canvas: &crate::models::Canvas,
     ga_config: &GaConfig,
-    seed: u64,
 ) -> BookLayout {
     info!("Running book layout solver...");
     let start = Instant::now();
-    
+
     let book_layout = solve_book_layout(
         photos,
         canvas,
         ga_config,
-        seed,
     );
 
     let elapsed = start.elapsed();
