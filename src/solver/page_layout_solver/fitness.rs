@@ -2,6 +2,12 @@
 
 use crate::models::{Canvas, FitnessWeights, PageLayout, Photo};
 
+/// Threshold ratio below which a photo is considered severely undersized.
+const UNDERSIZED_THRESHOLD: f64 = 0.5;
+
+/// Penalty multiplier for severely undersized photos.
+const UNDERSIZED_PENALTY_MULTIPLIER: f64 = 5.0;
+
 /// Computes the total cost of a layout using the given weights.
 ///
 /// Skips terms with zero weight for efficiency.
@@ -40,7 +46,7 @@ pub fn total_cost(
 /// where:
 /// - s_i = (w_i · h_i) / canvas_area (normalized actual size)
 /// - t_i = area_weight_i / Σ area_weights (normalized target size)
-/// - k_i = 5 if s_i/t_i < 0.5 (undersized penalty), else 1
+/// - k_i = UNDERSIZED_PENALTY_MULTIPLIER if s_i/t_i < UNDERSIZED_THRESHOLD, else 1
 fn cost_size_distribution(layout: &PageLayout, photos: &[Photo]) -> f64 {
     let canvas_area = layout.canvas.area();
     
@@ -67,8 +73,12 @@ fn cost_size_distribution(layout: &PageLayout, photos: &[Photo]) -> f64 {
         // Normalized target size
         let t_i = photo.area_weight / total_weight;
         
-        // Penalty coefficient: 5x for severely undersized photos
-        let k_i = if s_i / t_i < 0.5 { 5.0 } else { 1.0 };
+        // Penalty coefficient: higher penalty for severely undersized photos
+        let k_i = if s_i / t_i < UNDERSIZED_THRESHOLD {
+            UNDERSIZED_PENALTY_MULTIPLIER
+        } else {
+            1.0
+        };
         
         // Squared deviation
         let deviation = s_i - t_i;
