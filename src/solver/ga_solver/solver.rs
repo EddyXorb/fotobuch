@@ -38,18 +38,34 @@ where
     pub fn solve(&mut self, initial_population: Vec<I>) -> Option<I> {
         let mut world = self.init_world(initial_population);
         let start_time = std::time::Instant::now();
+        let mut last_improvement_gen = 0;
+        let mut best_fitness = world
+            .global_best()
+            .map_or(f64::INFINITY, |ind| ind.fitness());
 
         for generation in 0..self.config.generations {
             self.evolve_generation(&mut world);
             self.migrate_if_needed(generation, &mut world);
 
-            if self.should_stop(start_time) {
+            // Check for significant fitness improvement (> 1% improvement required)
+            let current_best_fitness = world
+                .global_best()
+                .map_or(f64::INFINITY, |ind| ind.fitness());
+            const IMPROVEMENT_THRESHOLD: f64 = 0.99;
+            if current_best_fitness < best_fitness * IMPROVEMENT_THRESHOLD {
+                best_fitness = current_best_fitness;
+                last_improvement_gen = generation;
+            }
+
+            // Check stopping conditions
+            if let Some(reason) = self.should_stop(start_time, generation, last_improvement_gen) {
+                info!("{}", reason);
                 break;
             }
+
             info!(
                 "Generation {}: Global best fitness = {:.4}",
-                generation,
-                world.global_best().map_or(0.0, |ind| ind.fitness())
+                generation, current_best_fitness
             );
         }
 
@@ -79,13 +95,32 @@ where
         }
     }
 
-    /// Checks if the algorithm should stop due to timeout.
-    fn should_stop(&self, start_time: std::time::Instant) -> bool {
-        if let Some(timeout) = self.config.timeout {
-            start_time.elapsed() >= timeout
-        } else {
-            false
+    /// Checks if the algorithm should stop, returning the reason if so.
+    fn should_stop(
+        &self,
+        start_time: std::time::Instant,
+        current_generation: usize,
+        last_improvement_gen: usize,
+    ) -> Option<String> {
+        // Check timeout
+        if let Some(timeout) = self.config.timeout
+            && start_time.elapsed() >= timeout
+        {
+            return Some("Stopping due to timeout".to_string());
         }
+
+        // Check no improvement limit
+        if let Some(limit) = self.config.no_improvement_limit
+            && current_generation > 0
+            && (current_generation - last_improvement_gen) >= limit
+        {
+            return Some(format!(
+                "Stopping early: no significant improvement for {} generations",
+                current_generation - last_improvement_gen
+            ));
+        }
+
+        None
     }
 }
 
@@ -170,6 +205,7 @@ mod tests {
             generations: 10,
             elitism_ratio: 0.25,
             timeout: None,
+            no_improvement_limit: None,
             islands: 2,
             migration_interval: 5,
             migrants: 1,
@@ -194,6 +230,7 @@ mod tests {
             generations: 1000000,
             elitism_ratio: 0.25,
             timeout: Some(Duration::from_millis(1)),
+            no_improvement_limit: None,
             islands: 1,
             migration_interval: 10,
             migrants: 1,

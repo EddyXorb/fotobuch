@@ -37,6 +37,7 @@ pub(super) fn run_ga(
         generations: ga_config.generations,
         elitism_ratio: ga_config.elitism_ratio,
         timeout: ga_config.timeout,
+        no_improvement_limit: ga_config.no_improvement_limit,
         islands: ga_config.island_config.islands,
         migration_interval: ga_config.island_config.migration_interval,
         migrants: ga_config.island_config.migrants,

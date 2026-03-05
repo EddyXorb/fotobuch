@@ -66,6 +66,7 @@ mod tests {
             elitism_ratio: 0.05,
             weights: FitnessWeights::default(),
             timeout: None,
+            no_improvement_limit: None,
             island_config: IslandConfig::default(),
             seed: 42,
         };

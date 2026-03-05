@@ -30,6 +30,10 @@ pub struct GaConfig {
     /// Optional timeout for the entire optimization run.
     pub timeout: Option<Duration>,
 
+    /// Stop early if fitness hasn't improved for this many generations.
+    /// None means no early stopping.
+    pub no_improvement_limit: Option<usize>,
+
     /// Island model configuration for parallel evolution.
     pub island_config: IslandConfig,
 
@@ -48,6 +52,7 @@ impl Default for GaConfig {
             elitism_ratio: 0.05,
             weights: FitnessWeights::default(),
             timeout: Some(Duration::from_secs(30)),
+            no_improvement_limit: Some(15),
             island_config: IslandConfig::default(),
             seed: 0,
         }

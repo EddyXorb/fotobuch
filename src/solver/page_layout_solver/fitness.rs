@@ -6,7 +6,7 @@ use crate::models::{Canvas, FitnessWeights, PageLayout, Photo};
 const UNDERSIZED_THRESHOLD: f64 = 0.5;
 
 /// Penalty multiplier for severely undersized photos.
-const UNDERSIZED_PENALTY_MULTIPLIER: f64 = 5.0;
+const UNDERSIZED_PENALTY_MULTIPLIER: f64 = 50.0;
 
 /// Breakdown of individual fitness cost components.
 pub struct CostBreakdown {

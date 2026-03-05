@@ -57,6 +57,7 @@ mod tests {
                 w_order: 0.3,
             },
             timeout: None,
+            no_improvement_limit: None,
             island_config: IslandConfig {
                 islands: 4,
                 migration_interval: 5,
