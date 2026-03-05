@@ -17,6 +17,10 @@ pub struct Config {
     /// Optional timeout for the entire optimization run.
     pub timeout: Option<Duration>,
 
+    /// Stop early if fitness hasn't improved for this many generations.
+    /// None means no early stopping.
+    pub no_improvement_limit: Option<usize>,
+
     /// Number of independent islands (populations).
     /// For parallel evolution across multiple populations.
     pub islands: usize,

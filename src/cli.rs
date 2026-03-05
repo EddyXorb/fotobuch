@@ -62,24 +62,28 @@ pub struct CanvasArgs {
 #[command(next_help_heading = "Genetic Algorithm Parameters")]
 pub struct GaArgs {
     /// Population size per island
-    #[arg(long, default_value_t = 300)]
+    #[arg(long, default_value_t = 500)]
     pub population: usize,
 
     /// Maximum generations
-    #[arg(long, default_value_t = 100)]
+    #[arg(long, default_value_t = 150)]
     pub generations: usize,
 
     /// Mutation rate (0.0-1.0)
-    #[arg(long, default_value_t = 0.2)]
+    #[arg(long, default_value_t = 0.3)]
     pub mutation_rate: f64,
 
     /// Crossover rate (0.0-1.0)
-    #[arg(long, default_value_t = 0.7)]
+    #[arg(long, default_value_t = 0.5)]
     pub crossover_rate: f64,
 
     /// Timeout in seconds (0 = no timeout)
     #[arg(long, default_value_t = 30)]
     pub timeout: u64,
+
+    /// Stop early if fitness hasn't improved for this many generations (0 = disabled)
+    #[arg(long, default_value_t = 15)]
+    pub no_improvement_limit: usize,
 }
 
 /// Island model parameters for parallel evolution.
@@ -95,7 +99,7 @@ pub struct IslandArgs {
     pub migration_interval: usize,
 
     /// Number of migrants per migration
-    #[arg(long, default_value_t = 2)]
+    #[arg(long, default_value_t = 5)]
     pub migrants: usize,
 }
 
@@ -112,7 +116,7 @@ pub struct WeightsArgs {
     pub w_coverage: f64,
 
     /// Weight for barycenter cost
-    #[arg(long, default_value_t = 0.5)]
+    #[arg(long, default_value_t = 0.0)]
     pub w_barycenter: f64,
 
     /// Weight for reading order cost
@@ -170,6 +174,11 @@ impl Args {
             weights,
             timeout: if self.ga.timeout > 0 {
                 Some(std::time::Duration::from_secs(self.ga.timeout))
+            } else {
+                None
+            },
+            no_improvement_limit: if self.ga.no_improvement_limit > 0 {
+                Some(self.ga.no_improvement_limit)
             } else {
                 None
             },
