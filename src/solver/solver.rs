@@ -3,8 +3,7 @@
 //! This module provides the main entry point for running the photobook solver,
 //! coordinating input loading, solver configuration, optimization, and export.
 
-use crate::models::{Canvas, FitnessWeights, LayoutResult, Photo, SolverRequest};
-use crate::solver::{GaConfig, IslandConfig};
+use crate::models::{Canvas, LayoutResult, Photo, SolverRequest, GaConfig};
 use super::page_layout::ga::run_island_ga;
 use crate::{export_json, export_pdf, export_typst, load_photos_from_dir};
 use anyhow::{Context, Result};
@@ -24,9 +23,7 @@ pub fn run_solver(request: &SolverRequest) -> Result<()> {
     let centered_layout = run_optimization(
         &photos,
         &request.canvas,
-        &request.weights,
         &request.ga_config,
-        &request.island_config,
         request.seed,
     );
     export_result(&centered_layout, &photo_paths, &request.input, &request.output)?;
@@ -36,18 +33,21 @@ pub fn run_solver(request: &SolverRequest) -> Result<()> {
 
 /// Log the solver configuration for user visibility.
 fn log_configuration(request: &SolverRequest) {
+    let island_config = request.ga_config.island_config.as_ref();
+    let islands = island_config.map_or(1, |ic| ic.islands);
+    
     info!("Configuration:");
     info!("  Canvas: {}x{} mm, β={} mm", 
         request.canvas.width, request.canvas.height, request.canvas.beta);
     info!("  Islands: {}, Population: {}/island, Generations: {}", 
-        request.island_config.islands, 
+        islands, 
         request.ga_config.population, 
         request.ga_config.generations);
     info!("  Weights: size={}, coverage={}, bary={}, order={}", 
-        request.weights.w_size, 
-        request.weights.w_coverage, 
-        request.weights.w_barycenter, 
-        request.weights.w_order);
+        request.ga_config.weights.w_size, 
+        request.ga_config.weights.w_coverage, 
+        request.ga_config.weights.w_barycenter, 
+        request.ga_config.weights.w_order);
     info!("  Seed: {}", request.seed);
 }
 
@@ -78,9 +78,7 @@ fn load_and_validate_photos(input_dir: &Path) -> Result<(Vec<Photo>, Vec<String>
 fn run_optimization(
     photos: &[Photo],
     canvas: &Canvas,
-    weights: &FitnessWeights,
     ga_config: &GaConfig,
-    island_config: &IslandConfig,
     seed: u64,
 ) -> LayoutResult {
     info!("Running genetic algorithm...");
@@ -89,9 +87,7 @@ fn run_optimization(
     let (_best_tree, best_layout, best_fitness) = run_island_ga(
         photos,
         canvas,
-        weights,
         ga_config,
-        island_config,
         seed,
     );
 

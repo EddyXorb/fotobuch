@@ -1,7 +1,6 @@
 //! Solver request configuration bundling all parameters.
 
-use super::{Canvas, FitnessWeights};
-use crate::solver::{GaConfig, IslandConfig};
+use super::{Canvas, GaConfig};
 use std::path::PathBuf;
 
 /// Complete solver request bundling all configuration parameters and I/O paths.
@@ -19,14 +18,8 @@ pub struct SolverRequest {
     /// Canvas dimensions and spacing parameters
     pub canvas: Canvas,
     
-    /// Fitness function weights
-    pub weights: FitnessWeights,
-    
-    /// Genetic algorithm configuration
+    /// Genetic algorithm configuration (includes fitness weights and island config)
     pub ga_config: GaConfig,
-    
-    /// Island model configuration for parallel evolution
-    pub island_config: IslandConfig,
     
     /// Random seed for reproducibility
     pub seed: u64,
@@ -34,23 +27,18 @@ pub struct SolverRequest {
 
 impl SolverRequest {
     /// Create a new solver request with all required parameters.
-    #[allow(clippy::too_many_arguments)]
     pub fn new(
         input: PathBuf,
         output: PathBuf,
         canvas: Canvas,
-        weights: FitnessWeights,
         ga_config: GaConfig,
-        island_config: IslandConfig,
         seed: u64,
     ) -> Self {
         Self {
             input,
             output,
             canvas,
-            weights,
             ga_config,
-            island_config,
             seed,
         }
     }
@@ -59,16 +47,12 @@ impl SolverRequest {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::models::{FitnessWeights, GaConfig, IslandConfig};
 
     #[test]
     fn test_solver_request_new() {
         let canvas = Canvas::new(297.0, 210.0, 5.0, 0.0);
-        let weights = FitnessWeights {
-            w_size: 1.0,
-            w_coverage: 0.15,
-            w_barycenter: 0.5,
-            w_order: 0.3,
-        };
+        
         let ga_config = GaConfig {
             population: 100,
             generations: 50,
@@ -76,21 +60,25 @@ mod tests {
             crossover_rate: 0.7,
             tournament_size: 3,
             elitism_ratio: 0.05,
-        };
-        let island_config = IslandConfig {
-            islands: 4,
-            migration_interval: 5,
-            migrants: 2,
-            timeout: None,
+            weights: FitnessWeights {
+                w_size: 1.0,
+                w_coverage: 0.15,
+                w_barycenter: 0.5,
+                w_order: 0.3,
+            },
+            island_config: Some(IslandConfig {
+                islands: 4,
+                migration_interval: 5,
+                migrants: 2,
+                timeout: None,
+            }),
         };
 
         let request = SolverRequest::new(
             "input/".into(),
             "output.pdf".into(),
             canvas,
-            weights,
             ga_config,
-            island_config,
             42,
         );
 

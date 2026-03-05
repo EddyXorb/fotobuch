@@ -1,44 +1,15 @@
 //! Genetic algorithm main loop for photo layout optimization.
 
-use crate::models::{Canvas, FitnessWeights, LayoutResult, Photo};
+use crate::models::{Canvas, FitnessWeights, LayoutResult, Photo, GaConfig};
 use super::tree::SlicingTree;
 use super::tree::build::random_tree;
-use super::tree::operators::{mutate, crossover};
+use super::tree::mutate::mutate;
+use super::tree::crossover::crossover;
 use super::layout_solver::solve_layout;
 use super::fitness::total_cost;
 use rand::Rng;
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
-
-/// Configuration for the genetic algorithm.
-#[derive(Debug, Clone)]
-pub struct GaConfig {
-    /// Population size.
-    pub population: usize,
-    /// Maximum number of generations.
-    pub generations: usize,
-    /// Mutation probability.
-    pub mutation_rate: f64,
-    /// Crossover probability.
-    pub crossover_rate: f64,
-    /// Tournament selection size.
-    pub tournament_size: usize,
-    /// Elitism ratio (top % to keep unchanged).
-    pub elitism_ratio: f64,
-}
-
-impl Default for GaConfig {
-    fn default() -> Self {
-        Self {
-            population: 300,
-            generations: 100,
-            mutation_rate: 0.2,
-            crossover_rate: 0.7,
-            tournament_size: 3,
-            elitism_ratio: 0.05,
-        }
-    }
-}
+use std::time::Instant;
 
 /// Individual in the population with its fitness.
 #[derive(Clone)]
@@ -153,34 +124,6 @@ fn tournament_select<'a, R: Rng>(
     best
 }
 
-/// Configuration for the island model (parallel GA with migration).
-#[derive(Debug, Clone)]
-pub struct IslandConfig {
-    /// Number of independent islands (populations).
-    pub islands: usize,
-    /// Generations between migrations.
-    pub migration_interval: usize,
-    /// Number of individuals to migrate per island per migration.
-    pub migrants: usize,
-    /// Optional timeout for the entire run (all islands).
-    pub timeout: Option<Duration>,
-}
-
-impl Default for IslandConfig {
-    fn default() -> Self {
-        let islands = std::thread::available_parallelism()
-            .map(|n| n.get())
-            .unwrap_or(4);
-        
-        Self {
-            islands,
-            migration_interval: 5,
-            migrants: 2,
-            timeout: Some(Duration::from_secs(30)),
-        }
-    }
-}
-
 /// Runs the island model GA: multiple independent populations with periodic migration.
 ///
 /// Each island runs on its own thread. The best individuals migrate between islands
@@ -188,12 +131,15 @@ impl Default for IslandConfig {
 pub(crate) fn run_island_ga(
     photos: &[Photo],
     canvas: &Canvas,
-    weights: &FitnessWeights,
     ga_config: &GaConfig,
-    island_config: &IslandConfig,
     seed: u64,
 ) -> (SlicingTree, LayoutResult, f64) {
     let start_time = Instant::now();
+    
+    // Extract configuration components
+    let weights = &ga_config.weights;
+    let island_config = ga_config.island_config.as_ref()
+        .expect("Island configuration is required for run_island_ga");
     let num_islands = island_config.islands;
     
     // Shared best solution across all islands
@@ -208,7 +154,6 @@ pub(crate) fn run_island_ga(
                 let canvas = *canvas;
                 let weights = *weights;
                 let ga_config = ga_config.clone();
-                let island_config = island_config.clone();
                 
                 scope.spawn(move || {
                     // Each island gets its own RNG seeded differently
@@ -220,7 +165,6 @@ pub(crate) fn run_island_ga(
                         &canvas,
                         &weights,
                         &ga_config,
-                        &island_config,
                         &mut rng,
                         start_time,
                         global_best,
@@ -246,11 +190,12 @@ fn run_island<R: Rng>(
     canvas: &Canvas,
     weights: &FitnessWeights,
     ga_config: &GaConfig,
-    island_config: &IslandConfig,
     rng: &mut R,
     start_time: Instant,
     global_best: Arc<Mutex<Option<(SlicingTree, LayoutResult, f64)>>>,
 ) -> (SlicingTree, LayoutResult, f64) {
+    let island_config = ga_config.island_config.as_ref()
+        .expect("Island configuration is required");
     let n = photos.len();
     
     // Initialize population with random trees
@@ -372,15 +317,17 @@ fn run_island<R: Rng>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::models::{IslandConfig, Photo};
     use rand::SeedableRng;
     use rand_chacha::ChaCha8Rng;
-    use crate::models::Photo;
+    use std::time::Duration;
 
     #[test]
     fn test_ga_config_default() {
         let config = GaConfig::default();
         assert_eq!(config.population, 300);
         assert_eq!(config.generations, 100);
+        assert!(config.island_config.is_some());
     }
 
     #[test]
@@ -394,7 +341,6 @@ mod tests {
         ];
         
         let canvas = Canvas::new(1000.0, 800.0, 5.0, 0.0);
-        let weights = FitnessWeights::default();
         
         let config = GaConfig {
             population: 20,
@@ -403,12 +349,14 @@ mod tests {
             crossover_rate: 0.7,
             tournament_size: 3,
             elitism_ratio: 0.1,
+            weights: FitnessWeights::default(),
+            island_config: None,
         };
         
         let (best_tree, best_layout, best_fitness) = run_ga(
             &photos,
             &canvas,
-            &weights,
+            &config.weights,
             &config,
             &mut rng,
         );
@@ -478,7 +426,6 @@ mod tests {
         ];
         
         let canvas = Canvas::new(1000.0, 800.0, 5.0, 0.0);
-        let weights = FitnessWeights::default();
         
         let ga_config = GaConfig {
             population: 20,
@@ -487,21 +434,19 @@ mod tests {
             crossover_rate: 0.7,
             tournament_size: 3,
             elitism_ratio: 0.1,
-        };
-        
-        let island_config = IslandConfig {
-            islands: 1,
-            migration_interval: 2,
-            migrants: 1,
-            timeout: Some(Duration::from_secs(5)),
+            weights: FitnessWeights::default(),
+            island_config: Some(IslandConfig {
+                islands: 1,
+                migration_interval: 2,
+                migrants: 1,
+                timeout: Some(Duration::from_secs(5)),
+            }),
         };
         
         let (best_tree, best_layout, best_fitness) = run_island_ga(
             &photos,
             &canvas,
-            &weights,
             &ga_config,
-            &island_config,
             42,
         );
         
@@ -521,7 +466,6 @@ mod tests {
         ];
         
         let canvas = Canvas::new(1000.0, 800.0, 5.0, 0.0);
-        let weights = FitnessWeights::default();
         
         let ga_config = GaConfig {
             population: 30,
@@ -530,21 +474,19 @@ mod tests {
             crossover_rate: 0.7,
             tournament_size: 3,
             elitism_ratio: 0.1,
-        };
-        
-        let island_config = IslandConfig {
-            islands: 4,
-            migration_interval: 3,
-            migrants: 2,
-            timeout: Some(Duration::from_secs(10)),
+            weights: FitnessWeights::default(),
+            island_config: Some(IslandConfig {
+                islands: 4,
+                migration_interval: 3,
+                migrants: 2,
+                timeout: Some(Duration::from_secs(10)),
+            }),
         };
         
         let (best_tree, best_layout, best_fitness) = run_island_ga(
             &photos,
             &canvas,
-            &weights,
             &ga_config,
-            &island_config,
             999,
         );
         
@@ -562,7 +504,6 @@ mod tests {
         ];
         
         let canvas = Canvas::new(1000.0, 800.0, 5.0, 0.0);
-        let weights = FitnessWeights::default();
         
         let ga_config = GaConfig {
             population: 20,
@@ -571,22 +512,20 @@ mod tests {
             crossover_rate: 0.7,
             tournament_size: 3,
             elitism_ratio: 0.1,
-        };
-        
-        let island_config = IslandConfig {
-            islands: 2,
-            migration_interval: 2,
-            migrants: 1,
-            timeout: Some(Duration::from_millis(100)), // Short timeout
+            weights: FitnessWeights::default(),
+            island_config: Some(IslandConfig {
+                islands: 2,
+                migration_interval: 2,
+                migrants: 1,
+                timeout: Some(Duration::from_millis(100)), // Short timeout
+            }),
         };
         
         let start = Instant::now();
         let (_tree, _layout, _fitness) = run_island_ga(
             &photos,
             &canvas,
-            &weights,
             &ga_config,
-            &island_config,
             42,
         );
         let elapsed = start.elapsed();

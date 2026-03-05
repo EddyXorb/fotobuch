@@ -7,9 +7,5 @@
 pub(crate) mod page_layout;
 pub mod solver;
 
-// Re-export commonly used types from page_layout
-pub use page_layout::ga::{GaConfig, IslandConfig};
-
 // Re-export from solver
 pub use solver::run_solver;
-
