@@ -12,6 +12,7 @@ mod evaluation;
 mod generation;
 mod evolution;
 mod island;
+mod solver;
 
 // Public API
 pub use types::LayoutIndividual;
