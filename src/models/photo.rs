@@ -1,4 +1,5 @@
 use chrono::{DateTime, Utc};
+use std::path::PathBuf;
 
 /// Photo model for the layout solver with optimization metadata.
 #[derive(Debug, Clone)]
@@ -39,6 +40,25 @@ impl Photo {
     /// Returns whether the photo is in portrait orientation (height > width).
     pub fn is_portrait(&self) -> bool {
         self.aspect_ratio < 1.0
+    }
+}
+
+/// Bridge between scanned photos (with file paths) and solver photos (with optimization data).
+///
+/// Combines file system information with solver-ready photo metadata.
+#[derive(Debug, Clone)]
+pub struct PhotoInfo {
+    /// File path to the photo.
+    pub path: PathBuf,
+    
+    /// Solver-ready photo with aspect ratio and optimization metadata.
+    pub photo: Photo,
+}
+
+impl PhotoInfo {
+    /// Creates a new PhotoInfo.
+    pub fn new(path: PathBuf, photo: Photo) -> Self {
+        Self { path, photo }
     }
 }
 
@@ -83,5 +103,14 @@ mod tests {
         let portrait = Photo::new(0.75, 1.0, "test".to_string());
         assert!(portrait.is_portrait());
         assert!(!portrait.is_landscape());
+    }
+    
+    #[test]
+    fn test_photo_info_creation() {
+        let photo = Photo::new(1.5, 1.0, "test".to_string());
+        let info = PhotoInfo::new(PathBuf::from("test.jpg"), photo);
+        
+        assert_eq!(info.photo.aspect_ratio, 1.5);
+        assert_eq!(info.path, PathBuf::from("test.jpg"));
     }
 }

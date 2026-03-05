@@ -1,6 +1,9 @@
 //! Photo loading and metadata extraction.
 
-use crate::{input::scanner::scan_photo_dirs, models::{Photo, PhotoInfo}};
+use crate::{
+    input::scanner::scan_photo_dirs,
+    models::{Photo, PhotoInfo},
+};
 use anyhow::Result;
 use std::path::Path;
 
