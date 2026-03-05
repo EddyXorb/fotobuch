@@ -144,6 +144,7 @@ fn rebuild_with_graft(
     let mut label_iter = labels.iter().copied();
 
     /// Recursively copy or graft nodes. Returns the new index.
+    #[allow(clippy::too_many_arguments)]
     fn copy_or_graft(
         old: &SlicingTree,
         old_idx: u16,
@@ -273,8 +274,8 @@ fn rebuild_with_graft(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::solver::page_layout::tree::build::random_tree;
-    use crate::solver::page_layout::tree::validate::validate_tree;
+    use crate::solver::page_layout_solver::tree::build::random_tree;
+    use crate::solver::page_layout_solver::tree::validate::validate_tree;
     use rand::SeedableRng;
     use rand_chacha::ChaCha8Rng;
 

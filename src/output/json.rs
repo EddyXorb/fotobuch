@@ -1,6 +1,6 @@
 //! JSON export for layout results.
 
-use crate::models::{LayoutResult, PhotoPlacement};
+use crate::models::{PageLayout, PhotoPlacement};
 use anyhow::{Context, Result};
 use serde::{Serialize, Deserialize};
 use std::path::Path;
@@ -31,7 +31,7 @@ pub struct PlacementJson {
 }
 
 /// Exports a layout result to a JSON file with photo paths.
-pub fn export_json(layout: &LayoutResult, photo_paths: &[String], output_path: &Path) -> Result<()> {
+pub fn export_json(layout: &PageLayout, photo_paths: &[String], output_path: &Path) -> Result<()> {
     let json = layout_to_json(layout, photo_paths);
     let json_str = serde_json::to_string_pretty(&json)
         .context("Failed to serialize layout to JSON")?;
@@ -43,7 +43,7 @@ pub fn export_json(layout: &LayoutResult, photo_paths: &[String], output_path: &
 }
 
 /// Converts a layout result to JSON-serializable format with photo paths.
-fn layout_to_json(layout: &LayoutResult, photo_paths: &[String]) -> LayoutJson {
+fn layout_to_json(layout: &PageLayout, photo_paths: &[String]) -> LayoutJson {
     LayoutJson {
         canvas: CanvasJson {
             width_mm: layout.canvas.width,
@@ -100,7 +100,7 @@ mod tests {
             },
         ];
         
-        let layout = LayoutResult::new(placements, canvas);
+        let layout = PageLayout::new(placements, canvas);
         let photo_paths = vec![
             "photo1.jpg".to_string(),
             "photo2.jpg".to_string(),
@@ -127,7 +127,7 @@ mod tests {
             },
         ];
         
-        let layout = LayoutResult::new(placements, canvas);
+        let layout = PageLayout::new(placements, canvas);
         let photo_paths = vec!["photo1.jpg".to_string()];
         let json = layout_to_json(&layout, &photo_paths);
         

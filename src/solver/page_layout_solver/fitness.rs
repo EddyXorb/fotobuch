@@ -1,12 +1,12 @@
 //! Fitness function components for the genetic algorithm.
 
-use crate::models::{Canvas, FitnessWeights, LayoutResult, Photo};
+use crate::models::{Canvas, FitnessWeights, PageLayout, Photo};
 
 /// Computes the total cost of a layout using the given weights.
 ///
 /// Skips terms with zero weight for efficiency.
 pub fn total_cost(
-    layout: &LayoutResult,
+    layout: &PageLayout,
     photos: &[Photo],
     _canvas: &Canvas,
     weights: &FitnessWeights,
@@ -41,7 +41,7 @@ pub fn total_cost(
 /// - s_i = (w_i · h_i) / canvas_area (normalized actual size)
 /// - t_i = area_weight_i / Σ area_weights (normalized target size)
 /// - k_i = 5 if s_i/t_i < 0.5 (undersized penalty), else 1
-fn cost_size_distribution(layout: &LayoutResult, photos: &[Photo]) -> f64 {
+fn cost_size_distribution(layout: &PageLayout, photos: &[Photo]) -> f64 {
     let canvas_area = layout.canvas.area();
     
     // Compute normalized target sizes (sum = 1)
@@ -81,7 +81,7 @@ fn cost_size_distribution(layout: &LayoutResult, photos: &[Photo]) -> f64 {
 /// C2: Canvas coverage cost.
 ///
 /// Penalizes empty space on the canvas.
-fn cost_coverage(layout: &LayoutResult) -> f64 {
+fn cost_coverage(layout: &PageLayout) -> f64 {
     // TODO: Implement in Step 4
     1.0 - layout.coverage_ratio()
 }
@@ -89,7 +89,7 @@ fn cost_coverage(layout: &LayoutResult) -> f64 {
 /// C_bary: Barycenter centering cost.
 ///
 /// Penalizes layouts where the area-weighted center is not at the canvas center.
-fn cost_barycenter(layout: &LayoutResult) -> f64 {
+fn cost_barycenter(layout: &PageLayout) -> f64 {
     // Simple implementation for now
     let (bx, by) = layout.barycenter();
     let canvas = &layout.canvas;
@@ -107,7 +107,7 @@ fn cost_barycenter(layout: &LayoutResult) -> f64 {
 /// 
 /// Photos are assumed to be in chronological order by index.
 /// A correct layout has monotonically increasing scores (no inversions).
-fn cost_reading_order(layout: &LayoutResult, _photos: &[Photo]) -> f64 {
+fn cost_reading_order(layout: &PageLayout, _photos: &[Photo]) -> f64 {
     if layout.placements.len() <= 1 {
         return 0.0;
     }
@@ -155,7 +155,7 @@ mod tests {
     #[test]
     fn test_total_cost_zero_weights() {
         let canvas = Canvas::default();
-        let layout = LayoutResult::new(vec![], canvas);
+        let layout = PageLayout::new(vec![], canvas);
         let photos = vec![];
         let weights = FitnessWeights::new(0.0, 0.0, 0.0, 0.0);
 
@@ -166,7 +166,7 @@ mod tests {
     #[test]
     fn test_cost_coverage_empty() {
         let canvas = Canvas::default();
-        let layout = LayoutResult::new(vec![], canvas);
+        let layout = PageLayout::new(vec![], canvas);
         let coverage_cost = cost_coverage(&layout);
         assert_eq!(coverage_cost, 1.0);
     }
@@ -175,7 +175,7 @@ mod tests {
     fn test_cost_coverage_full() {
         let canvas = Canvas::new(100.0, 100.0, 0.0, 0.0);
         let placements = vec![PhotoPlacement::new(0, 0.0, 0.0, 100.0, 100.0)];
-        let layout = LayoutResult::new(placements, canvas);
+        let layout = PageLayout::new(placements, canvas);
         
         let coverage_cost = cost_coverage(&layout);
         assert_relative_eq!(coverage_cost, 0.0, epsilon = 1e-6);
@@ -185,7 +185,7 @@ mod tests {
     fn test_cost_coverage_half() {
         let canvas = Canvas::new(100.0, 100.0, 0.0, 0.0);
         let placements = vec![PhotoPlacement::new(0, 0.0, 0.0, 50.0, 100.0)];
-        let layout = LayoutResult::new(placements, canvas);
+        let layout = PageLayout::new(placements, canvas);
         
         let coverage_cost = cost_coverage(&layout);
         assert_relative_eq!(coverage_cost, 0.5, epsilon = 1e-6);
@@ -196,7 +196,7 @@ mod tests {
         let canvas = Canvas::new(200.0, 200.0, 0.0, 0.0);
         // Single photo centered at (100, 100)
         let placements = vec![PhotoPlacement::new(0, 50.0, 50.0, 100.0, 100.0)];
-        let layout = LayoutResult::new(placements, canvas);
+        let layout = PageLayout::new(placements, canvas);
         
         let cost = cost_barycenter(&layout);
         assert_relative_eq!(cost, 0.0, epsilon = 1e-6);
@@ -207,7 +207,7 @@ mod tests {
         let canvas = Canvas::new(200.0, 200.0, 0.0, 0.0);
         // Photo in top-left corner, center at (25, 25)
         let placements = vec![PhotoPlacement::new(0, 0.0, 0.0, 50.0, 50.0)];
-        let layout = LayoutResult::new(placements, canvas);
+        let layout = PageLayout::new(placements, canvas);
         
         let cost = cost_barycenter(&layout);
         
@@ -233,7 +233,7 @@ mod tests {
             PhotoPlacement::new(2, 100.0, 0.0, 100.0, 100.0),   // ~10000 mm² (will have deviation)
         ];
         
-        let layout = LayoutResult::new(placements, canvas);
+        let layout = PageLayout::new(placements, canvas);
         let cost = cost_size_distribution(&layout, &photos);
         
         // There will be some cost due to imperfect division
@@ -253,7 +253,7 @@ mod tests {
         // s_i/t_i = 0.2 < 0.5 → k_i = 5
         // cost = 5 * (0.2 - 1.0)² = 5 * 0.64 = 3.2
         let placements = vec![PhotoPlacement::new(0, 0.0, 0.0, 20.0, 100.0)];
-        let layout = LayoutResult::new(placements, canvas);
+        let layout = PageLayout::new(placements, canvas);
         
         let cost = cost_size_distribution(&layout, &photos);
         assert_relative_eq!(cost, 3.2, epsilon = 1e-6);
@@ -272,7 +272,7 @@ mod tests {
         // s_i/t_i = 0.8 >= 0.5 → k_i = 1
         // cost = 1 * (0.8 - 1.0)² = 0.04
         let placements = vec![PhotoPlacement::new(0, 0.0, 0.0, 80.0, 100.0)];
-        let layout = LayoutResult::new(placements, canvas);
+        let layout = PageLayout::new(placements, canvas);
         
         let cost = cost_size_distribution(&layout, &photos);
         assert_relative_eq!(cost, 0.04, epsilon = 1e-6);
@@ -287,7 +287,7 @@ mod tests {
             PhotoPlacement::new(1, 50.0, 0.0, 50.0, 50.0),    // Top-right
             PhotoPlacement::new(2, 0.0, 50.0, 50.0, 50.0),    // Bottom-left
         ];
-        let layout = LayoutResult::new(placements, canvas);
+        let layout = PageLayout::new(placements, canvas);
         let photos = vec![
             make_photo(1.0, 1.0),
             make_photo(1.0, 1.0),
@@ -306,7 +306,7 @@ mod tests {
             PhotoPlacement::new(0, 100.0, 50.0, 50.0, 50.0),  // Photo 0 bottom-right
             PhotoPlacement::new(1, 0.0, 0.0, 50.0, 50.0),     // Photo 1 top-left
         ];
-        let layout = LayoutResult::new(placements, canvas);
+        let layout = PageLayout::new(placements, canvas);
         let photos = vec![
             make_photo(1.0, 1.0),
             make_photo(1.0, 1.0),
@@ -323,7 +323,7 @@ mod tests {
     fn test_cost_reading_order_single_photo() {
         let canvas = Canvas::new(100.0, 100.0, 0.0, 0.0);
         let placements = vec![PhotoPlacement::new(0, 0.0, 0.0, 50.0, 50.0)];
-        let layout = LayoutResult::new(placements, canvas);
+        let layout = PageLayout::new(placements, canvas);
         let photos = vec![make_photo(1.0, 1.0)];
         
         let cost = cost_reading_order(&layout, &photos);
@@ -335,7 +335,7 @@ mod tests {
         let canvas = Canvas::new(100.0, 100.0, 0.0, 0.0);
         let photos = vec![make_photo(1.0, 1.0)];
         let placements = vec![PhotoPlacement::new(0, 0.0, 0.0, 50.0, 50.0)];
-        let layout = LayoutResult::new(placements, canvas);
+        let layout = PageLayout::new(placements, canvas);
         
         let weights = FitnessWeights::default();
         let cost = total_cost(&layout, &photos, &canvas, &weights);

@@ -123,8 +123,8 @@ fn set_cut_type(tree: &mut SlicingTree, idx: u16, cut: super::Cut) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::solver::page_layout::tree::build::random_tree;
-    use crate::solver::page_layout::tree::validate::validate_tree;
+    use crate::solver::page_layout_solver::tree::build::random_tree;
+    use crate::solver::page_layout_solver::tree::validate::validate_tree;
     use rand::SeedableRng;
     use rand_chacha::ChaCha8Rng;
 

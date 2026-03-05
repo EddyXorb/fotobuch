@@ -3,8 +3,8 @@
 //! This module provides the main entry point for running the photobook solver,
 //! coordinating input loading, solver configuration, optimization, and export.
 
-use crate::models::{Canvas, LayoutResult, Photo, SolverRequest, GaConfig};
-use super::page_layout::ga::run_island_ga;
+use crate::models::{BookLayout, Canvas, GaConfig, Photo, SolverRequest};
+use super::book_layout_solver::solve_book_layout;
 use crate::{export_json, export_pdf, export_typst, load_photos_from_dir};
 use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
@@ -14,19 +14,19 @@ use tracing::info;
 ///
 /// This is the main entry point that coordinates:
 /// 1. Loading and validating photos from the input directory
-/// 2. Running the genetic algorithm optimization with the provided configuration
+/// 2. Running the book layout solver to distribute photos across pages
 /// 3. Exporting the result in the requested format (JSON/Typst/PDF)
 pub fn run_solver(request: &SolverRequest) -> Result<()> {
     log_configuration(request);
     
     let (photos, photo_paths) = load_and_validate_photos(&request.input)?;
-    let centered_layout = run_optimization(
+    let book_layout = run_optimization(
         &photos,
         &request.canvas,
         &request.ga_config,
         request.seed,
     );
-    export_result(&centered_layout, &photo_paths, &request.input, &request.output)?;
+    export_result(&book_layout, &photo_paths, &request.input, &request.output)?;
     
     Ok(())
 }
@@ -74,17 +74,17 @@ fn load_and_validate_photos(input_dir: &Path) -> Result<(Vec<Photo>, Vec<String>
     Ok((photos, photo_paths))
 }
 
-/// Run genetic algorithm optimization and return centered layout.
+/// Run book layout optimization and return the result.
 fn run_optimization(
     photos: &[Photo],
     canvas: &Canvas,
     ga_config: &GaConfig,
     seed: u64,
-) -> LayoutResult {
-    info!("Running genetic algorithm...");
+) -> BookLayout {
+    info!("Running book layout solver...");
     let start = Instant::now();
     
-    let (_best_tree, best_layout, best_fitness) = run_island_ga(
+    let book_layout = solve_book_layout(
         photos,
         canvas,
         ga_config,
@@ -93,34 +93,44 @@ fn run_optimization(
 
     let elapsed = start.elapsed();
     info!("Optimization completed in {:.2}s", elapsed.as_secs_f64());
-    info!("Best fitness: {:.6}", best_fitness);
+    info!("Generated {} page(s) with {} total photos", 
+        book_layout.page_count(),
+        book_layout.total_photo_count());
 
-    best_layout.centered()
+    book_layout
 }
 
-/// Export layout result based on output file extension.
+/// Export book layout result based on output file extension.
+///
+/// Currently exports only the first page. Future versions will support
+/// multi-page export for PDF/Typst formats.
 fn export_result(
-    layout: &LayoutResult,
+    book_layout: &BookLayout,
     photo_paths: &[String],
     input_dir: &Path,
     output_path: &PathBuf,
 ) -> Result<()> {
+    // For now, export only the first page
+    // TODO: Support multi-page export for book layouts
+    let first_page = book_layout.pages.first()
+        .context("Book layout has no pages")?;
+    
     let output_ext = output_path.extension().and_then(|s| s.to_str());
     
     match output_ext {
         Some("json") => {
             info!("Exporting to JSON: {:?}", output_path);
-            export_json(layout, photo_paths, output_path)
+            export_json(first_page, photo_paths, output_path)
                 .context("Failed to export JSON")?;
         }
         Some("typ") => {
             info!("Exporting to Typst: {:?}", output_path);
-            export_typst(layout, photo_paths, output_path)
+            export_typst(first_page, photo_paths, output_path)
                 .context("Failed to export Typst")?;
         }
         Some("pdf") => {
             info!("Compiling to PDF: {:?}", output_path);
-            export_pdf(layout, photo_paths, input_dir, output_path)
+            export_pdf(first_page, photo_paths, input_dir, output_path)
                 .context("Failed to compile PDF")?;
         }
         _ => {

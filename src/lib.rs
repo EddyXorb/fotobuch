@@ -44,6 +44,6 @@ pub mod solver;
 
 // Re-export core API types for convenience
 pub use input::loader::load_photos_from_dir;
-pub use models::{Canvas, FitnessWeights, GaConfig, IslandConfig, LayoutResult, Photo, SolverRequest};
+pub use models::{BookLayout, Canvas, FitnessWeights, GaConfig, IslandConfig, PageLayout, Photo, SolverRequest};
 pub use output::{export_json, export_pdf, export_typst};
 pub use solver::run_solver;

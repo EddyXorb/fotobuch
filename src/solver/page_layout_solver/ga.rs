@@ -1,6 +1,6 @@
 //! Genetic algorithm main loop for photo layout optimization.
 
-use crate::models::{Canvas, FitnessWeights, LayoutResult, Photo, GaConfig};
+use crate::models::{Canvas, FitnessWeights, PageLayout, Photo, GaConfig};
 use super::tree::SlicingTree;
 use super::tree::build::random_tree;
 use super::tree::mutate::mutate;
@@ -15,20 +15,21 @@ use std::time::Instant;
 #[derive(Clone)]
 struct Individual {
     tree: SlicingTree,
-    layout: LayoutResult,
+    layout: PageLayout,
     fitness: f64,
 }
 
 /// Runs the genetic algorithm to find an optimal layout.
 ///
 /// Returns the best tree, its layout, and its fitness cost.
+#[allow(dead_code)]
 pub fn run_ga<R: Rng>(
     photos: &[Photo],
     canvas: &Canvas,
     weights: &FitnessWeights,
     config: &GaConfig,
     rng: &mut R,
-) -> (SlicingTree, LayoutResult, f64) {
+) -> (SlicingTree, PageLayout, f64) {
     let n = photos.len();
     
     // Initialize population with random trees
@@ -133,7 +134,7 @@ pub(crate) fn run_island_ga(
     canvas: &Canvas,
     ga_config: &GaConfig,
     seed: u64,
-) -> (SlicingTree, LayoutResult, f64) {
+) -> (SlicingTree, PageLayout, f64) {
     let start_time = Instant::now();
     
     // Extract configuration components
@@ -143,7 +144,7 @@ pub(crate) fn run_island_ga(
     let num_islands = island_config.islands;
     
     // Shared best solution across all islands
-    let global_best = Arc::new(Mutex::new(None::<(SlicingTree, LayoutResult, f64)>));
+    let global_best = Arc::new(Mutex::new(None::<(SlicingTree, PageLayout, f64)>));
     
     // Run each island in a scoped thread
     std::thread::scope(|scope| {
@@ -192,8 +193,8 @@ fn run_island<R: Rng>(
     ga_config: &GaConfig,
     rng: &mut R,
     start_time: Instant,
-    global_best: Arc<Mutex<Option<(SlicingTree, LayoutResult, f64)>>>,
-) -> (SlicingTree, LayoutResult, f64) {
+    global_best: Arc<Mutex<Option<(SlicingTree, PageLayout, f64)>>>,
+) -> (SlicingTree, PageLayout, f64) {
     let island_config = ga_config.island_config.as_ref()
         .expect("Island configuration is required");
     let n = photos.len();
@@ -208,7 +209,7 @@ fn run_island<R: Rng>(
         })
         .collect();
 
-    let mut local_best = None::<(SlicingTree, LayoutResult, f64)>;
+    let mut local_best = None::<(SlicingTree, PageLayout, f64)>;
 
     // Evolution loop
     for generation in 0..ga_config.generations {
@@ -372,24 +373,24 @@ mod tests {
     fn test_tournament_select() {
         let mut rng = ChaCha8Rng::seed_from_u64(42);
         
-        let _photos = vec![Photo::new(1.0, 1.0, "group".to_string())];
+        let _photos = [Photo::new(1.0, 1.0, "group".to_string())];
         let canvas = Canvas::new(100.0, 100.0, 0.0, 0.0);
         
         // Create a population with different fitness values
         let population = vec![
             Individual {
                 tree: random_tree(1, &mut rng),
-                layout: LayoutResult::new(vec![], canvas),
+                layout: PageLayout::new(vec![], canvas),
                 fitness: 10.0,
             },
             Individual {
                 tree: random_tree(1, &mut rng),
-                layout: LayoutResult::new(vec![], canvas),
+                layout: PageLayout::new(vec![], canvas),
                 fitness: 5.0,
             },
             Individual {
                 tree: random_tree(1, &mut rng),
-                layout: LayoutResult::new(vec![], canvas),
+                layout: PageLayout::new(vec![], canvas),
                 fitness: 20.0,
             },
         ];
