@@ -37,7 +37,7 @@ fn create_individual<R: Rng>(
 
 /// Sorts population by fitness (ascending - lower is better).
 pub fn sort_by_fitness(population: &mut [LayoutIndividual]) {
-    population.sort_by(|a, b| a.fitness.partial_cmp(&b.fitness).unwrap());
+    population.sort_by(|a, b| a.fitness.total_cmp(&b.fitness));
 }
 
 /// Extracts elite individuals from population.

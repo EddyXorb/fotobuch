@@ -152,7 +152,12 @@ fn run_single_island<R: Rng>(
 
 /// Updates the local best if the current individual is better.
 fn update_local_best(local_best: &mut Option<LayoutIndividual>, current: &LayoutIndividual) {
-    if local_best.is_none() || current.fitness < local_best.as_ref().unwrap().fitness {
+    let should_update = match local_best {
+        None => true,
+        Some(best) => current.fitness < best.fitness,
+    };
+    
+    if should_update {
         *local_best = Some(current.clone());
     }
 }
@@ -164,10 +169,15 @@ fn handle_migration(
     elitism_ratio: f64,
     global_best: &GlobalBest,
 ) {
-    let mut global = global_best.lock().unwrap();
+    let mut global = global_best.lock().unwrap_or_else(|e| e.into_inner());
     
     // Update global best if we have a better solution
-    if global.is_none() || current_best.fitness < global.as_ref().unwrap().1 {
+    let should_update = match *global {
+        None => true,
+        Some((_, global_fitness)) => current_best.fitness < global_fitness,
+    };
+    
+    if should_update {
         *global = Some((current_best.clone(), current_best.fitness));
     } else if let Some((ref global_individual, global_fitness)) = *global {
         // Import global best if it's better than our worst elite
@@ -194,12 +204,12 @@ fn collect_best_result(
 ) -> LayoutIndividual {
     let results: Vec<_> = handles
         .into_iter()
-        .map(|h| h.join().unwrap())
+        .map(|h| h.join().expect("Island thread panicked"))
         .collect();
     
     results
         .into_iter()
-        .min_by(|a, b| a.fitness.partial_cmp(&b.fitness).unwrap())
+        .min_by(|a, b| a.fitness.total_cmp(&b.fitness))
         .expect("Should have at least one result")
 }
 
