@@ -4,7 +4,7 @@
 //! Each node stores (α, γ) such that: w = α·h + γ
 //! This allows handling β > 0 without falling back to solving linear systems.
 
-use crate::models::{Canvas, LayoutResult, Photo, PhotoPlacement};
+use crate::models::{Canvas, PageLayout, Photo, PhotoPlacement};
 use super::tree::{Cut, Node, SlicingTree};
 
 /// Affine coefficient pair (α, γ) representing the relationship w = α·h + γ.
@@ -41,14 +41,14 @@ struct Position {
 /// 2. Assign dimensions top-down from root
 /// 3. Compute positions top-down from root
 ///
-/// Returns a LayoutResult with all photo placements.
+/// Returns a PageLayout with all photo placements.
 pub fn solve_layout(
     tree: &SlicingTree,
     photos: &[Photo],
     canvas: &Canvas,
-) -> LayoutResult {
+) -> PageLayout {
     if tree.is_empty() {
-        return LayoutResult::new(vec![], *canvas);
+        return PageLayout::new(vec![], *canvas);
     }
 
     // Step 1: Compute affine coefficients for all nodes (bottom-up)
@@ -76,7 +76,7 @@ pub fn solve_layout(
         }
     }
 
-    LayoutResult::new(placements, *canvas)
+    PageLayout::new(placements, *canvas)
 }
 
 /// Computes affine coefficients for all nodes (bottom-up).
@@ -290,8 +290,8 @@ fn compute_positions_recursive(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::solver::page_layout::tree::build::random_tree;
-    use crate::solver::page_layout::tree::validate::validate_tree;
+    use crate::solver::page_layout_solver::tree::build::random_tree;
+    use crate::solver::page_layout_solver::tree::validate::validate_tree;
     use approx::assert_relative_eq;
     use rand::Rng;
     use rand::SeedableRng;

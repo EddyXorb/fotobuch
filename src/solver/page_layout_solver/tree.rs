@@ -112,6 +112,7 @@ impl SlicingTree {
     }
     
     /// Returns the root node (always at index 0).
+    #[allow(dead_code)]
     pub fn root(&self) -> &Node {
         &self.nodes[0]
     }
@@ -127,6 +128,7 @@ impl SlicingTree {
     }
     
     /// Visits all nodes in the tree in depth-first order, calling the visitor function.
+    #[allow(dead_code)]
     pub fn visit<F>(&self, mut visitor: F)
     where
         F: FnMut(u16, &Node),
@@ -134,6 +136,7 @@ impl SlicingTree {
         self.visit_recursive(0, &mut visitor);
     }
     
+    #[allow(dead_code)]
     fn visit_recursive<F>(&self, idx: u16, visitor: &mut F)
     where
         F: FnMut(u16, &Node),

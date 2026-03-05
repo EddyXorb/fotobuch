@@ -156,8 +156,8 @@ pub(crate) fn validate_tree(tree: &SlicingTree) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::solver::page_layout::tree::build::random_tree;
-    use crate::solver::page_layout::tree::Cut;
+    use crate::solver::page_layout_solver::tree::build::random_tree;
+    use crate::solver::page_layout_solver::tree::Cut;
     use rand::SeedableRng;
     use rand_chacha::ChaCha8Rng;
 

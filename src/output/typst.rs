@@ -1,6 +1,6 @@
 //! Typst export for layout results.
 
-use crate::models::LayoutResult;
+use crate::models::PageLayout;
 use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
 use typst::LibraryExt;
@@ -13,7 +13,7 @@ use chrono::Datelike;
 ///
 /// The generated `.typ` file contains `#place(...)` commands for each photo.
 pub fn export_typst(
-    layout: &LayoutResult,
+    layout: &PageLayout,
     photo_paths: &[String],
     output_path: &Path,
 ) -> Result<()> {
@@ -27,7 +27,7 @@ pub fn export_typst(
 
 /// Exports a layout result to a PDF file by compiling via Typst.
 pub fn export_pdf(
-    layout: &LayoutResult,
+    layout: &PageLayout,
     photo_paths: &[String],
     base_dir: &Path,
     output_path: &Path,
@@ -52,7 +52,7 @@ pub fn export_pdf(
 }
 
 /// Generates Typst source code for a layout.
-fn generate_typst_source(layout: &LayoutResult, photo_paths: &[String]) -> String {
+fn generate_typst_source(layout: &PageLayout, photo_paths: &[String]) -> String {
     let mut out = String::new();
     
     // Page setup
@@ -226,7 +226,7 @@ mod tests {
             },
         ];
         
-        let layout = LayoutResult::new(placements, canvas);
+        let layout = PageLayout::new(placements, canvas);
         let photo_paths = vec![
             "photo1.jpg".to_string(),
             "photo2.jpg".to_string(),

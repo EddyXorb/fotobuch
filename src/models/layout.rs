@@ -60,9 +60,9 @@ impl PhotoPlacement {
     }
 }
 
-/// Complete layout result containing all photo placements.
+/// Complete layout of a single page containing all photo placements.
 #[derive(Debug, Clone)]
-pub struct LayoutResult {
+pub struct PageLayout {
     /// All photo placements on the canvas.
     pub placements: Vec<PhotoPlacement>,
     
@@ -70,7 +70,7 @@ pub struct LayoutResult {
     pub canvas: Canvas,
 }
 
-impl LayoutResult {
+impl PageLayout {
     /// Creates a new layout result.
     pub fn new(placements: Vec<PhotoPlacement>, canvas: Canvas) -> Self {
         Self { placements, canvas }
@@ -121,7 +121,7 @@ impl LayoutResult {
     ///
     /// # Returns
     ///
-    /// A new `LayoutResult` with centered placements.
+    /// A new `PageLayout` with centered placements.
     pub fn centered(&self) -> Self {
         if self.placements.is_empty() {
             return self.clone();
@@ -162,7 +162,7 @@ impl LayoutResult {
             })
             .collect();
 
-        LayoutResult::new(centered_placements, self.canvas)
+        PageLayout::new(centered_placements, self.canvas)
     }
 }
 
@@ -215,7 +215,7 @@ mod tests {
         assert_relative_eq!(p.bottom(), 70.0, epsilon = 1e-6);
     }
     
-    // LayoutResult tests
+    // PageLayout tests
     #[test]
     fn test_layout_result_coverage() {
         let canvas = Canvas::new(200.0, 100.0, 2.0, 3.0);
@@ -223,7 +223,7 @@ mod tests {
             PhotoPlacement::new(0, 0.0, 0.0, 100.0, 100.0),  // 10000 mm²
             PhotoPlacement::new(1, 102.0, 0.0, 98.0, 100.0), // 9800 mm²
         ];
-        let layout = LayoutResult::new(placements, canvas);
+        let layout = PageLayout::new(placements, canvas);
         
         assert_relative_eq!(layout.total_photo_area(), 19800.0, epsilon = 1e-6);
         assert_relative_eq!(layout.coverage_ratio(), 0.99, epsilon = 1e-6);
@@ -236,7 +236,7 @@ mod tests {
             PhotoPlacement::new(0, 0.0, 0.0, 100.0, 100.0),    // center: (50, 50), area: 10000
             PhotoPlacement::new(1, 100.0, 100.0, 100.0, 100.0), // center: (150, 150), area: 10000
         ];
-        let layout = LayoutResult::new(placements, canvas);
+        let layout = PageLayout::new(placements, canvas);
         
         let (bx, by) = layout.barycenter();
         assert_relative_eq!(bx, 100.0, epsilon = 1e-6);
@@ -246,21 +246,21 @@ mod tests {
     #[test]
     fn test_layout_result_barycenter_empty() {
         let canvas = Canvas::new(200.0, 100.0, 0.0, 0.0);
-        let layout = LayoutResult::new(vec![], canvas);
+        let layout = PageLayout::new(vec![], canvas);
         
         let (bx, by) = layout.barycenter();
         assert_relative_eq!(bx, 100.0, epsilon = 1e-6);
         assert_relative_eq!(by, 50.0, epsilon = 1e-6);
     }
     
-    // LayoutResult::centered() tests
+    // PageLayout::centered() tests
     #[test]
     fn test_centered_offset() {
         let canvas = Canvas::new(500.0, 500.0, 2.0, 0.0);
         let placements = vec![
             PhotoPlacement::new(0, 0.0, 0.0, 100.0, 100.0),
         ];
-        let layout = LayoutResult::new(placements, canvas);
+        let layout = PageLayout::new(placements, canvas);
 
         let centered = layout.centered();
 
@@ -276,7 +276,7 @@ mod tests {
             PhotoPlacement::new(0, 0.0, 0.0, 100.0, 100.0),
             PhotoPlacement::new(1, 100.0, 0.0, 100.0, 100.0),
         ];
-        let layout = LayoutResult::new(placements, canvas);
+        let layout = PageLayout::new(placements, canvas);
 
         let centered = layout.centered();
 
@@ -289,7 +289,7 @@ mod tests {
     #[test]
     fn test_centered_empty() {
         let canvas = Canvas::new(200.0, 200.0, 2.0, 0.0);
-        let layout = LayoutResult::new(vec![], canvas);
+        let layout = PageLayout::new(vec![], canvas);
 
         let centered = layout.centered();
 
