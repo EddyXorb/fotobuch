@@ -3,12 +3,12 @@
 //! This module provides the main entry point for running the photobook solver,
 //! coordinating input loading, solver configuration, optimization, and export.
 
-use super::book_layout_solver::solve_book_layout;
+use super::book_layout_solver;
 use crate::models::{BookLayout, GaConfig, Photo, SolverRequest};
 use crate::{export_json, export_pdf, export_typst, load_photos_from_dir};
 use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use tracing::info;
 /// Run the complete photobook solver workflow from a solver request.
 ///
@@ -22,7 +22,7 @@ pub fn run_solver(request: &SolverRequest) -> Result<BookLayout> {
     log_configuration(request);
 
     let (photos, photo_paths) = load_and_validate_photos(&request.input)?;
-    let book_layout = run_optimization(&photos, &request.canvas, &request.ga_config);
+    let book_layout = run_optimization(&photos, &request.canvas, &request.ga_config)?;
     export_result(&book_layout, &photo_paths, &request.input, &request.output)?;
 
     Ok(book_layout)
@@ -88,11 +88,29 @@ fn run_optimization(
     photos: &[Photo],
     canvas: &crate::models::Canvas,
     ga_config: &GaConfig,
-) -> BookLayout {
+) -> Result<BookLayout> {
     info!("Running book layout solver...");
     let start = Instant::now();
 
-    let book_layout = solve_book_layout(photos, canvas, ga_config);
+    // Create default parameters for the MIP+LocalSearch solver
+    // TODO: Make these configurable via SolverRequest
+    let params = book_layout_solver::Params {
+        page_target: 5,
+        page_min: 3,
+        page_max: 10,
+        photos_per_page_min: 5,
+        photos_per_page_max: 15,
+        group_max_per_page: 3,
+        group_min_photos: 3,
+        weight_even: 1.0,
+        weight_split: 2.0,
+        weight_pages: 0.5,
+        search_timeout: Duration::from_secs(10),
+        max_coverage_cost: 0.1,
+    };
+
+    let book_layout = book_layout_solver::solve(photos, &params, canvas, ga_config)
+        .context("Book layout solver failed")?;
 
     let elapsed = start.elapsed();
     info!("Optimization completed in {:.2}s", elapsed.as_secs_f64());
@@ -102,7 +120,7 @@ fn run_optimization(
         book_layout.total_photo_count()
     );
 
-    book_layout
+    Ok(book_layout)
 }
 
 /// Export book layout result based on output file extension.
