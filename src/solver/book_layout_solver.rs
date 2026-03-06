@@ -9,6 +9,7 @@
 mod cache;
 mod cost;
 mod feasibility;
+mod mip;
 mod model;
 
 use super::page_layout_solver::run_ga;
