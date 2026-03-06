@@ -7,46 +7,52 @@ mod improve;
 mod perturbation;
 
 use super::cache::LayoutCache;
-use super::cost::{AssignmentCost, PageCost};
 use super::model::{GroupInfo, PageAssignment, Params};
-use crate::models::Photo;
+use crate::models::{Canvas, GaConfig, Photo};
+use crate::solver::page_layout_solver::{self, CostBreakdown};
 use std::ops::Range;
 
-/// Trait for evaluating single-page layouts without full GA overhead.
+/// Trait for evaluating single-page layouts for testing purposes.
 ///
-/// Implementations should return a `PageCost` for a given slice of photos.
-/// The book layout solver uses this abstraction to test local search logic
-/// with a mock evaluator before wiring up the real GA-based evaluator.
+/// Implementations should return a `CostBreakdown` for a given slice of photos.
+/// This abstraction allows testing local search logic with mock evaluators.
 pub trait PageLayoutEvaluator {
     /// Evaluate the layout quality for a slice of photos.
     ///
-    /// Returns cost breakdown (coverage, barycenter, order, size).
-    fn evaluate(&mut self, photos: &[Photo]) -> PageCost;
+    /// Returns cost breakdown (total, size, coverage, barycenter, order).
+    fn evaluate(&mut self, photos: &[Photo]) -> CostBreakdown;
 }
 
-/// Evaluates a page layout with caching.
+/// Evaluates a page layout with caching using the real GA solver.
 ///
 /// First checks the cache for an existing result. If not found,
-/// calls the evaluator and inserts the result into the cache
+/// runs the GA solver and inserts the full GaResult into the cache
 /// (using monotonic improvement logic: only insert if better than existing).
 ///
 /// # Arguments
-/// * `evaluator` - The layout evaluator (mock or GA-based)
 /// * `cache` - Layout cache for memoization
 /// * `photos` - Full photo array
 /// * `range` - Photo range for the page to evaluate
-fn evaluate_cached(
-    evaluator: &mut impl PageLayoutEvaluator,
+/// * `canvas` - Canvas dimensions
+/// * `ga_config` - GA configuration
+///
+/// # Returns
+/// Cost breakdown for the page
+pub fn evaluate_cached(
     cache: &mut LayoutCache,
     photos: &[Photo],
     range: Range<usize>,
-) -> PageCost {
+    canvas: &Canvas,
+    ga_config: &GaConfig,
+) -> CostBreakdown {
     if let Some(cached) = cache.get(range.clone()) {
-        return cached.clone();
+        return cached.cost_breakdown.clone();
     }
-    let cost = evaluator.evaluate(&photos[range.clone()]);
-    cache.insert_if_better(range, cost.clone());
-    cost
+    
+    let result = page_layout_solver::run_ga(&photos[range.clone()], canvas, ga_config);
+    let breakdown = result.cost_breakdown.clone();
+    cache.insert_if_better(range, result);
+    breakdown
 }
 
 /// Improves an initial page assignment using local search.
@@ -62,17 +68,17 @@ fn evaluate_cached(
 /// * `photos` - All photos
 /// * `groups` - Group information
 /// * `params` - Solver parameters (includes search_timeout)
-/// * `evaluator` - Page layout evaluator
+/// * `evaluator` - Page layout evaluator (for testing; production use evaluate_cached)
 ///
 /// # Returns
-/// Improved assignment, its cost, and iteration count.
+/// Improved assignment, worst coverage value, and iteration count.
 pub fn improve(
     assignment: PageAssignment,
     photos: &[Photo],
     groups: &GroupInfo,
     params: &Params,
     evaluator: &mut impl PageLayoutEvaluator,
-) -> (PageAssignment, AssignmentCost, usize) {
+) -> (PageAssignment, f64, usize) {
     improve::improve(assignment, photos, groups, params, evaluator)
 }
 
@@ -80,6 +86,7 @@ pub fn improve(
 mod tests {
     use super::*;
     use crate::models::Photo;
+    use crate::solver::page_layout_solver::CostBreakdown;
 
     /// Mock evaluator for testing that returns deterministic costs
     /// based on photo count deviation from an ideal value.
@@ -88,18 +95,19 @@ mod tests {
     }
 
     impl PageLayoutEvaluator for MockEvaluator {
-        fn evaluate(&mut self, photos: &[Photo]) -> PageCost {
+        fn evaluate(&mut self, photos: &[Photo]) -> CostBreakdown {
             let count = photos.len();
             let deviation = (count as i32 - self.ideal_count as i32).abs() as f64;
             
             // Simple cost: coverage increases with deviation from ideal
             // Other components set to small values for testing
-            PageCost {
-                coverage: deviation * 0.1,
+            let coverage = deviation * 0.1;
+            CostBreakdown {
+                total: coverage + 0.03,
+                size: 0.01,
+                coverage,
                 barycenter: 0.01,
                 order: 0.01,
-                size: 0.01,
-                total: deviation * 0.1 + 0.03,
             }
         }
     }
@@ -114,35 +122,6 @@ mod tests {
             .collect()
     }
 
-    #[test]
-    fn test_evaluate_cached_returns_cached_result() {
-        let photos = create_test_photos(10);
-        let mut evaluator = MockEvaluator { ideal_count: 5 };
-        let mut cache = LayoutCache::new();
-
-        // First call should compute
-        let cost1 = evaluate_cached(&mut evaluator, &mut cache, &photos, 0..5);
-        assert_eq!(cost1.coverage, 0.0); // 5 photos = ideal
-
-        // Second call should return cached
-        let cost2 = evaluate_cached(&mut evaluator, &mut cache, &photos, 0..5);
-        assert_eq!(cost1, cost2);
-        assert_eq!(cache.len(), 1);
-    }
-
-    #[test]
-    fn test_evaluate_cached_computes_different_ranges() {
-        let photos = create_test_photos(10);
-        let mut evaluator = MockEvaluator { ideal_count: 5 };
-        let mut cache = LayoutCache::new();
-
-        let cost1 = evaluate_cached(&mut evaluator, &mut cache, &photos, 0..3);
-        let cost2 = evaluate_cached(&mut evaluator, &mut cache, &photos, 3..8);
-
-        // 3 photos: deviation = 2, coverage = 0.2
-        approx::assert_abs_diff_eq!(cost1.coverage, 0.2, epsilon = 0.001);
-        // 5 photos: deviation = 0, coverage = 0.0
-        approx::assert_abs_diff_eq!(cost2.coverage, 0.0, epsilon = 0.001);
-        assert_eq!(cache.len(), 2);
-    }
+    // Note: evaluate_cached() now takes Canvas + GaConfig and runs real GA,
+    // so we don't test it here with mock evaluator. It's tested via integration tests.
 }

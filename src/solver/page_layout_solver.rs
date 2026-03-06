@@ -13,17 +13,15 @@ mod fitness;
 mod individual;
 mod tree;
 
-pub(super) use evolution::LayoutEvolution;
-pub(super) use fitness::CostBreakdown;
-pub(super) use individual::LayoutIndividual;
+pub use evolution::LayoutEvolution;
+pub use fitness::CostBreakdown;
+pub use individual::LayoutIndividual;
 use tracing::info;
 
 /// Result of a genetic algorithm run for a single page layout.
 #[derive(Debug, Clone)]
-pub(super) struct GaResult {
-    /// The best slicing tree found.
-    pub tree: tree::SlicingTree,
-    /// The corresponding page layout.
+pub struct GaResult {
+    /// The corresponding page layout with photo placements.
     pub layout: crate::models::PageLayout,
     /// The raw fitness value (lower is better).
     pub fitness: f64,
@@ -32,7 +30,7 @@ pub(super) struct GaResult {
 }
 
 /// Entry point for running GA on a single page layout.
-pub(super) fn run_ga(
+pub fn run_ga(
     photos: &[crate::models::Photo],
     canvas: &crate::models::Canvas,
     ga_config: &crate::models::GaConfig,
@@ -70,7 +68,7 @@ pub(super) fn run_ga(
     let best = ga.solve(initial_pop).expect("GA returned no solution");
 
     // Extract results
-    let tree = best.tree().clone();
+    let _tree = best.tree().clone();
     let layout = best.layout().clone();
     let fitness = best.fitness();
 
@@ -82,7 +80,6 @@ pub(super) fn run_ga(
     );
 
     GaResult {
-        tree,
         layout,
         fitness,
         cost_breakdown,
