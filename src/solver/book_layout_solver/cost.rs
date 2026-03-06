@@ -23,7 +23,19 @@ pub struct PageCost {
     pub order: f64,
 }
 
-impl From<CostBreakdown> for PageCost {
+impl From<&CostBreakdown> for PageCost {
+    fn from(breakdown: &CostBreakdown) -> Self {
+        Self {
+            total: breakdown.total,
+            size: breakdown.size,
+            coverage: breakdown.coverage,
+            barycenter: breakdown.barycenter,
+            order: breakdown.order,
+        }
+    }
+}
+
+impl PageCost {
     fn from(breakdown: CostBreakdown) -> Self {
         Self {
             total: breakdown.total,
@@ -239,7 +251,7 @@ mod tests {
             order: 0.1,
         };
 
-        let page_cost: PageCost = breakdown.into();
+        let page_cost: PageCost = (&breakdown).into();
 
         assert_eq!(page_cost.total, 1.0);
         assert_eq!(page_cost.size, 0.5);
