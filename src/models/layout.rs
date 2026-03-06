@@ -78,7 +78,10 @@ impl PageLayout {
 
     /// Returns the total area covered by all photos in mm².
     pub fn total_photo_area(&self) -> f64 {
-        self.placements.iter().map(|p| p.area()).sum()
+        self.placements
+            .iter()
+            .map(|p| (p.x + p.w) * (p.y + p.h))
+            .fold(f64::NEG_INFINITY, f64::max)
     }
 
     /// Returns the coverage ratio (0.0 to 1.0).
