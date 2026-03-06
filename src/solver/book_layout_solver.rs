@@ -6,6 +6,7 @@
 //! - Distribute photos across pages optimally
 //! - Apply page layout solver to each page
 
+mod feasibility;
 mod model;
 
 use super::page_layout_solver::run_ga;
