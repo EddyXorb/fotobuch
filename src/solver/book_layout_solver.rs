@@ -212,4 +212,163 @@ mod tests {
         assert_eq!(book.total_photo_count(), 0);
         assert!(book.is_empty());
     }
+
+    // Integration tests for the new solve() API
+    mod integration {
+        use super::*;
+        use std::time::Duration;
+
+        fn create_test_params() -> Params {
+            Params {
+                photos_per_page_min: 4,
+                photos_per_page_max: 10,
+                page_min: 1,
+                page_max: 5,
+                page_target: 3,
+                group_min_photos: 2,
+                group_max_per_page: 3,
+                weight_even: 1.0,
+                weight_split: 5.0,  // Penalize splits heavily
+                weight_pages: 1.0,
+                search_timeout: Duration::from_millis(100),
+                max_coverage_cost: 0.5,
+            }
+        }
+
+        #[test]
+        fn test_solve_single_group() {
+            // 10 photos in one group
+            let photos: Vec<Photo> = (0..10)
+                .map(|_| Photo::new(1.5, 1.0, "groupA".to_string()))
+                .collect();
+
+            let params = create_test_params();
+            let canvas = Canvas::new(297.0, 210.0, 5.0, 0.0);
+            let ga_config = GaConfig {
+                population: 10,
+                generations: 3,
+                seed: 42,
+                ..GaConfig::default()
+            };
+
+            let result = solve(&photos, &params, &canvas, &ga_config);
+            
+            assert!(result.is_ok());
+            let result = result.unwrap();
+            
+            // Should fit in one or two pages (depending on MIP/local search)
+            assert!(result.assignment.num_pages() >= 1);
+            assert!(result.assignment.num_pages() <= 3);
+            assert_eq!(result.assignment.total_photos(), 10);
+        }
+
+        #[test]
+        fn test_solve_multiple_groups() {
+            // 3 groups with 5 photos each (15 total)
+            let mut photos = Vec::new();
+            for group in &["groupA", "groupB", "groupC"] {
+                for _ in 0..5 {
+                    photos.push(Photo::new(1.5, 1.0, group.to_string()));
+                }
+            }
+
+            let params = create_test_params();
+            let canvas = Canvas::new(297.0, 210.0, 5.0, 0.0);
+            let ga_config = GaConfig {
+                population: 10,
+                generations: 3,
+                seed: 42,
+                ..GaConfig::default()
+            };
+
+            let result = solve(&photos, &params, &canvas, &ga_config);
+            
+            assert!(result.is_ok());
+            let result = result.unwrap();
+            
+            // Should fit reasonably given constraints
+            assert!(result.assignment.num_pages() >= 2);
+            assert!(result.assignment.num_pages() <= 4);
+            assert_eq!(result.assignment.total_photos(), 15);
+            
+            // Check that each page respects size constraints
+            for page_idx in 0..result.assignment.num_pages() {
+                let page_size = result.assignment.page_size(page_idx);
+                assert!(
+                    page_size >= params.photos_per_page_min,
+                    "Page {} has {} photos, min is {}",
+                    page_idx,
+                    page_size,
+                    params.photos_per_page_min
+                );
+                assert!(
+                    page_size <= params.photos_per_page_max,
+                    "Page {} has {} photos, max is {}",
+                    page_idx,
+                    page_size,
+                    params.photos_per_page_max
+                );
+            }
+        }
+
+        #[test]
+        fn test_solve_empty_photos() {
+            let photos: Vec<Photo> = vec![];
+            let params = create_test_params();
+            let canvas = Canvas::new(297.0, 210.0, 5.0, 0.0);
+            let ga_config = GaConfig::default();
+
+            let result = solve(&photos, &params, &canvas, &ga_config);
+            
+            assert!(result.is_err());
+            assert!(matches!(result.unwrap_err(), SolverError::EmptyInput));
+        }
+
+        #[test]
+        fn test_solve_infeasible_params() {
+            // 20 photos, but params require at least 50 capacity
+            let photos: Vec<Photo> = (0..20)
+                .map(|_| Photo::new(1.5, 1.0, "groupA".to_string()))
+                .collect();
+
+            let mut params = create_test_params();
+            params.page_min = 5;
+            params.page_max = 10;
+            params.photos_per_page_min = 10;
+            params.photos_per_page_max = 20;
+            // min capacity = 5 * 10 = 50, but we only have 20 photos
+
+            let canvas = Canvas::new(297.0, 210.0, 5.0, 0.0);
+            let ga_config = GaConfig::default();
+
+            let result = solve(&photos, &params, &canvas, &ga_config);
+            
+            assert!(result.is_err());
+            assert!(matches!(
+                result.unwrap_err(),
+                SolverError::InvalidParams(_)
+            ));
+        }
+
+        #[test]
+        fn test_solve_iterations_tracked() {
+            let photos: Vec<Photo> = (0..12)
+                .map(|_| Photo::new(1.5, 1.0, "groupA".to_string()))
+                .collect();
+
+            let params = create_test_params();
+            let canvas = Canvas::new(297.0, 210.0, 5.0, 0.0);
+            let ga_config = GaConfig {
+                population: 10,
+                generations: 3,
+                seed: 42,
+                ..GaConfig::default()
+            };
+
+            let result = solve(&photos, &params, &canvas, &ga_config).unwrap();
+            
+            // Local search should have run at least one iteration
+            assert!(result.iterations > 0);
+        }
+    }
 }
