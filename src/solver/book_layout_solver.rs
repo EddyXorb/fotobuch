@@ -9,6 +9,7 @@
 mod cache;
 mod cost;
 mod feasibility;
+mod local_search;
 mod mip;
 mod model;
 
