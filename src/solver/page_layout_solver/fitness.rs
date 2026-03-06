@@ -292,13 +292,13 @@ mod tests {
         // Photo gets only 40% of target (2000 vs 10000)
         // s_i = 2000/10000 = 0.2
         // t_i = 1.0
-        // s_i/t_i = 0.2 < 0.5 → k_i = 5
-        // cost = 5 * (0.2 - 1.0)² = 5 * 0.64 = 3.2
+        // s_i/t_i = 0.2 < 0.5 → k_i = 50
+        // cost = 50 * (0.2 - 1.0)² = 50 * 0.64 = 32.0
         let placements = vec![PhotoPlacement::new(0, 0.0, 0.0, 20.0, 100.0)];
         let layout = PageLayout::new(placements, canvas);
 
         let cost = cost_size_distribution(&layout, &photos);
-        assert_relative_eq!(cost, 3.2, epsilon = 1e-6);
+        assert_relative_eq!(cost, 32.0, epsilon = 1e-6);
     }
 
     #[test]
