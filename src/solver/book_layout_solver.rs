@@ -6,6 +6,7 @@
 //! - Distribute photos across pages optimally
 //! - Apply page layout solver to each page
 
+mod cache;
 mod cost;
 mod feasibility;
 mod model;
