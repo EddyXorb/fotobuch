@@ -1,10 +1,15 @@
 //! Book layout solver that distributes photos across multiple pages.
 //!
-//! This module will eventually implement logic to:
-//! - Group photos by lexicographic ordering of groups
-//! - Sort photos within groups by timestamp
-//! - Distribute photos across pages optimally
-//! - Apply page layout solver to each page
+//! This module implements a two-phase approach for book layout optimization:
+//! 1. **MIP Phase**: Use Mixed Integer Programming to find a feasible initial
+//!    assignment of photos to pages, respecting group constraints.
+//! 2. **Local Search Phase**: Refine the assignment using Variable Neighborhood
+//!    Search (VNS) to improve coverage and balance.
+//!
+//! The module provides:
+//! - High-level `solve()` API for complete book layout optimization
+//! - `GaPageLayoutEvaluator` to connect single-page GA solver to book solver
+//! - Internal modules for MIP, local search, feasibility checking, and caching
 
 mod cache;
 mod cost;
@@ -13,10 +18,119 @@ mod local_search;
 mod mip;
 mod model;
 
+// Re-export public types
+pub use model::{GroupInfo, PageAssignment, Params, ValidationError};
+pub use local_search::PageLayoutEvaluator;
+
 use super::page_layout_solver::run_ga;
 use crate::models::{BookLayout, Canvas, GaConfig, Photo};
+use cost::{AssignmentCost, PageCost};
+use thiserror::Error;
 
-/// Solves the book layout problem by distributing photos across pages.
+/// Error type for book layout solver.
+#[derive(Debug, Error)]
+pub enum SolverError {
+    #[error("Parameter validation failed: {0}")]
+    InvalidParams(#[from] ValidationError),
+
+    #[error("MIP solver failed: {0}")]
+    MipFailed(#[from] mip::MipError),
+
+    #[error("No photos provided")]
+    EmptyInput,
+}
+
+/// Result of the book layout solver.
+#[derive(Debug, Clone)]
+pub struct SolverResult {
+    /// The final page assignment (cut points).
+    pub assignment: PageAssignment,
+    /// Cost breakdown for the assignment.
+    pub cost: AssignmentCost,
+    /// Number of local search iterations performed.
+    pub iterations: usize,
+    /// Number of cache hits during evaluation.
+    pub cache_hits: usize,
+}
+
+/// Evaluator that uses the GA-based page layout solver.
+///
+/// This adapter connects the single-page GA solver (`page_layout_solver::run_ga`)
+/// to the book layout solver's `PageLayoutEvaluator` trait.
+struct GaPageLayoutEvaluator<'a> {
+    canvas: &'a Canvas,
+    ga_config: &'a GaConfig,
+}
+
+impl PageLayoutEvaluator for GaPageLayoutEvaluator<'_> {
+    fn evaluate(&mut self, photos: &[Photo]) -> PageCost {
+        let result = run_ga(photos, self.canvas, self.ga_config);
+        
+        // Convert CostBreakdown to PageCost
+        PageCost::from(&result.cost_breakdown)
+    }
+}
+
+/// Solves the book layout problem using MIP + local search.
+///
+/// # Algorithm
+/// 1. Validate parameters
+/// 2. Build GroupInfo from photos
+/// 3. Run MIP solver to get initial feasible assignment
+/// 4. Run local search to refine the assignment
+/// 5. Return optimized assignment with cost
+///
+/// # Arguments
+/// * `photos` - All photos to layout (must be sorted by group then timestamp)
+/// * `params` - Solver parameters
+/// * `canvas` - Canvas configuration for page layouts
+/// * `ga_config` - GA configuration for single-page solver
+///
+/// # Returns
+/// `SolverResult` with optimized assignment and cost, or `SolverError`.
+pub fn solve(
+    photos: &[Photo],
+    params: &Params,
+    canvas: &Canvas,
+    ga_config: &GaConfig,
+) -> Result<SolverResult, SolverError> {
+    // Handle empty input
+    if photos.is_empty() {
+        return Err(SolverError::EmptyInput);
+    }
+
+    // Validate parameters
+    params.validate(photos.len())?;
+
+    // Build group information from photos
+    let groups = GroupInfo::from_photos(photos);
+
+    // Phase 1: MIP solver for initial assignment
+    let initial_assignment = mip::solve_mip(&groups, params)?;
+
+    // Phase 2: Local search refinement
+    let mut evaluator = GaPageLayoutEvaluator { canvas, ga_config };
+    
+    let (final_assignment, cost, iterations) = local_search::improve(
+        initial_assignment,
+        photos,
+        &groups,
+        params,
+        &mut evaluator,
+    );
+
+    Ok(SolverResult {
+        assignment: final_assignment,
+        cost,
+        iterations,
+        cache_hits: 0, // TODO: Track cache hits if needed
+    })
+}
+
+/// Legacy entry point for backward compatibility.
+///
+/// This function maintains the old single-page stub behavior for now.
+/// Future versions will use the new `solve()` function above.
 ///
 /// Currently, this is a stub implementation that places all photos on a single page.
 /// Future versions will implement intelligent photo distribution based on:

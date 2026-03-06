@@ -10,6 +10,7 @@
 use std::ops::Range;
 use std::time::Duration;
 use thiserror::Error;
+use crate::models::Photo;
 
 /// Configuration parameters for the book layout solver.
 ///
@@ -194,6 +195,45 @@ impl GroupInfo {
             })
             .collect();
         Self { group_ends }
+    }
+
+    /// Creates a `GroupInfo` from a slice of photos.
+    ///
+    /// Groups photos by their `group` field, counting consecutive photos
+    /// with the same group identifier. Photos must be pre-sorted by group.
+    ///
+    /// # Arguments
+    ///
+    /// * `photos` - Photos sorted by group (and optionally by timestamp within group)
+    ///
+    /// # Returns
+    ///
+    /// A new `GroupInfo` with cumulative group sizes.
+    pub fn from_photos(photos: &[Photo]) -> Self {
+        if photos.is_empty() {
+            return Self {
+                group_ends: vec![],
+            };
+        }
+
+        let mut group_sizes = Vec::new();
+        let mut current_group = &photos[0].group;
+        let mut current_count = 0;
+
+        for photo in photos {
+            if &photo.group == current_group {
+                current_count += 1;
+            } else {
+                group_sizes.push(current_count);
+                current_group = &photo.group;
+                current_count = 1;
+            }
+        }
+        
+        // Push the last group
+        group_sizes.push(current_count);
+
+        Self::new(&group_sizes)
     }
 
     /// Returns the number of groups.
@@ -549,6 +589,39 @@ mod tests {
         assert_eq!(group_info.group_range(0), 0..3);
         assert_eq!(group_info.group_range(1), 3..8);
         assert_eq!(group_info.group_range(2), 8..10);
+    }
+
+    #[test]
+    fn test_group_info_from_photos() {
+        let photos = vec![
+            Photo::new(1.5, 1.0, "groupA".to_string()),
+            Photo::new(1.5, 1.0, "groupA".to_string()),
+            Photo::new(1.5, 1.0, "groupA".to_string()),
+            Photo::new(1.5, 1.0, "groupB".to_string()),
+            Photo::new(1.5, 1.0, "groupB".to_string()),
+            Photo::new(1.5, 1.0, "groupB".to_string()),
+            Photo::new(1.5, 1.0, "groupB".to_string()),
+            Photo::new(1.5, 1.0, "groupB".to_string()),
+            Photo::new(1.5, 1.0, "groupC".to_string()),
+            Photo::new(1.5, 1.0, "groupC".to_string()),
+        ];
+
+        let group_info = GroupInfo::from_photos(&photos);
+        
+        assert_eq!(group_info.num_groups(), 3);
+        assert_eq!(group_info.group_size(0), 3);
+        assert_eq!(group_info.group_size(1), 5);
+        assert_eq!(group_info.group_size(2), 2);
+        assert_eq!(group_info.total_photos(), 10);
+    }
+
+    #[test]
+    fn test_group_info_from_photos_empty() {
+        let photos: Vec<Photo> = vec![];
+        let group_info = GroupInfo::from_photos(&photos);
+        
+        assert_eq!(group_info.num_groups(), 0);
+        assert_eq!(group_info.total_photos(), 0);
     }
 
     #[test]
