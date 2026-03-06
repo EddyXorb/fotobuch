@@ -8,11 +8,9 @@
 //!
 //! The module provides:
 //! - High-level `solve()` API for complete book layout optimization
-//! - `GaPageLayoutEvaluator` to connect single-page GA solver to book solver
 //! - Internal modules for MIP, local search, feasibility checking, and caching
 
 mod cache;
-mod cost;
 mod feasibility;
 mod local_search;
 mod mip;
@@ -22,9 +20,8 @@ mod model;
 pub use model::{GroupInfo, PageAssignment, Params, ValidationError};
 pub use local_search::PageLayoutEvaluator;
 
-use super::page_layout_solver::run_ga;
 use crate::models::{BookLayout, Canvas, GaConfig, Photo};
-use cost::{AssignmentCost, PageCost};
+use crate::solver::page_layout_solver::{self, CostBreakdown};
 use thiserror::Error;
 
 /// Error type for book layout solver.
@@ -45,29 +42,50 @@ pub enum SolverError {
 pub struct SolverResult {
     /// The final page assignment (cut points).
     pub assignment: PageAssignment,
-    /// Cost breakdown for the assignment.
-    pub cost: AssignmentCost,
+    /// Worst coverage value across all pages in the final assignment.
+    pub worst_coverage: f64,
     /// Number of local search iterations performed.
     pub iterations: usize,
-    /// Number of cache hits during evaluation.
-    pub cache_hits: usize,
 }
 
-/// Evaluator that uses the GA-based page layout solver.
+/// Evaluator that uses the GA-based page layout solver with internal caching.
 ///
-/// This adapter connects the single-page GA solver (`page_layout_solver::run_ga`)
-/// to the book layout solver's `PageLayoutEvaluator` trait.
-struct GaPageLayoutEvaluator<'a> {
+/// This adapter connects the single-page GA solver to the book layout solver's
+/// `PageLayoutEvaluator` trait. It maintains an internal cache to avoid redundant
+/// GA runs for the same photo ranges.
+struct RealPageEvaluator<'a> {
     canvas: &'a Canvas,
     ga_config: &'a GaConfig,
+    cache: cache::LayoutCache,
 }
 
-impl PageLayoutEvaluator for GaPageLayoutEvaluator<'_> {
-    fn evaluate(&mut self, photos: &[Photo]) -> PageCost {
-        let result = run_ga(photos, self.canvas, self.ga_config);
+impl<'a> RealPageEvaluator<'a> {
+    fn new(canvas: &'a Canvas, ga_config: &'a GaConfig) -> Self {
+        Self {
+            canvas,
+            ga_config,
+            cache: cache::LayoutCache::new(),
+        }
+    }
+}
+
+impl PageLayoutEvaluator for RealPageEvaluator<'_> {
+    fn evaluate(&mut self, photos: &[Photo]) -> CostBreakdown {
+        let range = 0..photos.len();
         
-        // Convert CostBreakdown to PageCost
-        PageCost::from(&result.cost_breakdown)
+        // Check cache
+        if let Some(result) = self.cache.get(range.clone()) {
+            return result.cost_breakdown.clone();
+        }
+        
+        // Run GA
+        let result = page_layout_solver::run_ga(photos, self.canvas, self.ga_config);
+        let breakdown = result.cost_breakdown.clone();
+        
+        // Cache result
+        self.cache.insert_if_better(range, result);
+        
+        breakdown
     }
 }
 
@@ -78,7 +96,7 @@ impl PageLayoutEvaluator for GaPageLayoutEvaluator<'_> {
 /// 2. Build GroupInfo from photos
 /// 3. Run MIP solver to get initial feasible assignment
 /// 4. Run local search to refine the assignment
-/// 5. Return optimized assignment with cost
+/// 5. Return optimized assignment with quality metrics
 ///
 /// # Arguments
 /// * `photos` - All photos to layout (must be sorted by group then timestamp)
@@ -87,7 +105,7 @@ impl PageLayoutEvaluator for GaPageLayoutEvaluator<'_> {
 /// * `ga_config` - GA configuration for single-page solver
 ///
 /// # Returns
-/// `SolverResult` with optimized assignment and cost, or `SolverError`.
+/// `SolverResult` with optimized assignment and quality metrics, or `SolverError`.
 pub fn solve(
     photos: &[Photo],
     params: &Params,
@@ -109,9 +127,9 @@ pub fn solve(
     let initial_assignment = mip::solve_mip(&groups, params)?;
 
     // Phase 2: Local search refinement
-    let mut evaluator = GaPageLayoutEvaluator { canvas, ga_config };
+    let mut evaluator = RealPageEvaluator::new(canvas, ga_config);
     
-    let (final_assignment, cost, iterations) = local_search::improve(
+    let (final_assignment, worst_coverage, iterations) = local_search::improve(
         initial_assignment,
         photos,
         &groups,
@@ -121,9 +139,8 @@ pub fn solve(
 
     Ok(SolverResult {
         assignment: final_assignment,
-        cost,
+        worst_coverage,
         iterations,
-        cache_hits: 0, // TODO: Track cache hits if needed
     })
 }
 
@@ -158,12 +175,13 @@ pub(crate) fn solve_book_layout(
     }
 
     // Current stub implementation: place all photos on a single page
-    let ga_result = run_ga(photos, canvas, ga_config);
+    let ga_result = page_layout_solver::run_ga(photos, canvas, ga_config);
 
     let centered_page = ga_result.layout.centered();
 
     BookLayout::single_page(centered_page)
 }
+
 
 #[cfg(test)]
 mod tests {

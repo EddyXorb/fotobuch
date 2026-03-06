@@ -1,11 +1,11 @@
 //! Improvement algorithm for local search.
 
 use super::super::cache::LayoutCache;
-use super::super::cost::{AssignmentCost, PageCost};
 use super::super::model::{GroupInfo, PageAssignment, Params};
 use super::perturbation::{max_perturbation_delta, try_perturbation};
-use super::{evaluate_cached, PageLayoutEvaluator};
+use super::PageLayoutEvaluator;
 use crate::models::Photo;
+use crate::solver::page_layout_solver::CostBreakdown;
 use std::time::Instant;
 
 /// Improves a page assignment using variable neighborhood search.
@@ -18,20 +18,23 @@ use std::time::Instant;
 ///    c. Try perturbations with increasing |delta|
 ///    d. Accept first improving move
 /// 3. Return best assignment found
+///
+/// # Returns
+/// Tuple: (improved assignment, worst coverage value, iteration count)
 pub fn improve(
     mut assignment: PageAssignment,
     photos: &[Photo],
     groups: &GroupInfo,
     params: &Params,
     evaluator: &mut impl PageLayoutEvaluator,
-) -> (PageAssignment, AssignmentCost, usize) {
+) -> (PageAssignment, f64, usize) {
     let mut cache = LayoutCache::new();
     let deadline = Instant::now() + params.search_timeout;
     let max_delta = max_perturbation_delta(params);
     let mut iterations = 0;
 
-    // 1. Compute initial costs
-    let mut current_cost = compute_assignment_cost(&assignment, photos, &mut cache, evaluator);
+    // 1. Compute initial worst coverage
+    let mut current_worst = compute_worst_coverage(&assignment, photos, &mut cache, evaluator);
 
     loop {
         iterations += 1;
@@ -64,19 +67,18 @@ pub fn improve(
                         groups,
                         params,
                     ) {
-                        // Evaluate affected pages (indices cut_index and cut_index + 1)
-                        // Only re-evaluate pages that changed
-                        let new_cost = compute_assignment_cost(
+                        // Evaluate new assignment
+                        let new_worst = compute_worst_coverage(
                             &new_assignment,
                             photos,
                             &mut cache,
                             evaluator,
                         );
 
-                        // Accept if better
-                        if new_cost < current_cost {
+                        // Accept if better (lower worst coverage)
+                        if new_worst < current_worst {
                             assignment = new_assignment;
-                            current_cost = new_cost;
+                            current_worst = new_worst;
                             improved = true;
                             break; // Try next candidate
                         }
@@ -99,24 +101,49 @@ pub fn improve(
         }
     }
 
-    (assignment, current_cost, iterations)
+    (assignment, current_worst, iterations)
 }
 
-/// Computes the assignment cost by evaluating all pages.
-fn compute_assignment_cost(
+/// Computes the worst coverage value across all pages.
+fn compute_worst_coverage(
     assignment: &PageAssignment,
     photos: &[Photo],
     cache: &mut LayoutCache,
     evaluator: &mut impl PageLayoutEvaluator,
-) -> AssignmentCost {
-    let page_costs: Vec<PageCost> = (0..assignment.num_pages())
+) -> f64 {
+    let breakdowns: Vec<CostBreakdown> = (0..assignment.num_pages())
         .map(|page_idx| {
             let range = assignment.page_range(page_idx);
-            evaluate_cached(evaluator, cache, photos, range)
+            evaluate_page(evaluator, cache, photos, range)
         })
         .collect();
 
-    AssignmentCost::from_page_costs(page_costs)
+    breakdowns
+        .iter()
+        .map(|b| b.coverage)
+        .max_by(|a, b| a.partial_cmp(b).unwrap())
+        .unwrap_or(0.0)
+}
+
+/// Evaluates a single page using the evaluator and cache.
+fn evaluate_page(
+    evaluator: &mut impl PageLayoutEvaluator,
+    cache: &mut LayoutCache,
+    photos: &[Photo],
+    range: std::ops::Range<usize>,
+) -> CostBreakdown {
+    // Check cache first
+    if let Some(result) = cache.get(range.clone()) {
+        return result.cost_breakdown.clone();
+    }
+    
+    // Evaluate using trait
+    
+    
+    // For mock evaluator, we can't cache GaResult (no tree/layout available)
+    // So we skip caching here. In production, RealPageEvaluator does its own caching.
+    
+    evaluator.evaluate(&photos[range.clone()])
 }
 
 /// Identifies candidate cuts for perturbation.
@@ -138,10 +165,10 @@ fn find_candidate_cuts(
     let mut candidates: Vec<(usize, f64)> = Vec::new();
 
     // Evaluate all pages
-    let page_costs: Vec<PageCost> = (0..num_pages)
+    let breakdowns: Vec<CostBreakdown> = (0..num_pages)
         .map(|page_idx| {
             let range = assignment.page_range(page_idx);
-            evaluate_cached(evaluator, cache, photos, range)
+            evaluate_page(evaluator, cache, photos, range)
         })
         .collect();
 
@@ -151,8 +178,8 @@ fn find_candidate_cuts(
         let page_before = cut_index - 1;
         let page_after = cut_index.min(num_pages - 1);
 
-        let coverage_before = page_costs[page_before].coverage;
-        let coverage_after = page_costs[page_after].coverage;
+        let coverage_before = breakdowns[page_before].coverage;
+        let coverage_after = breakdowns[page_after].coverage;
 
         let max_coverage = coverage_before.max(coverage_after);
 
@@ -172,6 +199,7 @@ fn find_candidate_cuts(
 mod tests {
     use super::*;
     use crate::models::Photo;
+    use crate::solver::page_layout_solver::CostBreakdown;
     use std::time::Duration;
 
     /// Mock evaluator that returns coverage based on deviation from ideal count.
@@ -180,15 +208,16 @@ mod tests {
     }
 
     impl PageLayoutEvaluator for MockEvaluator {
-        fn evaluate(&mut self, photos: &[Photo]) -> PageCost {
+        fn evaluate(&mut self, photos: &[Photo]) -> CostBreakdown {
             let count = photos.len();
             let deviation = (count as i32 - self.ideal_count as i32).abs() as f64;
-            PageCost {
-                coverage: deviation * 0.2, // Higher weight for testing
+            let coverage = deviation * 0.2; // Higher weight for testing
+            CostBreakdown {
+                total: coverage + 0.03,
+                size: 0.01,
+                coverage,
                 barycenter: 0.01,
                 order: 0.01,
-                size: 0.01,
-                total: deviation * 0.2 + 0.03,
             }
         }
     }
@@ -236,7 +265,7 @@ mod tests {
         // Ideal would be 6 photos per page for 2 pages [0, 6, 12]
         let initial = PageAssignment::new(vec![0, 4, 8, 12]);
 
-        let (improved, cost, iterations) = improve(
+        let (improved, worst_coverage, iterations) = improve(
             initial.clone(),
             &photos,
             &groups,
@@ -254,7 +283,7 @@ mod tests {
         // If it improves, great. If not, that's also OK since coverage is below threshold
         println!("Initial assignment: {:?}", initial.cuts());
         println!("Improved assignment: {:?}", improved.cuts());
-        println!("Worst coverage: {}", cost.worst);
+        println!("Worst coverage: {}", worst_coverage);
         println!("Iterations: {}", iterations);
     }
 
@@ -263,13 +292,13 @@ mod tests {
         let photos = create_test_photos(12);
         let groups = create_test_groups();
         let mut params = create_test_params();
-        params.search_timeout = Duration::from_millis(1); // Very short timeout
+        params.search_timeout = Duration::from_millis(1); //Very short timeout
         let mut evaluator = MockEvaluator { ideal_count: 6 };
 
         let initial = PageAssignment::new(vec![0, 4, 8, 12]);
 
         let start = Instant::now();
-        let (_improved, _cost, _iterations) = improve(
+        let (_improved, _worst_coverage, _iterations) = improve(
             initial,
             &photos,
             &groups,
@@ -292,7 +321,7 @@ mod tests {
         // Already optimal: 2 pages of 6 photos each
         let initial = PageAssignment::new(vec![0, 6, 12]);
 
-        let (improved, cost, iterations) = improve(
+        let (improved, worst_coverage, iterations) = improve(
             initial.clone(),
             &photos,
             &groups,
@@ -303,7 +332,7 @@ mod tests {
         // Should recognize it's already good and stop quickly
         assert_eq!(improved.cuts(), initial.cuts());
         assert!(iterations <= 2, "Should stop quickly when optimal");
-        approx::assert_abs_diff_eq!(cost.worst, 0.0, epsilon = 0.01);
+        approx::assert_abs_diff_eq!(worst_coverage, 0.0, epsilon = 0.01);
     }
 
     #[test]
