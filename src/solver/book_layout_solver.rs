@@ -37,9 +37,9 @@ pub(crate) fn solve_book_layout(
     }
 
     // Current stub implementation: place all photos on a single page
-    let (_tree, page_layout, _fitness) = run_ga(photos, canvas, ga_config);
+    let ga_result = run_ga(photos, canvas, ga_config);
 
-    let centered_page = page_layout.centered();
+    let centered_page = ga_result.layout.centered();
 
     BookLayout::single_page(centered_page)
 }

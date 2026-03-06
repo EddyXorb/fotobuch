@@ -9,6 +9,7 @@ const UNDERSIZED_THRESHOLD: f64 = 0.5;
 const UNDERSIZED_PENALTY_MULTIPLIER: f64 = 50.0;
 
 /// Breakdown of individual fitness cost components.
+#[derive(Debug, Clone)]
 pub struct CostBreakdown {
     pub size: f64,
     pub coverage: f64,

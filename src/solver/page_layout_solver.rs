@@ -14,15 +14,29 @@ mod individual;
 mod tree;
 
 pub(super) use evolution::LayoutEvolution;
+pub(super) use fitness::CostBreakdown;
 pub(super) use individual::LayoutIndividual;
 use tracing::info;
+
+/// Result of a genetic algorithm run for a single page layout.
+#[derive(Debug, Clone)]
+pub(super) struct GaResult {
+    /// The best slicing tree found.
+    pub tree: tree::SlicingTree,
+    /// The corresponding page layout.
+    pub layout: crate::models::PageLayout,
+    /// The raw fitness value (lower is better).
+    pub fitness: f64,
+    /// Detailed breakdown of fitness cost components.
+    pub cost_breakdown: CostBreakdown,
+}
 
 /// Entry point for running GA on a single page layout.
 pub(super) fn run_ga(
     photos: &[crate::models::Photo],
     canvas: &crate::models::Canvas,
     ga_config: &crate::models::GaConfig,
-) -> (tree::SlicingTree, crate::models::PageLayout, f64) {
+) -> GaResult {
     use crate::solver::ga_solver::{Config, GeneticAlgorithm, Individual};
 
     // Create evaluation context
@@ -61,13 +75,18 @@ pub(super) fn run_ga(
     let fitness = best.fitness();
 
     // Log cost breakdown
-    let breakdown = fitness::cost_breakdown(&layout, photos, canvas, &ga_config.weights);
+    let cost_breakdown = fitness::cost_breakdown(&layout, photos, canvas, &ga_config.weights);
     info!(
         "Finished layout for one page. Fitness: total={:.4}  size={:.4}  coverage={:.4}  bary={:.4}  order={:.4}",
-        breakdown.total, breakdown.size, breakdown.coverage, breakdown.barycenter, breakdown.order
+        cost_breakdown.total, cost_breakdown.size, cost_breakdown.coverage, cost_breakdown.barycenter, cost_breakdown.order
     );
 
-    (tree, layout, fitness)
+    GaResult {
+        tree,
+        layout,
+        fitness,
+        cost_breakdown,
+    }
 }
 
 /// Creates initial population of random layouts.
