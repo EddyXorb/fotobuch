@@ -17,7 +17,7 @@ mod mip;
 mod model;
 
 // Re-export public types
-pub use model::{GroupInfo, PageAssignment, Params, ValidationError};
+pub use model::{GroupInfo, Params, ValidationError};
 pub use local_search::PageLayoutEvaluator;
 
 use crate::models::{BookLayout, Canvas, GaConfig, Photo};
@@ -32,20 +32,6 @@ pub enum SolverError {
 
     #[error("MIP solver failed: {0}")]
     MipFailed(#[from] mip::MipError),
-
-    #[error("No photos provided")]
-    EmptyInput,
-}
-
-/// Result of the book layout solver.
-#[derive(Debug, Clone)]
-pub struct SolverResult {
-    /// The final page assignment (cut points).
-    pub assignment: PageAssignment,
-    /// Worst coverage value across all pages in the final assignment.
-    pub worst_coverage: f64,
-    /// Number of local search iterations performed.
-    pub iterations: usize,
 }
 
 /// Evaluator that uses the GA-based page layout solver with internal caching.
@@ -66,6 +52,14 @@ impl<'a> RealPageEvaluator<'a> {
             ga_config,
             cache: cache::LayoutCache::new(),
         }
+    }
+
+    /// Gets the cached layout for a set of photos.
+    /// 
+    /// Returns None if the photos are not in the cache.
+    fn get_cached_layout(&self, photos: &[Photo]) -> Option<crate::models::PageLayout> {
+        let range = 0..photos.len();
+        self.cache.get(range).map(|result| result.layout.clone())
     }
 }
 
@@ -96,7 +90,7 @@ impl PageLayoutEvaluator for RealPageEvaluator<'_> {
 /// 2. Build GroupInfo from photos
 /// 3. Run MIP solver to get initial feasible assignment
 /// 4. Run local search to refine the assignment
-/// 5. Return optimized assignment with quality metrics
+/// 5. Collect layouts from cache and build BookLayout
 ///
 /// # Arguments
 /// * `photos` - All photos to layout (must be sorted by group then timestamp)
@@ -105,16 +99,16 @@ impl PageLayoutEvaluator for RealPageEvaluator<'_> {
 /// * `ga_config` - GA configuration for single-page solver
 ///
 /// # Returns
-/// `SolverResult` with optimized assignment and quality metrics, or `SolverError`.
+/// `BookLayout` with optimized page layouts, or `SolverError`.
 pub fn solve(
     photos: &[Photo],
     params: &Params,
     canvas: &Canvas,
     ga_config: &GaConfig,
-) -> Result<SolverResult, SolverError> {
+) -> Result<BookLayout, SolverError> {
     // Handle empty input
     if photos.is_empty() {
-        return Err(SolverError::EmptyInput);
+        return Ok(BookLayout::new(vec![]));
     }
 
     // Validate parameters
@@ -129,7 +123,7 @@ pub fn solve(
     // Phase 2: Local search refinement
     let mut evaluator = RealPageEvaluator::new(canvas, ga_config);
     
-    let (final_assignment, worst_coverage, iterations) = local_search::improve(
+    let (final_assignment, _worst_coverage, _iterations) = local_search::improve(
         initial_assignment,
         photos,
         &groups,
@@ -137,11 +131,15 @@ pub fn solve(
         &mut evaluator,
     );
 
-    Ok(SolverResult {
-        assignment: final_assignment,
-        worst_coverage,
-        iterations,
-    })
+    // Phase 3: Build BookLayout from cached results
+    let page_layouts: Vec<crate::models::PageLayout> = (0..final_assignment.num_pages())
+        .filter_map(|page_idx| {
+            let range = final_assignment.page_range(page_idx);
+            evaluator.get_cached_layout(&photos[range]).map(|layout| layout.centered())
+        })
+        .collect();
+
+    Ok(BookLayout::new(page_layouts))
 }
 
 /// Legacy entry point for backward compatibility.
@@ -269,15 +267,12 @@ mod tests {
                 ..GaConfig::default()
             };
 
-            let result = solve(&photos, &params, &canvas, &ga_config);
-            
-            assert!(result.is_ok());
-            let result = result.unwrap();
+            let book = solve(&photos, &params, &canvas, &ga_config).unwrap();
             
             // Should fit in one or two pages (depending on MIP/local search)
-            assert!(result.assignment.num_pages() >= 1);
-            assert!(result.assignment.num_pages() <= 3);
-            assert_eq!(result.assignment.total_photos(), 10);
+            assert!(book.page_count() >= 1);
+            assert!(book.page_count() <= 3);
+            assert_eq!(book.total_photo_count(), 10);
         }
 
         #[test]
@@ -299,19 +294,16 @@ mod tests {
                 ..GaConfig::default()
             };
 
-            let result = solve(&photos, &params, &canvas, &ga_config);
-            
-            assert!(result.is_ok());
-            let result = result.unwrap();
+            let book = solve(&photos, &params, &canvas, &ga_config).unwrap();
             
             // Should fit reasonably given constraints
-            assert!(result.assignment.num_pages() >= 2);
-            assert!(result.assignment.num_pages() <= 4);
-            assert_eq!(result.assignment.total_photos(), 15);
+            assert!(book.page_count() >= 2);
+            assert!(book.page_count() <= 4);
+            assert_eq!(book.total_photo_count(), 15);
             
             // Check that each page respects size constraints
-            for page_idx in 0..result.assignment.num_pages() {
-                let page_size = result.assignment.page_size(page_idx);
+            for (page_idx, page) in book.pages.iter().enumerate() {
+                let page_size = page.placements.len();
                 assert!(
                     page_size >= params.photos_per_page_min,
                     "Page {} has {} photos, min is {}",
@@ -336,10 +328,10 @@ mod tests {
             let canvas = Canvas::new(297.0, 210.0, 5.0, 0.0);
             let ga_config = GaConfig::default();
 
-            let result = solve(&photos, &params, &canvas, &ga_config);
+            let book = solve(&photos, &params, &canvas, &ga_config).unwrap();
             
-            assert!(result.is_err());
-            assert!(matches!(result.unwrap_err(), SolverError::EmptyInput));
+            assert_eq!(book.page_count(), 0);
+            assert!(book.is_empty());
         }
 
         #[test]
@@ -369,7 +361,7 @@ mod tests {
         }
 
         #[test]
-        fn test_solve_iterations_tracked() {
+        fn test_solve_success_with_valid_params() {
             let photos: Vec<Photo> = (0..12)
                 .map(|_| Photo::new(1.5, 1.0, "groupA".to_string()))
                 .collect();
@@ -383,10 +375,12 @@ mod tests {
                 ..GaConfig::default()
             };
 
-            let result = solve(&photos, &params, &canvas, &ga_config).unwrap();
+            let book = solve(&photos, &params, &canvas, &ga_config).unwrap();
             
-            // Local search should have run at least one iteration
-            assert!(result.iterations > 0);
+            // Should have created a valid book layout
+            assert!(book.page_count() > 0);
+            assert_eq!(book.total_photo_count(), 12);
+            assert!(!book.is_empty());
         }
     }
 }
