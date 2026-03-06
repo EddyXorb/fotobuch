@@ -6,6 +6,8 @@
 //! - Distribute photos across pages optimally
 //! - Apply page layout solver to each page
 
+mod model;
+
 use super::page_layout_solver::run_ga;
 use crate::models::{BookLayout, Canvas, GaConfig, Photo};
 
