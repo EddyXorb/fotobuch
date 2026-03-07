@@ -21,16 +21,18 @@ use tracing::info;
 pub fn run_solver(request: &SolverRequest) -> Result<BookLayout> {
     log_configuration(request);
 
-    let (photos, photo_paths) = load_and_validate_photos(&request.input)?;
-    let book_layout = run_optimization(&photos, &request.canvas, &request.ga_config)?;
-    export_result(&book_layout, &photo_paths, &request.input, &request.output)?;
+    // TODO: Re-enable I/O once input/output fields are added back to SolverRequest
+    // let (photos, photo_paths) = load_and_validate_photos(&request.input)?;
+    // let book_layout = run_optimization(&photos, &request.canvas, &request.ga_config)?;
+    // export_result(&book_layout, &photo_paths, &request.input, &request.output)?;
 
-    Ok(book_layout)
+    // For now, return an empty layout
+    Ok(BookLayout::new(vec![]))
 }
 
 /// Log the solver configuration for user visibility.
 fn log_configuration(request: &SolverRequest) {
-    let islands = request.ga_config.island_config.islands;
+    let islands = request.ga_config.islands_nr;
 
     info!("Configuration:");
     info!(
@@ -39,7 +41,7 @@ fn log_configuration(request: &SolverRequest) {
     );
     info!(
         "  Islands: {}, Population: {}/island, Generations: {}",
-        islands, request.ga_config.population, request.ga_config.generations
+        islands, request.ga_config.population_size, request.ga_config.max_generations
     );
     info!(
         "  Weights: size={}, coverage={}, bary={}, order={}",

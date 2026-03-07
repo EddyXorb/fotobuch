@@ -42,24 +42,25 @@ pub fn run_ga(
     let context = evolution::EvaluationContext::new(photos, canvas, &ga_config.weights);
 
     // Create initial population
-    let initial_pop = create_initial_population(&context, ga_config.population, ga_config.seed);
+    let initial_pop = create_initial_population(&context, ga_config.population_size, ga_config.seed);
 
     // Create GA configuration
     let config = Config {
-        population: ga_config.population,
-        generations: ga_config.generations,
-        elitism_ratio: ga_config.elitism_ratio,
-        timeout: ga_config.timeout,
+        population: ga_config.population_size,
+        generations: ga_config.max_generations,
+        elitism_ratio: ga_config.elite_count as f64 / ga_config.population_size as f64,
+        timeout: None, // TODO: Add timeout to dto_models::GaConfig
         no_improvement_limit: ga_config.no_improvement_limit,
-        islands: ga_config.island_config.islands,
-        migration_interval: ga_config.island_config.migration_interval,
-        migrants: ga_config.island_config.migrants,
+        islands: ga_config.islands_nr,
+        migration_interval: ga_config.islands_migration_interval,
+        migrants: ga_config.islands_nr_migrants,
     };
 
     // Create evolution dynamics
+    let tournament_size = 3; // TODO: Add tournament_size to dto_models::GaConfig
     let evolution = LayoutEvolution::new(
         context,
-        ga_config.tournament_size,
+        tournament_size,
         ga_config.crossover_rate,
         ga_config.mutation_rate,
     );
