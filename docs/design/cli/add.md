@@ -109,11 +109,29 @@ src/
 │   └── add.rs           # Orchestrierung (bestehendes Stub)
 ├── input/
 │   ├── scanner.rs       # EXISTIERT: scan_photo_dirs()
-│   └── metadata.rs      # NEU: EXIF-Extraktion, Hashing
+│   ├── metadata.rs      # NEU: EXIF-Extraktion, Hashing
+│   └── grouper.rs       # NEU: Rekursives Scanning + Gruppierung
+├── project.rs           # Modul-Deklaration (kein mod.rs!)
 └── project/             # NEU: YAML-Operationen
-    ├── mod.rs
     ├── state.rs         # ProjectState load/save
-    └── photo_group.rs   # Gruppierungs-Logik
+    ├── timestamp.rs     # Timestamp-Heuristik
+    └── git.rs           # Git-Commit-Wrapper
+```
+
+**project.rs** (im src/ root):
+```rust
+//! Project state management and YAML operations.
+
+#[path = "project/state.rs"]
+pub mod state;
+
+#[path = "project/timestamp.rs"]
+pub mod timestamp;
+
+#[path = "project/git.rs"]
+pub mod git;
+
+pub use state::{ProjectState, PhotoGroup, PhotoFile, LayoutPage, Slot};
 ```
 
 ### 2.2 Datenfluss
