@@ -15,8 +15,11 @@ pub mod new;
 pub mod place;
 #[path = "commands/remove.rs"]
 pub mod remove;
+#[path = "commands/status.rs"]
+pub mod status;
 
 pub use add::{add, AddConfig, AddResult, GroupSummary};
 pub use new::{new, NewConfig, NewResult};
 pub use place::{place, PlaceConfig, PlaceResult};
 pub use remove::{remove, RemoveConfig, RemoveResult};
+pub use status::{status, PageStatus, SlotInfo, StatusReport};
