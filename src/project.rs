@@ -3,8 +3,8 @@
 //! This module contains structures and functions for managing the fotobuch project state,
 //! including loading/saving fotobuch.yaml, photo groups, and layout information.
 
+pub mod git;
 pub mod state;
-// pub mod git;      // Will be added in Commit 6
-// pub mod timestamp; // Will be added in Commit 4
+// pub mod timestamp; // Timestamp parsing already in scanner module
 
 pub use state::{LayoutPage, PhotoFile, PhotoGroup, ProjectState, Slot};
