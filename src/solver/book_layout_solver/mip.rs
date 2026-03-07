@@ -5,6 +5,7 @@
 mod constraints;
 mod objective;
 mod variables;
+mod var_map;
 
 use super::model::{GroupInfo, PageAssignment, Params};
 use good_lp::ProblemVariables;

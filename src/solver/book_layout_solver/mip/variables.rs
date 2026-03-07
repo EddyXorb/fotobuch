@@ -1,53 +1,7 @@
 //! Variable management for the MIP solver.
 
-use good_lp::{variable, ProblemVariables, Variable};
-use std::collections::HashMap;
-
-/// Generic N-dimensional variable map.
-///
-/// Uses HashMap to allow sparse variable allocation (e.g., w_lj only for splittable groups).
-#[derive(Debug)]
-pub struct VarMap<const N: usize> {
-    vars: HashMap<[usize; N], Variable>,
-}
-
-impl<const N: usize> VarMap<N> {
-    pub fn new() -> Self {
-        Self {
-            vars: HashMap::new(),
-        }
-    }
-
-    pub fn insert(&mut self, index: [usize; N], var: Variable) {
-        self.vars.insert(index, var);
-    }
-
-    pub fn get(&self, index: [usize; N]) -> Variable {
-        self.vars[&index]
-    }
-
-    pub fn contains(&self, index: [usize; N]) -> bool {
-        self.vars.contains_key(&index)
-    }
-
-    pub fn iter(&self) -> impl Iterator<Item = (&[usize; N], &Variable)> {
-        self.vars.iter()
-    }
-
-    pub fn len(&self) -> usize {
-        self.vars.len()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.vars.is_empty()
-    }
-}
-
-impl<const N: usize> Default for VarMap<N> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+use super::var_map::VarMap;
+use good_lp::{ProblemVariables, Variable, variable};
 
 /// All variables for the MIP problem.
 #[derive(Debug)]
