@@ -1,7 +1,7 @@
 //! Fitness function components for the genetic algorithm.
 
-use crate::models::{Canvas, FitnessWeights, PageLayout, Photo};
-
+use super::super::data_models::{Canvas, PageLayout, Photo};
+use crate::dto_models::FitnessWeights;
 /// Threshold ratio below which a photo is considered severely undersized.
 const UNDERSIZED_THRESHOLD: f64 = 0.5;
 
@@ -186,8 +186,8 @@ fn cost_reading_order(layout: &PageLayout, _photos: &[Photo]) -> f64 {
 
 #[cfg(test)]
 mod tests {
+    use super::super::super::data_models::{Canvas, Photo, PhotoPlacement};
     use super::*;
-    use crate::models::{Canvas, Photo, PhotoPlacement};
     use approx::assert_relative_eq;
 
     fn make_photo(aspect_ratio: f64, area_weight: f64) -> Photo {

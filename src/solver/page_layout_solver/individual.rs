@@ -1,10 +1,10 @@
 //! Domain-specific Individual implementation for photo layout.
 
+use super::super::data_models::PageLayout;
 use super::affine_solver::solve_layout;
 use super::evolution::EvaluationContext;
 use super::fitness::total_cost;
 use super::tree::SlicingTree;
-use crate::models::PageLayout;
 use crate::solver::ga_solver::Individual;
 
 /// Layout individual that wraps a slicing tree with evaluated layout.

@@ -13,6 +13,7 @@ mod fitness;
 mod individual;
 mod tree;
 
+use crate::solver::prelude::*;
 pub use evolution::LayoutEvolution;
 pub use fitness::CostBreakdown;
 pub use individual::LayoutIndividual;
@@ -22,7 +23,7 @@ use tracing::info;
 #[derive(Debug, Clone)]
 pub struct GaResult {
     /// The corresponding page layout with photo placements.
-    pub layout: crate::models::PageLayout,
+    pub layout: PageLayout,
     /// The raw fitness value (lower is better).
     pub fitness: f64,
     /// Detailed breakdown of fitness cost components.
@@ -31,9 +32,9 @@ pub struct GaResult {
 
 /// Entry point for running GA on a single page layout.
 pub fn run_ga(
-    photos: &[crate::models::Photo],
-    canvas: &crate::models::Canvas,
-    ga_config: &crate::models::GaConfig,
+    photos: &[Photo],
+    canvas: &Canvas,
+    ga_config: &crate::dto_models::config::GaConfig,
 ) -> GaResult {
     use crate::solver::ga_solver::{Config, GeneticAlgorithm, Individual};
 
@@ -76,7 +77,11 @@ pub fn run_ga(
     let cost_breakdown = fitness::cost_breakdown(&layout, photos, canvas, &ga_config.weights);
     info!(
         "Finished layout for one page. Fitness: total={:.4}  size={:.4}  coverage={:.4}  bary={:.4}  order={:.4}",
-        cost_breakdown.total, cost_breakdown.size, cost_breakdown.coverage, cost_breakdown.barycenter, cost_breakdown.order
+        cost_breakdown.total,
+        cost_breakdown.size,
+        cost_breakdown.coverage,
+        cost_breakdown.barycenter,
+        cost_breakdown.order
     );
 
     GaResult {

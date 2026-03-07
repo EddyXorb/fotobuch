@@ -1,6 +1,7 @@
 //! Solver request configuration bundling all parameters.
 
-use super::{Canvas, GaConfig};
+use super::Canvas;
+use crate::dto_models::{FitnessWeights, GaConfig};
 use std::path::PathBuf;
 
 /// Complete solver request bundling all configuration parameters and I/O paths.
@@ -9,12 +10,6 @@ use std::path::PathBuf;
 /// providing a clean API boundary between CLI parsing and the solver library.
 #[derive(Debug, Clone)]
 pub struct SolverRequest {
-    /// Input directory containing photos
-    pub input: PathBuf,
-
-    /// Output file path (extension determines format: .json, .typ, .pdf)
-    pub output: PathBuf,
-
     /// Canvas dimensions and spacing parameters
     pub canvas: Canvas,
 
@@ -24,20 +19,15 @@ pub struct SolverRequest {
 
 impl SolverRequest {
     /// Create a new solver request with all required parameters.
-    pub fn new(input: PathBuf, output: PathBuf, canvas: Canvas, ga_config: GaConfig) -> Self {
-        Self {
-            input,
-            output,
-            canvas,
-            ga_config,
-        }
+    pub fn new(canvas: Canvas, ga_config: GaConfig) -> Self {
+        Self { canvas, ga_config }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::{FitnessWeights, GaConfig, IslandConfig};
+    use crate::dto_models::{FitnessWeights, GaConfig};
 
     #[test]
     fn test_solver_request_new() {
@@ -66,7 +56,7 @@ mod tests {
             seed: 42,
         };
 
-        let request = SolverRequest::new("input/".into(), "output.pdf".into(), canvas, ga_config);
+        let request = SolverRequest::new(canvas, ga_config);
 
         assert_eq!(request.input.to_str().unwrap(), "input/");
         assert_eq!(request.output.to_str().unwrap(), "output.pdf");

@@ -1,10 +1,10 @@
 //! Improvement algorithm for local search.
-
 use super::super::cache::LayoutCache;
 use super::super::model::{GroupInfo, PageAssignment, Params};
-use super::perturbation::{max_perturbation_delta, try_perturbation};
 use super::PageLayoutEvaluator;
-use crate::models::Photo;
+use super::perturbation::{max_perturbation_delta, try_perturbation};
+use crate::solver::prelude::*;
+
 use crate::solver::page_layout_solver::CostBreakdown;
 use std::time::Instant;
 
@@ -46,7 +46,7 @@ pub fn improve(
 
         // 2. Find candidate cuts (adjacent to poor-coverage pages)
         let candidates = find_candidate_cuts(&assignment, photos, &mut cache, evaluator, params);
-        
+
         if candidates.is_empty() {
             // All pages are good enough
             break;
@@ -54,26 +54,18 @@ pub fn improve(
 
         // 3. Try to improve each candidate
         let mut improved = false;
-        
+
         for &cut_index in &candidates {
             // Try perturbations with increasing delta magnitude
             for delta_mag in 1..=max_delta {
                 for &delta in &[-(delta_mag as i32), delta_mag as i32] {
                     // Try perturbation
-                    if let Some(new_assignment) = try_perturbation(
-                        &assignment,
-                        cut_index,
-                        delta,
-                        groups,
-                        params,
-                    ) {
+                    if let Some(new_assignment) =
+                        try_perturbation(&assignment, cut_index, delta, groups, params)
+                    {
                         // Evaluate new assignment
-                        let new_worst = compute_worst_coverage(
-                            &new_assignment,
-                            photos,
-                            &mut cache,
-                            evaluator,
-                        );
+                        let new_worst =
+                            compute_worst_coverage(&new_assignment, photos, &mut cache, evaluator);
 
                         // Accept if better (lower worst coverage)
                         if new_worst < current_worst {
@@ -84,12 +76,12 @@ pub fn improve(
                         }
                     }
                 }
-                
+
                 if improved {
                     break;
                 }
             }
-            
+
             if improved {
                 break; // Restart with new assignment
             }
@@ -136,13 +128,12 @@ fn evaluate_page(
     if let Some(result) = cache.get(range.clone()) {
         return result.cost_breakdown.clone();
     }
-    
+
     // Evaluate using trait
-    
-    
+
     // For mock evaluator, we can't cache GaResult (no tree/layout available)
     // So we skip caching here. In production, RealPageEvaluator does its own caching.
-    
+
     evaluator.evaluate(&photos[range.clone()])
 }
 
@@ -198,7 +189,7 @@ fn find_candidate_cuts(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::Photo;
+
     use crate::solver::page_layout_solver::CostBreakdown;
     use std::time::Duration;
 
@@ -224,11 +215,7 @@ mod tests {
 
     fn create_test_photos(count: usize) -> Vec<Photo> {
         (0..count)
-            .map(|i| Photo::new(
-                16.0 / 9.0,
-                1.0,
-                format!("group_{}", i),
-            ))
+            .map(|i| Photo::new(16.0 / 9.0, 1.0, format!("group_{}", i)))
             .collect()
     }
 
@@ -265,21 +252,16 @@ mod tests {
         // Ideal would be 6 photos per page for 2 pages [0, 6, 12]
         let initial = PageAssignment::new(vec![0, 4, 8, 12]);
 
-        let (improved, worst_coverage, iterations) = improve(
-            initial.clone(),
-            &photos,
-            &groups,
-            &params,
-            &mut evaluator,
-        );
+        let (improved, worst_coverage, iterations) =
+            improve(initial.clone(), &photos, &groups, &params, &mut evaluator);
 
         // Check that at least one iteration ran
         assert!(iterations > 0, "Expected at least one iteration");
-        
+
         // With ideal = 6, deviation for 4-photo pages = 2, coverage = 0.4 each
         // This is < threshold 0.5, so no improvement will be attempted!
         // Let's just check that the algorithm ran without errors
-        
+
         // If it improves, great. If not, that's also OK since coverage is below threshold
         println!("Initial assignment: {:?}", initial.cuts());
         println!("Improved assignment: {:?}", improved.cuts());
@@ -298,17 +280,15 @@ mod tests {
         let initial = PageAssignment::new(vec![0, 4, 8, 12]);
 
         let start = Instant::now();
-        let (_improved, _worst_coverage, _iterations) = improve(
-            initial,
-            &photos,
-            &groups,
-            &params,
-            &mut evaluator,
-        );
+        let (_improved, _worst_coverage, _iterations) =
+            improve(initial, &photos, &groups, &params, &mut evaluator);
         let elapsed = start.elapsed();
 
         // Should finish quickly due to timeout
-        assert!(elapsed < Duration::from_millis(50), "Should respect timeout");
+        assert!(
+            elapsed < Duration::from_millis(50),
+            "Should respect timeout"
+        );
     }
 
     #[test]
@@ -321,13 +301,8 @@ mod tests {
         // Already optimal: 2 pages of 6 photos each
         let initial = PageAssignment::new(vec![0, 6, 12]);
 
-        let (improved, worst_coverage, iterations) = improve(
-            initial.clone(),
-            &photos,
-            &groups,
-            &params,
-            &mut evaluator,
-        );
+        let (improved, worst_coverage, iterations) =
+            improve(initial.clone(), &photos, &groups, &params, &mut evaluator);
 
         // Should recognize it's already good and stop quickly
         assert_eq!(improved.cuts(), initial.cuts());
@@ -346,13 +321,8 @@ mod tests {
         // Deviation = 2, coverage = 0.4 for each page
         let assignment = PageAssignment::new(vec![0, 4, 8, 12]);
 
-        let candidates = find_candidate_cuts(
-            &assignment,
-            &photos,
-            &mut cache,
-            &mut evaluator,
-            &params,
-        );
+        let candidates =
+            find_candidate_cuts(&assignment, &photos, &mut cache, &mut evaluator, &params);
 
         // All cuts should be candidates since all pages have coverage > 0.5? No, 0.4 < 0.5
         // So no candidates? Let's adjust the mock to produce higher coverage
@@ -373,13 +343,8 @@ mod tests {
         // Deviation from 10 = 6, coverage = 1.2 > 0.5
         let assignment = PageAssignment::new(vec![0, 4, 8, 12]);
 
-        let candidates = find_candidate_cuts(
-            &assignment,
-            &photos,
-            &mut cache,
-            &mut evaluator,
-            &params,
-        );
+        let candidates =
+            find_candidate_cuts(&assignment, &photos, &mut cache, &mut evaluator, &params);
 
         // All cuts (except first which is 0) should be candidates
         // cuts = [0, 4, 8, 12] has 4 elements, but num_cuts = len - 1 = 3
@@ -389,6 +354,9 @@ mod tests {
         // candidates checks cut_index in 0..assignment.cuts().len()
         // That includes the first 0, which shouldn't be movable!
         // This is a bug in find_candidate_cuts - it should start from cut_index 1
-        assert!(candidates.len() > 0, "Should have candidates with high coverage");
+        assert!(
+            candidates.len() > 0,
+            "Should have candidates with high coverage"
+        );
     }
 }

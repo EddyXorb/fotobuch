@@ -41,8 +41,8 @@ impl BookLayout {
 
 #[cfg(test)]
 mod tests {
+    use super::super::{Canvas, PhotoPlacement};
     use super::*;
-    use crate::models::{Canvas, PhotoPlacement};
 
     #[test]
     fn test_book_layout_new() {
