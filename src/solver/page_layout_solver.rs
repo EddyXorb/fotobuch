@@ -34,7 +34,7 @@ pub struct GaResult {
 pub fn run_ga(
     photos: &[Photo],
     canvas: &Canvas,
-    ga_config: &crate::dto_models::config::GaConfig,
+    ga_config: &GaConfig,
 ) -> GaResult {
     use crate::solver::ga_solver::{Config, GeneticAlgorithm, Individual};
 

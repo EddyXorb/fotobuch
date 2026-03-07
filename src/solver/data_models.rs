@@ -1,6 +1,5 @@
 pub(super) mod book_layout;
 pub(super) mod canvas;
-pub(super) mod fitness_weights;
 pub(super) mod layout;
 pub(super) mod photo;
 pub(super) mod photo_group;

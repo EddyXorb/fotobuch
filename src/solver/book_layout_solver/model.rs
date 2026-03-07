@@ -10,7 +10,7 @@
 use std::ops::Range;
 use std::time::Duration;
 use thiserror::Error;
-use crate::models::Photo;
+use crate::solver::prelude::*;
 
 /// Configuration parameters for the book layout solver.
 ///

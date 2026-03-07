@@ -8,7 +8,7 @@ mod perturbation;
 
 use super::cache::LayoutCache;
 use super::model::{GroupInfo, PageAssignment, Params};
-use crate::models::{Canvas, GaConfig, Photo};
+use crate::solver::prelude::*;
 use crate::solver::page_layout_solver::{self, CostBreakdown};
 use std::ops::Range;
 
@@ -85,7 +85,7 @@ pub fn improve(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::Photo;
+    use crate::dto_models::Photo;
     use crate::solver::page_layout_solver::CostBreakdown;
 
     /// Mock evaluator for testing that returns deterministic costs
