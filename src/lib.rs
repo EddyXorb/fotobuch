@@ -35,6 +35,7 @@ pub mod commands;
 pub mod input;
 pub mod models;
 pub mod output;
+pub mod project;
 pub mod solver;
 
 #[cfg(test)]
