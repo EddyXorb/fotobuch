@@ -29,7 +29,9 @@
 //! - `solver`: Core algorithm (slicing trees, layout solver, genetic algorithm)
 //! - `input`: Data input and scanning
 //! - `output`: Result export (JSON, Typst, PDF)
+//! - `commands`: Command orchestration (CLI command implementations)
 
+pub mod commands;
 pub mod input;
 pub mod models;
 pub mod output;
