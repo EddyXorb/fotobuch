@@ -4,8 +4,8 @@
 //! coordinating input loading, solver configuration, optimization, and export.
 
 use super::book_layout_solver;
-use crate::models::{BookLayout, GaConfig, Photo, SolverRequest};
-use crate::{export_json, export_pdf, export_typst, load_photos_from_dir};
+use crate::solver::prelude::*;
+use crate::{load_photos_from_dir};
 use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
@@ -86,7 +86,7 @@ fn load_and_validate_photos(input_dir: &Path) -> Result<(Vec<Photo>, Vec<String>
 /// Run book layout optimization and return the result.
 fn run_optimization(
     photos: &[Photo],
-    canvas: &crate::models::Canvas,
+    canvas: &Canvas,
     ga_config: &GaConfig,
 ) -> Result<BookLayout> {
     info!("Running book layout solver...");
