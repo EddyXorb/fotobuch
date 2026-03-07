@@ -7,6 +7,8 @@
 //!
 //! Commands never depend on CLI parsers (clap) - they work with plain Rust types.
 
+pub mod add;
 pub mod new;
 
+pub use add::{add, AddConfig, AddResult, GroupSummary};
 pub use new::{new, NewConfig, NewResult};
