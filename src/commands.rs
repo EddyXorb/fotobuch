@@ -13,6 +13,8 @@ pub mod add;
 pub mod build;
 #[path = "commands/config.rs"]
 pub mod config;
+#[path = "commands/history.rs"]
+pub mod history;
 #[path = "commands/new.rs"]
 pub mod new;
 #[path = "commands/place.rs"]
@@ -27,6 +29,7 @@ pub mod status;
 pub use add::{add, AddConfig, AddResult, GroupSummary};
 pub use build::{build, BuildConfig, BuildResult, DpiWarning};
 pub use config::{config, ResolvedConfig};
+pub use history::{history, HistoryEntry};
 pub use new::{new, NewConfig, NewResult};
 pub use place::{place, PlaceConfig, PlaceResult};
 pub use rebuild::{rebuild, RebuildScope};
