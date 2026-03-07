@@ -4,10 +4,11 @@
 
 mod constraints;
 mod objective;
-mod variables;
 mod var_map;
+mod variables;
 
-use super::model::{GroupInfo, PageAssignment, Params};
+use super::model::{GroupInfo, PageAssignment};
+use crate::dto_models::BookLayoutSolverConfig as Params;
 use good_lp::ProblemVariables;
 use thiserror::Error;
 use variables::MipVariables;
@@ -39,7 +40,7 @@ pub enum MipError {
 ///
 /// `Ok(PageAssignment)` with the optimal assignment, or an error if infeasible or solver fails.
 pub fn solve_mip(groups: &GroupInfo, params: &Params) -> Result<PageAssignment, MipError> {
-    use good_lp::{default_solver, SolverModel};
+    use good_lp::{SolverModel, default_solver};
 
     // Create problem
     let mut problem = ProblemVariables::new();
@@ -50,7 +51,13 @@ pub fn solve_mip(groups: &GroupInfo, params: &Params) -> Result<PageAssignment, 
     let b_max = params.page_max;
 
     // Create variables
-    let vars = MipVariables::new(&mut problem, num_groups, &group_sizes, b_max, params.group_min_photos);
+    let vars = MipVariables::new(
+        &mut problem,
+        num_groups,
+        &group_sizes,
+        b_max,
+        params.group_min_photos,
+    );
 
     // Build objective function
     let objective = objective::build_objective(&vars, groups, params);
@@ -60,12 +67,14 @@ pub fn solve_mip(groups: &GroupInfo, params: &Params) -> Result<PageAssignment, 
 
     // Build and solve
     let mut model = problem.minimise(objective).using(default_solver);
-    
+
     for constraint in all_constraints {
         model = model.with(constraint);
     }
 
-    let solution = model.solve().map_err(|e| MipError::SolverError(e.to_string()))?;
+    let solution = model
+        .solve()
+        .map_err(|e| MipError::SolverError(e.to_string()))?;
 
     // Extract page assignment from solution
     extract_assignment(&solution, &vars, groups, b_max)
@@ -226,7 +235,7 @@ mod tests {
         assert!(result.is_ok(), "MIP should be feasible: {:?}", result);
 
         let assignment = result.unwrap();
-        
+
         // Check each page size
         for page_idx in 0..assignment.num_pages() {
             let page_size = assignment.page_size(page_idx);

@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
-use crate::dto_models::{ProjectConfig, layout::LayoutPage, photos::PhotoGroup};
+use crate::dto_models::*;
 
 /// Complete project state as persisted in fotobuch.yaml
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -44,7 +44,6 @@ impl ProjectState {
 
 #[cfg(test)]
 mod tests {
-    use super::super::*;
     use super::*;
     use tempfile::TempDir;
 
@@ -61,8 +60,9 @@ mod tests {
                     gap_mm: 5.0,
                     bleed_threshold_mm: 3.0,
                 },
-                ga: Default::default(),
+                page_layout_solver: Default::default(),
                 preview: Default::default(),
+                book_layout_solver: BookLayoutSolverConfig::default(),
             },
             photos: vec![PhotoGroup {
                 group: "TestGroup".into(),
@@ -70,6 +70,7 @@ mod tests {
                 files: vec![PhotoFile {
                     id: "TestGroup/photo1.jpg".into(),
                     source: "/path/to/photo1.jpg".into(),
+                    timestamp: "2024-01-15T00:00:00Z".parse().unwrap(),
                     width_px: 6000,
                     height_px: 4000,
                     area_weight: 1.0,
@@ -107,8 +108,9 @@ mod tests {
                     gap_mm: 5.0,
                     bleed_threshold_mm: 3.0,
                 },
-                ga: Default::default(),
+                page_layout_solver: Default::default(),
                 preview: Default::default(),
+                book_layout_solver: BookLayoutSolverConfig::default(),
             },
             photos: vec![],
             layout: vec![],

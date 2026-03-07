@@ -7,167 +7,9 @@
 //! - `GroupInfo`: information about photo groups
 //! - `PageCost`, `AssignmentCost`: cost structures for evaluating layouts
 
-use std::ops::Range;
-use std::time::Duration;
-use thiserror::Error;
+pub use crate::dto_models::BookLayoutSolverConfig as Params;
 use crate::solver::prelude::*;
-
-/// Configuration parameters for the book layout solver.
-///
-/// Corresponds to the parameters in the MIP formulation.
-#[derive(Debug, Clone)]
-pub struct Params {
-    /// Target number of pages (s in MIP).
-    pub page_target: usize,
-    /// Minimum number of pages (b_min).
-    pub page_min: usize,
-    /// Maximum number of pages (b_max).
-    pub page_max: usize,
-    /// Minimum photos per page (p_min).
-    pub photos_per_page_min: usize,
-    /// Maximum photos per page (p_max).
-    pub photos_per_page_max: usize,
-    /// Maximum number of groups per page (g_max).
-    pub group_max_per_page: usize,
-    /// Minimum photos in a split group (g_min).
-    pub group_min_photos: usize,
-    /// Weight for evenness objective (w_1 in MIP).
-    pub weight_even: f64,
-    /// Weight for split penalty (w_2 in MIP).
-    pub weight_split: f64,
-    /// Weight for page count deviation (w_3 in MIP).
-    pub weight_pages: f64,
-    /// Timeout for local search.
-    pub search_timeout: Duration,
-    /// Maximum coverage cost threshold (pages above this are considered "bad").
-    pub max_coverage_cost: f64,
-}
-
-/// Error type for parameter validation.
-#[derive(Debug, Error, PartialEq)]
-pub enum ValidationError {
-    #[error("page_min ({page_min}) must be <= page_max ({page_max})")]
-    PageMinMaxInvalid { page_min: usize, page_max: usize },
-
-    #[error("page_target ({page_target}) must be in [{page_min}, {page_max}]")]
-    PageTargetOutOfRange {
-        page_target: usize,
-        page_min: usize,
-        page_max: usize,
-    },
-
-    #[error("photos_per_page_min ({photos_per_page_min}) must be <= photos_per_page_max ({photos_per_page_max})")]
-    PhotosPerPageMinMaxInvalid {
-        photos_per_page_min: usize,
-        photos_per_page_max: usize,
-    },
-
-    #[error("photos_per_page_min ({photos_per_page_min}) must be >= group_min_photos ({group_min_photos})")]
-    PhotosPerPageMinTooSmall {
-        photos_per_page_min: usize,
-        group_min_photos: usize,
-    },
-
-    #[error("group_max_per_page must be at least 1")]
-    GroupMaxPerPageZero,
-
-    #[error("negative weight: weight_even={weight_even}, weight_split={weight_split}, weight_pages={weight_pages}")]
-    NegativeWeights {
-        weight_even: f64,
-        weight_split: f64,
-        weight_pages: f64,
-    },
-
-    #[error("max_coverage_cost ({max_coverage_cost}) must be positive")]
-    MaxCoverageCostInvalid { max_coverage_cost: f64 },
-
-    #[error("total photos ({total_photos}) cannot fit in page constraints: min capacity = {min_capacity}, max capacity = {max_capacity}")]
-    PhotoCountInfeasible {
-        total_photos: usize,
-        min_capacity: usize,
-        max_capacity: usize,
-    },
-}
-
-impl Params {
-    /// Validates the parameters.
-    ///
-    /// Returns `Ok(())` if all parameters are consistent and feasible,
-    /// or an error describing the first validation failure.
-    ///
-    /// # Arguments
-    ///
-    /// * `total_photos` - Total number of photos to be laid out
-    pub fn validate(&self, total_photos: usize) -> Result<(), ValidationError> {
-        // Check page bounds
-        if self.page_min > self.page_max {
-            return Err(ValidationError::PageMinMaxInvalid {
-                page_min: self.page_min,
-                page_max: self.page_max,
-            });
-        }
-
-        // Check page target is in range
-        if self.page_target < self.page_min || self.page_target > self.page_max {
-            return Err(ValidationError::PageTargetOutOfRange {
-                page_target: self.page_target,
-                page_min: self.page_min,
-                page_max: self.page_max,
-            });
-        }
-
-        // Check photos per page bounds
-        if self.photos_per_page_min > self.photos_per_page_max {
-            return Err(ValidationError::PhotosPerPageMinMaxInvalid {
-                photos_per_page_min: self.photos_per_page_min,
-                photos_per_page_max: self.photos_per_page_max,
-            });
-        }
-
-        // Check photos per page minimum vs. group minimum
-        if self.photos_per_page_min < self.group_min_photos {
-            return Err(ValidationError::PhotosPerPageMinTooSmall {
-                photos_per_page_min: self.photos_per_page_min,
-                group_min_photos: self.group_min_photos,
-            });
-        }
-
-        // Check group max per page
-        if self.group_max_per_page == 0 {
-            return Err(ValidationError::GroupMaxPerPageZero);
-        }
-
-        // Check weights are non-negative
-        if self.weight_even < 0.0 || self.weight_split < 0.0 || self.weight_pages < 0.0 {
-            return Err(ValidationError::NegativeWeights {
-                weight_even: self.weight_even,
-                weight_split: self.weight_split,
-                weight_pages: self.weight_pages,
-            });
-        }
-
-        // Check max coverage cost
-        if self.max_coverage_cost <= 0.0 {
-            return Err(ValidationError::MaxCoverageCostInvalid {
-                max_coverage_cost: self.max_coverage_cost,
-            });
-        }
-
-        // Check that total photos can fit in page constraints
-        let min_capacity = self.page_min * self.photos_per_page_min;
-        let max_capacity = self.page_max * self.photos_per_page_max;
-
-        if total_photos < min_capacity || total_photos > max_capacity {
-            return Err(ValidationError::PhotoCountInfeasible {
-                total_photos,
-                min_capacity,
-                max_capacity,
-            });
-        }
-
-        Ok(())
-    }
-}
+use std::ops::Range;
 
 /// Information about photo groups.
 ///
@@ -211,9 +53,7 @@ impl GroupInfo {
     /// A new `GroupInfo` with cumulative group sizes.
     pub fn from_photos(photos: &[Photo]) -> Self {
         if photos.is_empty() {
-            return Self {
-                group_ends: vec![],
-            };
+            return Self { group_ends: vec![] };
         }
 
         let mut group_sizes = Vec::new();
@@ -229,7 +69,7 @@ impl GroupInfo {
                 current_count = 1;
             }
         }
-        
+
         // Push the last group
         group_sizes.push(current_count);
 
@@ -309,10 +149,7 @@ impl PageAssignment {
         assert!(!cuts.is_empty(), "cuts must not be empty");
         assert_eq!(cuts[0], 0, "cuts[0] must be 0");
         for i in 1..cuts.len() {
-            assert!(
-                cuts[i] > cuts[i - 1],
-                "cuts must be strictly increasing"
-            );
+            assert!(cuts[i] > cuts[i - 1], "cuts must be strictly increasing");
         }
         Self { cuts }
     }
@@ -378,7 +215,10 @@ impl PageAssignment {
 
 #[cfg(test)]
 mod tests {
+    use crate::dto_models::ValidationError;
+
     use super::*;
+    use std::time::Duration;
 
     #[test]
     fn test_params_validate_valid() {
@@ -607,7 +447,7 @@ mod tests {
         ];
 
         let group_info = GroupInfo::from_photos(&photos);
-        
+
         assert_eq!(group_info.num_groups(), 3);
         assert_eq!(group_info.group_size(0), 3);
         assert_eq!(group_info.group_size(1), 5);
@@ -619,7 +459,7 @@ mod tests {
     fn test_group_info_from_photos_empty() {
         let photos: Vec<Photo> = vec![];
         let group_info = GroupInfo::from_photos(&photos);
-        
+
         assert_eq!(group_info.num_groups(), 0);
         assert_eq!(group_info.total_photos(), 0);
     }

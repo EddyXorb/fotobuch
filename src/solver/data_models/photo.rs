@@ -68,8 +68,8 @@ impl PhotoInfo {
 
 #[cfg(test)]
 mod tests {
+    use super::super::test_fixtures::*;
     use super::*;
-    use crate::test_fixtures::*;
 
     #[test]
     fn test_new_photo() {

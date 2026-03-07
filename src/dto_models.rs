@@ -10,7 +10,10 @@ mod layout;
 mod photos;
 mod state;
 
-pub use config::{BookConfig, FitnessWeights, GaConfig, PreviewConfig, ProjectConfig};
+pub use config::{
+    BookConfig, BookLayoutSolverConfig, FitnessWeights, GaConfig, PreviewConfig, ProjectConfig,
+    ValidationError,
+};
 pub use layout::{LayoutPage, Slot};
 pub use photos::{PhotoFile, PhotoGroup};
 pub use state::ProjectState;

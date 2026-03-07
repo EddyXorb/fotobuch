@@ -18,9 +18,10 @@ mod model;
 
 // Re-export public types
 pub use local_search::PageLayoutEvaluator;
-pub use model::{GroupInfo, Params, ValidationError};
+pub use model::GroupInfo;
 
 use super::data_models::book_layout::BookLayout;
+use crate::dto_models::BookLayoutSolverConfig as Params;
 use crate::solver::page_layout_solver::{self, CostBreakdown};
 use crate::solver::prelude::*;
 use thiserror::Error;
@@ -29,7 +30,7 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum SolverError {
     #[error("Parameter validation failed: {0}")]
-    InvalidParams(#[from] ValidationError),
+    InvalidParams(#[from] crate::dto_models::ValidationError),
 
     #[error("MIP solver failed: {0}")]
     MipFailed(#[from] mip::MipError),
@@ -101,7 +102,7 @@ impl PageLayoutEvaluator for RealPageEvaluator<'_> {
 ///
 /// # Returns
 /// `BookLayout` with optimized page layouts, or `SolverError`.
-pub fn solve(
+pub fn solve_book_layout(
     photos: &[Photo],
     params: &Params,
     canvas: &Canvas,
@@ -140,46 +141,10 @@ pub fn solve(
     Ok(BookLayout::new(page_layouts))
 }
 
-/// Legacy entry point for backward compatibility.
-///
-/// This function maintains the old single-page stub behavior for now.
-/// Future versions will use the new `solve()` function above.
-///
-/// Currently, this is a stub implementation that places all photos on a single page.
-/// Future versions will implement intelligent photo distribution based on:
-/// - Lexicographic ordering of photo groups
-/// - Temporal ordering within groups (timestamps)
-/// - Optimal page filling strategies
-///
-/// # Arguments
-///
-/// * `photos` - All photos to layout in the book
-/// * `canvas` - Canvas configuration for each page
-/// * `ga_config` - Genetic algorithm configuration (includes seed)
-///
-/// # Returns
-///
-/// A `BookLayout` containing one or more pages with optimized photo placements.
-pub(crate) fn solve_book_layout(
-    photos: &[Photo],
-    canvas: &Canvas,
-    ga_config: &GaConfig,
-) -> BookLayout {
-    // Handle empty photo case
-    if photos.is_empty() {
-        return BookLayout::new(vec![]);
-    }
-
-    // Current stub implementation: place all photos on a single page
-    let ga_result = page_layout_solver::run_ga(photos, canvas, ga_config);
-
-    let centered_page = ga_result.layout.centered();
-
-    BookLayout::single_page(centered_page)
-}
-
 #[cfg(test)]
 mod tests {
+    use crate::{FitnessWeights, dto_models::BookLayoutSolverConfig};
+
     use super::*;
 
     #[test]
@@ -191,20 +156,13 @@ mod tests {
 
         let canvas = Canvas::new(297.0, 210.0, 5.0, 0.0);
         let ga_config = GaConfig {
-            population: 20,
-            generations: 5,
-            mutation_rate: 0.2,
-            crossover_rate: 0.7,
-            tournament_size: 3,
-            elitism_ratio: 0.05,
-            weights: FitnessWeights::default(),
-            timeout: None,
-            no_improvement_limit: None,
-            island_config: IslandConfig::default(),
             seed: 42,
+            ..GaConfig::default()
         };
 
-        let book = solve_book_layout(&photos, &canvas, &ga_config);
+        let solver_config = BookLayoutSolverConfig::default();
+
+        let book = solve_book_layout(&photos, &solver_config, &canvas, &ga_config).unwrap();
 
         assert_eq!(book.page_count(), 1);
         assert_eq!(book.total_photo_count(), 2);
@@ -217,8 +175,9 @@ mod tests {
 
         let canvas = Canvas::new(297.0, 210.0, 5.0, 0.0);
         let ga_config = GaConfig::default();
+        let solver_config = BookLayoutSolverConfig::default();
 
-        let book = solve_book_layout(&photos, &canvas, &ga_config);
+        let book = solve_book_layout(&photos, &solver_config, &canvas, &ga_config).unwrap();
 
         assert_eq!(book.page_count(), 0);
         assert_eq!(book.total_photo_count(), 0);
@@ -230,8 +189,8 @@ mod tests {
         use super::*;
         use std::time::Duration;
 
-        fn create_test_params() -> Params {
-            Params {
+        fn create_test_params() -> BookLayoutSolverConfig {
+            BookLayoutSolverConfig {
                 photos_per_page_min: 4,
                 photos_per_page_max: 10,
                 page_min: 1,
@@ -254,16 +213,16 @@ mod tests {
                 .map(|_| Photo::new(1.5, 1.0, "groupA".to_string()))
                 .collect();
 
-            let params = create_test_params();
+            let solver_config = create_test_params();
             let canvas = Canvas::new(297.0, 210.0, 5.0, 0.0);
             let ga_config = GaConfig {
-                population: 10,
-                generations: 3,
+                population_size: 10,
+                max_generations: 3,
                 seed: 42,
                 ..GaConfig::default()
             };
 
-            let book = solve(&photos, &params, &canvas, &ga_config).unwrap();
+            let book = solve_book_layout(&photos, &solver_config, &canvas, &ga_config).unwrap();
 
             // Should fit in one or two pages (depending on MIP/local search)
             assert!(book.page_count() >= 1);
@@ -281,16 +240,16 @@ mod tests {
                 }
             }
 
-            let params = create_test_params();
+            let solver_config = create_test_params();
             let canvas = Canvas::new(297.0, 210.0, 5.0, 0.0);
             let ga_config = GaConfig {
-                population: 10,
-                generations: 3,
+                population_size: 10,
+                max_generations: 3,
                 seed: 42,
                 ..GaConfig::default()
             };
 
-            let book = solve(&photos, &params, &canvas, &ga_config).unwrap();
+            let book = solve_book_layout(&photos, &solver_config, &canvas, &ga_config).unwrap();
 
             // Should fit reasonably given constraints
             assert!(book.page_count() >= 2);
@@ -301,18 +260,18 @@ mod tests {
             for (page_idx, page) in book.pages.iter().enumerate() {
                 let page_size = page.placements.len();
                 assert!(
-                    page_size >= params.photos_per_page_min,
+                    page_size >= solver_config.photos_per_page_min,
                     "Page {} has {} photos, min is {}",
                     page_idx,
                     page_size,
-                    params.photos_per_page_min
+                    solver_config.photos_per_page_min
                 );
                 assert!(
-                    page_size <= params.photos_per_page_max,
+                    page_size <= solver_config.photos_per_page_max,
                     "Page {} has {} photos, max is {}",
                     page_idx,
                     page_size,
-                    params.photos_per_page_max
+                    solver_config.photos_per_page_max
                 );
             }
         }
@@ -320,11 +279,11 @@ mod tests {
         #[test]
         fn test_solve_empty_photos() {
             let photos: Vec<Photo> = vec![];
-            let params = create_test_params();
+            let solver_config = create_test_params();
             let canvas = Canvas::new(297.0, 210.0, 5.0, 0.0);
             let ga_config = GaConfig::default();
 
-            let book = solve(&photos, &params, &canvas, &ga_config).unwrap();
+            let book = solve_book_layout(&photos, &solver_config, &canvas, &ga_config).unwrap();
 
             assert_eq!(book.page_count(), 0);
             assert!(book.is_empty());
@@ -337,17 +296,17 @@ mod tests {
                 .map(|_| Photo::new(1.5, 1.0, "groupA".to_string()))
                 .collect();
 
-            let mut params = create_test_params();
-            params.page_min = 5;
-            params.page_max = 10;
-            params.photos_per_page_min = 10;
-            params.photos_per_page_max = 20;
+            let mut solver_config = create_test_params();
+            solver_config.page_min = 5;
+            solver_config.page_max = 10;
+            solver_config.photos_per_page_min = 10;
+            solver_config.photos_per_page_max = 20;
             // min capacity = 5 * 10 = 50, but we only have 20 photos
 
             let canvas = Canvas::new(297.0, 210.0, 5.0, 0.0);
             let ga_config = GaConfig::default();
 
-            let result = solve(&photos, &params, &canvas, &ga_config);
+            let result = solve_book_layout(&photos, &solver_config, &canvas, &ga_config);
 
             assert!(result.is_err());
             assert!(matches!(result.unwrap_err(), SolverError::InvalidParams(_)));
@@ -359,16 +318,16 @@ mod tests {
                 .map(|_| Photo::new(1.5, 1.0, "groupA".to_string()))
                 .collect();
 
-            let params = create_test_params();
+            let solver_config = create_test_params();
             let canvas = Canvas::new(297.0, 210.0, 5.0, 0.0);
             let ga_config = GaConfig {
-                population: 10,
-                generations: 3,
+                population_size: 10,
+                max_generations: 3,
                 seed: 42,
                 ..GaConfig::default()
             };
 
-            let book = solve(&photos, &params, &canvas, &ga_config).unwrap();
+            let book = solve_book_layout(&photos, &solver_config, &canvas, &ga_config).unwrap();
 
             // Should have created a valid book layout
             assert!(book.page_count() > 0);
