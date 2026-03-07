@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cargo build)",
+      "Bash(cargo test)",
+      "Bash(cargo run -- -i test_photos/ -o output/test.pdf --write-typ --max-photos 1)",
+      "Bash(rm src/**)",
+      "Bash(rm tests/**)",
+      "Bash(mv src/**)",
+      "Bash(mv tests/**)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:docs.rs)"
+    ]
+  }
+}
