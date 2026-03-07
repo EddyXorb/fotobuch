@@ -5,8 +5,9 @@ pub(in crate::solver) mod mutate;
 mod selection;
 
 use super::individual::LayoutIndividual;
-use crate::models::{Canvas, FitnessWeights, Photo};
+use crate::solver::prelude::*;
 use crate::solver::ga_solver::EvolutionDynamic;
+use crate::dto_models::FitnessWeights;
 
 /// Context for evaluating slicing trees into individuals.
 pub struct EvaluationContext<'a> {

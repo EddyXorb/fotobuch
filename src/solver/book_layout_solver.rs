@@ -17,11 +17,12 @@ mod mip;
 mod model;
 
 // Re-export public types
-pub use model::{GroupInfo, Params, ValidationError};
 pub use local_search::PageLayoutEvaluator;
+pub use model::{GroupInfo, Params, ValidationError};
 
-use crate::models::{BookLayout, Canvas, GaConfig, Photo};
+use super::data_models::book_layout::BookLayout;
 use crate::solver::page_layout_solver::{self, CostBreakdown};
+use crate::solver::prelude::*;
 use thiserror::Error;
 
 /// Error type for book layout solver.
@@ -55,9 +56,9 @@ impl<'a> RealPageEvaluator<'a> {
     }
 
     /// Gets the cached layout for a set of photos.
-    /// 
+    ///
     /// Returns None if the photos are not in the cache.
-    fn get_cached_layout(&self, photos: &[Photo]) -> Option<crate::models::PageLayout> {
+    fn get_cached_layout(&self, photos: &[Photo]) -> Option<PageLayout> {
         let range = 0..photos.len();
         self.cache.get(range).map(|result| result.layout.clone())
     }
@@ -66,19 +67,19 @@ impl<'a> RealPageEvaluator<'a> {
 impl PageLayoutEvaluator for RealPageEvaluator<'_> {
     fn evaluate(&mut self, photos: &[Photo]) -> CostBreakdown {
         let range = 0..photos.len();
-        
+
         // Check cache
         if let Some(result) = self.cache.get(range.clone()) {
             return result.cost_breakdown.clone();
         }
-        
+
         // Run GA
         let result = page_layout_solver::run_ga(photos, self.canvas, self.ga_config);
         let breakdown = result.cost_breakdown.clone();
-        
+
         // Cache result
         self.cache.insert_if_better(range, result);
-        
+
         breakdown
     }
 }
@@ -122,20 +123,17 @@ pub fn solve(
 
     // Phase 2: Local search refinement
     let mut evaluator = RealPageEvaluator::new(canvas, ga_config);
-    
-    let (final_assignment, _worst_coverage, _iterations) = local_search::improve(
-        initial_assignment,
-        photos,
-        &groups,
-        params,
-        &mut evaluator,
-    );
+
+    let (final_assignment, _worst_coverage, _iterations) =
+        local_search::improve(initial_assignment, photos, &groups, params, &mut evaluator);
 
     // Phase 3: Build BookLayout from cached results
-    let page_layouts: Vec<crate::models::PageLayout> = (0..final_assignment.num_pages())
+    let page_layouts: Vec<PageLayout> = (0..final_assignment.num_pages())
         .filter_map(|page_idx| {
             let range = final_assignment.page_range(page_idx);
-            evaluator.get_cached_layout(&photos[range]).map(|layout| layout.centered())
+            evaluator
+                .get_cached_layout(&photos[range])
+                .map(|layout| layout.centered())
         })
         .collect();
 
@@ -180,11 +178,9 @@ pub(crate) fn solve_book_layout(
     BookLayout::single_page(centered_page)
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::{FitnessWeights, IslandConfig};
 
     #[test]
     fn test_solve_book_layout_single_page() {
@@ -244,7 +240,7 @@ mod tests {
                 group_min_photos: 2,
                 group_max_per_page: 3,
                 weight_even: 1.0,
-                weight_split: 5.0,  // Penalize splits heavily
+                weight_split: 5.0, // Penalize splits heavily
                 weight_pages: 1.0,
                 search_timeout: Duration::from_millis(100),
                 max_coverage_cost: 0.5,
@@ -268,7 +264,7 @@ mod tests {
             };
 
             let book = solve(&photos, &params, &canvas, &ga_config).unwrap();
-            
+
             // Should fit in one or two pages (depending on MIP/local search)
             assert!(book.page_count() >= 1);
             assert!(book.page_count() <= 3);
@@ -295,12 +291,12 @@ mod tests {
             };
 
             let book = solve(&photos, &params, &canvas, &ga_config).unwrap();
-            
+
             // Should fit reasonably given constraints
             assert!(book.page_count() >= 2);
             assert!(book.page_count() <= 4);
             assert_eq!(book.total_photo_count(), 15);
-            
+
             // Check that each page respects size constraints
             for (page_idx, page) in book.pages.iter().enumerate() {
                 let page_size = page.placements.len();
@@ -329,7 +325,7 @@ mod tests {
             let ga_config = GaConfig::default();
 
             let book = solve(&photos, &params, &canvas, &ga_config).unwrap();
-            
+
             assert_eq!(book.page_count(), 0);
             assert!(book.is_empty());
         }
@@ -352,12 +348,9 @@ mod tests {
             let ga_config = GaConfig::default();
 
             let result = solve(&photos, &params, &canvas, &ga_config);
-            
+
             assert!(result.is_err());
-            assert!(matches!(
-                result.unwrap_err(),
-                SolverError::InvalidParams(_)
-            ));
+            assert!(matches!(result.unwrap_err(), SolverError::InvalidParams(_)));
         }
 
         #[test]
@@ -376,7 +369,7 @@ mod tests {
             };
 
             let book = solve(&photos, &params, &canvas, &ga_config).unwrap();
-            
+
             // Should have created a valid book layout
             assert!(book.page_count() > 0);
             assert_eq!(book.total_photo_count(), 12);

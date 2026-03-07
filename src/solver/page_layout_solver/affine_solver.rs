@@ -4,8 +4,8 @@
 //! Each node stores (α, γ) such that: w = α·h + γ
 //! This allows handling β > 0 without falling back to solving linear systems.
 
+use super::super::data_models::{Canvas, PageLayout, Photo, PhotoPlacement};
 use super::tree::{Cut, Node, SlicingTree};
-use crate::models::{Canvas, PageLayout, Photo, PhotoPlacement};
 
 /// Affine coefficient pair (α, γ) representing the relationship w = α·h + γ.
 #[derive(Debug, Clone, Copy)]

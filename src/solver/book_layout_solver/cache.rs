@@ -89,12 +89,12 @@ impl LayoutCache {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::Canvas;
+    use super::super::super::data_models::Canvas;
     use crate::solver::page_layout_solver::{CostBreakdown, GaResult};
 
     fn make_dummy_result(fitness: f64) -> GaResult {
         let canvas = Canvas::new(297.0, 210.0, 5.0, 0.0);
-        let layout = crate::models::PageLayout::new(vec![], canvas);
+        let layout = crate::dto_models::PageLayout::new(vec![], canvas);
         let breakdown = CostBreakdown {
             total: fitness,
             size: 0.0,
