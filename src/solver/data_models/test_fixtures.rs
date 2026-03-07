@@ -6,7 +6,7 @@
 #![cfg(test)]
 #![allow(dead_code)] // Not all fixtures are used in all test files yet
 
-use crate::models::{Canvas, Photo};
+use super::{Canvas, Photo};
 
 // Canvas dimensions (A4 page in mm)
 pub const A4_WIDTH_MM: f64 = 297.0;

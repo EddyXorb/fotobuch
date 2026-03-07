@@ -55,8 +55,8 @@ impl Default for Canvas {
 
 #[cfg(test)]
 mod tests {
+    use super::super::test_fixtures::*;
     use super::*;
-    use crate::test_fixtures::*;
     use approx::assert_relative_eq;
 
     #[test]

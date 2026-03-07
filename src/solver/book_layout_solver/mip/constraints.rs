@@ -31,10 +31,7 @@ pub fn build_constraints(
 }
 
 /// Boundary conditions: g_l0 = 0, g_l(b_max) = |G_l|
-fn build_boundary_conditions(
-    vars: &MipVariables,
-    groups: &GroupInfo,
-) -> Vec<good_lp::Constraint> {
+fn build_boundary_conditions(vars: &MipVariables, groups: &GroupInfo) -> Vec<good_lp::Constraint> {
     use good_lp::constraint;
     let mut constraints = Vec::new();
     let num_groups = groups.num_groups();
@@ -61,7 +58,7 @@ fn build_monotonicity(
 ) -> Vec<good_lp::Constraint> {
     use good_lp::constraint;
     let mut constraints = Vec::new();
-    
+
     for l in 0..num_groups {
         for j in 1..=b_max {
             let g_lj = vars.g.get([l, j]);
@@ -89,7 +86,7 @@ fn build_page_activity(vars: &MipVariables, params: &Params) -> Vec<good_lp::Con
     let sum_a: Expression = (1..=b_max).map(|j| Expression::from(vars.a.get([j]))).sum();
     constraints.push(constraint!(sum_a.clone() >= params.page_min as i32));
     constraints.push(constraint!(sum_a <= b_max as i32));
-    
+
     constraints
 }
 
@@ -102,7 +99,7 @@ fn build_page_size(
 ) -> Vec<good_lp::Constraint> {
     use good_lp::constraint;
     let mut constraints = Vec::new();
-    
+
     for j in 1..=b_max {
         let a_j = vars.a.get([j]);
         let sum_n: Expression = (0..num_groups).map(|l| vars.n_lj(l, j)).sum();
@@ -177,9 +174,11 @@ fn build_max_groups_per_page(
 ) -> Vec<good_lp::Constraint> {
     use good_lp::constraint;
     let mut constraints = Vec::new();
-    
+
     for j in 1..=b_max {
-        let sum_b: Expression = (0..num_groups).map(|l| Expression::from(vars.b.get([l, j]))).sum();
+        let sum_b: Expression = (0..num_groups)
+            .map(|l| Expression::from(vars.b.get([l, j])))
+            .sum();
         constraints.push(constraint!(sum_b <= params.group_max_per_page as i32));
     }
     constraints
@@ -280,6 +279,6 @@ fn build_page_count_deviation(
 
     // d_s >= s - sum_a
     constraints.push(constraint!(d_s >= s - sum_a));
-    
+
     constraints
 }

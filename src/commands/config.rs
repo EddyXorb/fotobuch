@@ -3,7 +3,7 @@
 use anyhow::Result;
 use std::path::Path;
 
-use crate::models::ProjectConfig;
+use crate::dto_models::{BookLayoutSolverConfig, ProjectConfig};
 
 /// Resolved configuration with all defaults filled in
 pub type ResolvedConfig = ProjectConfig;
@@ -36,7 +36,7 @@ pub fn config(project_root: &Path) -> Result<ResolvedConfig> {
 
     // For now, return a placeholder with defaults
     Ok(ProjectConfig {
-        book: crate::models::BookConfig {
+        book: crate::dto_models::BookConfig {
             title: "placeholder".to_string(),
             page_width_mm: 420.0,
             page_height_mm: 297.0,
@@ -45,7 +45,8 @@ pub fn config(project_root: &Path) -> Result<ResolvedConfig> {
             gap_mm: 5.0,
             bleed_threshold_mm: 3.0,
         },
-        ga: Default::default(),
         preview: Default::default(),
+        page_layout_solver: Default::default(),
+        book_layout_solver: BookLayoutSolverConfig::default(),
     })
 }

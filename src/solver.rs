@@ -7,13 +7,12 @@
 //! - `book_layout_solver`: Multi-page book layout optimization
 
 pub(crate) mod book_layout_solver;
+mod data_models;
 pub(crate) mod ga_solver;
 pub(crate) mod page_layout_solver;
 pub(crate) mod prelude;
-mod data_models;
 
 #[allow(clippy::module_inception)]
 pub mod solver;
 
-// Re-export from solver
 pub use solver::run_solver;

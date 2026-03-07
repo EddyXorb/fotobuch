@@ -88,13 +88,16 @@ impl LayoutCache {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::super::data_models::Canvas;
-    use crate::solver::page_layout_solver::{CostBreakdown, GaResult};
+    use super::*;
+    use crate::solver::{
+        page_layout_solver::{CostBreakdown, GaResult},
+        prelude::*,
+    };
 
     fn make_dummy_result(fitness: f64) -> GaResult {
         let canvas = Canvas::new(297.0, 210.0, 5.0, 0.0);
-        let layout = crate::dto_models::PageLayout::new(vec![], canvas);
+        let layout = PageLayout::new(vec![], canvas);
         let breakdown = CostBreakdown {
             total: fitness,
             size: 0.0,
@@ -146,7 +149,7 @@ mod tests {
         // Try to insert better result (lower fitness)
         let better = cache.insert_if_better(0..5, make_dummy_result(0.15));
         assert!(better, "Should accept better result");
-        
+
         let retrieved = cache.get(0..5);
         assert_eq!(retrieved.unwrap().fitness, 0.15);
     }
@@ -161,7 +164,7 @@ mod tests {
         // Try to insert worse result (higher fitness)
         let worse = cache.insert_if_better(0..5, make_dummy_result(0.2));
         assert!(!worse, "Should reject worse result");
-        
+
         // Existing result should remain
         let retrieved = cache.get(0..5);
         assert_eq!(retrieved.unwrap().fitness, 0.15);
@@ -177,7 +180,7 @@ mod tests {
         // Try to insert equal result
         let equal = cache.insert_if_better(0..5, make_dummy_result(0.15));
         assert!(!equal, "Should reject equal result");
-        
+
         // Existing result should remain
         let retrieved = cache.get(0..5);
         assert_eq!(retrieved.unwrap().fitness, 0.15);

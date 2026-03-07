@@ -2,7 +2,7 @@
 //!
 //! These tests validate the end-to-end behavior of the solver.
 
-use photobook_solver::{Canvas, GaConfig, SolverRequest, load_photos_from_dir, run_solver};
+use photobook_solver::{GaConfig, load_photos_from_dir, run_solver};
 use std::fs;
 use std::path::PathBuf;
 
@@ -341,7 +341,7 @@ fn test_cli_exact_output() {
 
     let output = Command::new(&binary_path)
         .args([
-            "solve",           // Use new subcommand syntax
+            "solve", // Use new subcommand syntax
             "-i",
             "tests/fixtures/test_photos/",
             "-o",
@@ -512,18 +512,28 @@ layout: []
 
     // Should have photo IDs
     assert!(
-        updated_yaml.contains("test.jpg") || updated_yaml.contains("test2.jpg") || updated_yaml.contains("test3.jpg"),
+        updated_yaml.contains("test.jpg")
+            || updated_yaml.contains("test2.jpg")
+            || updated_yaml.contains("test3.jpg"),
         "Should contain photo filenames"
     );
 
     // Should have dimensions
-    assert!(updated_yaml.contains("width_px:"), "Should have width_px field");
-    assert!(updated_yaml.contains("height_px:"), "Should have height_px field");
+    assert!(
+        updated_yaml.contains("width_px:"),
+        "Should have width_px field"
+    );
+    assert!(
+        updated_yaml.contains("height_px:"),
+        "Should have height_px field"
+    );
 
     // Should have source paths
     assert!(updated_yaml.contains("source:"), "Should have source field");
 
     // Verify chronological sorting by checking sort_key exists
-    assert!(updated_yaml.contains("sort_key:"), "Should have sort_key for chronological ordering");
+    assert!(
+        updated_yaml.contains("sort_key:"),
+        "Should have sort_key for chronological ordering"
+    );
 }
-

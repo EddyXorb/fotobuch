@@ -1,11 +1,12 @@
 //! `fotobuch add` command - Add photos to the project
 
+use crate::dto_models::ProjectState;
+use crate::git;
 use crate::input::metadata::compute_partial_hash;
 use crate::input::scanner::scan_photo_dirs;
-use crate::project::git;
-use crate::project::state::{PhotoFile, PhotoGroup, ProjectState};
 use anyhow::{Context, Result};
 use std::collections::HashSet;
+use std::env;
 use std::path::{Path, PathBuf};
 
 /// Configuration for adding photos
@@ -86,61 +87,40 @@ pub fn add(project_root: &Path, config: &AddConfig) -> Result<AddResult> {
     let mut warnings = Vec::new();
 
     // Process each group
-    for scanned_group in all_groups {
+    for mut scanned_group in all_groups {
         let mut photo_files = Vec::new();
         
-        for scanned_photo in &scanned_group.photos {
+        for mut photo_file in scanned_group.files {
+            let photo_path = std::path::PathBuf::from(&photo_file.source);
+            
             // Skip if path already exists
-            if existing_paths.contains(&scanned_photo.path) {
+            if existing_paths.contains(&photo_path) {
                 skipped_count += 1;
                 continue;
             }
 
             // Compute hash
-            let hash = match compute_partial_hash(&scanned_photo.path) {
+            let hash = match compute_partial_hash(&photo_path) {
                 Ok(h) => h,
                 Err(e) => {
-                    warnings.push(format!("Failed to hash {}: {}", scanned_photo.path.display(), e));
+                    warnings.push(format!("Failed to hash {}: {}", photo_path.display(), e));
                     continue;
                 }
             };
 
             // Check for duplicate hash
             if !config.allow_duplicates && existing_hashes.contains(&hash) {
-                warnings.push(format!("Skipping duplicate (by hash): {}", scanned_photo.path.display()));
+                warnings.push(format!("Skipping duplicate (by hash): {}", photo_path.display()));
                 skipped_count += 1;
                 continue;
             }
 
-            // Get dimensions
-            let (width_px, height_px) = match scanned_photo.dimensions {
-                Some((w, h)) => (w, h),
-                None => {
-                    warnings.push(format!("Missing dimensions for {}", scanned_photo.path.display()));
-                    continue;
-                }
-            };
-
-            // Generate ID: group/filename
-            let filename = scanned_photo.path
-                .file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or("unknown.jpg");
-            let id = format!("{}/{}", scanned_group.label, filename);
-
-            // Convert to PhotoFile
-            let photo_file = PhotoFile {
-                id: id.clone(),
-                source: scanned_photo.path.to_string_lossy().to_string(),
-                width_px,
-                height_px,
-                area_weight: 1.0,
-                hash: Some(hash.clone()),
-            };
+            // Add hash to photo_file
+            photo_file.hash = Some(hash.clone());
 
             photo_files.push(photo_file);
             existing_hashes.insert(hash);
-            existing_paths.insert(scanned_photo.path.clone());
+            existing_paths.insert(photo_path);
         }
 
         // Skip empty groups
@@ -148,26 +128,17 @@ pub fn add(project_root: &Path, config: &AddConfig) -> Result<AddResult> {
             continue;
         }
 
-        // Convert timestamp to ISO 8601
-        let sort_key = scanned_group.timestamp
-            .map(|dt| dt.format("%Y-%m-%dT%H:%M:%S").to_string())
-            .unwrap_or_else(|| "9999-12-31T23:59:59".to_string()); // Groups without timestamp go last
-
         let photo_count = photo_files.len();
         
-        // Create PhotoGroup
-        let photo_group = PhotoGroup {
-            group: scanned_group.label.clone(),
-            sort_key: sort_key.clone(),
-            files: photo_files,
-        };
+        // Update the scanned group with filtered files
+        scanned_group.files = photo_files;
 
-        state.photos.push(photo_group);
+        state.photos.push(scanned_group.clone());
 
         added_groups.push(GroupSummary {
-            name: scanned_group.label,
+            name: scanned_group.group,
             photo_count,
-            timestamp: sort_key,
+            timestamp: scanned_group.sort_key,
         });
     }
 
@@ -193,4 +164,51 @@ pub fn add(project_root: &Path, config: &AddConfig) -> Result<AddResult> {
         skipped: skipped_count,
         warnings,
     })
+}
+
+/// Execute the add command with user-friendly output
+///
+/// This function wraps the `add` function and handles:
+/// - Determining the project root directory
+/// - Calling `add` with the appropriate configuration
+/// - Formatting and displaying results to the user
+///
+/// # Arguments
+/// * `paths` - Directories or individual files to add
+/// * `allow_duplicates` - Allow adding files with identical content
+///
+/// # Returns
+/// * `Ok(())` on success
+/// * `Err` if the operation fails
+pub fn execute_add(paths: Vec<PathBuf>, allow_duplicates: bool) -> Result<()> {
+    // Determine project root (current directory for now)
+    let project_root = env::current_dir()
+        .context("Failed to get current directory")?;
+
+    // Handle add command
+    let config = AddConfig {
+        paths,
+        allow_duplicates,
+    };
+
+    let result = add(&project_root, &config)?;
+
+    // Print results
+    println!("✓ Added {} groups", result.groups_added.len());
+    for group in &result.groups_added {
+        println!(
+            "  • {}: {} photos ({})",
+            group.name, group.photo_count, group.timestamp
+        );
+    }
+
+    if result.skipped > 0 {
+        println!("⊗ Skipped {} duplicate photos", result.skipped);
+    }
+
+    for warning in &result.warnings {
+        eprintln!("⚠ {}", warning);
+    }
+
+    Ok(())
 }

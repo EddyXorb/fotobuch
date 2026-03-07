@@ -43,8 +43,8 @@ Drei Themenblöcke:
 
 Relative Pfade bleiben erhalten:
 
-| Original | Preview | Final |
-|---|---|---|
+| Original                        | Preview                                                 | Final                                                 |
+| ------------------------------- | ------------------------------------------------------- | ----------------------------------------------------- |
 | `2024-01-15_Urlaub/IMG_001.jpg` | `.fotobuch/cache/preview/2024-01-15_Urlaub/IMG_001.jpg` | `.fotobuch/cache/final/2024-01-15_Urlaub/IMG_001.jpg` |
 
 ### 1.2  Preview-Cache
@@ -92,14 +92,14 @@ Wenn im add Gruppen gleichen namens hinzugefügt werden, sollen die Fotos in ein
 
 ### 1.5  Tasks (Image Cache)
 
-| # | Task | Abhängigkeit | Aufwand |
-|---|---|---|---|
-| C1 | `cache::ensure_preview(photos, config) → HashMap<RelPath, CachePath>` — erzeugt fehlende Previews, gibt Mapping zurück | — | M |
-| C2 | `cache::watermark(image) → image` — "PREVIEW"-Stempel diagonal über Bild | C1 | S |
-| C3 | `cache::compute_final_size(placement, page_size, dpi) → (u32, u32)` — Ziel-Pixel aus mm + DPI | — | S |
-| C4 | `cache::export_final(layout, photos, config) → HashMap<RelPath, CachePath>` — erzeugt Final-Bilder basierend auf fertigem Layout | C3 | M |
-| C5 | `typst_export` anpassen: Pfade auf Cache verweisen statt auf Originale | C1, C4 | S |
-| C6 | CLI-Subcommand `export-final` | C4, C5 | S |
+| #   | Task                                                                                                                             | Abhängigkeit | Aufwand |
+| --- | -------------------------------------------------------------------------------------------------------------------------------- | ------------ | ------- |
+| C1  | `cache::ensure_preview(photos, config) → HashMap<RelPath, CachePath>` — erzeugt fehlende Previews, gibt Mapping zurück           | —            | M       |
+| C2  | `cache::watermark(image) → image` — "PREVIEW"-Stempel diagonal über Bild                                                         | C1           | S       |
+| C3  | `cache::compute_final_size(placement, page_size, dpi) → (u32, u32)` — Ziel-Pixel aus mm + DPI                                    | —            | S       |
+| C4  | `cache::export_final(layout, photos, config) → HashMap<RelPath, CachePath>` — erzeugt Final-Bilder basierend auf fertigem Layout | C3           | M       |
+| C5  | `typst_export` anpassen: Pfade auf Cache verweisen statt auf Originale                                                           | C1, C4       | S       |
+| C6  | CLI-Subcommand `export-final`                                                                                                    | C4, C5       | S       |
 
 ---
 
@@ -174,80 +174,9 @@ Die `.typ`-Datei ist ein festes Template, das `#yaml()` aufruft:
 - Typsts `#yaml()` parsed das File bei jedem Compile. Bei großen Projekten (1000+ Fotos) eventuell relevant, aber vermutlich vernachlässigbar.
 - Benutzer, der das Template selbst anpassen will (z.B. Seitenränder, Fonts), muss Typst-Syntax können.
 
-### 2.2  YAML-Schema
+### 2.4 yaml-scheme
 
-```yaml
-config:
-  book:
-    title: "mein_buch"
-    page_width_mm: 420.0
-    page_height_mm: 297.0
-    bleed_mm: 3.0
-    # margin_mm, gap_mm, bleed_threshold_mm: defaulted
-  # ga: defaulted
-  # preview: defaulted
-
-photos:
-  - group: "2024-01-15_Urlaub"
-    sort_key: "2024-01-15T09:23:00" # timestamp of minimal time of photo in group on first add
-    files:
-      - id: "2024-01-15_Urlaub/IMG_001.jpg" # <-- unique across all groups, if not: warning. id does not not necessarily have to be the groupfolder + file, but normally should be if there are no clashes with other files (if yes, use suffix counter "_1" etc.)
-        source: "/home/user/Fotos/2024-01-15_Urlaub/IMG_001.jpg"
-        width_px: 6000
-        height_px: 4000
-        area_weight: 1.0
-      - id: "2024-01-15_Urlaub/IMG_002.jpg"
-        file: "IMG_002.jpg"
-        width_px: 4000
-        height_px: 6000
-        area_weight: 2.0
-  - group: "2024-02-20_Geburtstag"
-    sort_key: "2024-02-20T14:00:00"
-    files:
-      - id: "2024-02-20_Geburtstag/IMG_010.jpg"
-        ssource: /home/user/Fotos/2024-02-20_Geburtstag/IMG_010.jpg"
-        width_px: 5000
-        height_px: 3333
-        area_weight: 1.0
-
-layout:
-  - page: 1
-    photos:                                          # Benutzer-Input: welche Fotos (sortiert nach Ratio), nach id
-      - "2024-01-15_Urlaub/IMG_002.jpg"              # 0.67 
-      - "2024-01-15_Urlaub/IMG_001.jpg"              # 1.50
-    slots:                                           # Solver-Output: Platzierung (Index-gekoppelt an photos)
-      - x_mm: -3.0
-        y_mm: -3.0
-        width_mm: 148.5
-        height_mm: 216.0
-      - x_mm: 151.5
-        y_mm: 10.0
-        width_mm: 135.5
-        height_mm: 190.0
-  - page: 2
-    photos:
-      - "2024-02-20_Geburtstag/IMG_010.jpg"          # 1.50
-    slots:
-      - x_mm: 10.0
-        y_mm: 10.0
-        width_mm: 277.0
-        height_mm: 190.0
-```
-
-**Anmerkungen zum Schema:**
-
-- `config`: Alle Konfigurationsparameter. Nur Pflichtfelder (`book.page_width_mm`, `book.page_height_mm`, `book.bleed_mm`) werden von `new` erzeugt, alles andere ist defaulted und optional.
-- `photos`: Importierte Fotos, gruppiert. `group` ist der Gruppenname, `files` enthaelt die einzelnen Fotos.
-- `id`: Projekt-relativer Schluessel (Unique Key). Bestimmt den Cache-Pfad (`.fotobuch/cache/preview/<path>`).Wenn es clashes gibt mit gleichen dateinamen in unterschiedlichen source-foldern : füge suffix counter "_1" zur id hinzu
-- `source`: Absoluter Pfad zum Original. Wird fuer Preview-/Final-Resize und Cache-Rebuild benoetigt. Das Original wird nie veraendert.
-- `sort_key`: Zeitstempel pro Gruppe fuer die chronologische Reihenfolge (von `add` per Heuristik (frühester timestamp aller hinzugefügten fotos nach erstem add) ermittelt, manuell aenderbar).
-- `layout`: Das Buch-Layout. Pro Seite `photos` (Benutzer-Input) und `slots` (Solver-Output).
-- `layout[].photos`: Welche Fotos auf der Seite, sortiert nach Ratio aufsteigend. Der `# 0.67`-Kommentar wird beim Schreiben per Post-Processing berechnet (`serde_yaml` unterstuetzt keine Kommentare).
-- `layout[].slots`: Berechnete Platzierungen, Index-gekoppelt an `photos`. `slots[i]` ist der Slot fuer `photos[i]`.
-- **Tausch innerhalb einer Seite:** Zwei Zeilen in `photos` tauschen, `slots` nicht anfassen. Fotos mit aehnlichem Ratio (Kommentar pruefen) sind problemlos tauschbar.
-- **Tausch ueber Seitengrenzen:** Zeile aus `photos` der einen Seite in die andere verschieben (gleicher Index im Ziel). Aehnliches Ratio = kein Rebuild noetig.
-- Bei Re-Optimierung einer Seite: Solver liest `layout[i].photos` -> findet Metadaten in `photos` (Top-Level) -> laesst GA laufen -> schreibt `layout[i].slots` neu. Die `photos`-Liste bleibt unangetastet.
-- `layout[].page`: ein counter, der nur für den benutzer da ist und dem index +1 in der liste entsprechend sollte; wird nicht fürs rendering verwendet und dient nur als info; d.h. änderungen daran durch benutzer ändern das fotobuch nicht. Wird nach jedem build/rebuild neu gesetzt
+Siehe [yaml-scheme.md](./yaml-scheme.md)
 
 ### 2.5  Build- und Rebuild-Workflow
 
@@ -288,16 +217,16 @@ Siehe cli_design.md Abschnitte 5-6 fuer Details.
 
 ### 2.6  Tasks (Projektzustand)
 
-| # | Task | Abhängigkeit | Aufwand |
-|---|---|---|---|
-| P1 | YAML-Schema definieren + `serde`-Structs (`ProjectState`, `Config`, `PhotoGroup`, `LayoutPage`, `Slot`) | — | M |
-| P2 | `project::load(path) → ProjectState` + `project::save(state, path)` mit Schema-Validierung. Dateipfad: `<project>.yaml` am Root. | P1 | S |
-| P3 | `project::init(photo_dirs, config) → ProjectState` — Scan + initiale Gruppierung, noch keine Platzierungen | P2 | M |
-| P4 | Typst-Template erstellen (`<project>_preview.typ` / `<project>_final.typ`), das `#yaml()` konsumiert; Unterschied nur im Cache-Prefix | P1 | M |
-| P5 | `run_ga`-Integration: Ergebnis in `ProjectState.layout[i].slots` schreiben | P1, P2 | S |
-| P6 | CLI-Subcommand `new` — Projekt anlegen, Previews erzeugen, erste Optimierung | P3, C1, P5 | M |
-| P7 | CLI-Subcommands `build` (inkrementell) + `rebuild [PAGE|RANGE]` (erzwungen) — siehe cli_design.md | P5 | M |
-| P8 | `build --release` — Final-Cache (immer voll aus Originalen), Final-PDF kompilieren | C4, P4 | M |
+| #   | Task                                                                                                                                  | Abhängigkeit                              | Aufwand |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- | ------- |
+| P1  | YAML-Schema definieren + `serde`-Structs (`ProjectState`, `Config`, `PhotoGroup`, `LayoutPage`, `Slot`)                               | —                                         | M       |
+| P2  | `project::load(path) → ProjectState` + `project::save(state, path)` mit Schema-Validierung. Dateipfad: `<project>.yaml` am Root.      | P1                                        | S       |
+| P3  | `project::init(photo_dirs, config) → ProjectState` — Scan + initiale Gruppierung, noch keine Platzierungen                            | P2                                        | M       |
+| P4  | Typst-Template erstellen (`<project>_preview.typ` / `<project>_final.typ`), das `#yaml()` konsumiert; Unterschied nur im Cache-Prefix | P1                                        | M       |
+| P5  | `run_ga`-Integration: Ergebnis in `ProjectState.layout[i].slots` schreiben                                                            | P1, P2                                    | S       |
+| P6  | CLI-Subcommand `new` — Projekt anlegen, Previews erzeugen, erste Optimierung                                                          | P3, C1, P5                                | M       |
+| P7  | CLI-Subcommands `build` (inkrementell) + `rebuild [PAGE                                                                               | RANGE]` (erzwungen) — siehe cli_design.md | P5      | M |
+| P8  | `build --release` — Final-Cache (immer voll aus Originalen), Final-PDF kompilieren                                                    | C4, P4                                    | M       |
 
 ---
 
@@ -338,15 +267,15 @@ Manuelle Edits des Benutzers werden beim nächsten Solver-Aufruf im Pre-Commit e
 
 Strukturierte Messages für maschinelles Parsen:
 
-| Anlass | Format |
-|---|---|
-| Projekt erstellt | `new: {W}x{H}mm, {B}mm bleed` |
-| Fotos hinzugefuegt | `add: {n} photos in {g} groups` |
-| Pre-Build | `pre-build: {n} groups, {m} photos` |
-| Post-Build | `post-build: {p} pages (cost: {total_cost})` |
-| Pre-Rebuild | `pre-rebuild: pages {pages}` |
-| Post-Rebuild | `post-rebuild: pages {pages} (cost: {total_cost})` |
-| Release | `release: {p} pages, {n} photos` |
+| Anlass             | Format                                             |
+| ------------------ | -------------------------------------------------- |
+| Projekt erstellt   | `new: {W}x{H}mm, {B}mm bleed`                      |
+| Fotos hinzugefuegt | `add: {n} photos in {g} groups`                    |
+| Pre-Build          | `pre-build: {n} groups, {m} photos`                |
+| Post-Build         | `post-build: {p} pages (cost: {total_cost})`       |
+| Pre-Rebuild        | `pre-rebuild: pages {pages}`                       |
+| Post-Rebuild       | `post-rebuild: pages {pages} (cost: {total_cost})` |
+| Release            | `release: {p} pages, {n} photos`                   |
 
 ### 3.5  Restore
 
@@ -372,11 +301,11 @@ Umsetzung via  `libgit2`, damit auch auf system lauffähig die kein git installi
 
 ### 3.7  Tasks (Git History)
 
-| # | Task | Abhängigkeit | Aufwand |
-|---|---|---|---|
-| G1 | `history::init(project_root)` — `git init --initial-branch=fotobuch` + `.gitignore` + initialer Commit bei `new` | — | S |
-| G2 | `history::snapshot(project_root, message)` — `git add` + Commit | G1 | S |
-| G3 | Pre/Post-Snapshot-Aufrufe in `build`, `rebuild`, `build --release` einbauen | G2, P6, P7, P8 | S |
+| #   | Task                                                                                                             | Abhängigkeit   | Aufwand |
+| --- | ---------------------------------------------------------------------------------------------------------------- | -------------- | ------- |
+| G1  | `history::init(project_root)` — `git init --initial-branch=fotobuch` + `.gitignore` + initialer Commit bei `new` | —              | S       |
+| G2  | `history::snapshot(project_root, message)` — `git add` + Commit                                                  | G1             | S       |
+| G3  | Pre/Post-Snapshot-Aufrufe in `build`, `rebuild`, `build --release` einbauen                                      | G2, P6, P7, P8 | S       |
 
 ---
 

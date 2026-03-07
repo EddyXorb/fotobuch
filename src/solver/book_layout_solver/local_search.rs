@@ -7,9 +7,10 @@ mod improve;
 mod perturbation;
 
 use super::cache::LayoutCache;
-use super::model::{GroupInfo, PageAssignment, Params};
-use crate::solver::prelude::*;
+use super::model::{GroupInfo, PageAssignment};
+use crate::dto_models::BookLayoutSolverConfig;
 use crate::solver::page_layout_solver::{self, CostBreakdown};
+use crate::solver::prelude::*;
 use std::ops::Range;
 
 /// Trait for evaluating single-page layouts for testing purposes.
@@ -48,7 +49,7 @@ pub fn evaluate_cached(
     if let Some(cached) = cache.get(range.clone()) {
         return cached.cost_breakdown.clone();
     }
-    
+
     let result = page_layout_solver::run_ga(&photos[range.clone()], canvas, ga_config);
     let breakdown = result.cost_breakdown.clone();
     cache.insert_if_better(range, result);
@@ -76,7 +77,7 @@ pub fn improve(
     assignment: PageAssignment,
     photos: &[Photo],
     groups: &GroupInfo,
-    params: &Params,
+    params: &BookLayoutSolverConfig,
     evaluator: &mut impl PageLayoutEvaluator,
 ) -> (PageAssignment, f64, usize) {
     improve::improve(assignment, photos, groups, params, evaluator)
@@ -85,7 +86,7 @@ pub fn improve(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::dto_models::Photo;
+
     use crate::solver::page_layout_solver::CostBreakdown;
 
     /// Mock evaluator for testing that returns deterministic costs
@@ -98,7 +99,7 @@ mod tests {
         fn evaluate(&mut self, photos: &[Photo]) -> CostBreakdown {
             let count = photos.len();
             let deviation = (count as i32 - self.ideal_count as i32).abs() as f64;
-            
+
             // Simple cost: coverage increases with deviation from ideal
             // Other components set to small values for testing
             let coverage = deviation * 0.1;
@@ -114,11 +115,7 @@ mod tests {
 
     fn create_test_photos(count: usize) -> Vec<Photo> {
         (0..count)
-            .map(|i| Photo::new(
-                16.0 / 9.0,
-                1.0,
-                format!("group_{}", i),
-            ))
+            .map(|i| Photo::new(16.0 / 9.0, 1.0, format!("group_{}", i)))
             .collect()
     }
 

@@ -20,7 +20,7 @@ anyhow = "1"
 thiserror = "2"
 
 # Date/time parsing for folder names
-chrono = "0.4"
+chrono = { version = "0.4", features = ["serde"] }
 
 # Image metadata (EXIF) and dimensions
 kamadak-exif = "0.6"
