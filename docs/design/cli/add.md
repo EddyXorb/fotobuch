@@ -122,13 +122,8 @@ src/
 ```rust
 //! Project state management and YAML operations.
 
-#[path = "project/state.rs"]
 pub mod state;
-
-#[path = "project/timestamp.rs"]
 pub mod timestamp;
-
-#[path = "project/git.rs"]
 pub mod git;
 
 pub use state::{ProjectState, PhotoGroup, PhotoFile, LayoutPage, Slot};
@@ -805,9 +800,10 @@ Cli::Add { paths, allow_duplicates } => {
 ## 7. Implementierungs-Reihenfolge
 
 ### Phase 1: Datenstrukturen (1 Commit)
-1. `src/project/mod.rs`, `state.rs` - ProjectState, PhotoGroup, etc.
-2. `src/models.rs` - public exports
-3. Unit-Tests für Serialisierung
+1. `src/project.rs` - Modul-Deklaration mit #[path] attributes
+2. `src/project/state.rs` - ProjectState, PhotoGroup, etc.
+3. `src/lib.rs` - project modul exportieren
+4. Unit-Tests für Serialisierung
 
 ### Phase 2: Metadata-Extraktion (1 Commit)
 1. `Cargo.toml` - Dependencies hinzufügen
