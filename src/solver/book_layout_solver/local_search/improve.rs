@@ -189,7 +189,6 @@ fn find_candidate_cuts(
 #[cfg(test)]
 mod tests {
     use super::*;
-
     use crate::solver::page_layout_solver::CostBreakdown;
     use std::time::Duration;
 

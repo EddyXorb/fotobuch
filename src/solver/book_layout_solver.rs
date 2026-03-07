@@ -36,6 +36,54 @@ pub enum SolverError {
     MipFailed(#[from] mip::MipError),
 }
 
+/// Solves the book layout problem using MIP + local search.
+///
+/// # Algorithm
+/// 1. Validate parameters
+/// 2. Build GroupInfo from photos
+/// 3. Run MIP solver to get initial feasible assignment
+/// 4. Run local search to refine the assignment
+/// 5. Collect layouts from cache and build BookLayout
+///
+pub fn solve_book_layout(
+    photos: &[Photo],
+    params: &Params,
+    canvas: &Canvas,
+    ga_config: &GaConfig,
+) -> Result<BookLayout, SolverError> {
+    // Handle empty input
+    if photos.is_empty() {
+        return Ok(BookLayout::new(vec![]));
+    }
+
+    // Validate parameters
+    params.validate(photos.len())?;
+
+    // Build group information from photos
+    let groups = GroupInfo::from_photos(photos);
+
+    // Phase 1: MIP solver for initial assignment
+    let initial_assignment = mip::solve_mip(&groups, params)?;
+
+    // Phase 2: Local search refinement
+    let mut evaluator = RealPageEvaluator::new(canvas, ga_config);
+
+    let (final_assignment, _worst_coverage, _iterations) =
+        local_search::improve(initial_assignment, photos, &groups, params, &mut evaluator);
+
+    // Phase 3: Build BookLayout from cached results
+    let page_layouts: Vec<PageLayout> = (0..final_assignment.num_pages())
+        .filter_map(|page_idx| {
+            let range = final_assignment.page_range(page_idx);
+            evaluator
+                .get_cached_layout(&photos[range])
+                .map(|layout| layout.centered())
+        })
+        .collect();
+
+    Ok(BookLayout::new(page_layouts))
+}
+
 /// Evaluator that uses the GA-based page layout solver with internal caching.
 ///
 /// This adapter connects the single-page GA solver to the book layout solver's
@@ -83,62 +131,6 @@ impl PageLayoutEvaluator for RealPageEvaluator<'_> {
 
         breakdown
     }
-}
-
-/// Solves the book layout problem using MIP + local search.
-///
-/// # Algorithm
-/// 1. Validate parameters
-/// 2. Build GroupInfo from photos
-/// 3. Run MIP solver to get initial feasible assignment
-/// 4. Run local search to refine the assignment
-/// 5. Collect layouts from cache and build BookLayout
-///
-/// # Arguments
-/// * `photos` - All photos to layout (must be sorted by group then timestamp)
-/// * `params` - Solver parameters
-/// * `canvas` - Canvas configuration for page layouts
-/// * `ga_config` - GA configuration for single-page solver
-///
-/// # Returns
-/// `BookLayout` with optimized page layouts, or `SolverError`.
-pub fn solve_book_layout(
-    photos: &[Photo],
-    params: &Params,
-    canvas: &Canvas,
-    ga_config: &GaConfig,
-) -> Result<BookLayout, SolverError> {
-    // Handle empty input
-    if photos.is_empty() {
-        return Ok(BookLayout::new(vec![]));
-    }
-
-    // Validate parameters
-    params.validate(photos.len())?;
-
-    // Build group information from photos
-    let groups = GroupInfo::from_photos(photos);
-
-    // Phase 1: MIP solver for initial assignment
-    let initial_assignment = mip::solve_mip(&groups, params)?;
-
-    // Phase 2: Local search refinement
-    let mut evaluator = RealPageEvaluator::new(canvas, ga_config);
-
-    let (final_assignment, _worst_coverage, _iterations) =
-        local_search::improve(initial_assignment, photos, &groups, params, &mut evaluator);
-
-    // Phase 3: Build BookLayout from cached results
-    let page_layouts: Vec<PageLayout> = (0..final_assignment.num_pages())
-        .filter_map(|page_idx| {
-            let range = final_assignment.page_range(page_idx);
-            evaluator
-                .get_cached_layout(&photos[range])
-                .map(|layout| layout.centered())
-        })
-        .collect();
-
-    Ok(BookLayout::new(page_layouts))
 }
 
 #[cfg(test)]
