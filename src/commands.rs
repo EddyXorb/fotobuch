@@ -9,6 +9,8 @@
 
 #[path = "commands/add.rs"]
 pub mod add;
+#[path = "commands/build.rs"]
+pub mod build;
 #[path = "commands/new.rs"]
 pub mod new;
 #[path = "commands/place.rs"]
@@ -19,6 +21,7 @@ pub mod remove;
 pub mod status;
 
 pub use add::{add, AddConfig, AddResult, GroupSummary};
+pub use build::{build, BuildConfig, BuildResult, DpiWarning};
 pub use new::{new, NewConfig, NewResult};
 pub use place::{place, PlaceConfig, PlaceResult};
 pub use remove::{remove, RemoveConfig, RemoveResult};
