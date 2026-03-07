@@ -8,6 +8,7 @@
 
 mod book_layout;
 mod canvas;
+pub mod config;
 mod ga_config;
 mod layout;
 mod photo;
@@ -18,6 +19,7 @@ mod weights;
 // Re-export all public types
 pub use book_layout::BookLayout;
 pub use canvas::Canvas;
+pub use config::{BookConfig, FitnessWeightsYaml, GaConfigYaml, PreviewConfig, ProjectConfig};
 pub use ga_config::{GaConfig, IslandConfig};
 pub use layout::{PageLayout, PhotoPlacement};
 pub use photo::{Photo, PhotoInfo};
