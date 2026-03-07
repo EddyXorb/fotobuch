@@ -7,23 +7,15 @@
 //!
 //! Commands never depend on CLI parsers (clap) - they work with plain Rust types.
 
-#[path = "commands/add.rs"]
+
 pub mod add;
-#[path = "commands/build.rs"]
 pub mod build;
-#[path = "commands/config.rs"]
 pub mod config;
-#[path = "commands/history.rs"]
 pub mod history;
-#[path = "commands/new.rs"]
 pub mod new;
-#[path = "commands/place.rs"]
 pub mod place;
-#[path = "commands/rebuild.rs"]
 pub mod rebuild;
-#[path = "commands/remove.rs"]
 pub mod remove;
-#[path = "commands/status.rs"]
 pub mod status;
 
 pub use add::{add, AddConfig, AddResult, GroupSummary};
