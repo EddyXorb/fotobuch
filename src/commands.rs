@@ -15,6 +15,8 @@ pub mod build;
 pub mod new;
 #[path = "commands/place.rs"]
 pub mod place;
+#[path = "commands/rebuild.rs"]
+pub mod rebuild;
 #[path = "commands/remove.rs"]
 pub mod remove;
 #[path = "commands/status.rs"]
@@ -24,5 +26,6 @@ pub use add::{add, AddConfig, AddResult, GroupSummary};
 pub use build::{build, BuildConfig, BuildResult, DpiWarning};
 pub use new::{new, NewConfig, NewResult};
 pub use place::{place, PlaceConfig, PlaceResult};
+pub use rebuild::{rebuild, RebuildScope};
 pub use remove::{remove, RemoveConfig, RemoveResult};
 pub use status::{status, PageStatus, SlotInfo, StatusReport};
