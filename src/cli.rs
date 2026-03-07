@@ -1,12 +1,40 @@
 //! Command-line interface for the photobook solver.
 
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
-/// Photobook layout solver: optimizes photo placement on a canvas using genetic algorithms.
+/// Photobook layout solver and project manager
 #[derive(Parser, Debug)]
-#[command(version, about, long_about = None)]
-pub struct Args {
+#[command(version, about = "Photobook layout solver and project manager")]
+pub struct Cli {
+    #[command(subcommand)]
+    pub command: Commands,
+}
+
+/// Available subcommands
+#[derive(Subcommand, Debug)]
+pub enum Commands {
+    /// Add photos to the project
+    Add {
+        /// Directories containing photos to add
+        paths: Vec<PathBuf>,
+
+        /// Allow adding duplicate photos (by hash)
+        #[arg(long)]
+        allow_duplicates: bool,
+
+        /// Project directory (default: current directory)
+        #[arg(short, long, default_value = ".")]
+        project: PathBuf,
+    },
+
+    /// Run the layout solver
+    Solve(SolverArgs),
+}
+
+/// Legacy solver arguments (kept for backwards compatibility)
+#[derive(Parser, Debug)]
+pub struct SolverArgs {
     /// Root directory containing photo subdirectories
     #[arg(short, long)]
     pub input: PathBuf,
@@ -124,10 +152,10 @@ pub struct WeightsArgs {
     pub w_order: f64,
 }
 
-impl Args {
+impl SolverArgs {
     /// Convert command-line arguments into a SolverRequest.
     ///
-    /// This method consumes the Args and creates a complete SolverRequest
+    /// This method consumes the SolverArgs and creates a complete SolverRequest
     /// with all configuration parameters.
     pub fn into_solver_request(self) -> anyhow::Result<photobook_solver::SolverRequest> {
         use photobook_solver::*;

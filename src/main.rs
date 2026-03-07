@@ -4,19 +4,52 @@ mod cli;
 
 use anyhow::Result;
 use clap::Parser;
-use cli::Args;
+use cli::{Cli, Commands};
 use photobook_solver::*;
 use tracing::info;
 
 fn main() -> Result<()> {
     setup_logging();
-    let args = Args::parse();
+    let cli = Cli::parse();
 
-    let request = args.into_solver_request()?;
-    let _book_layout = run_solver(&request)?;
+    match cli.command {
+        Commands::Add {
+            paths,
+            allow_duplicates,
+            project,
+        } => {
+            // Handle add command
+            let config = commands::AddConfig {
+                paths,
+                allow_duplicates,
+            };
 
-    info!("Done!");
-    Ok(())
+            let result = commands::add(&project, &config)?;
+
+            // Print results
+            println!("✓ Added {} groups", result.groups_added.len());
+            for group in &result.groups_added {
+                println!("  • {}: {} photos ({})", group.name, group.photo_count, group.timestamp);
+            }
+
+            if result.skipped > 0 {
+                println!("⊗ Skipped {} duplicate photos", result.skipped);
+            }
+
+            for warning in &result.warnings {
+                eprintln!("⚠ {}", warning);
+            }
+
+            Ok(())
+        }
+        Commands::Solve(solver_args) => {
+            // Run the layout solver
+            let request = solver_args.into_solver_request()?;
+            let _book_layout = run_solver(&request)?;
+            info!("Done!");
+            Ok(())
+        }
+    }
 }
 
 /// Initialize logging system with environment variable support.
