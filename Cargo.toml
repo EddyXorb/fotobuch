@@ -45,6 +45,13 @@ crossbeam = "0.8"
 # Serialization
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+serde_yaml = "0.9"
+
+# Regex for parsing dates from folder names
+regex = "1.10"
+
+# Fast hashing for duplicate detection
+blake3 = "1.5"
 
 # MIP solver
 good_lp = { version = "1", features = ["highs"], default-features = false }
@@ -53,3 +60,4 @@ good_lp = { version = "1", features = ["highs"], default-features = false }
 approx = "0.5"
 proptest = "1"
 rand_chacha = "0.3"
+tempfile = "3.10"
