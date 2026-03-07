@@ -71,8 +71,10 @@ where
 }
 
 /// Calculates the number of elite individuals to keep.
+/// Returns at most the population size to prevent index out of bounds.
 fn calc_elite_count(population_size: usize, elitism_ratio: f64) -> usize {
-    (population_size as f64 * elitism_ratio) as usize
+    let count = (population_size as f64 * elitism_ratio) as usize;
+    count.min(population_size)
 }
 
 /// Builds the next generation population from elite and offspring.
