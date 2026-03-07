@@ -9,6 +9,8 @@
 
 pub mod add;
 pub mod new;
+pub mod remove;
 
 pub use add::{add, AddConfig, AddResult, GroupSummary};
 pub use new::{new, NewConfig, NewResult};
+pub use remove::{remove, RemoveConfig, RemoveResult};
