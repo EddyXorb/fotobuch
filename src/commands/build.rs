@@ -1,7 +1,7 @@
 //! `fotobuch build` command - Calculate layout and generate preview PDF
 
 use anyhow::Result;
-use crate::cache::preview;
+use crate::cache::{final_cache, preview};
 use crate::dto_models::{PhotoFile, PhotoGroup};
 use crate::output::typst;
 use crate::solver::{run_solver, Request, RequestType};
@@ -98,8 +98,7 @@ pub fn build(project_root: &Path, config: &BuildConfig) -> Result<BuildResult> {
         if config.pages.is_some() {
             anyhow::bail!("--pages is not allowed with --release (must build entire book)");
         }
-        // TODO: Implement release_build
-        anyhow::bail!("Release build not yet implemented");
+        return release_build(mgr, project_root);
     }
 
     // First build vs incremental build
@@ -317,4 +316,82 @@ fn rebuild_single_page(
     state.layout[page_idx].slots = result[0].slots.clone();
 
     Ok(())
+}
+
+/// Performs release build: generates final high-quality PDF at 300 DPI.
+///
+/// # Requirements
+/// - Layout must be clean (no uncommitted changes)
+/// - All photos must be available
+///
+/// # Steps
+/// 1. Verify layout is clean
+/// 2. Generate final cache (300 DPI) and collect DPI warnings
+/// 3. Compile final.typ -> final.pdf
+/// 4. Save and commit
+fn release_build(mgr: StateManager, project_root: &Path) -> Result<BuildResult> {
+    println!("Release build: generating final PDF at 300 DPI...");
+
+    // 1. Check that layout is clean (no uncommitted changes)
+    if mgr.has_changes() {
+        anyhow::bail!(
+            "Layout has uncommitted changes. Run `fotobuch build` first to commit changes."
+        );
+    }
+
+    if mgr.state.layout.is_empty() {
+        anyhow::bail!("No layout found. Run `fotobuch build` first to generate layout.");
+    }
+
+    // 2. Generate final cache at 300 DPI
+    let progress = AtomicUsize::new(0);
+    let final_cache_dir = mgr.final_cache_dir();
+    let final_result = final_cache::build_final_cache(&mgr.state, &final_cache_dir, &progress)?;
+
+    println!(
+        "Final cache: {} images generated, {} DPI warnings",
+        final_result.created,
+        final_result.dpi_warnings.len()
+    );
+
+    // Print DPI warnings
+    if !final_result.dpi_warnings.is_empty() {
+        println!("\nWARNING: Some photos will be displayed below 300 DPI:");
+        for warning in &final_result.dpi_warnings {
+            println!(
+                "  Page {}: {} - {:.1} DPI ({}x{} px in {:.1}x{:.1} mm slot)",
+                warning.page,
+                warning.photo_id,
+                warning.actual_dpi,
+                warning.original_px.0,
+                warning.original_px.1,
+                warning.slot_mm.0,
+                warning.slot_mm.1
+            );
+        }
+        println!();
+    }
+
+    // 3. Compile final.typ -> final.pdf
+    let pdf_path = typst::compile_final(project_root, mgr.project_name())?;
+    println!("Final PDF generated: {}", pdf_path.display());
+
+    // 4. Save state and commit
+    let page_count = mgr.state.layout.len();
+    let total_photos: usize = mgr.state.layout.iter().map(|p| p.photos.len()).sum();
+
+    mgr.finish(&format!(
+        "release: {} pages, {} photos",
+        page_count, total_photos
+    ))?;
+
+    Ok(BuildResult {
+        pdf_path,
+        pages_rebuilt: vec![], // Release doesn't rebuild layout
+        pages_swapped: vec![],
+        images_processed: final_result.created,
+        total_cost: 0.0, // Not relevant for release
+        dpi_warnings: final_result.dpi_warnings,
+        nothing_to_do: false,
+    })
 }
