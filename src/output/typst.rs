@@ -109,6 +109,8 @@ struct SimpleWorld {
     main_id: FileId,
     /// The main template source
     main_source: Source,
+    /// Root directory for resolving relative paths
+    root: PathBuf,
     /// Font book
     book: LazyHash<FontBook>,
     /// Fonts
@@ -122,12 +124,22 @@ impl SimpleWorld {
         // Load system fonts
         let fonts = Fonts::searcher().search();
 
-        // Create file ID for main source
-        let main_id = FileId::new(None, VirtualPath::new(path));
+        // Get root directory (parent of template file)
+        let root = path
+            .parent()
+            .ok_or_else(|| anyhow::anyhow!("Template path has no parent"))?
+            .to_path_buf();
+
+        // Create file ID relative to root so that as_rootless_path() returns
+        // just the filename, enabling correct path resolution in source()/file().
+        let vpath = VirtualPath::within_root(path, &root)
+            .ok_or_else(|| anyhow::anyhow!("Template path is not within root directory"))?;
+        let main_id = FileId::new(None, vpath);
 
         Ok(Self {
             main_id,
             main_source: Source::new(main_id, content),
+            root,
             book: LazyHash::new(fonts.book),
             fonts: fonts.fonts,
             library: LazyHash::new(Library::default()),
@@ -152,14 +164,23 @@ impl World for SimpleWorld {
         if id == self.main_id {
             Ok(self.main_source.clone())
         } else {
-            Err(FileError::NotFound(id.vpath().as_rootless_path().into()))
+            // Try to load file from filesystem
+            let relative_path = id.vpath().as_rootless_path();
+            let full_path = self.root.join(relative_path);
+            
+            fs::read_to_string(&full_path)
+                .map(|content| Source::new(id, content))
+                .map_err(|_| FileError::NotFound(relative_path.into()))
         }
     }
 
-    fn file(&self, _id: FileId) -> FileResult<Bytes> {
-        Err(FileError::NotFound(PathBuf::from(
-            "file access not implemented",
-        )))
+    fn file(&self, id: FileId) -> FileResult<Bytes> {
+        let relative_path = id.vpath().as_rootless_path();
+        let full_path = self.root.join(relative_path);
+        
+        fs::read(&full_path)
+            .map(|data| Bytes::new(data))
+            .map_err(|_| FileError::NotFound(relative_path.into()))
     }
 
     fn font(&self, index: usize) -> Option<Font> {
