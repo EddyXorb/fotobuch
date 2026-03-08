@@ -36,11 +36,11 @@ pub fn ensure_previews(
 ) -> Result<PreviewCacheResult> {
     let max_px = state.config.preview.max_preview_px;
 
-    // Collect all (group, photo) pairs
-    let all_photos: Vec<(&str, &PhotoFile)> = state
+    // Collect all photos across groups
+    let all_photos: Vec<&PhotoFile> = state
         .photos
         .iter()
-        .flat_map(|g| g.files.iter().map(move |f| (g.group.as_str(), f)))
+        .flat_map(|g| g.files.iter())
         .collect();
 
     let total = all_photos.len();
@@ -48,9 +48,9 @@ pub fn ensure_previews(
     let skipped = AtomicUsize::new(0);
 
     // Process in parallel
-    all_photos.par_iter().try_for_each(|(group, photo)| {
+    all_photos.par_iter().try_for_each(|photo| {
         let source = Path::new(&photo.source);
-        let cached = preview_path(preview_cache_dir, group, &photo.id);
+        let cached = preview_path(preview_cache_dir, &photo.id);
 
         if is_cache_fresh(source, &cached) {
             skipped.fetch_add(1, Ordering::Relaxed);
@@ -179,7 +179,7 @@ mod tests {
                 group: "TestGroup".to_string(),
                 sort_key: "01".to_string(),
                 files: vec![PhotoFile {
-                    id: "TestGroup_001".to_string(),
+                    id: "TestGroup/test.jpg".to_string(),
                     source: source_path.to_str().unwrap().to_string(),
                     width_px: 1920,
                     height_px: 1080,
@@ -200,7 +200,7 @@ mod tests {
         assert_eq!(progress.load(Ordering::Relaxed), 1);
 
         // Verify cached image exists and has correct dimensions
-        let cached_path = cache_dir.join("TestGroup/001.jpg");
+        let cached_path = cache_dir.join("TestGroup/test.jpg");
         assert!(cached_path.exists());
         let cached_img = image::open(&cached_path).unwrap();
         assert_eq!(cached_img.width(), 400);
@@ -220,7 +220,7 @@ mod tests {
 
         thread::sleep(Duration::from_millis(10));
 
-        let cached_path = cache_dir.join("TestGroup/001.jpg");
+        let cached_path = cache_dir.join("TestGroup/test.jpg");
         create_test_image(&cached_path, 400, 225);
 
         // Create test state
@@ -230,7 +230,7 @@ mod tests {
                 group: "TestGroup".to_string(),
                 sort_key: "01".to_string(),
                 files: vec![PhotoFile {
-                    id: "TestGroup_001".to_string(),
+                    id: "TestGroup/test.jpg".to_string(),
                     source: source_path.to_str().unwrap().to_string(),
                     width_px: 1920,
                     height_px: 1080,
@@ -258,7 +258,7 @@ mod tests {
         let cache_dir = project_root.join("cache/preview");
 
         // Create cached image first (older)
-        let cached_path = cache_dir.join("TestGroup/001.jpg");
+        let cached_path = cache_dir.join("TestGroup/test.jpg");
         create_test_image(&cached_path, 400, 225);
 
         thread::sleep(Duration::from_millis(10));
@@ -273,7 +273,7 @@ mod tests {
                 group: "TestGroup".to_string(),
                 sort_key: "01".to_string(),
                 files: vec![PhotoFile {
-                    id: "TestGroup_001".to_string(),
+                    id: "TestGroup/test.jpg".to_string(),
                     source: source_path.to_str().unwrap().to_string(),
                     width_px: 1920,
                     height_px: 1080,

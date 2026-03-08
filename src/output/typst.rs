@@ -90,12 +90,14 @@ pub fn compile_final(project_root: &Path, project_name: &str) -> Result<PathBuf>
 }
 
 /// Generates `final.typ` from the preview template with `is_final = true`.
+///
+/// Replaces `#let is_final = false` in the template instead of prepending a second
+/// binding, since a later Typst `let` binding would shadow an earlier one.
 fn generate_final_template(source: &Path, target: &Path) -> Result<()> {
     let content = fs::read_to_string(source)
         .with_context(|| format!("Failed to read template: {}", source.display()))?;
 
-    // Prepend is_final = true before the template content
-    let final_content = format!("#let is_final = true\n\n{}", content);
+    let final_content = content.replacen("#let is_final = false", "#let is_final = true", 1);
 
     fs::write(target, final_content)
         .with_context(|| format!("Failed to write final template: {}", target.display()))?;
@@ -179,7 +181,7 @@ impl World for SimpleWorld {
         let full_path = self.root.join(relative_path);
         
         fs::read(&full_path)
-            .map(|data| Bytes::new(data))
+            .map(Bytes::new)
             .map_err(|_| FileError::NotFound(relative_path.into()))
     }
 
@@ -203,12 +205,13 @@ mod tests {
         let source = temp.path().join("preview.typ");
         let target = temp.path().join("final.typ");
 
-        fs::write(&source, "// Preview template\n#text(\"Hello\")").unwrap();
+        fs::write(&source, "#let is_final = false\n// Preview template\n#text(\"Hello\")").unwrap();
 
         generate_final_template(&source, &target).unwrap();
 
         let content = fs::read_to_string(&target).unwrap();
-        assert!(content.starts_with("#let is_final = true\n\n"));
+        assert!(content.starts_with("#let is_final = true\n"));
+        assert!(!content.contains("#let is_final = false"), "old declaration must be replaced");
         assert!(content.contains("// Preview template"));
     }
 
@@ -255,21 +258,22 @@ mod tests {
 
         fs::write(
             &template,
-            "= My Book\n\n#if is_final [Final] else [Preview]",
+            "#let is_final = false\n\n= My Book\n\n#if is_final [Final] else [Preview]",
         )
         .unwrap();
 
         let result = compile_final(temp.path(), "mybook");
 
-        assert!(result.is_ok());
+        assert!(result.is_ok(), "compile_final failed: {:?}", result.err());
         let pdf_path = result.unwrap();
         assert_eq!(pdf_path, temp.path().join("final.pdf"));
         assert!(pdf_path.exists());
 
-        // Verify final.typ was created with is_final = true
+        // Verify final.typ was created with is_final = true (declaration replaced)
         let final_typ = temp.path().join("final.typ");
         assert!(final_typ.exists());
         let content = fs::read_to_string(&final_typ).unwrap();
-        assert!(content.starts_with("#let is_final = true\n\n"));
+        assert!(content.contains("#let is_final = true"));
+        assert!(!content.contains("#let is_final = false"));
     }
 }

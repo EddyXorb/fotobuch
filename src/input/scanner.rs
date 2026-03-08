@@ -111,14 +111,14 @@ fn read_photos(dir: &Path, group_name: &str) -> Result<Vec<PhotoFile>> {
         .filter(|p| is_supported_image(p))
         .enumerate()
         .map(|(idx, path)| {
-            // Generate unique ID from filename and index
-            let id = format!(
-                "{}_{}",
-                group_name,
-                path.file_stem()
-                    .and_then(|s| s.to_str())
-                    .unwrap_or(&format!("{}", idx))
-            );
+            // Generate unique ID: "{group}/{filename_with_extension}"
+            // The ID doubles as the relative cache path (per YAML schema).
+            let filename = path
+                .file_name()
+                .and_then(|s| s.to_str())
+                .unwrap_or(&format!("photo_{idx}.jpg"))
+                .to_string();
+            let id = format!("{group_name}/{filename}");
 
             PhotoFile {
                 id,
