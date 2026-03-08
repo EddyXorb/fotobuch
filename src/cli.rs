@@ -1,6 +1,6 @@
 //! Command-line interface for the photobook solver.
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use photobook_solver::commands;
 use std::path::PathBuf;
