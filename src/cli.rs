@@ -22,16 +22,15 @@ pub trait Execute {
 /// Available subcommands
 #[derive(Subcommand, Debug)]
 pub enum Commands {
-    // TODO: Re-enable after implementing add() with StateManager
-    // /// Add photos to the project
-    // Add {
-    //     /// Directories containing photos to add
-    //     paths: Vec<PathBuf>,
-    // 
-    //     /// Allow adding duplicate photos (by hash)
-    //     #[arg(long)]
-    //     allow_duplicates: bool,
-    // },
+    /// Add photos to the project
+    Add {
+        /// Directories or files containing photos to add
+        paths: Vec<PathBuf>,
+
+        /// Allow adding duplicate photos (by hash)
+        #[arg(long)]
+        allow_duplicates: bool,
+    },
 
     /// Project management commands
     Project {
@@ -69,10 +68,50 @@ pub enum ProjectCommands {
 impl Execute for Commands {
     fn execute(&self) -> Result<()> {
         match self {
-            // Commands::Add {
-            //     paths,
-            //     allow_duplicates,
-            // } => commands::execute_add(paths.clone(), *allow_duplicates),
+            Commands::Add {
+                paths,
+                allow_duplicates,
+            } => {
+                let project_root = std::env::current_dir()
+                    .context("Failed to determine current directory")?;
+
+                let config = commands::AddConfig {
+                    paths: paths.clone(),
+                    allow_duplicates: *allow_duplicates,
+                };
+
+                let result = commands::add(&project_root, &config)?;
+
+                if result.groups_added.is_empty() {
+                    println!("ℹ️  No new photos added (all skipped).");
+                } else {
+                    println!("✅ Added {} photos in {} groups", 
+                        result.groups_added.iter().map(|g| g.photo_count).sum::<usize>(),
+                        result.groups_added.len()
+                    );
+                    
+                    for group in &result.groups_added {
+                        println!("   📁 {} — {} photos ({})", 
+                            group.name, 
+                            group.photo_count, 
+                            group.timestamp
+                        );
+                    }
+                }
+
+                if result.skipped > 0 {
+                    println!("⏭️  Skipped {} duplicate photos", result.skipped);
+                }
+
+                if !result.warnings.is_empty() {
+                    println!("⚠️  Warnings:");
+                    for warning in &result.warnings {
+                        println!("   - {}", warning);
+                    }
+                }
+
+                Ok(())
+            }
             Commands::Project { command } => command.execute(),
         }
     }
