@@ -75,9 +75,9 @@ Pro Gruppe wird ein `sort_key` (ISO 8601) bestimmt. Erste verfügbare Quelle gew
 
 ## ID-Generierung
 
-Format: `<group>_<filename_without_ext>` (analog zu `input/scanner.rs`).
+Format: `<group>/<filename_with_ext>` (analog zu `input/scanner.rs`).
 
-Bei Namenskollision innerhalb der Gruppe: Suffix `_1`, `_2`, ... ab dem zweiten Duplikat.
+Bei Namenskollision innerhalb der Gruppe: Suffix `_1`, `_2`, ... ab dem zweiten Duplikat vor die endung anhängen.
 
 ---
 
