@@ -4,14 +4,14 @@ Stand: 2026-03-08
 
 ## Überblick
 
-Zeigt die vollständig aufgelöste Konfiguration — explizit gesetzte Werte und Defaults — als kommentiertes YAML. Rein lesend — verändert nichts, kein Git.
+Zeigt die vollständig aufgelöste Konfiguration — explizit gesetzte Werte und Defaults — als kommentiertes YAML. Rein lesend — verändert nichts. `StateManager::open()` committet jedoch ausstehende Nutzer-Edits bevor die Config gelesen wird.
 
 ## Abhängigkeiten
 
-- `dto_models::ProjectState` load (vorhanden)
+- `StateManager` (vorhanden)
 - `serde_yaml` (vorhanden)
 
-**Keine neuen Crates. Kein Git.**
+**Keine neuen Crates.**
 
 ---
 
@@ -31,7 +31,7 @@ Durch Vergleich der Keys in der `serde_yaml::Value` vs. alle Felder der Struct k
 ### `src/commands/config.rs`
 
 ```rust
-use anyhow::{Context, Result};
+use anyhow::Result;
 use std::path::Path;
 
 use crate::dto_models::ProjectConfig;
@@ -44,24 +44,14 @@ pub struct ConfigResult {
 
 /// Lädt die Config mit aufgelösten Defaults und dem Raw-YAML für Annotation.
 pub fn config(project_root: &Path) -> Result<ConfigResult> {
-    let yaml_path = project_root.join("fotobuch.yaml");
-    let contents = std::fs::read_to_string(&yaml_path)
-        .with_context(|| format!("Failed to read {}", yaml_path.display()))?;
-
-    // 1. Raw-Value: nur explizit gesetzte Keys
-    let full_value: serde_yaml::Value = serde_yaml::from_str(&contents)?;
-    let raw_config = full_value
-        .get("config")
-        .cloned()
-        .unwrap_or(serde_yaml::Value::Mapping(Default::default()));
-
-    // 2. Vollständig deserialisiert mit Defaults
-    let state = crate::dto_models::ProjectState::load(&yaml_path)?;
+    let mgr = StateManager::open(project_root)?;
+    // open() commits any pending user edits
 
     Ok(ConfigResult {
-        resolved: state.config,
-        raw: raw_config,
+        resolved: mgr.state.config.clone(),
+        raw: mgr.raw_config().clone(),
     })
+    // Drop: no programmatic changes → no warning
 }
 ```
 
@@ -196,9 +186,9 @@ Die Ausgabe ist gültiges YAML (Kommentare stören serde nicht) — copy-paste i
 
 ---
 
-## Zusammenspiel mit `fotobuch new`
+## Zusammenspiel mit `fotobuch project new`
 
-`new` schreibt eine vollständige YAML mit allen Feldern. `config` ist v.a. nützlich wenn der Benutzer Teile der YAML gelöscht hat oder wissen will was einstellbar ist.
+`fotobuch project new` schreibt eine vollständige YAML mit allen Feldern. `config` ist v.a. nützlich wenn der Benutzer Teile der YAML gelöscht hat oder wissen will was einstellbar ist.
 
 ---
 

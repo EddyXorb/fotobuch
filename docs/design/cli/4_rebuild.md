@@ -11,7 +11,7 @@ Erzwingt Neuberechnung — mächtiger als `build`. Drei Modi: Einzelseite (nur P
 - `cache::preview::ensure_previews` — aus Build-Plan, Preview-Cache erzeugen
 - `output::typst::compile_preview` — aus Build-Plan, PDF kompilieren
 - `solver::run_solver` + `Request` + `RequestType` — Solver-Einstiegspunkt
-- `git::commit_if_changed` — aus Build-Plan, `git2`-basiert
+- `StateManager::open()` + `finish()` — aus Build-Plan, Zustandsverwaltung + Git-Commits
 - `project::diff::build_photo_index` — aus Build-Plan, Photo-Lookup
 
 **Keine neuen Crates.** Alles was `rebuild` braucht, wird bereits durch den Build-Plan eingeführt.
@@ -42,15 +42,15 @@ Kein `ensure_cache_and_compile`-Wrapper nötig — die Module werden direkt aufg
 
 ### `RebuildScope::SinglePage(n)` — n ist 1-basiert
 
-1. **Git pre-commit**: `pre-rebuild: page {n}`
+1. **StateManager::open()** — lädt Zustand, committed User-Edits automatisch
 2. **Preview-Cache** prüfen
 3. **`run_solver` SinglePage** erzwungen — wiederverwendet `shared::rebuild_single_page`
-4. **YAML schreiben**, **Typst kompilieren**
-5. **Git post-commit**: `post-rebuild: page {n} (cost: {cost:.4})`
+4. **Typst kompilieren**
+5. **`mgr.finish("rebuild: page {n} (cost: {cost:.4})")`**
 
 ### `RebuildScope::Range { start, end, flex }` — start/end sind 1-basiert
 
-1. **Git pre-commit**: `pre-rebuild: pages {start}-{end}`
+1. **StateManager::open()** — lädt Zustand, committed User-Edits automatisch
 2. **Preview-Cache** prüfen
 3. **Fotos aus dem Bereich als PhotoGroups rekonstruieren** (siehe `collect_photos_as_groups`)
 4. **`run_solver` MultiPage** mit angepassten Seitengrenzen:
@@ -61,45 +61,45 @@ Kein `ensure_cache_and_compile`-Wrapper nötig — die Module werden direkt aufg
        page_min: n.saturating_sub(flex).max(1),
        page_max: n + flex,
        page_target: n,
-       ..state.config.book_layout_solver.clone()
+       ..mgr.state.config.book_layout_solver.clone()
    };
 
-   let groups = collect_photos_as_groups(state, start - 1, end);
+   let groups = collect_photos_as_groups(&mgr.state, start - 1, end);
    let new_pages = run_solver(&Request {
        request_type: RequestType::MultiPage,
        groups: &groups,
        config: &config,
-       ga_config: &state.config.page_layout_solver,
-       book_config: &state.config.book,
+       ga_config: &mgr.state.config.page_layout_solver,
+       book_config: &mgr.state.config.book,
    })?;
 
    // Bereich ersetzen (splice: kann bei flex mehr/weniger Seiten ergeben)
-   state.layout.splice((start - 1)..end, new_pages);
-   renumber_pages(&mut state.layout);
+   mgr.state.layout.splice((start - 1)..end, new_pages);
+   renumber_pages(&mut mgr.state.layout);
    ```
 
-5. **YAML schreiben**, **Typst kompilieren**
-6. **Git post-commit**: `post-rebuild: pages {start}-{end} (cost: {total_cost:.4})`
+5. **Typst kompilieren**
+6. **`mgr.finish("rebuild: pages {start}-{end} (cost: {total_cost:.4})")`**
 
 ### `RebuildScope::All`
 
-1. **Git pre-commit**: `pre-rebuild: all`
+1. **StateManager::open()** — lädt Zustand, committed User-Edits automatisch
 2. **Preview-Cache** prüfen
 3. **`run_solver` MultiPage** auf alle Photos (inkl. bisher unplaced):
 
    ```rust
    let pages = run_solver(&Request {
        request_type: RequestType::MultiPage,
-       groups: &state.photos,
-       config: &state.config.book_layout_solver,
-       ga_config: &state.config.page_layout_solver,
-       book_config: &state.config.book,
+       groups: &mgr.state.photos,
+       config: &mgr.state.config.book_layout_solver,
+       ga_config: &mgr.state.config.page_layout_solver,
+       book_config: &mgr.state.config.book,
    })?;
-   state.layout = pages;
+   mgr.state.layout = pages;
    ```
 
-4. **YAML schreiben**, **Typst kompilieren**
-5. **Git post-commit**: `post-rebuild: {p} pages (cost: {total_cost:.4})`
+4. **Typst kompilieren**
+5. **`mgr.finish("rebuild: {p} pages (cost: {total_cost:.4})")`**
 
 **Hinweis zu `--flex`**: Wird nur bei Range berücksichtigt. Bei SinglePage und All ignoriert (SinglePage hat fixe Fotozahl, All bestimmt Seitenzahl frei via Config-Defaults).
 
@@ -111,9 +111,9 @@ Kein `ensure_cache_and_compile`-Wrapper nötig — die Module werden direkt aufg
 
 ```rust
 use crate::cache::preview;
-use crate::dto_models::ProjectState;
 use crate::output::typst;
 use crate::project::diff;
+use crate::state_manager::StateManager;
 use super::build::BuildResult;
 use super::shared;
 use std::path::Path;
@@ -129,10 +129,10 @@ pub enum RebuildScope {
 
 /// Haupteinstiegspunkt — dispatcht an die drei Modi.
 pub fn rebuild(project_root: &Path, scope: RebuildScope) -> Result<BuildResult> {
-    let mut state = ProjectState::load(&project_root.join("fotobuch.yaml"))?;
+    let mut mgr = StateManager::open(project_root)?;
 
     // Validierung: Layout muss existieren (außer bei All)
-    if !matches!(scope, RebuildScope::All) && state.layout.is_empty() {
+    if !matches!(scope, RebuildScope::All) && mgr.state.layout.is_empty() {
         anyhow::bail!(
             "No layout exists. Run `fotobuch build` first, \
              or use `fotobuch rebuild` (without arguments) for a full rebuild."
@@ -141,28 +141,26 @@ pub fn rebuild(project_root: &Path, scope: RebuildScope) -> Result<BuildResult> 
 
     // Scope-Validierung
     if let RebuildScope::Range { start, end, .. } = &scope {
-        if *start == 0 || *end == 0 || *start > *end || *end > state.layout.len() {
+        if *start == 0 || *end == 0 || *start > *end || *end > mgr.state.layout.len() {
             anyhow::bail!(
                 "Invalid page range {}-{} (layout has {} pages)",
-                start, end, state.layout.len()
+                start, end, mgr.state.layout.len()
             );
         }
     }
     if let RebuildScope::SinglePage(n) = &scope {
-        if *n == 0 || *n > state.layout.len() {
+        if *n == 0 || *n > mgr.state.layout.len() {
             anyhow::bail!(
                 "Invalid page {} (layout has {} pages)",
-                n, state.layout.len()
+                n, mgr.state.layout.len()
             );
         }
     }
 
     match scope {
-        RebuildScope::SinglePage(n) => rebuild_single(project_root, &mut state, n),
-        RebuildScope::Range { start, end, flex } => {
-            rebuild_range(project_root, &mut state, start, end, flex)
-        }
-        RebuildScope::All => rebuild_all(project_root, &mut state),
+        RebuildScope::SinglePage(n) => rebuild_single(&mut mgr, n),
+        RebuildScope::Range { start, end, flex } => rebuild_range(&mut mgr, start, end, flex),
+        RebuildScope::All => rebuild_all(&mut mgr),
     }
 }
 ```
@@ -171,29 +169,23 @@ pub fn rebuild(project_root: &Path, scope: RebuildScope) -> Result<BuildResult> 
 
 ```rust
 fn rebuild_single(
-    project_root: &Path,
-    state: &mut ProjectState,
+    mgr: &mut StateManager,
     page: usize,  // 1-basiert
 ) -> Result<BuildResult> {
-    // 1. Pre-commit
-    git::commit_if_changed(project_root, &format!("pre-rebuild: page {page}"))?;
-
-    // 2. Preview-Cache
+    // 1. Preview-Cache
     let progress = AtomicUsize::new(0);
-    preview::ensure_previews(state, project_root, &progress)?;
+    preview::ensure_previews(&mgr.state, mgr.project_root(), &progress)?;
 
-    // 3. Solver — wiederverwendet shared::rebuild_single_page
-    let photo_index = diff::build_photo_index(state);
-    let cost = shared::rebuild_single_page(state, page - 1, &photo_index)?;
+    // 2. Solver — wiederverwendet shared::rebuild_single_page
+    let photo_index = diff::build_photo_index(&mgr.state);
+    let cost = shared::rebuild_single_page(&mut mgr.state, page - 1, &photo_index)?;
 
-    // 4. YAML + Typst
-    state.save(&project_root.join("fotobuch.yaml"))?;
-    let pdf_path = typst::compile_preview(project_root)?;
+    // 3. Typst kompilieren
+    let typ_path = mgr.project_name().to_string() + ".typ";
+    let pdf_path = typst::compile_preview(mgr.project_root(), &typ_path)?;
 
-    // 5. Post-commit
-    git::commit_if_changed(project_root, &format!(
-        "post-rebuild: page {page} (cost: {cost:.4})"
-    ))?;
+    // 4. Fertigstellen — speichert YAML und committed
+    mgr.finish(&format!("rebuild: page {page} (cost: {cost:.4})"))?;
 
     Ok(BuildResult {
         pdf_path,
@@ -207,54 +199,48 @@ fn rebuild_single(
 
 ```rust
 fn rebuild_range(
-    project_root: &Path,
-    state: &mut ProjectState,
+    mgr: &mut StateManager,
     start: usize,  // 1-basiert
     end: usize,    // 1-basiert
     flex: usize,
 ) -> Result<BuildResult> {
-    // 1. Pre-commit
-    git::commit_if_changed(project_root, &format!("pre-rebuild: pages {start}-{end}"))?;
-
-    // 2. Preview-Cache
+    // 1. Preview-Cache
     let progress = AtomicUsize::new(0);
-    preview::ensure_previews(state, project_root, &progress)?;
+    preview::ensure_previews(&mgr.state, mgr.project_root(), &progress)?;
 
-    // 3. Fotos aus Bereich als PhotoGroups rekonstruieren
-    let groups = collect_photos_as_groups(state, start - 1, end);
+    // 2. Fotos aus Bereich als PhotoGroups rekonstruieren
+    let groups = collect_photos_as_groups(&mgr.state, start - 1, end);
 
-    // 4. Solver mit angepassten Seitengrenzen
+    // 3. Solver mit angepassten Seitengrenzen
     let n = end - start + 1;
     let config = BookLayoutSolverConfig {
         page_min: n.saturating_sub(flex).max(1),
         page_max: n + flex,
         page_target: n,
-        ..state.config.book_layout_solver.clone()
+        ..mgr.state.config.book_layout_solver.clone()
     };
 
     let new_pages = run_solver(&Request {
         request_type: RequestType::MultiPage,
         groups: &groups,
         config: &config,
-        ga_config: &state.config.page_layout_solver,
-        book_config: &state.config.book,
+        ga_config: &mgr.state.config.page_layout_solver,
+        book_config: &mgr.state.config.book,
     })?;
 
     let pages_rebuilt: Vec<usize> = (start..start + new_pages.len()).collect();
     let total_cost = 0.0; // TODO: aus Solver-Ergebnis
 
-    // 5. Layout aktualisieren + renumbern
-    state.layout.splice((start - 1)..end, new_pages);
-    renumber_pages(&mut state.layout);
+    // 4. Layout aktualisieren + renumbern
+    mgr.state.layout.splice((start - 1)..end, new_pages);
+    renumber_pages(&mut mgr.state.layout);
 
-    // 6. YAML + Typst
-    state.save(&project_root.join("fotobuch.yaml"))?;
-    let pdf_path = typst::compile_preview(project_root)?;
+    // 5. Typst kompilieren
+    let typ_path = mgr.project_name().to_string() + ".typ";
+    let pdf_path = typst::compile_preview(mgr.project_root(), &typ_path)?;
 
-    // 7. Post-commit
-    git::commit_if_changed(project_root, &format!(
-        "post-rebuild: pages {start}-{end} (cost: {total_cost:.4})"
-    ))?;
+    // 6. Fertigstellen — speichert YAML und committed
+    mgr.finish(&format!("rebuild: pages {start}-{end} (cost: {total_cost:.4})"))?;
 
     Ok(BuildResult {
         pdf_path,
@@ -267,37 +253,31 @@ fn rebuild_range(
 #### Kompletter Neustart
 
 ```rust
-fn rebuild_all(
-    project_root: &Path,
-    state: &mut ProjectState,
-) -> Result<BuildResult> {
-    // 1. Pre-commit
-    git::commit_if_changed(project_root, "pre-rebuild: all")?;
-
-    // 2. Preview-Cache
+fn rebuild_all(mgr: &mut StateManager) -> Result<BuildResult> {
+    // 1. Preview-Cache
     let progress = AtomicUsize::new(0);
-    preview::ensure_previews(state, project_root, &progress)?;
+    preview::ensure_previews(&mgr.state, mgr.project_root(), &progress)?;
 
-    // 3. Solver MultiPage auf alle Photos (inkl. unplaced)
+    // 2. Solver MultiPage auf alle Photos (inkl. unplaced)
     let pages = run_solver(&Request {
         request_type: RequestType::MultiPage,
-        groups: &state.photos,
-        config: &state.config.book_layout_solver,
-        ga_config: &state.config.page_layout_solver,
-        book_config: &state.config.book,
+        groups: &mgr.state.photos,
+        config: &mgr.state.config.book_layout_solver,
+        ga_config: &mgr.state.config.page_layout_solver,
+        book_config: &mgr.state.config.book,
     })?;
 
     let pages_rebuilt: Vec<usize> = (1..=pages.len()).collect();
     let total_cost = 0.0; // TODO: aus Solver-Ergebnis
-    state.layout = pages;
+    mgr.state.layout = pages;
 
-    // 4. YAML + Typst
-    state.save(&project_root.join("fotobuch.yaml"))?;
-    let pdf_path = typst::compile_preview(project_root)?;
+    // 3. Typst kompilieren
+    let typ_path = mgr.project_name().to_string() + ".typ";
+    let pdf_path = typst::compile_preview(mgr.project_root(), &typ_path)?;
 
-    // 5. Post-commit
-    git::commit_if_changed(project_root, &format!(
-        "post-rebuild: {} pages (cost: {total_cost:.4})", state.layout.len()
+    // 4. Fertigstellen — speichert YAML und committed
+    mgr.finish(&format!(
+        "rebuild: {} pages (cost: {total_cost:.4})", mgr.state.layout.len()
     ))?;
 
     Ok(BuildResult {
@@ -449,15 +429,15 @@ pub(crate) mod shared;  // Nicht öffentlich, nur für commands-interne Wiederve
 
 ## Implementierungsreihenfolge
 
-Setzt voraus, dass Build-Plan Schritte 1-7 abgeschlossen sind.
+Setzt voraus, dass Build-Plan Schritte 1-7 abgeschlossen sind sowie `StateManager` implementiert ist.
 
 | #   | Schritt | Modul | Abhängig von |
 | --- | ------- | ----- | ------------ |
 | 1 | `rebuild_single_page` aus build.rs nach `shared.rs` extrahieren | `commands/shared.rs` | Build fertig |
-| 2 | `rebuild_single` (SinglePage-Scope) | `commands/rebuild.rs` | 1 |
+| 2 | `rebuild_single` (SinglePage-Scope) | `commands/rebuild.rs` | 1, StateManager |
 | 3 | `collect_photos_as_groups`, `renumber_pages` | `commands/rebuild.rs` | — |
-| 4 | `rebuild_range` (Range-Scope inkl. flex) | `commands/rebuild.rs` | 3 |
-| 5 | `rebuild_all` (All-Scope) | `commands/rebuild.rs` | — |
+| 4 | `rebuild_range` (Range-Scope inkl. flex) | `commands/rebuild.rs` | 3, StateManager |
+| 5 | `rebuild_all` (All-Scope) | `commands/rebuild.rs` | StateManager |
 
 Jeder Schritt = ein Commit. Tests vor jedem Commit.
 
@@ -481,4 +461,4 @@ Jeder Schritt = ein Commit. Tests vor jedem Commit.
 | All: komplette Neuverteilung, alle layout-Einträge überschrieben | Vollständiger Reset |
 | All: bisher unplaced Fotos werden einbezogen | state.photos als Quelle |
 | Rebuild ohne Layout (außer All) → Fehler | Validierung |
-| Git pre/post-commits mit korrekten Messages | commit_if_changed |
+| StateManager finish() mit korrekter Message | mgr.finish() |
