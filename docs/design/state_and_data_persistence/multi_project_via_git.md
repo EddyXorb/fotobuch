@@ -19,7 +19,7 @@ Validierung in einer zentralen Funktion die von `project new` und `StateManager:
 ```
 mein-fotobuch/
 ├── .git/
-├── .gitignore                     # .fotobuch/ + *.pdf
+├── .gitignore                     # .fotobuch/ + *.pdf + final.typ
 ├── .fotobuch/
 │   └── cache/
 │       ├── urlaub/                # Cache pro Projekt
@@ -31,12 +31,13 @@ mein-fotobuch/
 │           ├── preview/
 │           └── final/
 ├── urlaub.yaml                    # Branch fotobuch/urlaub
+├── urlaub.typ                     # Template für urlaub (getrackt)
 ├── hochzeit.yaml                  # Branch fotobuch/hochzeit
-├── fotobuch_preview.typ
-└── fotobuch_final.typ
+├── hochzeit.typ                   # Template für hochzeit (getrackt)
+└── final.typ                      # Generierte Kopie bei --release (nicht getrackt)
 ```
 
-Cache-Ordner werden **nicht** von Git getrackt (`.gitignore`). YAML, Typst-Templates und `.gitignore` werden getrackt.
+Cache-Ordner und `final.typ` werden **nicht** von Git getrackt (`.gitignore`). Pro Projekt werden `{name}.yaml`, `{name}.typ` und `.gitignore` getrackt. Jeder Branch trackt nur **seine eigenen** Dateien.
 
 ## Lifecycle
 
@@ -46,12 +47,13 @@ Erkennung: Kein `fotobuch/*`-Branch vorhanden, kein passendes YAML → frisches 
 
 1. Ordner `mein-fotobuch/` anlegen (oder aktuellen verwenden falls `--here`)
 2. `git init`
-3. `.gitignore` schreiben, Typst-Templates schreiben
+3. `.gitignore` schreiben (`.fotobuch/`, `*.pdf`, `final.typ`)
 4. `urlaub.yaml` mit Default-Config erstellen
-5. `.fotobuch/cache/urlaub/preview/` und `.../final/` anlegen
-6. `git checkout -b fotobuch/urlaub`
-7. `git add urlaub.yaml .gitignore fotobuch_preview.typ fotobuch_final.typ`
-8. `git commit -m "new: project urlaub (420x297mm, 3mm bleed)"`
+5. `urlaub.typ` — Typst-Template mit `#let is_final = false` erstellen
+6. `.fotobuch/cache/urlaub/preview/` und `.../final/` anlegen
+7. `git checkout -b fotobuch/urlaub`
+8. `git add urlaub.yaml urlaub.typ .gitignore`
+9. `git commit -m "new: project urlaub (420x297mm, 3mm bleed)"`
 
 ### Weiteres Projekt: `fotobuch project new hochzeit`
 
@@ -59,13 +61,14 @@ Erkennung: Aktueller Branch ist `fotobuch/*` → existierendes Repo.
 
 1. Validieren: `hochzeit.yaml` existiert noch nicht, Branch `fotobuch/hochzeit` existiert noch nicht
 2. `hochzeit.yaml` mit Default-Config erstellen (Dimensionen aus dem aktiven Projekt übernehmen oder explizit angeben)
-3. `.fotobuch/cache/hochzeit/preview/` und `.../final/` anlegen
-4. `git checkout -b fotobuch/hochzeit` (ausgehend vom aktuellen Branch)
-5. Das YAML des vorherigen Projekts aus dem Index entfernen: `git rm --cached urlaub.yaml` (Datei bleibt auf Disk, verschwindet aus diesem Branch)
-6. `git add hochzeit.yaml`
-7. `git commit -m "new: project hochzeit (420x297mm, 3mm bleed)"`
+3. `hochzeit.typ` — Typst-Template erstellen (neues netrales standard template erstellen wie beim allerersten new aufruf, mit switch für "is_final")
+4. `.fotobuch/cache/hochzeit/preview/` und `.../final/` anlegen
+5. `git checkout -b fotobuch/hochzeit` (ausgehend vom aktuellen Branch)
+6. Dateien des vorherigen Projekts aus dem Index entfernen: `git rm --cached urlaub.yaml urlaub.typ`
+7. `git add hochzeit.yaml hochzeit.typ`
+8. `git commit -m "new: project hochzeit (420x297mm, 3mm bleed)"`
 
-**Wichtig**: Jeder Branch trackt nur **sein eigenes** YAML. Typst-Templates und `.gitignore` sind auf allen Branches gleich.
+**Wichtig**: Jeder Branch trackt nur **seine eigenen** Dateien (`{name}.yaml`, `{name}.typ`). `.gitignore` ist auf allen Branches gleich.
 
 ### Projekt wechseln: `fotobuch project switch urlaub`
 
@@ -84,6 +87,14 @@ Erkennung: Aktueller Branch ist `fotobuch/*` → existierendes Repo.
 * urlaub (active)
 ```
 
+### Status Aufruf nennt aktiven projectnamen
+
+```
+fotobuch status
+on project mein_supadupa_fotobuch
+...
+```
+
 ## Projekt-Erkennung im StateManager
 
 ```
@@ -100,7 +111,7 @@ StateManager::open(project_root)
 
 ### `src/commands/new.rs`
 
-- `new()` wird zu `project_new()` oder bleibt `new()` im Modul `commands/project.rs`
+- `new()` wird zu `project_new()`  im Modul `commands/project.rs`
 - Neue Logik: Repo-Erkennung (frisch vs. bestehend), Branch-Erstellung, YAML-Name aus Projektname
 - `NewConfig` bekommt kein `name`-Feld mehr für den Ordner — der Projektname bestimmt Branch + YAML-Name
 
@@ -146,11 +157,26 @@ fotobuch project list
 
 ### Typst-Templates
 
-Die Templates lesen das YAML dynamisch. Der YAML-Dateiname muss entweder:
-- als Variable übergeben werden (Typst `--input yaml=urlaub.yaml`)
-- oder als Symlink `fotobuch.yaml → urlaub.yaml` bereitgestellt werden
+Pro Projekt gibt es **ein** Template `{name}.typ` das vom User gepflegt wird. Es enthält die gesamte Render-Logik inklusive Conditionals für Preview vs. Final:
 
-**Empfehlung**: Symlink beim `StateManager::open()` aktualisieren — einfach, transparent, Templates bleiben unverändert.
+```typst
+#let data = yaml("urlaub.yaml")
+#let is_final = false
+
+// Layout-Logik ...
+#if not is_final {
+  // Wasserzeichen, Seitenzahlen, niedrigere Auflösung
+}
+```
+
+Bei `build --release` erzeugt der Code eine **nicht-getrackte Kopie** `final.typ`:
+
+1. `{name}.typ` lesen
+2. `#let is_final = false` → `#let is_final = true` ersetzen
+3. YAML-Pfad ggf. anpassen
+4. Als `final.typ` schreiben (wird bei jedem Release überschrieben)
+
+`final.typ` steht in `.gitignore`, ist aber auf Disk einsehbar zum Debuggen.
 
 ### Cache-Pfade
 
@@ -171,5 +197,5 @@ Die Templates lesen das YAML dynamisch. Der YAML-Dateiname muss entweder:
 | 4 | `commands/project.rs` — `switch` + `list` | Branch-Wechsel und Auflistung |
 | 5 | `state_manager.rs` — Projekt-Erkennung | Branch-Name → YAML-Name → Cache-Pfad |
 | 6 | Cache-Pfade anpassen | `{projektname}/` Unterordner |
-| 7 | Typst-Symlink | `fotobuch.yaml → {projekt}.yaml` bei open() |
+| 7 | Typst-Template + final.typ-Generierung | `{name}.typ` bei new, `final.typ` bei --release |
 | 8 | CLI-Integration | clap Subcommand-Gruppe `project` |
