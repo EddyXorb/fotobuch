@@ -2,6 +2,11 @@
 
 Stand: 2026-03-07
 
+Dieses Dokument ist veraltet gegenüber den Dokumenten für die einzelnen Kommandos im Ordner docs/design/cli/1_new.md etc.
+Sie sind maßgeblich.
+Um den Grundansatz zu verstehen ist es dennoch nützlich, sollte aber bei Gelegenheit aktualisiert werden.
+Es ist das initiale Planungsdokument für die CLI und hat geholfen zu verstehen, wie man das repo organisieren muss durch den Top-Down-Ansatz.
+
 ## Leitprinzipien
 
 - **Nutzerperspektive zuerst.** Die CLI-Struktur ergibt sich aus den Aktionen des Benutzers, nicht aus der internen Architektur.
