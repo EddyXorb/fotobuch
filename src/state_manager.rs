@@ -380,7 +380,7 @@ mod tests {
             width_px: 4000,
             height_px: 3000,
             area_weight: 1.0,
-            hash: None,
+            hash: String::new(),
         }
     }
 

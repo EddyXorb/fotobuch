@@ -77,8 +77,8 @@ pub fn add(project_root: &Path, config: &AddConfig) -> Result<AddResult> {
     for group in &mgr.state.photos {
         for file in &group.files {
             existing_paths.insert(PathBuf::from(&file.source));
-            if let Some(ref hash) = file.hash {
-                existing_hashes.insert(hash.clone());
+            if !file.hash.is_empty() {
+                existing_hashes.insert(file.hash.clone());
             }
         }
     }
@@ -112,8 +112,8 @@ pub fn add(project_root: &Path, config: &AddConfig) -> Result<AddResult> {
             // Update existing paths/hashes with newly kept files
             for file in &kept_files {
                 existing_paths.insert(PathBuf::from(&file.source));
-                if let Some(ref hash) = file.hash {
-                    existing_hashes.insert(hash.clone());
+                if !file.hash.is_empty() {
+                    existing_hashes.insert(file.hash.clone());
                 }
             }
 

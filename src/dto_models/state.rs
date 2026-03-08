@@ -74,7 +74,7 @@ mod tests {
                     width_px: 6000,
                     height_px: 4000,
                     area_weight: 1.0,
-                    hash: None,
+                    hash: String::new(),
                 }],
             }],
             layout: vec![],

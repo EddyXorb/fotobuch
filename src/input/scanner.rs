@@ -127,7 +127,7 @@ fn read_photos(dir: &Path, group_name: &str) -> Result<Vec<PhotoFile>> {
                 height_px: 1, // Placeholder
                 area_weight: 1.0,
                 timestamp: Utc::now(), // Placeholder, will be updated
-                hash: None,
+                hash: String::new(), // Will be computed by add command
             }
         })
         .collect();
