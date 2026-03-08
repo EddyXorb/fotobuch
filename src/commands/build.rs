@@ -6,6 +6,7 @@ mod release_build;
 
 use first_build::first_build;
 use incremental_build::incremental_build;
+pub use rebuild_single_page::rebuild_single_page;
 use release_build::release_build;
 
 use crate::state_manager::StateManager;

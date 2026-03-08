@@ -2,7 +2,7 @@
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
-use photobook_solver::commands::{self, build};
+use photobook_solver::commands::{self};
 use std::path::PathBuf;
 
 /// Photobook layout solver and project manager
