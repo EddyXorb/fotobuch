@@ -2,7 +2,6 @@
 
 use anyhow::{Context, Result};
 use image::imageops::FilterType;
-use image::ImageFormat;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -119,6 +118,7 @@ pub fn resize_and_save(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use image::ImageFormat;
     use std::fs;
     use std::thread;
     use std::time::Duration;
