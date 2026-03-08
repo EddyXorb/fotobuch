@@ -38,20 +38,24 @@ pub fn a4_canvas_with_gap(gap_mm: f64) -> Canvas {
 
 /// Creates a standard landscape photo for testing.
 pub fn landscape_photo(group: &str) -> Photo {
-    Photo::new(LANDSCAPE_ASPECT, DEFAULT_AREA_WEIGHT, group.to_string())
+    let id = format!("{}_landscape", group);
+    Photo::new(id, LANDSCAPE_ASPECT, DEFAULT_AREA_WEIGHT, group.to_string())
 }
 
 /// Creates a standard portrait photo for testing.
 pub fn portrait_photo(group: &str) -> Photo {
-    Photo::new(PORTRAIT_ASPECT, DEFAULT_AREA_WEIGHT, group.to_string())
+    let id = format!("{}_portrait", group);
+    Photo::new(id, PORTRAIT_ASPECT, DEFAULT_AREA_WEIGHT, group.to_string())
 }
 
 /// Creates a square photo for testing.
 pub fn square_photo(group: &str) -> Photo {
-    Photo::new(SQUARE_ASPECT, DEFAULT_AREA_WEIGHT, group.to_string())
+    let id = format!("{}_square", group);
+    Photo::new(id, SQUARE_ASPECT, DEFAULT_AREA_WEIGHT, group.to_string())
 }
 
 /// Creates a photo with custom area weight.
 pub fn weighted_photo(aspect: f64, weight: f64, group: &str) -> Photo {
-    Photo::new(aspect, weight, group.to_string())
+    let id = format!("{}_weighted_{}", group, weight);
+    Photo::new(id, aspect, weight, group.to_string())
 }

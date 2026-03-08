@@ -1,9 +1,14 @@
 use chrono::{DateTime, Utc};
 use std::path::PathBuf;
 
+use crate::dto_models::{PhotoFile, PhotoGroup};
+
 /// Photo model for the layout solver with optimization metadata.
 #[derive(Debug, Clone)]
 pub struct Photo {
+    /// Unique photo identifier.
+    pub id: String,
+
     /// Aspect ratio: width / height.
     pub aspect_ratio: f64,
 
@@ -22,12 +27,13 @@ pub struct Photo {
 }
 
 impl Photo {
-    /// Creates a new photo with the given aspect ratio.
-    pub fn new(aspect_ratio: f64, area_weight: f64, group: String) -> Self {
+    /// Creates a new photo with the given parameters.
+    pub fn new(id: String, aspect_ratio: f64, area_weight: f64, group: String) -> Self {
         assert!(aspect_ratio > 0.0, "Aspect ratio must be positive");
         assert!(area_weight > 0.0, "Area weight must be positive");
 
         Self {
+            id,
             aspect_ratio,
             area_weight,
             group,
@@ -45,26 +51,71 @@ impl Photo {
     pub fn is_portrait(&self) -> bool {
         self.aspect_ratio < 1.0
     }
+
+    /// Converts a PhotoFile to a Photo with explicit group name.
+    ///
+    /// # Arguments
+    ///
+    /// * `file` - PhotoFile from DTO layer
+    /// * `group` - Group identifier (e.g., folder name)
+    ///
+    /// # Returns
+    ///
+    /// A new Photo instance with data from PhotoFile
+    pub fn from_photo_file(file: &PhotoFile, group: &str) -> Self {
+        Self {
+            id: file.id.clone(),
+            aspect_ratio: file.aspect_ratio(),
+            area_weight: file.area_weight,
+            group: group.to_string(),
+            timestamp: Some(file.timestamp),
+            dimensions: Some((file.width_px, file.height_px)),
+        }
+    }
+
+    /// Converts a slice of PhotoGroups to a Vec of Photos.
+    ///
+    /// Flattens all PhotoFiles from all groups into a single vector.
+    /// Each photo gets its group name from the containing PhotoGroup.
+    ///
+    /// # Arguments
+    ///
+    /// * `groups` - Slice of PhotoGroups to convert
+    ///
+    /// # Returns
+    ///
+    /// A vector of Photos with proper group assignments
+    pub fn from_photo_groups(groups: &[PhotoGroup]) -> Vec<Self> {
+        groups
+            .iter()
+            .flat_map(|group| {
+                group
+                    .files
+                    .iter()
+                    .map(|file| Self::from_photo_file(file, &group.group))
+            })
+            .collect()
+    }
 }
 
 /// Bridge between scanned photos (with file paths) and solver photos (with optimization data).
 ///
 /// Combines file system information with solver-ready photo metadata.
-#[derive(Debug, Clone)]
-pub struct PhotoInfo {
-    /// File path to the photo.
-    pub path: PathBuf,
+// #[derive(Debug, Clone)]
+// pub struct PhotoInfo {
+//     /// File path to the photo.
+//     pub path: PathBuf,
 
-    /// Solver-ready photo with aspect ratio and optimization metadata.
-    pub photo: Photo,
-}
+//     /// Solver-ready photo with aspect ratio and optimization metadata.
+//     pub photo: Photo,
+// }
 
-impl PhotoInfo {
-    /// Creates a new PhotoInfo.
-    pub fn new(path: PathBuf, photo: Photo) -> Self {
-        Self { path, photo }
-    }
-}
+// impl PhotoInfo {
+//     /// Creates a new PhotoInfo.
+//     pub fn new(path: PathBuf, photo: Photo) -> Self {
+//         Self { path, photo }
+//     }
+// }
 
 #[cfg(test)]
 mod tests {
@@ -110,12 +161,129 @@ mod tests {
         assert!(!portrait.is_landscape());
     }
 
-    #[test]
-    fn test_photo_info_creation() {
-        let photo = landscape_photo("test");
-        let info = PhotoInfo::new(PathBuf::from("test.jpg"), photo);
+    // Converter tests
+    mod converter_tests {
+        use super::*;
+        use chrono::Utc;
 
-        assert_eq!(info.photo.aspect_ratio, LANDSCAPE_ASPECT);
-        assert_eq!(info.path, PathBuf::from("test.jpg"));
+        fn create_photo_file(id: &str, width: u32, height: u32, group_override: Option<String>) -> PhotoFile {
+            PhotoFile {
+                id: id.to_string(),
+                source: format!("test/{}.jpg", id),
+                width_px: width,
+                height_px: height,
+                area_weight: 1.0,
+                timestamp: Utc::now(),
+                hash: None,
+            }
+        }
+
+        #[test]
+        fn test_from_photo_file() {
+            let file = create_photo_file("photo1", 1500, 1000, None);
+            let photo = Photo::from_photo_file(&file, "vacation");
+
+            assert_eq!(photo.id, "photo1");
+            assert_eq!(photo.aspect_ratio, 1.5);
+            assert_eq!(photo.area_weight, 1.0);
+            assert_eq!(photo.group, "vacation");
+            assert!(photo.timestamp.is_some());
+            assert_eq!(photo.dimensions, Some((1500, 1000)));
+        }
+
+        #[test]
+        fn test_from_photo_file_portrait() {
+            let file = create_photo_file("photo2", 1000, 1500, None);
+            let photo = Photo::from_photo_file(&file, "portraits");
+
+            assert_eq!(photo.id, "photo2");
+            assert_eq!(photo.aspect_ratio, 1000.0 / 1500.0);
+            assert!(photo.is_portrait());
+        }
+
+        #[test]
+        fn test_from_photo_groups_empty() {
+            let groups: Vec<PhotoGroup> = vec![];
+            let photos = Photo::from_photo_groups(&groups);
+
+            assert_eq!(photos.len(), 0);
+        }
+
+        #[test]
+        fn test_from_photo_groups_single_group() {
+            let group = PhotoGroup {
+                group: "vacation".to_string(),
+                sort_key: "2024-01-01".to_string(),
+                files: vec![
+                    create_photo_file("p1", 1500, 1000, None),
+                    create_photo_file("p2", 1000, 1500, None),
+                ],
+            };
+
+            let photos = Photo::from_photo_groups(&[group]);
+
+            assert_eq!(photos.len(), 2);
+            assert_eq!(photos[0].id, "p1");
+            assert_eq!(photos[0].group, "vacation");
+            assert_eq!(photos[1].id, "p2");
+            assert_eq!(photos[1].group, "vacation");
+        }
+
+        #[test]
+        fn test_from_photo_groups_multiple_groups() {
+            let groups = vec![
+                PhotoGroup {
+                    group: "group1".to_string(),
+                    sort_key: "2024-01-01".to_string(),
+                    files: vec![
+                        create_photo_file("g1p1", 1500, 1000, None),
+                        create_photo_file("g1p2", 1500, 1000, None),
+                    ],
+                },
+                PhotoGroup {
+                    group: "group2".to_string(),
+                    sort_key: "2024-01-02".to_string(),
+                    files: vec![
+                        create_photo_file("g2p1", 1000, 1500, None),
+                    ],
+                },
+            ];
+
+            let photos = Photo::from_photo_groups(&groups);
+
+            assert_eq!(photos.len(), 3);
+            assert_eq!(photos[0].id, "g1p1");
+            assert_eq!(photos[0].group, "group1");
+            assert_eq!(photos[1].id, "g1p2");
+            assert_eq!(photos[1].group, "group1");
+            assert_eq!(photos[2].id, "g2p1");
+            assert_eq!(photos[2].group, "group2");
+        }
+
+        #[test]
+        fn test_from_photo_groups_preserves_order() {
+            let groups = vec![
+                PhotoGroup {
+                    group: "first".to_string(),
+                    sort_key: "2024-01-01".to_string(),
+                    files: vec![
+                        create_photo_file("p1", 1500, 1000, None),
+                    ],
+                },
+                PhotoGroup {
+                    group: "second".to_string(),
+                    sort_key: "2024-01-02".to_string(),
+                    files: vec![
+                        create_photo_file("p2", 1000, 1500, None),
+                    ],
+                },
+            ];
+
+            let photos = Photo::from_photo_groups(&groups);
+
+            // Verify order is preserved: group1 before group2
+            assert_eq!(photos[0].group, "first");
+            assert_eq!(photos[1].group, "second");
+        }
     }
 }
