@@ -1,12 +1,12 @@
 use super::super::BuildResult;
+use super::helpers::build_photo_index;
 use super::rebuild_single_page::rebuild_single_page;
-use crate::dto_models::PhotoFile;
 use crate::output::typst;
 use crate::state_manager::StateManager;
-use crate::{cache::preview, dto_models::PhotoGroup};
+use crate::cache::preview;
 use anyhow::Result;
-use std::collections::HashMap;
-use std::{path::Path, sync::atomic::AtomicUsize};
+use std::path::Path;
+use std::sync::atomic::AtomicUsize;
 
 /// Performs incremental build: updates only modified pages.
 pub fn incremental_build(
@@ -90,17 +90,4 @@ fn apply_page_filter(mut pages: Vec<usize>, filter: Option<&[usize]>) -> Vec<usi
         pages.retain(|p| filter_pages.contains(p));
     }
     pages
-}
-
-/// Builds a photo index for fast lookup: photo_id -> (PhotoFile, group_name).
-fn build_photo_index(photos: &[PhotoGroup]) -> HashMap<String, (PhotoFile, String)> {
-    photos
-        .iter()
-        .flat_map(|group| {
-            group
-                .files
-                .iter()
-                .map(move |file| (file.id.clone(), (file.clone(), group.group.clone())))
-        })
-        .collect()
 }
