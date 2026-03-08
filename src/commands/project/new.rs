@@ -62,7 +62,7 @@ Your new photobook project has been created! Here's what you need to know:
 
 🔧 Configuration:
    You can edit <name>.yaml and <name>.typ to customize your photobook.
-   All changes are tracked in git, so you can undo anything!
+   All changes in between two fotobuch-command calls are tracked in git, so you can undo anything!
 
 💡 Tips:
    - The project directory can be renamed, but don't rename .yaml or .typ files

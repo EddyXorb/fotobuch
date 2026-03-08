@@ -4,7 +4,7 @@ In dieser Reihe abzuarbeiten.
 
 1. [x] [state_manager](docs/design/state_and_data_persistence/statemanager.md)
 2. [ ] Der Reihe nach wie nummeriert alle cli-commands in docs/design/cli:
-   - [ ] [project new](docs/design/cli/1_new.md)
+   - [x] [project new](docs/design/cli/1_new.md)
    - [ ] [add](docs/design/cli/2_add.md)
    - [ ] [build](docs/design/cli/3_build.md)
    - [ ] [rebuild](docs/design/cli/4_rebuild.md)
