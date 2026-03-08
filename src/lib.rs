@@ -84,6 +84,7 @@
 //!
 
 
+pub mod cache;
 pub mod commands;
 pub mod dto_models;
 pub mod git;
