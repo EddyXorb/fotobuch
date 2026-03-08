@@ -165,7 +165,7 @@ Der Switch `#let is_final = false` steuert das Verhalten:
 ## Signaturen
 
 ```rust
-// src/commands/project_new.rs
+// src/commands/project/new.rs
 
 pub struct NewConfig {
     pub name: String,
@@ -193,12 +193,6 @@ pub fn project_new(parent_dir_or_root: &Path, config: &NewConfig) -> Result<NewR
 
 /// Validiert den Projektnamen gegen die Namensregeln.
 pub fn validate_project_name(name: &str) -> Result<()>
-
-/// Wechselt zum Branch `fotobuch/<name>` via git2.
-pub fn project_switch(project_root: &Path, name: &str) -> Result<()>
-
-/// Listet alle `fotobuch/*`-Branches mit is_current-Flag.
-pub fn project_list(project_root: &Path) -> Result<Vec<ProjectInfo>>
 ```
 
 ## Neue Dateien
@@ -207,7 +201,7 @@ pub fn project_list(project_root: &Path) -> Result<Vec<ProjectInfo>>
 
 ## Modulstruktur
 
-Alle `project`-Subkommandos leben in `src/commands/project.rs` (kein `mod.rs`, kein
+Alle `project`-Subkommandos leben in `src/commands/project/[subcommand].rs` (kein `mod.rs`, kein
 Unterverzeichnis solange die Datei unter ~300 Zeilen bleibt). Wächst die Datei darüber
 hinaus, wird sie in `src/commands/project/` aufgeteilt:
 
