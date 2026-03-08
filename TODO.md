@@ -6,7 +6,7 @@ In dieser Reihe abzuarbeiten.
 2. [ ] Der Reihe nach wie nummeriert alle cli-commands in docs/design/cli:
    - [x] [project new](docs/design/cli/1_new.md)
    - [x] [add](docs/design/cli/2_add.md)
-   - [ ] [build](docs/design/cli/3_build.md)
+   - [x] [build](docs/design/cli/3_build.md)
      - [x] cache/common.rs (Pfad-Helpers, mtime-Check, resize mit Lanczos3/Triangle)
      - [x] cache/preview.rs (parallele Preview-Generierung mit rayon)
      - [x] cache/final_cache.rs (300 DPI mit DPI-Validierung)
@@ -19,7 +19,7 @@ In dieser Reihe abzuarbeiten.
      - [x] Integration-Tests (tests/build_test.rs) zum Laufen bringen
        - 7 Tests erstellt, alle schlagen wegen SimpleWorld-Bug fehl
        - Tests prüfen: first_build, incremental_build, release, --pages filter, clean check
-     - [ ] CLI-Integration in main.rs und cli.rs
+     - [x] CLI-Integration in main.rs und cli.rs
    - [ ] [rebuild](docs/design/cli/4_rebuild.md)
    - [ ] [place](docs/design/cli/5_place.md)
    - [ ] [remove](docs/design/cli/6_remove.md)
