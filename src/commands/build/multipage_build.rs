@@ -74,8 +74,7 @@ pub fn multipage_build(
     };
 
     // 5. Compile Typst
-    let typ_path = format!("{}.typ", mgr.project_name());
-    let pdf_path = typst::compile_preview(project_root, &typ_path)?;
+    let pdf_path = typst::compile_preview(project_root, mgr.project_name())?;
 
     // 6. Save and commit
     mgr.finish(&params.commit_message)?;
