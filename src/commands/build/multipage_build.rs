@@ -1,0 +1,99 @@
+use super::BuildResult;
+use crate::cache::preview;
+use crate::dto_models::{BookLayoutSolverConfig, LayoutPage, PhotoGroup};
+use crate::output::typst;
+use crate::solver::{run_solver, Request, RequestType};
+use crate::state_manager::StateManager;
+use anyhow::Result;
+use std::path::Path;
+use std::sync::atomic::AtomicUsize;
+
+/// Parameters for multipage build/rebuild operations
+pub struct MultiPageParams<'a> {
+    /// Photo groups to process
+    pub groups: &'a [PhotoGroup],
+    /// Optional range to replace in existing layout (0-based start, 1-based end for splice)
+    /// If None, replaces entire layout
+    pub range: Option<(usize, usize)>,
+    /// Flexibility in page count (+/- pages)
+    pub flex: usize,
+    /// Custom book layout solver config (if None, use default from state)
+    pub custom_config: Option<BookLayoutSolverConfig>,
+    /// Git commit message
+    pub commit_message: String,
+    /// Number of images processed in cache (for BuildResult)
+    pub images_processed: usize,
+}
+
+/// Shared multipage build logic used by first_build, rebuild_all, and rebuild_range.
+///
+/// This function:
+/// 1. Ensures preview cache is up to date
+/// 2. Runs the MultiPage solver on the given groups
+/// 3. Updates the layout (either full replacement or splice)
+/// 4. Compiles Typst to PDF
+/// 5. Saves and commits
+pub fn multipage_build(
+    mut mgr: StateManager,
+    project_root: &Path,
+    params: MultiPageParams,
+) -> Result<BuildResult> {
+    // 1. Preview-Cache
+    let progress = AtomicUsize::new(0);
+    let preview_cache_dir = mgr.preview_cache_dir();
+    let cache_result = preview::ensure_previews(&mgr.state, &preview_cache_dir, &progress)?;
+
+    // 2. Determine solver config
+    let config = if let Some(custom) = params.custom_config {
+        custom
+    } else {
+        mgr.state.config.book_layout_solver.clone()
+    };
+
+    // 3. Run MultiPage solver
+    let new_pages = run_solver(&Request {
+        request_type: RequestType::MultiPage,
+        groups: params.groups,
+        config: &config,
+        ga_config: &mgr.state.config.page_layout_solver,
+        book_config: &mgr.state.config.book,
+    })?;
+
+    // 4. Update layout
+    let pages_rebuilt = if let Some((start, end)) = params.range {
+        // Range rebuild: splice new pages into existing layout
+        let pages_rebuilt: Vec<usize> = (start + 1..=start + new_pages.len()).collect();
+        mgr.state.layout.splice(start..end, new_pages);
+        renumber_pages(&mut mgr.state.layout);
+        pages_rebuilt
+    } else {
+        // Full rebuild: replace entire layout
+        let pages_rebuilt: Vec<usize> = (1..=new_pages.len()).collect();
+        mgr.state.layout = new_pages;
+        pages_rebuilt
+    };
+
+    // 5. Compile Typst
+    let typ_path = format!("{}.typ", mgr.project_name());
+    let pdf_path = typst::compile_preview(project_root, &typ_path)?;
+
+    // 6. Save and commit
+    mgr.finish(&params.commit_message)?;
+
+    Ok(BuildResult {
+        pdf_path,
+        pages_rebuilt,
+        pages_swapped: vec![],
+        images_processed: params.images_processed.max(cache_result.created),
+        total_cost: 0.0,
+        dpi_warnings: Vec::new(),
+        nothing_to_do: false,
+    })
+}
+
+/// Nummeriert alle LayoutPage.page Felder sequenziell (1-basiert).
+fn renumber_pages(layout: &mut [LayoutPage]) {
+    for (i, page) in layout.iter_mut().enumerate() {
+        page.page = i + 1;
+    }
+}
