@@ -5,33 +5,32 @@ use image::imageops::FilterType;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-/// Derives the relative cache path from group and photo ID.
-/// Removes group prefix and underscore from photo ID to get local_id.
+/// Derives the relative cache path from a photo ID.
+///
+/// The photo ID is already a relative path including the file extension
+/// (e.g. `"2024-01-15_Urlaub/IMG_001.jpg"`), so this function returns it as-is.
+/// The Typst template references images with `cache_prefix + photo_id`.
 ///
 /// # Examples
 /// ```
 /// use photobook_solver::cache::common::cache_rel_path;
-/// let path = cache_rel_path("Urlaub", "Urlaub_IMG_001");
+/// let path = cache_rel_path("Urlaub/IMG_001.jpg");
 /// assert_eq!(path.to_str().unwrap(), "Urlaub/IMG_001.jpg");
 /// ```
-pub fn cache_rel_path(group: &str, photo_id: &str) -> PathBuf {
-    let local_id = photo_id
-        .strip_prefix(group)
-        .and_then(|s| s.strip_prefix('_'))
-        .unwrap_or(photo_id);
-    PathBuf::from(group).join(format!("{local_id}.jpg"))
+pub fn cache_rel_path(photo_id: &str) -> PathBuf {
+    PathBuf::from(photo_id)
 }
 
 /// Returns absolute preview cache path for a photo.
 /// `cache_base` should come from `StateManager::preview_cache_dir()`.
-pub fn preview_path(cache_base: &Path, group: &str, photo_id: &str) -> PathBuf {
-    cache_base.join(cache_rel_path(group, photo_id))
+pub fn preview_path(cache_base: &Path, photo_id: &str) -> PathBuf {
+    cache_base.join(cache_rel_path(photo_id))
 }
 
 /// Returns absolute final cache path for a photo.
 /// `cache_base` should come from `StateManager::final_cache_dir()`.
-pub fn final_path(cache_base: &Path, group: &str, photo_id: &str) -> PathBuf {
-    cache_base.join(cache_rel_path(group, photo_id))
+pub fn final_path(cache_base: &Path, photo_id: &str) -> PathBuf {
+    cache_base.join(cache_rel_path(photo_id))
 }
 
 /// Checks if cached image is fresh (exists and newer than source).
@@ -125,27 +124,21 @@ mod tests {
     use tempfile::TempDir;
 
     #[test]
-    fn test_cache_rel_path_with_prefix() {
-        let path = cache_rel_path("Urlaub", "Urlaub_IMG_001");
+    fn test_cache_rel_path() {
+        let path = cache_rel_path("Urlaub/IMG_001.jpg");
         assert_eq!(path.to_str().unwrap(), "Urlaub/IMG_001.jpg");
     }
 
     #[test]
     fn test_cache_rel_path_with_suffix() {
-        let path = cache_rel_path("Urlaub", "Urlaub_IMG_001_1");
+        let path = cache_rel_path("Urlaub/IMG_001_1.jpg");
         assert_eq!(path.to_str().unwrap(), "Urlaub/IMG_001_1.jpg");
-    }
-
-    #[test]
-    fn test_cache_rel_path_without_prefix() {
-        let path = cache_rel_path("Urlaub", "IMG_001");
-        assert_eq!(path.to_str().unwrap(), "Urlaub/IMG_001.jpg");
     }
 
     #[test]
     fn test_preview_path() {
         let base = Path::new("/cache/preview");
-        let path = preview_path(base, "Urlaub", "Urlaub_IMG_001");
+        let path = preview_path(base, "Urlaub/IMG_001.jpg");
         assert_eq!(
             path.to_str().unwrap(),
             "/cache/preview/Urlaub/IMG_001.jpg"
@@ -155,7 +148,7 @@ mod tests {
     #[test]
     fn test_final_path() {
         let base = Path::new("/cache/final");
-        let path = final_path(base, "Urlaub", "Urlaub_IMG_001");
+        let path = final_path(base, "Urlaub/IMG_001.jpg");
         assert_eq!(path.to_str().unwrap(), "/cache/final/Urlaub/IMG_001.jpg");
     }
 

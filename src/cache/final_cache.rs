@@ -30,11 +30,11 @@ pub fn build_final_cache(
 ) -> Result<FinalCacheResult> {
     const TARGET_DPI: f64 = 300.0;
 
-    // Build photo lookup map: photo_id -> (PhotoFile, group_name)
-    let photo_map: HashMap<&str, (&crate::dto_models::PhotoFile, &str)> = state
+    // Build photo lookup map: photo_id -> PhotoFile
+    let photo_map: HashMap<&str, &crate::dto_models::PhotoFile> = state
         .photos
         .iter()
-        .flat_map(|g| g.files.iter().map(move |f| (f.id.as_str(), (f, g.group.as_str()))))
+        .flat_map(|g| g.files.iter().map(|f| (f.id.as_str(), f)))
         .collect();
 
     // Collect all (page_num, slot_index, photo_id) tuples
@@ -42,8 +42,8 @@ pub fn build_final_cache(
     for page in &state.layout {
         for (idx, photo_id) in page.photos.iter().enumerate() {
             if let Some(slot) = page.slots.get(idx)
-                && let Some(&(photo, group)) = photo_map.get(photo_id.as_str()) {
-                    tasks.push((page.page, slot.clone(), photo, group, photo_id.clone()));
+                && let Some(&photo) = photo_map.get(photo_id.as_str()) {
+                    tasks.push((page.page, slot.clone(), photo, photo_id.clone()));
                 }
         }
     }
@@ -53,10 +53,9 @@ pub fn build_final_cache(
     let warnings = std::sync::Mutex::new(Vec::new());
 
     // Process in parallel
-    tasks.par_iter().try_for_each(|(page_num, slot, photo, group, photo_id)| {
+    tasks.par_iter().try_for_each(|(page_num, slot, photo, photo_id)| {
         let source = Path::new(&photo.source);
-        let rel_path = cache_rel_path(photo_id, group);
-        let cached = final_cache_dir.join(rel_path);
+        let cached = final_cache_dir.join(cache_rel_path(photo_id));
 
         // Calculate target dimensions at 300 DPI
         let (target_w, target_h) = target_pixels(slot, TARGET_DPI);
