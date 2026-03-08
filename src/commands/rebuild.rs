@@ -76,9 +76,11 @@ pub fn rebuild(project_root: &Path, scope: RebuildScope) -> Result<BuildResult> 
 
     Ok(BuildResult {
         pdf_path: std::path::PathBuf::from("fotobuch_preview.pdf"),
-        pages_built: 0,
+        pages_rebuilt: vec![],
+        pages_swapped: vec![],
         images_processed: 0,
         total_cost: 0.0,
         dpi_warnings: Vec::new(),
+        nothing_to_do: false,
     })
 }
