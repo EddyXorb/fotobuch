@@ -9,7 +9,7 @@ Fügt unplaced Fotos chronologisch ins bestehende Layout ein. Kein Solver-Aufruf
 ## Abhängigkeiten
 
 - `dto_models::ProjectState` load/save (vorhanden)
-- `git::commit_if_changed` — `git2`-basiert (aus Build-Plan)
+- `StateManager` — kapselt load/save/commit
 - `project::diff::build_photo_index` — Photo-Lookup (aus Build-Plan)
 - `regex` — bereits in Cargo.toml
 
@@ -100,6 +100,7 @@ use std::path::Path;
 
 use crate::dto_models::{PhotoFile, ProjectState};
 use crate::project::diff::build_photo_index;
+use crate::state_manager::StateManager;
 
 /// Konfiguration — unverändert gegenüber bestehendem Stub.
 #[derive(Debug, Clone)]
@@ -119,23 +120,24 @@ pub struct PlaceResult {
 
 /// Place unplaced photos into the book.
 pub fn place(project_root: &Path, config: &PlaceConfig) -> Result<PlaceResult> {
-    let mut state = ProjectState::load(&project_root.join("fotobuch.yaml"))?;
+    // StateManager::open() commits any pending user edits automatically.
+    let mut mgr = StateManager::open(project_root)?;
 
     // Validierung
-    if state.layout.is_empty() {
+    if mgr.state.layout.is_empty() {
         anyhow::bail!("No layout yet. Run `fotobuch build` first.");
     }
     if let Some(page) = config.into_page {
-        if page == 0 || page > state.layout.len() {
+        if page == 0 || page > mgr.state.layout.len() {
             anyhow::bail!(
                 "Invalid page {} (layout has {} pages)",
-                page, state.layout.len()
+                page, mgr.state.layout.len()
             );
         }
     }
 
     // 1. Unplaced Fotos finden
-    let unplaced = find_unplaced(&state);
+    let unplaced = find_unplaced(&mgr.state);
     if unplaced.is_empty() {
         return Ok(PlaceResult { photos_placed: 0, pages_affected: vec![] });
     }
@@ -148,19 +150,16 @@ pub fn place(project_root: &Path, config: &PlaceConfig) -> Result<PlaceResult> {
 
     // 3. Platzieren
     let pages_affected = if let Some(page) = config.into_page {
-        place_into_page(&mut state, &filtered, page - 1)
+        place_into_page(&mut mgr.state, &filtered, page - 1)
     } else {
-        place_chronologically(&mut state, &filtered)
+        place_chronologically(&mut mgr.state, &filtered)
     };
 
     let photos_placed = filtered.len();
 
-    // 4. YAML + Git
-    state.save(&project_root.join("fotobuch.yaml"))?;
+    // 4. YAML schreiben + Git commit via StateManager
     let pages_str = format_page_list(&pages_affected);
-    git::commit_if_changed(project_root, &format!(
-        "place: {photos_placed} photos onto {pages_str}"
-    ))?;
+    mgr.finish(&format!("place: {photos_placed} photos onto {pages_str}"))?;
 
     Ok(PlaceResult {
         photos_placed,
@@ -331,7 +330,7 @@ fn format_page_list(pages: &[usize]) -> String {
 
 ## Implementierungsreihenfolge
 
-Setzt voraus, dass Build-Plan Schritt 3 (git2) abgeschlossen ist.
+Setzt voraus, dass StateManager implementiert ist.
 
 | #   | Schritt | Abhängig von |
 | --- | ------- | ------------ |
@@ -339,7 +338,7 @@ Setzt voraus, dass Build-Plan Schritt 3 (git2) abgeschlossen ist.
 | 2 | `apply_filter` (Regex auf source) | 1 |
 | 3 | `compute_page_ranges`, `find_target_page`, `min_distance` | 1 |
 | 4 | `place_chronologically`, `place_into_page` | 2, 3 |
-| 5 | `place()` Hauptfunktion mit Validierung + Git | 4 |
+| 5 | `place()` Hauptfunktion mit Validierung + StateManager | 4, StateManager |
 
 Jeder Schritt = ein Commit. Tests vor jedem Commit.
 

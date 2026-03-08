@@ -9,7 +9,7 @@ Entfernt Fotos oder ganze Gruppen aus dem Projekt. Pflegt `photos` und `layout` 
 ## Abhängigkeiten
 
 - `dto_models::ProjectState` load/save (vorhanden)
-- `git::commit_if_changed` — `git2`-basiert (aus Build-Plan)
+- `StateManager` — kapselt YAML load/save und Git commit
 - `regex` — bereits in Cargo.toml
 
 **Keine neuen Crates.** Insbesondere kein `glob`-Crate — Pattern-Matching erfolgt via Regex auf `photo.source` (konsistent mit `place --filter`).
@@ -85,21 +85,20 @@ fotobuch remove --keep-files "IMG_005\.jpg$"      → Nur aus Layout entfernen
 
 ### Default (ohne `--keep-files`)
 
-1. **YAML laden**
-2. **Pattern-Matching**: `match_photos()` → `matched_ids`, `matched_groups`
-3. Falls nichts gematcht → `RemoveResult { photos_removed: 0, .. }`, kein Commit
-4. **Aus `layout` entfernen**: Fotos und korrespondierende Slots entfernen
-5. **Leere Seiten entfernen** + renumbern
-6. **Aus `photos` entfernen**: Files aus Gruppen filtern, leere Gruppen entfernen
-7. **YAML speichern**, **Git commit**
+1. **Pattern-Matching**: `match_photos()` → `matched_ids`, `matched_groups`
+2. Falls nichts gematcht → `RemoveResult { photos_removed: 0, .. }`, kein Commit
+3. **Aus `layout` entfernen**: Fotos und korrespondierende Slots entfernen
+4. **Leere Seiten entfernen** + renumbern
+5. **Aus `photos` entfernen**: Files aus Gruppen filtern, leere Gruppen entfernen
+6. `mgr.finish(&commit_msg)` — speichert YAML und erstellt Git-Commit
 
 ### Mit `--keep-files`
 
-1-3. wie oben
-4. **Nur aus `layout` entfernen** (Fotos + Slots)
-5. **Leere Seiten entfernen** + renumbern
-6. ~~Aus `photos` entfernen~~ — übersprungen, Fotos bleiben als "unplaced"
-7. **YAML speichern**, **Git commit**
+1-2. wie oben
+3. **Nur aus `layout` entfernen** (Fotos + Slots)
+4. **Leere Seiten entfernen** + renumbern
+5. ~~Aus `photos` entfernen~~ — übersprungen, Fotos bleiben als "unplaced"
+6. `mgr.finish(&commit_msg)` — speichert YAML und erstellt Git-Commit
 
 ---
 
@@ -132,10 +131,10 @@ pub struct RemoveResult {
 }
 
 pub fn remove(project_root: &Path, config: &RemoveConfig) -> Result<RemoveResult> {
-    let mut state = ProjectState::load(&project_root.join("fotobuch.yaml"))?;
+    let mut mgr = StateManager::open(project_root)?;
 
     // 1. Pattern-Matching
-    let matches = match_photos(&state, &config.patterns)?;
+    let matches = match_photos(&mgr.state, &config.patterns)?;
     if matches.matched_ids.is_empty() {
         return Ok(RemoveResult {
             photos_removed: 0,
@@ -146,29 +145,27 @@ pub fn remove(project_root: &Path, config: &RemoveConfig) -> Result<RemoveResult
     }
 
     // 2. Aus Layout entfernen (immer, auch bei --keep-files)
-    let layout_result = remove_from_layout(&mut state.layout, &matches.matched_ids);
+    let layout_result = remove_from_layout(&mut mgr.state.layout, &matches.matched_ids);
 
     // 3. Leere Seiten entfernen + renumbern
-    let removed_pages = remove_empty_pages(&mut state.layout);
-    renumber_pages(&mut state.layout);
+    let removed_pages = remove_empty_pages(&mut mgr.state.layout);
+    renumber_pages(&mut mgr.state.layout);
 
     // 4. Aus Photos entfernen (nur ohne --keep-files)
     let mut groups_removed = matches.matched_groups.clone();
     let photos_removed = if config.keep_files {
         0
     } else {
-        remove_from_photos(&mut state.photos, &matches.matched_ids, &mut groups_removed)
+        remove_from_photos(&mut mgr.state.photos, &matches.matched_ids, &mut groups_removed)
     };
 
-    // 5. YAML + Git
-    state.save(&project_root.join("fotobuch.yaml"))?;
-
+    // 5. Speichern + Git commit
     let commit_msg = if config.keep_files {
         format!("remove: {} placements from layout (photos kept)", layout_result.placements_removed)
     } else {
         format!("remove: {} photos", photos_removed)
     };
-    git::commit_if_changed(project_root, &commit_msg)?;
+    mgr.finish(&commit_msg)?;
 
     Ok(RemoveResult {
         photos_removed,
@@ -327,7 +324,7 @@ pub fn renumber_pages(layout: &mut [LayoutPage]) {
 
 ## Implementierungsreihenfolge
 
-Setzt voraus, dass Build-Plan Schritt 3 (git2) abgeschlossen ist.
+Setzt voraus, dass `StateManager` implementiert ist.
 
 | #   | Schritt | Abhängig von |
 | --- | ------- | ------------ |

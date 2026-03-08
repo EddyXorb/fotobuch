@@ -111,11 +111,11 @@ StateManager::open(project_root)
 
 ### `src/commands/new.rs`
 
-- `new()` wird zu `project_new()`  im Modul `commands/project.rs`
+- `new()` wird zu `project_new()`  im Modul `commands/project_new.rs`
 - Neue Logik: Repo-Erkennung (frisch vs. bestehend), Branch-Erstellung, YAML-Name aus Projektname
 - `NewConfig` bekommt kein `name`-Feld mehr für den Ordner — der Projektname bestimmt Branch + YAML-Name
 
-### Neues Modul: `src/commands/project.rs`
+### Neues Modul: `src/commands/project_new.rs`
 
 ```rust
 pub fn new(project_root: &Path, config: &NewConfig) -> Result<NewResult>
@@ -193,8 +193,8 @@ Bei `build --release` erzeugt der Code eine **nicht-getrackte Kopie** `final.typ
 |---|---------|---------|
 | 1 | `validate_project_name()` | Regex-Validierung, zentral nutzbar |
 | 2 | `git.rs` auf git2 umstellen | Branch-Operationen, kein `Command::new("git")` mehr |
-| 3 | `commands/project.rs` — `new` | Erstes + weiteres Projekt, Branch-Erstellung |
-| 4 | `commands/project.rs` — `switch` + `list` | Branch-Wechsel und Auflistung |
+| 3 | `commands/project_new.rs` — `new` | Erstes + weiteres Projekt, Branch-Erstellung |
+| 4 | `commands/project_list.rs` und `commands/project_switch` — `list` und `switch` | Branch-Wechsel und Auflistung |
 | 5 | `state_manager.rs` — Projekt-Erkennung | Branch-Name → YAML-Name → Cache-Pfad |
 | 6 | Cache-Pfade anpassen | `{projektname}/` Unterordner |
 | 7 | Typst-Template + final.typ-Generierung | `{name}.typ` bei new, `final.typ` bei --release |

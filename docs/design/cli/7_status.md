@@ -8,9 +8,8 @@ Zeigt Projektstatus: Fotos, Gruppen, Layout-Zusammenfassung, geänderte Seiten s
 
 ## Abhängigkeiten
 
-- `dto_models::ProjectState` load (vorhanden)
-- `git::read_committed_file` — `git2`-basiert (aus Build-Plan)
-- `project::diff::detect_changes`, `build_photo_index`, `PageChange` — Änderungserkennung (aus Build-Plan)
+- `StateManager` — öffnet Projekt, lädt State, erkennt Änderungen intern via `StateDiff`
+- `project::diff::detect_changes`, `build_photo_index`, `PageChange` — seitenweiser Diff (aus Build-Plan)
 
 **Keine neuen Crates.**
 
@@ -18,9 +17,12 @@ Zeigt Projektstatus: Fotos, Gruppen, Layout-Zusammenfassung, geänderte Seiten s
 
 `status` nutzt **dieselbe Änderungserkennung** wie `build`:
 
-- `git::read_committed_file` → committed YAML laden
+- `StateManager::open(project_root)` → Projekt öffnen, committed State intern verwaltet
+- `StateManager::has_changes()` → Gesamtstatus (clean / modified)
 - `project::diff::detect_changes` → `PageChange` pro Seite (NeedsRebuild / SwapOnly / Clean)
 - `project::diff::build_photo_index` → Photo-Lookup für Ratio/Swap-Gruppen
+
+Für seitengenauen Diff benötigt `status` noch den committed State. Dieser wird intern vom StateManager verwaltet; ein Accessor (`mgr.committed_state()` o.Ä.) kann ihn exponieren. Die direkte Nutzung von `git::read_committed_file` entfällt — Git-Interaktion liegt vollständig im StateManager.
 
 Keine eigene Diff-Logik in `status` — alles lebt in `project/diff.rs`.
 
@@ -40,6 +42,7 @@ Keine eigene Diff-Logik in `status` — alles lebt in `project/diff.rs`.
 
 ```rust
 pub struct StatusReport {
+    pub project_name: String,
     pub state: ProjectState_,  // empty / clean / modified
     pub total_photos: usize,
     pub group_count: usize,
@@ -64,6 +67,7 @@ pub enum ProjectState_ {
 Die CLI-Schicht formatiert das zu:
 
 ```text
+Project: urlaub
 85 photos in 6 groups (5 unplaced)
 
 Layout: 12 pages, 7.1 photos/page avg
@@ -175,32 +179,37 @@ fn count_unplaced(state: &ProjectState) -> usize {
 ### `src/commands/status.rs`
 
 ```rust
-use crate::dto_models::ProjectState;
 use crate::project::diff::{self, PageChange, build_photo_index, ratios_compatible};
+use crate::state_manager::StateManager;
 use std::collections::HashSet;
 use std::path::Path;
 
 pub fn status(project_root: &Path, page: Option<usize>) -> Result<StatusReport> {
-    let state = ProjectState::load(&project_root.join("fotobuch.yaml"))?;
+    let mgr = StateManager::open(project_root)?;
+    let project_name = mgr.project_name().to_owned();
 
     // Basiszahlen
-    let total_photos = state.photos.iter().map(|g| g.files.len()).sum();
-    let group_count = state.photos.len();
-    let unplaced = count_unplaced(&state);
-    let page_count = state.layout.len();
+    let total_photos = mgr.state.photos.iter().map(|g| g.files.len()).sum();
+    let group_count = mgr.state.photos.len();
+    let unplaced = count_unplaced(&mgr.state);
+    let page_count = mgr.state.layout.len();
     let avg = if page_count > 0 {
         total_photos as f64 / page_count as f64
     } else { 0.0 };
 
     // Projektzustand bestimmen
-    let (project_state, page_changes) = if state.layout.is_empty() {
+    // mgr.has_changes() liefert den Gesamtstatus; für seitengenauen Diff
+    // wird der committed State über mgr.committed_state() bezogen —
+    // Git-Zugriff verbleibt vollständig im StateManager.
+    let (project_state, page_changes) = if mgr.state.layout.is_empty() {
         (ProjectState_::Empty, vec![])
+    } else if !mgr.has_changes() {
+        (ProjectState_::Clean, vec![])
     } else {
-        match git::read_committed_file(project_root, "fotobuch.yaml")? {
-            Some(bytes) => {
-                let committed: ProjectState = serde_yaml::from_slice(&bytes)?;
+        match mgr.committed_state()? {
+            Some(committed) => {
                 let diff = diff::detect_changes(
-                    &state.layout, &committed.layout, &state, &committed
+                    &mgr.state.layout, &committed.layout, &mgr.state, &committed
                 );
                 let changes: Vec<(usize, PageChange)> = diff.pages.iter()
                     .enumerate()
@@ -215,19 +224,20 @@ pub fn status(project_root: &Path, page: Option<usize>) -> Result<StatusReport> 
                 (ps, changes)
             }
             None => {
-                // Kein Commit vorhanden → kann nicht diffzen
+                // Kein Commit vorhanden → StateManager hat keinen committed State
                 (ProjectState_::Clean, vec![])
             }
         }
     };
 
     // Konsistenzprüfungen
-    let warnings = check_consistency(&state);
+    let warnings = check_consistency(&mgr.state);
 
     // Detail-View
-    let detail = page.map(|p| build_page_detail(&state, p)).transpose()?;
+    let detail = page.map(|p| build_page_detail(&mgr.state, p)).transpose()?;
 
     Ok(StatusReport {
+        project_name,
         state: project_state,
         total_photos,
         group_count,
@@ -284,9 +294,10 @@ fn build_page_detail(state: &ProjectState, page_num: usize) -> Result<PageDetail
 
 ## Verhalten ohne Git
 
-Wenn `git::read_committed_file` `None` zurückgibt (kein Commit, kein Repo), funktioniert `status` trotzdem:
+Der `StateManager` erkennt intern, ob ein Git-Repository vorhanden ist und ob ein committed State existiert. `status` muss das nicht selbst prüfen:
 
-- Keine Änderungserkennung → `ProjectState_::Clean` (Annahme)
+- Kein Repo / kein Commit → `StateManager::has_changes()` gibt `false`, `committed_state()` gibt `None`
+- Folge: keine Änderungserkennung → `ProjectState_::Clean` (Annahme)
 - Konsistenzprüfungen funktionieren normal
 - Detail-View funktioniert normal
 
@@ -294,14 +305,14 @@ Wenn `git::read_committed_file` `None` zurückgibt (kein Commit, kein Repo), fun
 
 ## Implementierungsreihenfolge
 
-Setzt voraus, dass Build-Plan Schritte 3-4 (git2, project/diff) abgeschlossen sind.
+Setzt voraus, dass `StateManager` implementiert ist.
 
 | #   | Schritt | Abhängig von |
 | --- | ------- | ------------ |
 | 1 | `count_unplaced`, `check_consistency` | — |
 | 2 | `assign_swap_groups` | — |
 | 3 | `build_page_detail` (Detail-View) | 1, 2 |
-| 4 | `status()` Hauptfunktion mit Diff-Integration | 1, 3, Build-Plan Schritt 4 |
+| 4 | `status()` Hauptfunktion mit Diff-Integration | 1, 3, StateManager |
 
 Jeder Schritt = ein Commit.
 
