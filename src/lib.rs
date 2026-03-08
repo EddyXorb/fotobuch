@@ -17,8 +17,8 @@
 //! ## Example
 //!
 //! ```rust,no_run
-//! use photobook_solver::{run_solver, dto_models::*};
-//! use photobook_solver::solver::{Request, RequestType};
+//! use photobook_solver::solver::{run_solver, Request, RequestType};
+//! use photobook_solver::dto_models::*;
 //!
 //! // Define book configuration
 //! let book_config = BookConfig {
@@ -31,13 +31,8 @@
 //!     bleed_threshold_mm: 3.0,
 //! };
 //!
-//! // Define solver parameters
-//! let solver_config = BookLayoutSolverConfig {
-//!     page_min: 1,
-//!     page_max: 5,
-//!     min_coverage: 0.6,
-//!     // ... other parameters
-//! };
+//! // Define solver parameters (use defaults for simplicity)
+//! let solver_config = BookLayoutSolverConfig::default();
 //!
 //! // Define GA configuration
 //! let ga_config = GaConfig::default();
