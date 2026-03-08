@@ -29,7 +29,7 @@ mod tests {
 
     #[test]
     fn test_solver_request_new() {
-        let canvas = Canvas::new(297.0, 210.0, 5.0, 0.0);
+        let canvas = Canvas::new(297.0, 210.0, 5.0);
         let ga_config = crate::dto_models::GaConfig::default();
 
         let request = SolverRequest::new(canvas, ga_config.clone());

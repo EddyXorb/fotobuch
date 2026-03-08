@@ -212,7 +212,7 @@ mod tests {
     // PageLayout tests
     #[test]
     fn test_layout_result_coverage() {
-        let canvas = Canvas::new(200.0, 100.0, 2.0, 3.0);
+        let canvas = Canvas::new(200.0, 100.0, 2.0);
         let placements = vec![
             PhotoPlacement::new(0, 0.0, 0.0, 100.0, 100.0), // 10000 mm²
             PhotoPlacement::new(1, 102.0, 0.0, 98.0, 100.0), // 9800 mm²
@@ -225,7 +225,7 @@ mod tests {
 
     #[test]
     fn test_layout_result_barycenter() {
-        let canvas = Canvas::new(200.0, 200.0, 0.0, 0.0);
+        let canvas = Canvas::new(200.0, 200.0, 0.0);
         let placements = vec![
             PhotoPlacement::new(0, 0.0, 0.0, 100.0, 100.0), // center: (50, 50), area: 10000
             PhotoPlacement::new(1, 100.0, 100.0, 100.0, 100.0), // center: (150, 150), area: 10000
@@ -239,7 +239,7 @@ mod tests {
 
     #[test]
     fn test_layout_result_barycenter_empty() {
-        let canvas = Canvas::new(200.0, 100.0, 0.0, 0.0);
+        let canvas = Canvas::new(200.0, 100.0, 0.0);
         let layout = PageLayout::new(vec![], canvas);
 
         let (bx, by) = layout.barycenter();
@@ -250,7 +250,7 @@ mod tests {
     // PageLayout::centered() tests
     #[test]
     fn test_centered_offset() {
-        let canvas = Canvas::new(500.0, 500.0, 2.0, 0.0);
+        let canvas = Canvas::new(500.0, 500.0, 2.0);
         let placements = vec![PhotoPlacement::new(0, 0.0, 0.0, 100.0, 100.0)];
         let layout = PageLayout::new(placements, canvas);
 
@@ -263,7 +263,7 @@ mod tests {
 
     #[test]
     fn test_centered_multiple_placements() {
-        let canvas = Canvas::new(300.0, 300.0, 0.0, 0.0);
+        let canvas = Canvas::new(300.0, 300.0, 0.0);
         let placements = vec![
             PhotoPlacement::new(0, 0.0, 0.0, 100.0, 100.0),
             PhotoPlacement::new(1, 100.0, 0.0, 100.0, 100.0),
@@ -280,7 +280,7 @@ mod tests {
 
     #[test]
     fn test_centered_empty() {
-        let canvas = Canvas::new(200.0, 200.0, 2.0, 0.0);
+        let canvas = Canvas::new(200.0, 200.0, 2.0);
         let layout = PageLayout::new(vec![], canvas);
 
         let centered = layout.centered();

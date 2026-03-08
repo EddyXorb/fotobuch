@@ -46,7 +46,7 @@ mod tests {
 
     #[test]
     fn test_book_layout_new() {
-        let canvas = Canvas::new(297.0, 210.0, 5.0, 0.0);
+        let canvas = Canvas::new(297.0, 210.0, 5.0);
         let page = PageLayout::new(vec![], canvas);
         let book = BookLayout::new(vec![page]);
 
@@ -56,7 +56,7 @@ mod tests {
 
     #[test]
     fn test_book_layout_single_page() {
-        let canvas = Canvas::new(297.0, 210.0, 5.0, 0.0);
+        let canvas = Canvas::new(297.0, 210.0, 5.0);
         let placements = vec![PhotoPlacement::new(0, 10.0, 10.0, 100.0, 100.0)];
         let page = PageLayout::new(placements, canvas);
         let book = BookLayout::single_page(page);
@@ -68,7 +68,7 @@ mod tests {
 
     #[test]
     fn test_book_layout_multiple_pages() {
-        let canvas = Canvas::new(297.0, 210.0, 5.0, 0.0);
+        let canvas = Canvas::new(297.0, 210.0, 5.0);
 
         let page1 = PageLayout::new(
             vec![PhotoPlacement::new(0, 10.0, 10.0, 100.0, 100.0)],
@@ -91,7 +91,7 @@ mod tests {
 
     #[test]
     fn test_book_layout_is_empty() {
-        let canvas = Canvas::new(297.0, 210.0, 5.0, 0.0);
+        let canvas = Canvas::new(297.0, 210.0, 5.0);
 
         // Empty book
         let empty_book = BookLayout::new(vec![]);

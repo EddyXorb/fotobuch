@@ -434,16 +434,16 @@ mod tests {
     #[test]
     fn test_group_info_from_photos() {
         let photos = vec![
-            Photo::new(1.5, 1.0, "groupA".to_string()),
-            Photo::new(1.5, 1.0, "groupA".to_string()),
-            Photo::new(1.5, 1.0, "groupA".to_string()),
-            Photo::new(1.5, 1.0, "groupB".to_string()),
-            Photo::new(1.5, 1.0, "groupB".to_string()),
-            Photo::new(1.5, 1.0, "groupB".to_string()),
-            Photo::new(1.5, 1.0, "groupB".to_string()),
-            Photo::new(1.5, 1.0, "groupB".to_string()),
-            Photo::new(1.5, 1.0, "groupC".to_string()),
-            Photo::new(1.5, 1.0, "groupC".to_string()),
+            Photo::new("photo_0".to_string(), 1.5, 1.0, "groupA".to_string()),
+            Photo::new("photo_1".to_string(), 1.5, 1.0, "groupA".to_string()),
+            Photo::new("photo_2".to_string(), 1.5, 1.0, "groupA".to_string()),
+            Photo::new("photo_3".to_string(), 1.5, 1.0, "groupB".to_string()),
+            Photo::new("photo_4".to_string(), 1.5, 1.0, "groupB".to_string()),
+            Photo::new("photo_5".to_string(), 1.5, 1.0, "groupB".to_string()),
+            Photo::new("photo_6".to_string(), 1.5, 1.0, "groupB".to_string()),
+            Photo::new("photo_7".to_string(), 1.5, 1.0, "groupB".to_string()),
+            Photo::new("photo_8".to_string(), 1.5, 1.0, "groupC".to_string()),
+            Photo::new("photo_9".to_string(), 1.5, 1.0, "groupC".to_string()),
         ];
 
         let group_info = GroupInfo::from_photos(&photos);

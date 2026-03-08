@@ -191,7 +191,8 @@ mod tests {
     use approx::assert_relative_eq;
 
     fn make_photo(aspect_ratio: f64, area_weight: f64) -> Photo {
-        Photo::new(aspect_ratio, area_weight, "test".to_string())
+        let id = format!("test_{}", aspect_ratio);
+        Photo::new(id, aspect_ratio, area_weight, "test".to_string())
     }
 
     #[test]
@@ -215,7 +216,7 @@ mod tests {
 
     #[test]
     fn test_cost_coverage_full() {
-        let canvas = Canvas::new(100.0, 100.0, 0.0, 0.0);
+        let canvas = Canvas::new(100.0, 100.0, 0.0);
         let placements = vec![PhotoPlacement::new(0, 0.0, 0.0, 100.0, 100.0)];
         let layout = PageLayout::new(placements, canvas);
 
@@ -225,7 +226,7 @@ mod tests {
 
     #[test]
     fn test_cost_coverage_half() {
-        let canvas = Canvas::new(100.0, 100.0, 0.0, 0.0);
+        let canvas = Canvas::new(100.0, 100.0, 0.0);
         let placements = vec![PhotoPlacement::new(0, 0.0, 0.0, 50.0, 100.0)];
         let layout = PageLayout::new(placements, canvas);
 
@@ -235,7 +236,7 @@ mod tests {
 
     #[test]
     fn test_cost_barycenter_centered() {
-        let canvas = Canvas::new(200.0, 200.0, 0.0, 0.0);
+        let canvas = Canvas::new(200.0, 200.0, 0.0);
         // Single photo centered at (100, 100)
         let placements = vec![PhotoPlacement::new(0, 50.0, 50.0, 100.0, 100.0)];
         let layout = PageLayout::new(placements, canvas);
@@ -246,7 +247,7 @@ mod tests {
 
     #[test]
     fn test_cost_barycenter_offset() {
-        let canvas = Canvas::new(200.0, 200.0, 0.0, 0.0);
+        let canvas = Canvas::new(200.0, 200.0, 0.0);
         // Photo in top-left corner, center at (25, 25)
         let placements = vec![PhotoPlacement::new(0, 0.0, 0.0, 50.0, 50.0)];
         let layout = PageLayout::new(placements, canvas);
@@ -261,7 +262,7 @@ mod tests {
 
     #[test]
     fn test_cost_size_distribution_perfect() {
-        let canvas = Canvas::new(200.0, 100.0, 0.0, 0.0); // 20000 mm²
+        let canvas = Canvas::new(200.0, 100.0, 0.0); // 20000 mm²
         let photos = vec![
             make_photo(1.0, 1.0), // Weight 1/3, target 6666.67 mm²
             make_photo(1.0, 1.0), // Weight 1/3
@@ -284,7 +285,7 @@ mod tests {
 
     #[test]
     fn test_cost_size_distribution_undersized_penalty() {
-        let canvas = Canvas::new(100.0, 100.0, 0.0, 0.0); // 10000 mm²
+        let canvas = Canvas::new(100.0, 100.0, 0.0); // 10000 mm²
         let photos = vec![
             make_photo(1.0, 1.0), // Weight 1, target 100% = 10000 mm²
         ];
@@ -303,7 +304,7 @@ mod tests {
 
     #[test]
     fn test_cost_size_distribution_normal_penalty() {
-        let canvas = Canvas::new(100.0, 100.0, 0.0, 0.0); // 10000 mm²
+        let canvas = Canvas::new(100.0, 100.0, 0.0); // 10000 mm²
         let photos = vec![
             make_photo(1.0, 1.0), // Weight 1, target 100% = 10000 mm²
         ];
@@ -322,7 +323,7 @@ mod tests {
 
     #[test]
     fn test_cost_reading_order_correct() {
-        let canvas = Canvas::new(200.0, 100.0, 0.0, 0.0);
+        let canvas = Canvas::new(200.0, 100.0, 0.0);
         // Photos in correct reading order: left to right, top to bottom
         let placements = vec![
             PhotoPlacement::new(0, 0.0, 0.0, 50.0, 50.0), // Top-left
@@ -342,7 +343,7 @@ mod tests {
 
     #[test]
     fn test_cost_reading_order_inverted() {
-        let canvas = Canvas::new(200.0, 100.0, 0.0, 0.0);
+        let canvas = Canvas::new(200.0, 100.0, 0.0);
         // Photos in wrong order: later photos appear earlier in reading
         let placements = vec![
             PhotoPlacement::new(0, 100.0, 50.0, 50.0, 50.0), // Photo 0 bottom-right
@@ -360,7 +361,7 @@ mod tests {
 
     #[test]
     fn test_cost_reading_order_single_photo() {
-        let canvas = Canvas::new(100.0, 100.0, 0.0, 0.0);
+        let canvas = Canvas::new(100.0, 100.0, 0.0);
         let placements = vec![PhotoPlacement::new(0, 0.0, 0.0, 50.0, 50.0)];
         let layout = PageLayout::new(placements, canvas);
         let photos = vec![make_photo(1.0, 1.0)];
@@ -371,7 +372,7 @@ mod tests {
 
     #[test]
     fn test_total_cost_combined() {
-        let canvas = Canvas::new(100.0, 100.0, 0.0, 0.0);
+        let canvas = Canvas::new(100.0, 100.0, 0.0);
         let photos = vec![make_photo(1.0, 1.0)];
         let placements = vec![PhotoPlacement::new(0, 0.0, 0.0, 50.0, 50.0)];
         let layout = PageLayout::new(placements, canvas);

@@ -96,7 +96,7 @@ mod tests {
     };
 
     fn make_dummy_result(fitness: f64) -> GaResult {
-        let canvas = Canvas::new(297.0, 210.0, 5.0, 0.0);
+        let canvas = Canvas::new(297.0, 210.0, 5.0);
         let layout = PageLayout::new(vec![], canvas);
         let breakdown = CostBreakdown {
             total: fitness,

@@ -134,13 +134,13 @@ mod tests {
     #[test]
     #[should_panic(expected = "Aspect ratio must be positive")]
     fn test_new_photo_negative_aspect_ratio() {
-        Photo::new(-1.0, DEFAULT_AREA_WEIGHT, "test".to_string());
+        Photo::new("id".to_string(), -1.0, DEFAULT_AREA_WEIGHT, "test".to_string());
     }
 
     #[test]
     #[should_panic(expected = "Area weight must be positive")]
     fn test_new_photo_negative_area_weight() {
-        Photo::new(LANDSCAPE_ASPECT, -1.0, "test".to_string());
+        Photo::new("id".to_string(), LANDSCAPE_ASPECT, -1.0, "test".to_string());
     }
 
     #[test]

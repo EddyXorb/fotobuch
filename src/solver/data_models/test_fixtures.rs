@@ -14,9 +14,7 @@ pub const A4_HEIGHT_MM: f64 = 210.0;
 
 // Common canvas parameters
 pub const DEFAULT_GAP_MM: f64 = 2.0;
-pub const DEFAULT_BLEED_MM: f64 = 3.0;
 pub const TEST_GAP_MM: f64 = 5.0;
-pub const TEST_BLEED_ZERO: f64 = 0.0;
 
 // Photo aspect ratios
 pub const LANDSCAPE_ASPECT: f64 = 1.5; // 3:2 ratio
@@ -26,14 +24,14 @@ pub const SQUARE_ASPECT: f64 = 1.0;
 // Photo area weights
 pub const DEFAULT_AREA_WEIGHT: f64 = 1.0;
 
-/// Creates a standard A4 canvas for testing with typical gap and bleed values.
+/// Creates a standard A4 canvas for testing with typical gap.
 pub fn standard_a4_canvas() -> Canvas {
-    Canvas::new(A4_WIDTH_MM, A4_HEIGHT_MM, DEFAULT_GAP_MM, DEFAULT_BLEED_MM)
+    Canvas::new(A4_WIDTH_MM, A4_HEIGHT_MM, DEFAULT_GAP_MM)
 }
 
-/// Creates an A4 canvas with no bleed (useful for layout tests).
+/// Creates an A4 canvas with custom gap (useful for layout tests).
 pub fn a4_canvas_with_gap(gap_mm: f64) -> Canvas {
-    Canvas::new(A4_WIDTH_MM, A4_HEIGHT_MM, gap_mm, TEST_BLEED_ZERO)
+    Canvas::new(A4_WIDTH_MM, A4_HEIGHT_MM, gap_mm)
 }
 
 /// Creates a standard landscape photo for testing.
