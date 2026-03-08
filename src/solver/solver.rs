@@ -3,14 +3,9 @@
 //! This module provides the main entry point for running the photobook solver,
 //! coordinating input loading, solver configuration, optimization, and export.
 
-use super::book_layout_solver;
 use crate::dto_models::{BookConfig, BookLayoutSolverConfig, LayoutPage, PhotoFile, PhotoGroup};
-use crate::load_photos_from_dir;
 use crate::solver::prelude::*;
-use anyhow::{Context, Result};
-use std::path::{Path, PathBuf};
-use std::time::Instant;
-use tracing::info;
+use anyhow::Result;
 
 pub enum RequestType<'a> {
     /// Single-page layout optimization; no grouping or multi-page logic applied.
@@ -29,6 +24,6 @@ pub struct Request<'a> {
     pub book_config: &'a BookConfig,
 }
 /// The main entry point for running the photobook layout solver.
-pub fn run_solver(request: &Request) -> Result<Vec<LayoutPage>> {
+pub fn run_solver(_request: &Request) -> Result<Vec<LayoutPage>> {
     Ok(vec![])
 }

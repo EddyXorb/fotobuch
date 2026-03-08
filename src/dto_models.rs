@@ -3,7 +3,7 @@
 //! This module contains all data structures used throughout the application:
 //! - **Configuration**: Canvas, FitnessWeights, GaConfig, IslandConfig
 //! - **Photos**: Photo, PhotoInfo, ScannedPhoto, PhotoGroup
-//! - **Layout**: PhotoPlacement, PageLayout, BookLayout
+//! - **Layout**: PhotoPlacement, SolverPageLayout, BookLayout
 //! - **Request**: SolverRequest
 mod config;
 mod layout;

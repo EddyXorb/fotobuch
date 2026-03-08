@@ -23,7 +23,7 @@ use tracing::info;
 #[derive(Debug, Clone)]
 pub struct GaResult {
     /// The corresponding page layout with photo placements.
-    pub layout: PageLayout,
+    pub layout: SolverPageLayout,
     /// The raw fitness value (lower is better).
     pub fitness: f64,
     /// Detailed breakdown of fitness cost components.

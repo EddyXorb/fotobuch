@@ -1,6 +1,6 @@
 //! Domain-specific Individual implementation for photo layout.
 
-use super::super::data_models::PageLayout;
+use super::super::data_models::SolverPageLayout;
 use super::affine_solver::solve_layout;
 use super::evolution::EvaluationContext;
 use super::fitness::total_cost;
@@ -11,7 +11,7 @@ use crate::solver::ga_solver::Individual;
 #[derive(Clone)]
 pub struct LayoutIndividual {
     tree: SlicingTree,
-    layout: PageLayout,
+    layout: SolverPageLayout,
     fitness: f64,
 }
 
@@ -35,14 +35,14 @@ impl LayoutIndividual {
     }
 
     /// Returns a reference to the page layout.
-    pub fn layout(&self) -> &PageLayout {
+    pub fn layout(&self) -> &SolverPageLayout {
         &self.layout
     }
 }
 
 impl Individual for LayoutIndividual {
     type Genome = SlicingTree;
-    type Phenotype = PageLayout;
+    type Phenotype = SolverPageLayout;
 
     fn genome(&self) -> &Self::Genome {
         &self.tree
