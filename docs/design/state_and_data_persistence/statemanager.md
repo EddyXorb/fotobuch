@@ -50,19 +50,87 @@ pub struct StateManager {
     project_name: String,
     repo: git2::Repository,
 
-    pub state: ProjectState,       // pub für disjoint borrows
-    last_state: ProjectState,      // privat, für Diff
+    pub state: ProjectState,              // pub für disjoint borrows
+    baseline: ProjectState,               // Baseline seit open() (nach auto-commit)
+    last_build_state: Option<ProjectState>, // State beim letzten build:/rebuild:-Commit
+    raw_config: Value,
     committed: bool,
 }
 ```
 
 `state` ist bewusst `pub` — so kann der Rust-Compiler disjoint borrows auf `mgr.state.photos` und `mgr.state.layout` gleichzeitig erlauben. Methoden wie `state()` / `state_mut()` würden den gesamten `StateManager` borrowen und das verhindern.
 
+### Zwei Vergleichs-Baselines
+
+| Feld | Befüllt in | Zweck |
+|------|-----------|-------|
+| `baseline` | `open()`, nach auto-commit | Erkennt **programmatische** Änderungen seit dem Öffnen (für `finish()`, `Drop`-Warnung) |
+| `last_build_state` | `open()`, aus letztem `build:`/`rebuild:`-Commit | Erkennt **Nutzer-Änderungen seit dem letzten Build** (für `incremental_build`, `release_build`) |
+
+**Warum `last_build_state` statt `baseline`?**
+
+Das Problem mit `baseline` als Vergleichspunkt für `incremental_build`:
+
+```
+1. build          → HEAD = "build: 3 pages"   state = S_build
+2. User editiert  → Disk-YAML = S_edit (area_weight geändert)
+3. fotobuch build → open() auto-committet S_edit
+                    baseline = S_edit          ← FALSCH als Build-Basis
+                    incremental_build: S_edit vs S_edit → "Nothing to do"
+                    Aber area_weight hat sich geändert! Bug.
+```
+
+Mit `last_build_state = S_build` als Vergleichspunkt wird der Unterschied korrekt erkannt.
+
+**Immunität gegen "Edit + Revert":**
+
+```
+1. build          → HEAD = "build: 3 pages"   last_build_state = S_build
+2. User editiert  → auto-commit "chore: manual edits"
+3. User revertiert → auto-commit "chore: manual edits"
+4. fotobuch build → last_build_state = S_build, state = S_build
+                    has_changes_since_last_build() → false → "Nothing to do" ✓
+```
+
+`baseline` wäre hier auch S_build (weil das Revert auto-committet wurde), aber man sollte sich nicht darauf verlassen — `last_build_state` macht die Intention explizit.
+
+## Lifecycle (aktualisiert)
+
+```
+open(project_root)
+│
+├─ 1. Git-Branch lesen → Projektname ableiten
+├─ 2. {projektname}.yaml laden → self.state
+├─ 3. Letzte committed Version laden (git2: HEAD:{projektname}.yaml)
+├─ 4. Diff(committed, loaded) → wenn nicht leer:
+│     YAML committen mit "chore: manual edits — {summary}"
+├─ 5. self.baseline = self.state.clone()
+├─ 6. Letzten build:/rebuild:-Commit suchen (git-log rückwärts)
+│     → self.last_build_state = Some(state aus diesem Commit) oder None
+│
+▼ Command arbeitet mit mgr.state (pub field)
+│
+├─ finish(msg)  ← für schreibende Commands
+│   ├─ Diff(baseline, state) → wenn leer: return (nichts zu committen)
+│   ├─ YAML schreiben
+│   ├─ git add + commit("{msg} — {summary}")
+│   └─ self.committed = true
+│
+▼ Drop
+    └─ Warnung wenn uncommitted programmatische Änderungen vorliegen
+```
+
+**Suche nach letztem Build-Commit (Schritt 6):**
+
+Git-Log rückwärts traversieren (`repo.revwalk()`), für jeden Commit Message prüfen ob sie mit `"build:"` oder `"rebuild:"` beginnt. Beim ersten Treffer YAML-Blob laden (`HEAD~N:{name}.yaml`). Kein Treffer → `last_build_state = None` (dann fallen `has_changes_since_last_build()` und `modified_pages()` auf `baseline` zurück).
+
+**Schwachstelle:** Abhängigkeit von Commit-Message-Format. Dieses Format ist aber projektintern und wird nur von fotobuch selbst erzeugt — daher akzeptabel.
+
 ## API
 
 ```rust
 impl StateManager {
-    /// Öffnet das Projekt: YAML laden, User-Diff committen.
+    /// Öffnet das Projekt: YAML laden, User-Diff committen, Build-Baseline laden.
     pub fn open(project_root: &Path) -> Result<Self>
 
     /// Projektname (abgeleitet aus Branch).
@@ -83,10 +151,24 @@ impl StateManager {
     /// Konsumiert den Manager.
     pub fn finish(mut self, message: &str) -> Result<()>
 
-    /// Gibt true zurück wenn sich state seit last_state geändert hat.
-    pub fn has_changes(&self) -> bool
+    /// true wenn sich state programmatisch seit open() geändert hat.
+    /// Basis: `baseline` (nach auto-commit). Genutzt von finish() und Drop.
+    pub fn has_changes_since_open(&self) -> bool
+
+    /// true wenn state vom letzten build:/rebuild:-Commit abweicht.
+    /// Basis: `last_build_state` (oder `baseline` wenn kein Build-Commit vorhanden).
+    /// Genutzt von: release_build (clean-check), incremental_build.
+    pub fn has_changes_since_last_build(&self) -> bool
+
+    /// Welche Seiten (1-basiert) müssen neu gebaut werden?
+    /// Vergleicht gegen last_build_state (nicht baseline).
+    pub fn modified_pages(&self) -> Vec<usize>
 }
 ```
+
+### Umbenennung `has_changes` → `has_changes_since_open`
+
+Der alte Name `has_changes()` war mehrdeutig. `has_changes_since_open()` macht den Vergleichspunkt explizit. `has_changes_since_last_build()` ist das neue Pendant für Build-Commands.
 
 ## StateDiff
 

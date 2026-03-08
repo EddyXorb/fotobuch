@@ -6,11 +6,12 @@
 //! - Loading the YAML identified by the current git branch name
 //! - Detecting and auto-committing manual user edits on `open()`
 //! - Diff-detection between the state at `open()` and any programmatic changes
-//! - Saving + committing on `finish()`
+//! - Saving + committing on `finish()` / `finish_always()`
 //! - Warning in `Drop` when programmatic changes were never committed
 
 use anyhow::{Context, Result, bail};
 use serde_yaml::Value;
+use std::cell::RefCell;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
@@ -25,6 +26,7 @@ struct StateDiff {
     config_changes: usize,
     photos_added: usize,
     photos_removed: usize,
+    photos_modified: usize,
     pages_added: usize,
     pages_removed: usize,
     pages_modified: usize,
@@ -35,13 +37,14 @@ impl StateDiff {
     fn compute(old: &ProjectState, new: &ProjectState) -> Self {
         let config_changes = count_config_changes(old, new);
 
-        let (photos_added, photos_removed) = diff_photos(&old.photos, &new.photos);
+        let (photos_added, photos_removed, photos_modified) = diff_photos(&old.photos, &new.photos);
         let (pages_added, pages_removed, pages_modified) = diff_pages(&old.layout, &new.layout);
 
         Self {
             config_changes,
             photos_added,
             photos_removed,
+            photos_modified,
             pages_added,
             pages_removed,
             pages_modified,
@@ -52,6 +55,7 @@ impl StateDiff {
         self.config_changes == 0
             && self.photos_added == 0
             && self.photos_removed == 0
+            && self.photos_modified == 0
             && self.pages_added == 0
             && self.pages_removed == 0
             && self.pages_modified == 0
@@ -68,6 +72,9 @@ impl StateDiff {
         }
         if self.photos_removed > 0 {
             parts.push(format!("removed {} photo(s)", self.photos_removed));
+        }
+        if self.photos_modified > 0 {
+            parts.push(format!("modified {} photo(s)", self.photos_modified));
         }
         if self.pages_added > 0 {
             parts.push(format!("added {} page(s)", self.pages_added));
@@ -99,20 +106,46 @@ fn count_value_diffs(a: &Value, b: &Value) -> usize {
         (Value::Mapping(ma), Value::Mapping(mb)) => {
             let keys: HashSet<_> = ma.keys().chain(mb.keys()).collect();
             keys.into_iter()
-                .map(|k| count_value_diffs(ma.get(k).unwrap_or(&Value::Null), mb.get(k).unwrap_or(&Value::Null)))
+                .map(|k| {
+                    count_value_diffs(
+                        ma.get(k).unwrap_or(&Value::Null),
+                        mb.get(k).unwrap_or(&Value::Null),
+                    )
+                })
                 .sum()
         }
         _ => usize::from(a != b),
     }
 }
 
-/// Returns (added, removed) photo counts by comparing file IDs across states.
-fn diff_photos(old: &[PhotoGroup], new: &[PhotoGroup]) -> (usize, usize) {
-    let old_ids: HashSet<&str> = old.iter().flat_map(|g| g.files.iter().map(|f| f.id.as_str())).collect();
-    let new_ids: HashSet<&str> = new.iter().flat_map(|g| g.files.iter().map(|f| f.id.as_str())).collect();
+/// Returns (added, removed, modified) photo counts.
+///
+/// Modified = same photo ID but different `area_weight` or pixel dimensions.
+fn diff_photos(old: &[PhotoGroup], new: &[PhotoGroup]) -> (usize, usize, usize) {
+    let old_map: std::collections::HashMap<&str, &crate::dto_models::PhotoFile> = old
+        .iter()
+        .flat_map(|g| g.files.iter().map(|f| (f.id.as_str(), f)))
+        .collect();
+    let new_map: std::collections::HashMap<&str, &crate::dto_models::PhotoFile> = new
+        .iter()
+        .flat_map(|g| g.files.iter().map(|f| (f.id.as_str(), f)))
+        .collect();
+
+    let old_ids: HashSet<&str> = old_map.keys().copied().collect();
+    let new_ids: HashSet<&str> = new_map.keys().copied().collect();
+
     let added = new_ids.difference(&old_ids).count();
     let removed = old_ids.difference(&new_ids).count();
-    (added, removed)
+    let modified = old_ids
+        .intersection(&new_ids)
+        .filter(|&&id| {
+            let o = old_map[id];
+            let n = new_map[id];
+            o.area_weight != n.area_weight || o.width_px != n.width_px || o.height_px != n.height_px
+        })
+        .count();
+
+    (added, removed, modified)
 }
 
 /// Returns (pages_added, pages_removed, pages_modified).
@@ -138,6 +171,18 @@ fn diff_pages(old: &[LayoutPage], new: &[LayoutPage]) -> (usize, usize, usize) {
     (added, removed, modified)
 }
 
+// ── BuildBaseline ─────────────────────────────────────────────────────────────
+
+/// Lazy reference state from the last `build:` or `rebuild:` git commit.
+enum LazyLoad {
+    /// Not yet resolved — loaded on first access.
+    Pending,
+    /// Git log was searched; no `build:` or `rebuild:` commit was found.
+    Failed,
+    /// State loaded from the last `build:` or `rebuild:` commit.
+    Loaded(ProjectState),
+}
+
 // ── StateManager ─────────────────────────────────────────────────────────────
 
 /// Central project state manager.
@@ -152,16 +197,20 @@ pub struct StateManager {
 
     /// Current (potentially mutated) project state.
     pub state: ProjectState,
-    /// Snapshot of state at `open()` time — used to detect programmatic changes.
-    last_state: ProjectState,
+    /// Snapshot of state after `open()` (after any auto-commit).
+    /// Used by `finish()` and `Drop` to detect programmatic changes.
+    baseline: ProjectState,
+    /// Lazy reference state from the last `build:` or `rebuild:` commit.
+    /// Resolved on first call to `has_changes_since_last_build()` or `modified_pages()`.
+    build_baseline: RefCell<LazyLoad>,
     /// Raw YAML value of the config section as loaded from disk.
     raw_config: Value,
-    /// Set to `true` by `finish()` so `Drop` stays silent.
+    /// Set to `true` by `finish()` / `finish_always()` so `Drop` stays silent.
     committed: bool,
 }
 
 impl StateManager {
-    /// Open a project: read branch → load YAML → auto-commit manual edits.
+    /// Open a project: read branch → load YAML → auto-commit manual edits → load build baseline.
     ///
     /// Fails if:
     /// - The directory is not a git repository
@@ -189,15 +238,17 @@ impl StateManager {
             project_root: project_root.to_owned(),
             project_name,
             repo,
-            last_state: state.clone(),
+            baseline: state.clone(),
             state,
+            build_baseline: RefCell::new(LazyLoad::Pending),
             raw_config,
             committed: false,
         };
 
         mgr.auto_commit_manual_edits()?;
-        // After potential auto-commit, reset baseline
-        mgr.last_state = mgr.state.clone();
+        // After potential auto-commit, reset baseline to current on-disk state
+        mgr.baseline = mgr.state.clone();
+
         Ok(mgr)
     }
 
@@ -226,7 +277,8 @@ impl StateManager {
 
     /// Absolute path to `{project_root}/{project_name}.yaml`.
     pub fn yaml_path(&self) -> PathBuf {
-        self.project_root.join(format!("{}.yaml", self.project_name))
+        self.project_root
+            .join(format!("{}.yaml", self.project_name))
     }
 
     /// Raw `serde_yaml::Value` of the `config` section as it was on disk at `open()`.
@@ -236,81 +288,52 @@ impl StateManager {
         &self.raw_config
     }
 
-    /// `true` when `state` differs from the snapshot taken at `open()`.
-    pub fn has_changes(&self) -> bool {
-        !StateDiff::compute(&self.last_state, &self.state).is_empty()
+    /// `true` when `state` differs from the snapshot taken at `open()` (after auto-commit).
+    ///
+    /// This detects programmatic changes made by the current command.
+    /// Used by `finish()` and `Drop`.
+    pub fn has_changes_since_open(&self) -> bool {
+        !StateDiff::compute(&self.baseline, &self.state).is_empty()
     }
 
-    /// Returns the 1-based page numbers that were modified since `open()`.
+    /// `true` when `state` differs from the last `build:` or `rebuild:` commit.
+    ///
+    /// Falls back to `has_changes_since_open()` when no build commit exists.
+    /// Used by `release_build` (clean-check) and `incremental_build`.
+    pub fn has_changes_since_last_build(&self) -> bool {
+        self.ensure_build_baseline();
+        match &*self.build_baseline.borrow() {
+            LazyLoad::Loaded(build_state) => {
+                !StateDiff::compute(build_state, &self.state).is_empty()
+            }
+            LazyLoad::Failed | LazyLoad::Pending => self.has_changes_since_open(),
+        }
+    }
+
+    /// Returns the 1-based page numbers that were modified since the last build commit.
+    ///
+    /// Falls back to comparing against `baseline` when no build commit exists.
     ///
     /// A page is considered modified if:
     /// - The list of photos changed
     /// - Any photo's aspect ratio changed (width/height)
     /// - Any photo's area_weight changed
     pub fn modified_pages(&self) -> Vec<usize> {
-        let mut modified = Vec::new();
-
-        // Build photo lookup maps for metadata comparison
-        let old_photo_map: std::collections::HashMap<&str, &crate::dto_models::PhotoFile> = self
-            .last_state
-            .photos
-            .iter()
-            .flat_map(|g| g.files.iter().map(|f| (f.id.as_str(), f)))
-            .collect();
-
-        let new_photo_map: std::collections::HashMap<&str, &crate::dto_models::PhotoFile> = self
-            .state
-            .photos
-            .iter()
-            .flat_map(|g| g.files.iter().map(|f| (f.id.as_str(), f)))
-            .collect();
-
-        // Compare pages
-        for (idx, new_page) in self.state.layout.iter().enumerate() {
-            let page_num = idx + 1;
-
-            if let Some(old_page) = self.last_state.layout.get(idx) {
-                // Check if photos list changed
-                if old_page.photos != new_page.photos {
-                    modified.push(page_num);
-                    continue;
-                }
-
-                // Check if any photo metadata changed (aspect ratio via dimensions, area_weight)
-                let metadata_changed = new_page.photos.iter().any(|photo_id| {
-                    let new_photo = new_photo_map.get(photo_id.as_str());
-                    let old_photo = old_photo_map.get(photo_id.as_str());
-
-                    match (old_photo, new_photo) {
-                        (Some(old), Some(new)) => {
-                            // Check if aspect ratio or area_weight changed
-                            let old_ratio = old.width_px as f64 / old.height_px as f64;
-                            let new_ratio = new.width_px as f64 / new.height_px as f64;
-                            (old_ratio - new_ratio).abs() > 0.001
-                                || old.area_weight != new.area_weight
-                        }
-                        _ => true, // Photo added or removed
-                    }
-                });
-
-                if metadata_changed {
-                    modified.push(page_num);
-                }
-            } else {
-                // New page added
-                modified.push(page_num);
-            }
-        }
-
-        modified
+        self.ensure_build_baseline();
+        let baseline_ref = self.build_baseline.borrow();
+        let reference = match &*baseline_ref {
+            LazyLoad::Loaded(s) => s,
+            _ => &self.baseline,
+        };
+        compute_modified_pages(reference, &self.state)
     }
 
-    /// Save YAML and commit if `state` changed since `open()`.  Consumes the manager.
+    /// Save YAML and commit if `state` changed since `open()`. Consumes the manager.
     ///
     /// The commit message is `"{message} — {diff_summary}"`.
     /// When there are no changes this is a no-op.
     pub fn finish(mut self, message: &str) -> Result<()> {
-        let diff = StateDiff::compute(&self.last_state, &self.state);
+        let diff = StateDiff::compute(&self.baseline, &self.state);
         if diff.is_empty() {
             self.committed = true;
             return Ok(());
@@ -322,6 +345,28 @@ impl StateManager {
             .context("Failed to save YAML")?;
 
         let commit_msg = format!("{} — {}", message, diff.summary());
+        git::stage_and_commit(&self.repo, &[&yaml_name], &commit_msg)?;
+
+        self.committed = true;
+        Ok(())
+    }
+
+    /// Save YAML and always commit, even if `state` is unchanged. Consumes the manager.
+    ///
+    /// Use this for commands like `release_build` that need a git marker commit
+    /// even when no state changes occur.
+    pub fn finish_always(mut self, message: &str) -> Result<()> {
+        let yaml_name = format!("{}.yaml", self.project_name);
+        self.state
+            .save(&self.project_root.join(&yaml_name))
+            .context("Failed to save YAML")?;
+
+        let diff = StateDiff::compute(&self.baseline, &self.state);
+        let commit_msg = if diff.is_empty() {
+            message.to_owned()
+        } else {
+            format!("{} — {}", message, diff.summary())
+        };
         git::stage_and_commit(&self.repo, &[&yaml_name], &commit_msg)?;
 
         self.committed = true;
@@ -355,18 +400,75 @@ impl StateManager {
     ///
     /// Returns `None` when the file doesn't exist in HEAD yet (initial project state).
     fn load_committed_state(&self) -> Result<Option<ProjectState>> {
-        let blob_spec = format!("HEAD:{}.yaml", self.project_name);
-        let obj = match self.repo.revparse_single(&blob_spec) {
+        self.load_state_from_spec(&format!("HEAD:{}.yaml", self.project_name))
+    }
+
+    /// Resolves `build_baseline` from `Pending` to either `Loaded` or `NoBuildCommit`.
+    /// No-op when already resolved.
+    fn ensure_build_baseline(&self) {
+        if matches!(*self.build_baseline.borrow(), LazyLoad::Pending) {
+            let resolved = match self.find_last_build_state() {
+                Ok(Some(s)) => LazyLoad::Loaded(s),
+                _ => LazyLoad::Failed,
+            };
+            *self.build_baseline.borrow_mut() = resolved;
+        }
+    }
+
+    /// Walk git log backwards to find the last `build:` or `rebuild:` commit
+    /// and load the project YAML from it.
+    ///
+    /// Returns `None` when no such commit exists.
+    fn find_last_build_state(&self) -> Result<Option<ProjectState>> {
+        let mut walk = self.repo.revwalk().context("Failed to create revwalk")?;
+        walk.push_head().context("Failed to push HEAD to revwalk")?;
+        walk.set_sorting(git2::Sort::TOPOLOGICAL)
+            .context("Failed to set revwalk sorting")?;
+
+        let yaml_name = format!("{}.yaml", self.project_name);
+
+        for oid in walk {
+            let oid = oid.context("Failed to read revwalk entry")?;
+            let commit = self
+                .repo
+                .find_commit(oid)
+                .context("Failed to find commit")?;
+            let msg = commit.message().unwrap_or("");
+
+            if msg.starts_with("build:") || msg.starts_with("rebuild:") {
+                let tree = commit.tree().context("Failed to get commit tree")?;
+                if let Some(entry) = tree.get_name(&yaml_name) {
+                    let obj = entry
+                        .to_object(&self.repo)
+                        .context("Failed to get blob object")?;
+                    let blob = obj
+                        .into_blob()
+                        .map_err(|_| anyhow::anyhow!("'{yaml_name}' entry is not a blob"))?;
+                    let content = std::str::from_utf8(blob.content())
+                        .context("YAML blob is not valid UTF-8")?;
+                    let state: ProjectState = serde_yaml::from_str(content)
+                        .context("Failed to parse YAML from build commit")?;
+                    return Ok(Some(state));
+                }
+            }
+        }
+
+        Ok(None)
+    }
+
+    /// Load state from a git object spec like `"HEAD:name.yaml"` or `"abc123:name.yaml"`.
+    fn load_state_from_spec(&self, spec: &str) -> Result<Option<ProjectState>> {
+        let obj = match self.repo.revparse_single(spec) {
             Ok(o) => o,
             Err(e) if e.code() == git2::ErrorCode::NotFound => return Ok(None),
             Err(e) => {
-                return Err(e).with_context(|| format!("Failed to resolve '{blob_spec}'"));
+                return Err(e).with_context(|| format!("Failed to resolve '{spec}'"));
             }
         };
 
         let blob = obj
             .into_blob()
-            .map_err(|_| anyhow::anyhow!("'{blob_spec}' is not a blob"))?;
+            .map_err(|_| anyhow::anyhow!("'{spec}' is not a blob"))?;
 
         let content =
             std::str::from_utf8(blob.content()).context("Committed YAML is not valid UTF-8")?;
@@ -381,7 +483,7 @@ impl StateManager {
 impl Drop for StateManager {
     fn drop(&mut self) {
         if !self.committed {
-            let diff = StateDiff::compute(&self.last_state, &self.state);
+            let diff = StateDiff::compute(&self.baseline, &self.state);
             if !diff.is_empty() {
                 eprintln!(
                     "warning: StateManager dropped with uncommitted changes: {}",
@@ -407,12 +509,68 @@ fn load_raw_config(yaml_path: &Path) -> Result<Value> {
     })
 }
 
+/// Computes which 1-based page numbers in `new` differ from `reference`.
+///
+/// A page is considered modified if its photo list changed, any photo's
+/// aspect ratio changed, or any photo's `area_weight` changed.
+fn compute_modified_pages(reference: &ProjectState, new: &ProjectState) -> Vec<usize> {
+    let mut modified = Vec::new();
+
+    let ref_photo_map: std::collections::HashMap<&str, &crate::dto_models::PhotoFile> = reference
+        .photos
+        .iter()
+        .flat_map(|g| g.files.iter().map(|f| (f.id.as_str(), f)))
+        .collect();
+
+    let new_photo_map: std::collections::HashMap<&str, &crate::dto_models::PhotoFile> = new
+        .photos
+        .iter()
+        .flat_map(|g| g.files.iter().map(|f| (f.id.as_str(), f)))
+        .collect();
+
+    for (idx, new_page) in new.layout.iter().enumerate() {
+        let page_num = idx + 1;
+
+        if let Some(ref_page) = reference.layout.get(idx) {
+            if ref_page.photos != new_page.photos {
+                modified.push(page_num);
+                continue;
+            }
+
+            let metadata_changed = new_page.photos.iter().any(|photo_id| {
+                let new_photo = new_photo_map.get(photo_id.as_str());
+                let ref_photo = ref_photo_map.get(photo_id.as_str());
+
+                match (ref_photo, new_photo) {
+                    (Some(old), Some(new)) => {
+                        let old_ratio = old.width_px as f64 / old.height_px as f64;
+                        let new_ratio = new.width_px as f64 / new.height_px as f64;
+                        (old_ratio - new_ratio).abs() > 0.001 || old.area_weight != new.area_weight
+                    }
+                    _ => true,
+                }
+            });
+
+            if metadata_changed {
+                modified.push(page_num);
+            }
+        } else {
+            modified.push(page_num);
+        }
+    }
+
+    modified
+}
+
 // ── tests ─────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::dto_models::{BookConfig, BookLayoutSolverConfig, LayoutPage, PhotoFile, PhotoGroup, ProjectConfig, ProjectState, Slot};
+    use crate::dto_models::{
+        BookConfig, BookLayoutSolverConfig, LayoutPage, PhotoFile, PhotoGroup, ProjectConfig,
+        ProjectState, Slot,
+    };
     use tempfile::TempDir;
 
     fn make_state(title: &str) -> ProjectState {
@@ -500,7 +658,11 @@ mod tests {
     fn test_statediff_pages_added() {
         let old = make_state("T");
         let mut new = old.clone();
-        new.layout.push(LayoutPage { page: 1, photos: vec![], slots: vec![] });
+        new.layout.push(LayoutPage {
+            page: 1,
+            photos: vec![],
+            slots: vec![],
+        });
         let diff = StateDiff::compute(&old, &new);
         assert_eq!(diff.pages_added, 1);
         assert_eq!(diff.pages_removed, 0);
@@ -513,7 +675,12 @@ mod tests {
         old.layout.push(LayoutPage {
             page: 1,
             photos: vec!["p1".to_owned()],
-            slots: vec![Slot { x_mm: 0.0, y_mm: 0.0, width_mm: 100.0, height_mm: 80.0 }],
+            slots: vec![Slot {
+                x_mm: 0.0,
+                y_mm: 0.0,
+                width_mm: 100.0,
+                height_mm: 80.0,
+            }],
         });
         let mut new = old.clone();
         new.layout[0].slots[0].width_mm = 200.0;
@@ -554,7 +721,11 @@ mod tests {
         drop(config);
 
         // Write .gitignore + initial yaml
-        std::fs::write(tmp.path().join(".gitignore"), ".fotobuch/\n*.pdf\nfinal.typ\n").unwrap();
+        std::fs::write(
+            tmp.path().join(".gitignore"),
+            ".fotobuch/\n*.pdf\nfinal.typ\n",
+        )
+        .unwrap();
         let state = make_state("Urlaub");
         state.save(&tmp.path().join("urlaub.yaml")).unwrap();
 
@@ -602,18 +773,24 @@ mod tests {
         setup_project_repo(&tmp);
         let mgr = StateManager::open(tmp.path()).unwrap();
         assert_eq!(mgr.cache_dir(), tmp.path().join(".fotobuch/cache/urlaub"));
-        assert_eq!(mgr.preview_cache_dir(), tmp.path().join(".fotobuch/cache/urlaub/preview"));
-        assert_eq!(mgr.final_cache_dir(), tmp.path().join(".fotobuch/cache/urlaub/final"));
+        assert_eq!(
+            mgr.preview_cache_dir(),
+            tmp.path().join(".fotobuch/cache/urlaub/preview")
+        );
+        assert_eq!(
+            mgr.final_cache_dir(),
+            tmp.path().join(".fotobuch/cache/urlaub/final")
+        );
     }
 
     #[test]
-    fn test_has_changes_after_mutation() {
+    fn test_has_changes_since_open_after_mutation() {
         let tmp = TempDir::new().unwrap();
         setup_project_repo(&tmp);
         let mut mgr = StateManager::open(tmp.path()).unwrap();
-        assert!(!mgr.has_changes());
+        assert!(!mgr.has_changes_since_open());
         mgr.state.config.book.title = "Changed".to_owned();
-        assert!(mgr.has_changes());
+        assert!(mgr.has_changes_since_open());
         mgr.committed = true; // Silence Drop warning
     }
 
@@ -648,6 +825,32 @@ mod tests {
     }
 
     #[test]
+    fn test_finish_always_commits_even_without_changes() {
+        let tmp = TempDir::new().unwrap();
+        setup_project_repo(&tmp);
+        let repo_before = git::open_repo(tmp.path()).unwrap();
+        let commit_before = repo_before.head().unwrap().peel_to_commit().unwrap().id();
+        drop(repo_before);
+
+        let mgr = StateManager::open(tmp.path()).unwrap();
+        mgr.finish_always("release: marker commit").unwrap();
+
+        let repo_after = git::open_repo(tmp.path()).unwrap();
+        let commit_after = repo_after.head().unwrap().peel_to_commit().unwrap().id();
+        // A new commit should have been created
+        assert_ne!(commit_before, commit_after);
+        let msg = repo_after
+            .head()
+            .unwrap()
+            .peel_to_commit()
+            .unwrap()
+            .message()
+            .unwrap_or("")
+            .to_owned();
+        assert!(msg.contains("release:"));
+    }
+
+    #[test]
     fn test_auto_commit_manual_edits() {
         let tmp = TempDir::new().unwrap();
         setup_project_repo(&tmp);
@@ -672,10 +875,94 @@ mod tests {
         // One new commit for the manual edit
         assert_eq!(commit_count_after, commit_count_before + 1);
         let msg = repo_after
-            .head().unwrap()
-            .peel_to_commit().unwrap()
-            .message().unwrap_or("").to_owned();
+            .head()
+            .unwrap()
+            .peel_to_commit()
+            .unwrap()
+            .message()
+            .unwrap_or("")
+            .to_owned();
         assert!(msg.starts_with("chore: manual edits"));
+    }
+
+    #[test]
+    fn test_has_changes_since_last_build_detects_user_edit_after_build() {
+        let tmp = TempDir::new().unwrap();
+        setup_project_repo(&tmp);
+
+        // Simulate a build commit
+        {
+            let mut state = make_state("Urlaub");
+            state.config.book.title = "AfterBuild".to_owned();
+            state.save(&tmp.path().join("urlaub.yaml")).unwrap();
+            let repo = git::open_repo(tmp.path()).unwrap();
+            git::stage_and_commit(&repo, &["urlaub.yaml"], "build: 3 pages").unwrap();
+        }
+
+        // Simulate user editing area_weight after build
+        {
+            let mut state = make_state("Urlaub");
+            state.config.book.title = "AfterBuild".to_owned();
+            state.config.book.margin_mm = 15.0; // different from build state
+            state.save(&tmp.path().join("urlaub.yaml")).unwrap();
+        }
+
+        // open() auto-commits the edit; last_build_state = state from "build:" commit
+        let mut mgr = StateManager::open(tmp.path()).unwrap();
+
+        // has_changes_since_open() is false (baseline = current state after auto-commit)
+        assert!(
+            !mgr.has_changes_since_open(),
+            "No programmatic changes since open"
+        );
+        // has_changes_since_last_build() is true (compares against last build commit)
+        assert!(
+            mgr.has_changes_since_last_build(),
+            "Should detect changes since last build"
+        );
+
+        mgr.committed = true; // suppress Drop warning (no-op, we just read)
+    }
+
+    #[test]
+    fn test_has_changes_since_last_build_edit_then_revert() {
+        let tmp = TempDir::new().unwrap();
+        setup_project_repo(&tmp);
+
+        // Simulate a build commit with known state
+        {
+            let state = make_state("Urlaub");
+            state.save(&tmp.path().join("urlaub.yaml")).unwrap();
+            let repo = git::open_repo(tmp.path()).unwrap();
+            git::stage_and_commit(&repo, &["urlaub.yaml"], "build: 3 pages").unwrap();
+        }
+
+        // Edit → auto-commit "chore: manual edits"
+        {
+            let mut state = make_state("Urlaub");
+            state.config.book.margin_mm = 99.0;
+            state.save(&tmp.path().join("urlaub.yaml")).unwrap();
+        }
+        {
+            let mgr = StateManager::open(tmp.path()).unwrap();
+            drop(mgr);
+        }
+
+        // Revert → auto-commit "chore: manual edits" again
+        {
+            let state = make_state("Urlaub"); // same as build state
+            state.save(&tmp.path().join("urlaub.yaml")).unwrap();
+        }
+        let mut mgr = StateManager::open(tmp.path()).unwrap();
+
+        // Both should be false: reverted to build state
+        assert!(!mgr.has_changes_since_open());
+        assert!(
+            !mgr.has_changes_since_last_build(),
+            "Reverted state matches build state"
+        );
+
+        mgr.committed = true;
     }
 
     fn count_commits(repo: &git2::Repository) -> usize {
