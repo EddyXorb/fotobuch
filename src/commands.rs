@@ -19,7 +19,7 @@ pub mod rebuild;
 pub mod remove;
 pub mod status;
 
-pub use add::{add, execute_add, AddConfig, AddResult, GroupSummary};
+pub use add::{AddConfig, AddResult, GroupSummary};
 pub use build::{build, BuildConfig, BuildResult, DpiWarning};
 pub use config::{config, ResolvedConfig};
 pub use history::{history, HistoryEntry};

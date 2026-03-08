@@ -22,15 +22,16 @@ pub trait Execute {
 /// Available subcommands
 #[derive(Subcommand, Debug)]
 pub enum Commands {
-    /// Add photos to the project
-    Add {
-        /// Directories containing photos to add
-        paths: Vec<PathBuf>,
-
-        /// Allow adding duplicate photos (by hash)
-        #[arg(long)]
-        allow_duplicates: bool,
-    },
+    // TODO: Re-enable after implementing add() with StateManager
+    // /// Add photos to the project
+    // Add {
+    //     /// Directories containing photos to add
+    //     paths: Vec<PathBuf>,
+    // 
+    //     /// Allow adding duplicate photos (by hash)
+    //     #[arg(long)]
+    //     allow_duplicates: bool,
+    // },
 
     /// Project management commands
     Project {
@@ -68,10 +69,10 @@ pub enum ProjectCommands {
 impl Execute for Commands {
     fn execute(&self) -> Result<()> {
         match self {
-            Commands::Add {
-                paths,
-                allow_duplicates,
-            } => commands::execute_add(paths.clone(), *allow_duplicates),
+            // Commands::Add {
+            //     paths,
+            //     allow_duplicates,
+            // } => commands::execute_add(paths.clone(), *allow_duplicates),
             Commands::Project { command } => command.execute(),
         }
     }
