@@ -290,7 +290,7 @@ mod tests {
     use rand_chacha::ChaCha8Rng;
 
     fn make_photo(aspect_ratio: f64) -> Photo {
-        Photo::new(aspect_ratio, 1.0, "test".to_string())
+        Photo::new(format!("test_{}", aspect_ratio), aspect_ratio, 1.0, "test".to_string())
     }
 
     #[test]
@@ -300,7 +300,7 @@ mod tests {
             parent: None,
         }]);
         let photos = vec![make_photo(1.5)];
-        let canvas = Canvas::new(300.0, 200.0, 0.0, 0.0);
+        let canvas = Canvas::new(300.0, 200.0, 0.0);
 
         let layout = solve_layout(&tree, &photos, &canvas);
         assert_eq!(layout.placements.len(), 1);
@@ -336,7 +336,7 @@ mod tests {
         ];
         let tree = SlicingTree::new(nodes);
         let photos = vec![make_photo(1.5), make_photo(2.0)]; // total aspect: 3.5
-        let canvas = Canvas::new(350.0, 100.0, 0.0, 0.0);
+        let canvas = Canvas::new(350.0, 100.0, 0.0);
 
         let layout = solve_layout(&tree, &photos, &canvas);
         assert_eq!(layout.placements.len(), 2);
@@ -379,7 +379,7 @@ mod tests {
         ];
         let tree = SlicingTree::new(nodes);
         let photos = vec![make_photo(2.0), make_photo(3.0)];
-        let canvas = Canvas::new(300.0, 200.0, 0.0, 0.0);
+        let canvas = Canvas::new(300.0, 200.0, 0.0);
 
         let layout = solve_layout(&tree, &photos, &canvas);
         assert_eq!(layout.placements.len(), 2);
@@ -430,7 +430,7 @@ mod tests {
         ];
         let tree = SlicingTree::new(nodes);
         let photos = vec![make_photo(1.0), make_photo(1.0)]; // Square photos
-        let canvas = Canvas::new(210.0, 100.0, 10.0, 0.0); // 10mm gap
+        let canvas = Canvas::new(210.0, 100.0, 10.0); // 10mm gap
 
         let layout = solve_layout(&tree, &photos, &canvas);
         assert_eq!(layout.placements.len(), 2);
@@ -463,7 +463,7 @@ mod tests {
                 })
                 .collect();
 
-            let canvas = Canvas::new(297.0, 210.0, 2.0, 0.0);
+            let canvas = Canvas::new(297.0, 210.0, 2.0);
             let layout = solve_layout(&tree, &photos, &canvas);
 
             // Basic sanity checks

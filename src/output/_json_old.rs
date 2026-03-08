@@ -82,7 +82,7 @@ mod tests {
 
     #[test]
     fn test_layout_to_json() {
-        let canvas = Canvas::new(1000.0, 800.0, 5.0, 3.0);
+        let canvas = Canvas::new(1000.0, 800.0, 5.0);
         let placements = vec![
             PhotoPlacement {
                 photo_idx: 0,
@@ -113,7 +113,7 @@ mod tests {
 
     #[test]
     fn test_json_roundtrip() {
-        let canvas = Canvas::new(1000.0, 800.0, 5.0, 3.0);
+        let canvas = Canvas::new(1000.0, 800.0, 5.0);
         let placements = vec![PhotoPlacement {
             photo_idx: 0,
             x: 10.0,

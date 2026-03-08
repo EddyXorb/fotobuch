@@ -142,11 +142,11 @@ mod tests {
     #[test]
     fn test_solve_book_layout_single_page() {
         let photos = vec![
-            Photo::new(1.5, 1.0, "group1".to_string()),
-            Photo::new(1.0, 1.5, "group1".to_string()),
+            Photo::new("photo_0".to_string(), 1.5, 1.0, "group1".to_string()),
+            Photo::new("photo_1".to_string(), 1.0, 1.5, "group1".to_string()),
         ];
 
-        let canvas = Canvas::new(297.0, 210.0, 5.0, 0.0);
+        let canvas = Canvas::new(297.0, 210.0, 5.0);
         let ga_config = GaConfig {
             seed: 42,
             ..GaConfig::default()
@@ -165,7 +165,7 @@ mod tests {
     fn test_solve_book_layout_empty() {
         let photos = vec![];
 
-        let canvas = Canvas::new(297.0, 210.0, 5.0, 0.0);
+        let canvas = Canvas::new(297.0, 210.0, 5.0);
         let ga_config = GaConfig::default();
         let solver_config = BookLayoutSolverConfig::default();
 
@@ -202,11 +202,11 @@ mod tests {
         fn test_solve_single_group() {
             // 10 photos in one group
             let photos: Vec<Photo> = (0..10)
-                .map(|_| Photo::new(1.5, 1.0, "groupA".to_string()))
+                .map(|i| Photo::new(format!("photo_{}", i), 1.5, 1.0, "groupA".to_string()))
                 .collect();
 
             let solver_config = create_test_params();
-            let canvas = Canvas::new(297.0, 210.0, 5.0, 0.0);
+            let canvas = Canvas::new(297.0, 210.0, 5.0);
             let ga_config = GaConfig {
                 population_size: 10,
                 max_generations: 3,
@@ -226,14 +226,16 @@ mod tests {
         fn test_solve_multiple_groups() {
             // 3 groups with 5 photos each (15 total)
             let mut photos = Vec::new();
+            let mut id_counter = 0;
             for group in &["groupA", "groupB", "groupC"] {
                 for _ in 0..5 {
-                    photos.push(Photo::new(1.5, 1.0, group.to_string()));
+                    photos.push(Photo::new(format!("photo_{}", id_counter), 1.5, 1.0, group.to_string()));
+                    id_counter += 1;
                 }
             }
 
             let solver_config = create_test_params();
-            let canvas = Canvas::new(297.0, 210.0, 5.0, 0.0);
+            let canvas = Canvas::new(297.0, 210.0, 5.0);
             let ga_config = GaConfig {
                 population_size: 10,
                 max_generations: 3,
@@ -272,7 +274,7 @@ mod tests {
         fn test_solve_empty_photos() {
             let photos: Vec<Photo> = vec![];
             let solver_config = create_test_params();
-            let canvas = Canvas::new(297.0, 210.0, 5.0, 0.0);
+            let canvas = Canvas::new(297.0, 210.0, 5.0);
             let ga_config = GaConfig::default();
 
             let book = solve_book_layout(&photos, &solver_config, &canvas, &ga_config).unwrap();
@@ -285,7 +287,7 @@ mod tests {
         fn test_solve_infeasible_params() {
             // 20 photos, but params require at least 50 capacity
             let photos: Vec<Photo> = (0..20)
-                .map(|_| Photo::new(1.5, 1.0, "groupA".to_string()))
+                .map(|i| Photo::new(format!("photo_{}", i), 1.5, 1.0, "groupA".to_string()))
                 .collect();
 
             let mut solver_config = create_test_params();
@@ -295,7 +297,7 @@ mod tests {
             solver_config.photos_per_page_max = 20;
             // min capacity = 5 * 10 = 50, but we only have 20 photos
 
-            let canvas = Canvas::new(297.0, 210.0, 5.0, 0.0);
+            let canvas = Canvas::new(297.0, 210.0, 5.0);
             let ga_config = GaConfig::default();
 
             let result = solve_book_layout(&photos, &solver_config, &canvas, &ga_config);
@@ -307,11 +309,11 @@ mod tests {
         #[test]
         fn test_solve_success_with_valid_params() {
             let photos: Vec<Photo> = (0..12)
-                .map(|_| Photo::new(1.5, 1.0, "groupA".to_string()))
+                .map(|i| Photo::new(format!("photo_{}", i), 1.5, 1.0, "groupA".to_string()))
                 .collect();
 
             let solver_config = create_test_params();
-            let canvas = Canvas::new(297.0, 210.0, 5.0, 0.0);
+            let canvas = Canvas::new(297.0, 210.0, 5.0);
             let ga_config = GaConfig {
                 population_size: 10,
                 max_generations: 3,

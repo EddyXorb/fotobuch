@@ -13,7 +13,7 @@
 //! let request = SolverRequest::new(
 //!     PathBuf::from("photos/"),
 //!     PathBuf::from("output.pdf"),
-//!     Canvas::new(297.0, 210.0, 2.0, 5.0),
+//!     Canvas::new(297.0, 210.0, 2.0),
 //!     ga_config,
 //! );
 //!

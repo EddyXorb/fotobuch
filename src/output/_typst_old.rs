@@ -204,7 +204,7 @@ mod tests {
 
     #[test]
     fn test_generate_typst_source() {
-        let canvas = Canvas::new(1000.0, 800.0, 5.0, 0.0);
+        let canvas = Canvas::new(1000.0, 800.0, 5.0);
         let placements = vec![
             PhotoPlacement {
                 photo_idx: 0,

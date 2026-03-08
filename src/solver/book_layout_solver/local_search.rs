@@ -115,7 +115,10 @@ mod tests {
 
     fn create_test_photos(count: usize) -> Vec<Photo> {
         (0..count)
-            .map(|i| Photo::new(16.0 / 9.0, 1.0, format!("group_{}", i)))
+            .map(|i| {
+                let group = format!("group_{}", i);
+                Photo::new(format!("photo_{}", i), 16.0 / 9.0, 1.0, group)
+            })
             .collect()
     }
 
