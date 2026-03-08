@@ -11,9 +11,9 @@ fn test_project_new_mode1_creates_complete_structure() -> Result<()> {
 
     let config = NewConfig {
         name: "vacation2024".to_string(),
-        width_mm: 210.0,
-        height_mm: 297.0,
-        bleed_mm: 3.0,
+        width_mm: 1234.0,
+        height_mm: 1234.0,
+        bleed_mm: 1234.0,
     };
 
     let result = project_new(temp_dir.path(), &config)?;
@@ -28,9 +28,9 @@ fn test_project_new_mode1_creates_complete_structure() -> Result<()> {
     // Check YAML file exists and has correct content
     assert!(result.yaml_path.exists());
     let yaml_content = fs::read_to_string(&result.yaml_path)?;
-    assert!(yaml_content.contains("page_width_mm: 210"));
-    assert!(yaml_content.contains("page_height_mm: 297"));
-    assert!(yaml_content.contains("bleed_mm: 3"));
+    assert!(yaml_content.contains("page_width_mm: 1234"));
+    assert!(yaml_content.contains("page_height_mm: 1234"));
+    assert!(yaml_content.contains("bleed_mm: 1234"));
     assert!(yaml_content.contains("title: vacation2024"));
 
     // Check Typst template exists and has placeholders replaced
