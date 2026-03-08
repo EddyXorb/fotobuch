@@ -18,8 +18,8 @@ pub struct PhotoFile {
     pub area_weight: f64,
     /// Timestamp for chronological ordering (ISO 8601)
     pub timestamp: DateTime<Utc>,
-    /// Hash for duplicate detection (not serialized to YAML)
-    #[serde(skip)]
+    /// Blake3 hash for duplicate detection (hex string, 64 chars)
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub hash: Option<String>,
 }
 
