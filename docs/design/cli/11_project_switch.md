@@ -31,7 +31,7 @@ Options:
 
 ## Signatur
 
-Lebt in `src/commands/project_switch.rs` (bereits definiert in [1_new.md](1_new.md)):
+Lebt in `src/commands/project/switch.rs`:
 
 ```rust
 pub fn project_switch(project_root: &Path, name: &str) -> Result<()>

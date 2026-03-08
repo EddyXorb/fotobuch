@@ -37,7 +37,7 @@ Options:
 
 ## Signatur
 
-Lebt in `src/commands/project_list.rs` (bereits definiert in [1_new.md](1_new.md)):
+Lebt in `src/commands/project_list.rs`:
 
 ```rust
 pub struct ProjectInfo {
@@ -51,17 +51,17 @@ pub fn project_list(project_root: &Path) -> Result<Vec<ProjectInfo>>
 
 ## Fehlerbehandlung
 
-| Situation | Verhalten |
-| --- | --- |
-| Kein Git-Repository | Fehler: `Not a git repository` |
+| Situation                   | Verhalten                                  |
+| --------------------------- | ------------------------------------------ |
+| Kein Git-Repository         | Fehler: `Not a git repository`             |
 | Keine `fotobuch/*`-Branches | Leere Liste, CLI zeigt `No projects found` |
-| Detached HEAD | `is_current` ist für alle Projekte `false` |
+| Detached HEAD               | `is_current` ist für alle Projekte `false` |
 
 ## Tests
 
-| Test | Prüft |
-| --- | --- |
-| Repository mit 3 Projekten → 3 Einträge | Branch-Erkennung |
-| Aktueller Branch → `is_current: true` | Current-Markierung |
-| Keine `fotobuch/*`-Branches → leere Liste | Edge case |
-| Andere Branches (z.B. `main`) werden ignoriert | Prefix-Filter |
+| Test                                           | Prüft              |
+| ---------------------------------------------- | ------------------ |
+| Repository mit 3 Projekten → 3 Einträge        | Branch-Erkennung   |
+| Aktueller Branch → `is_current: true`          | Current-Markierung |
+| Keine `fotobuch/*`-Branches → leere Liste      | Edge case          |
+| Andere Branches (z.B. `main`) werden ignoriert | Prefix-Filter      |
