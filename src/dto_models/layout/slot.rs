@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 /// Placement slot for a photo
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Slot {
     /// X position in mm
     pub x_mm: f64,
