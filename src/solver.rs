@@ -15,4 +15,4 @@ pub(crate) mod prelude;
 #[allow(clippy::module_inception)]
 pub mod solver;
 
-pub use solver::run_solver;
+pub use solver::{run_solver, Request, RequestType};
