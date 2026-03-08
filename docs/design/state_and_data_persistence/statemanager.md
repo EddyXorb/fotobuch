@@ -9,7 +9,7 @@ Der StateManager ist die zentrale Schnittstelle zwischen Commands und dem persis
 - **YAML laden** mit automatischer Projekt-Erkennung aus dem Git-Branch
 - **User-Änderungen erkennen und committen** beim Öffnen
 - **State-Zugriff** für Commands (lesen + schreiben)
-- **Diff-Erkennung** zwischen letztem Checkpoint und aktuellem State
+- **Diff-Erkennung** zwischen Ausgangszustand und aktuellem State
 - **YAML speichern + Git-Commit** mit aussagekräftiger Summary
 
 Ohne den StateManager müsste jedes Command diese Logik selbst implementieren.
@@ -32,14 +32,10 @@ open(project_root)
 │
 ▼ Command arbeitet mit mgr.state (pub field)
 │
-├─ checkpoint(msg)  ← optional, für Zwischen-Commits
-│   ├─ Diff(last_state, state) → wenn leer: return
+├─ finish(msg)  ← für schreibende Commands
+│   ├─ Diff(last_state, state) → wenn leer: return (nichts zu committen)
 │   ├─ YAML schreiben
 │   ├─ git add + commit("{msg} — {summary}")
-│   └─ last_state = state.clone()
-│
-├─ finish(msg)  ← für schreibende Commands
-│   ├─ checkpoint(msg)
 │   └─ self.committed = true
 │
 ▼ Drop
@@ -83,10 +79,8 @@ impl StateManager {
     /// Raw serde_yaml::Value der config-Sektion (für config-Command Default-Erkennung).
     pub fn raw_config(&self) -> &serde_yaml::Value
 
-    /// Zwischenstand speichern + committen (nur wenn Änderungen vorliegen).
-    pub fn checkpoint(&mut self, message: &str) -> Result<()>
-
-    /// Finaler Commit. Konsumiert den Manager.
+    /// Speichert YAML + committet, falls sich state seit open() geändert hat.
+    /// Konsumiert den Manager.
     pub fn finish(mut self, message: &str) -> Result<()>
 
     /// Gibt true zurück wenn sich state seit last_state geändert hat.
@@ -137,23 +131,6 @@ pub fn place(project_root: &Path, config: &PlaceConfig) -> Result<PlaceResult> {
 }
 ```
 
-### Command mit Zwischen-Commits (build)
-
-```rust
-pub fn build(project_root: &Path, config: &BuildConfig) -> Result<BuildResult> {
-    let mut mgr = StateManager::open(project_root)?;
-
-    // Solver laufen lassen, Layout schreiben
-    run_solver(&mut mgr.state)?;
-    mgr.checkpoint("feat: compute layout")?;
-
-    // Cache generieren, Previews rendern
-    ensure_previews(&mgr)?;
-    mgr.finish("feat: build previews")?;
-    Ok(result)
-}
-```
-
 ### Lesendes Command (config, status)
 
 ```rust
@@ -187,7 +164,7 @@ impl Drop for StateManager {
 }
 ```
 
-Kein I/O im Drop — nur eine Warnung. Der eigentliche Commit muss über `checkpoint()` oder `finish()` erfolgen.
+Kein I/O im Drop — nur eine Warnung. Der eigentliche Commit muss über `finish()` erfolgen.
 
 ## Auswirkungen auf bestehende Pläne
 
@@ -195,7 +172,7 @@ Kein I/O im Drop — nur eine Warnung. Der eigentliche Commit muss über `checkp
 |-------|----------|
 | `git.rs` | Wird intern vom StateManager genutzt, nicht direkt von Commands |
 | `project/diff.rs` (aus build/status Plan) | Wird zu `StateDiff` im StateManager |
-| `commands/build.rs` | Nutzt `StateManager::open()` + `checkpoint()` + `finish()` |
+| `commands/build.rs` | Nutzt `StateManager::open()` + `finish()` |
 | `commands/rebuild.rs` | Nutzt `StateManager::open()` + `finish()` |
 | `commands/place.rs` | Nutzt `StateManager::open()` + `finish()` |
 | `commands/remove.rs` | Nutzt `StateManager::open()` + `finish()` |
@@ -210,6 +187,6 @@ Kein I/O im Drop — nur eine Warnung. Der eigentliche Commit muss über `checkp
 | 1 | `StateDiff` — compute + summary + is_empty |
 | 2 | `StateManager` Grundstruktur — open, yaml laden, Branch-Erkennung |
 | 3 | User-Diff beim open — committed vs. loaded vergleichen + auto-commit |
-| 4 | checkpoint / finish / Drop |
+| 4 | finish / Drop |
 | 5 | Hilfsmethoden — cache_dir, raw_config, has_changes |
 | 6 | Bestehende Commands auf StateManager umstellen |
