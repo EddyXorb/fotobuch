@@ -332,10 +332,10 @@ fn rebuild_single_page(
 fn release_build(mgr: StateManager, project_root: &Path) -> Result<BuildResult> {
     println!("Release build: generating final PDF at 300 DPI...");
 
-    // 1. Check that layout is clean (no uncommitted changes)
-    if mgr.has_changes() {
+    // 1. Check that layout is clean (no changes since last build)
+    if mgr.has_changes_since_last_build() {
         anyhow::bail!(
-            "Layout has uncommitted changes. Run `fotobuch build` first to commit changes."
+            "Layout has changes since last build. Run `fotobuch build` first to commit all changes."
         );
     }
 
@@ -380,7 +380,7 @@ fn release_build(mgr: StateManager, project_root: &Path) -> Result<BuildResult> 
     let page_count = mgr.state.layout.len();
     let total_photos: usize = mgr.state.layout.iter().map(|p| p.photos.len()).sum();
 
-    mgr.finish(&format!(
+    mgr.finish_always(&format!(
         "release: {} pages, {} photos",
         page_count, total_photos
     ))?;

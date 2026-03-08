@@ -2,7 +2,7 @@
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
-use photobook_solver::commands;
+use photobook_solver::commands::{self, build};
 use std::path::PathBuf;
 
 /// Photobook layout solver and project manager
@@ -30,6 +30,17 @@ pub enum Commands {
         /// Allow adding duplicate photos (by hash)
         #[arg(long)]
         allow_duplicates: bool,
+    },
+
+    /// Calculate layout and generate preview or final PDF
+    Build {
+        /// Generate final high-quality PDF at 300 DPI (requires clean state)
+        #[arg(long)]
+        release: bool,
+
+        /// Only rebuild specific pages (1-based, comma-separated or repeated flag)
+        #[arg(long, value_delimiter = ',')]
+        pages: Option<Vec<usize>>,
     },
 
     /// Project management commands
@@ -107,6 +118,36 @@ impl Execute for Commands {
                     println!("⚠️  Warnings:");
                     for warning in &result.warnings {
                         println!("   - {}", warning);
+                    }
+                }
+
+                Ok(())
+            }
+            Commands::Build { release, pages } => {
+                let project_root = std::env::current_dir()
+                    .context("Failed to determine current directory")?;
+
+                let config = commands::build::BuildConfig {
+                    release: *release,
+                    pages: pages.clone(),
+                };
+
+                let result = commands::build::build(&project_root, &config)?;
+
+                if result.nothing_to_do {
+                    println!("Nothing to do.");
+                    return Ok(());
+                }
+
+                if !result.pages_rebuilt.is_empty() {
+                    println!("Rebuilt {} page(s): {:?}", result.pages_rebuilt.len(), result.pages_rebuilt);
+                }
+                println!("PDF: {}", result.pdf_path.display());
+
+                if !result.dpi_warnings.is_empty() {
+                    println!("\nWARNING: {} photo(s) below 300 DPI:", result.dpi_warnings.len());
+                    for w in &result.dpi_warnings {
+                        println!("  Page {}: {} — {:.0} DPI", w.page, w.photo_id, w.actual_dpi);
                     }
                 }
 
