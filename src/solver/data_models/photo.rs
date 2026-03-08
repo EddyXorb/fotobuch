@@ -173,7 +173,7 @@ mod tests {
                 height_px: height,
                 area_weight: 1.0,
                 timestamp: Utc::now(),
-                hash: None,
+                hash: String::new(),
             }
         }
 

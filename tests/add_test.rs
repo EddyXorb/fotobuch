@@ -60,7 +60,8 @@ fn test_add_single_directory_creates_groups() -> Result<()> {
         for photo in &group.files {
             assert!(!photo.id.is_empty(), "Photo ID should be set");
             assert!(!photo.source.is_empty(), "Photo source should be set");
-            assert!(photo.hash.is_some(), "Photo hash should be persisted to YAML");
+            assert!(!photo.hash.is_empty(), "Photo hash should be persisted to YAML");
+            assert_eq!(photo.hash.len(), 64, "Blake3 hash should be 64 hex characters");
             assert!(photo.width_px > 0, "Photo width should be set");
             assert!(photo.height_px > 0, "Photo height should be set");
         }
@@ -268,11 +269,9 @@ fn test_add_hashes_are_persisted() -> Result<()> {
         for photo in &group.files {
             assert!(!photo.id.is_empty(), "Photo ID should be set");
             assert!(!photo.source.is_empty(), "Photo source should be set");
-            assert!(photo.hash.is_some(), "Hash should be persisted to YAML");
-            
-            let hash = photo.hash.as_ref().unwrap();
-            assert_eq!(hash.len(), 64, "Blake3 hash should be 64 hex characters");
-            assert!(hash.chars().all(|c| c.is_ascii_hexdigit()), "Hash should be hexadecimal");
+            assert!(!photo.hash.is_empty(), "Hash should be persisted to YAML");
+            assert_eq!(photo.hash.len(), 64, "Blake3 hash should be 64 hex characters");
+            assert!(photo.hash.chars().all(|c| c.is_ascii_hexdigit()), "Hash should be hexadecimal");
         }
     }
 

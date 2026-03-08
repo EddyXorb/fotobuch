@@ -19,8 +19,7 @@ pub struct PhotoFile {
     /// Timestamp for chronological ordering (ISO 8601)
     pub timestamp: DateTime<Utc>,
     /// Blake3 hash for duplicate detection (hex string, 64 chars)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub hash: Option<String>,
+    pub hash: String,
 }
 
 fn default_area_weight() -> f64 {

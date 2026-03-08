@@ -41,7 +41,7 @@ pub fn deduplicate(
                     skipped += 1;
                     continue;
                 }
-                file.hash = Some(hash);
+                file.hash = hash;
             }
             Err(e) => {
                 warnings.push(format!("Hash failed for {}: {}", path.display(), e));
@@ -64,11 +64,11 @@ mod tests {
     use std::collections::HashSet;
     use tempfile::NamedTempFile;
 
-    fn create_test_photo(id: &str, source: &str, hash: Option<String>) -> PhotoFile {
+    fn create_test_photo(id: &str, source: &str, hash: &str) -> PhotoFile {
         PhotoFile {
             id: id.to_string(),
             source: source.to_string(),
-            hash,
+            hash: hash.to_string(),
             width_px: 1920,
             height_px: 1080,
             area_weight: 1.0,
@@ -95,7 +95,7 @@ mod tests {
         let temp_file = NamedTempFile::new().unwrap();
         let path = temp_file.path().to_str().unwrap();
 
-        let mut files = vec![create_test_photo("photo1", path, None)];
+        let mut files = vec![create_test_photo("photo1", path, "")];
 
         let mut existing_paths = HashSet::new();
         existing_paths.insert(PathBuf::from(path));
@@ -118,7 +118,7 @@ mod tests {
         // Compute the actual hash
         let hash = compute_partial_hash(temp_file.path()).unwrap();
 
-        let mut files = vec![create_test_photo("photo1", path, None)];
+        let mut files = vec![create_test_photo("photo1", path, "")];
 
         let existing_paths = HashSet::new();
         let mut existing_hashes = HashSet::new();
@@ -142,7 +142,7 @@ mod tests {
         // Compute the actual hash
         let hash = compute_partial_hash(temp_file.path()).unwrap();
 
-        let mut files = vec![create_test_photo("photo1", path, None)];
+        let mut files = vec![create_test_photo("photo1", path, "")];
 
         let existing_paths = HashSet::new();
         let mut existing_hashes = HashSet::new();
@@ -162,7 +162,7 @@ mod tests {
         std::fs::write(temp_file.path(), b"test content").unwrap();
         let path = temp_file.path().to_str().unwrap();
 
-        let mut files = vec![create_test_photo("photo1", path, None)];
+        let mut files = vec![create_test_photo("photo1", path, "")];
 
         let existing_paths = HashSet::new();
         let existing_hashes = HashSet::new();
@@ -173,12 +173,13 @@ mod tests {
         assert_eq!(kept.len(), 1);
         assert_eq!(skipped, 0);
         assert_eq!(warnings.len(), 0);
-        assert!(kept[0].hash.is_some());
+        assert!(!kept[0].hash.is_empty());
+        assert_eq!(kept[0].hash.len(), 64);
     }
 
     #[test]
     fn test_deduplicate_missing_file() {
-        let mut files = vec![create_test_photo("photo1", "/nonexistent/file.jpg", None)];
+        let mut files = vec![create_test_photo("photo1", "/nonexistent/file.jpg", "")];
 
         let existing_paths = HashSet::new();
         let existing_hashes = HashSet::new();
@@ -203,8 +204,8 @@ mod tests {
         let path2 = temp_file2.path().to_str().unwrap();
 
         let mut files = vec![
-            create_test_photo("photo1", path1, None),
-            create_test_photo("photo2", path2, None),
+            create_test_photo("photo1", path1, ""),
+            create_test_photo("photo2", path2, ""),
         ];
 
         // path1 already exists by path

@@ -28,7 +28,7 @@ mod tests {
         PhotoFile {
             id: id.to_string(),
             source: source.to_string(),
-            hash: None,
+            hash: String::new(),
             width_px: 1920,
             height_px: 1080,
             area_weight: 1.0,
