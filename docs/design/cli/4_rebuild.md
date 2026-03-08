@@ -12,6 +12,7 @@ Erzwingt Neuberechnung — mächtiger als `build`. Drei Modi: Einzelseite (nur P
 - `output::typst::compile_preview` — aus Build-Plan, PDF kompilieren
 - `solver::run_solver` + `Request` + `RequestType` — Solver-Einstiegspunkt
 - `StateManager::open()` + `finish()` — aus Build-Plan, Zustandsverwaltung + Git-Commits
+- `commands::build::rebuild_single_page` — in build.rs definiert, direkt importiert
 - `project::diff::build_photo_index` — aus Build-Plan, Photo-Lookup
 
 **Keine neuen Crates.** Alles was `rebuild` braucht, wird bereits durch den Build-Plan eingeführt.
@@ -31,7 +32,7 @@ Erzwingt Neuberechnung — mächtiger als `build`. Drei Modi: Einzelseite (nur P
 
 - `cache::preview::ensure_previews` — Preview-Cache
 - `output::typst::compile_preview` — PDF-Kompilierung
-- `commands::shared::rebuild_single_page` — SinglePage-Solver (von build und rebuild genutzt)
+- `commands::build::rebuild_single_page` — SinglePage-Solver, bleibt in build.rs
 - `project::diff::build_photo_index` — Photo-ID → PhotoFile Lookup
 
 Kein `ensure_cache_and_compile`-Wrapper nötig — die Module werden direkt aufgerufen.
@@ -114,8 +115,7 @@ use crate::cache::preview;
 use crate::output::typst;
 use crate::project::diff;
 use crate::state_manager::StateManager;
-use super::build::BuildResult;
-use super::shared;
+use super::build::{BuildResult, rebuild_single_page};
 use std::path::Path;
 use std::sync::atomic::AtomicUsize;
 
@@ -176,9 +176,9 @@ fn rebuild_single(
     let progress = AtomicUsize::new(0);
     preview::ensure_previews(&mgr.state, mgr.project_root(), &progress)?;
 
-    // 2. Solver — wiederverwendet shared::rebuild_single_page
+    // 2. Solver — wiederverwendet build::rebuild_single_page
     let photo_index = diff::build_photo_index(&mgr.state);
-    let cost = shared::rebuild_single_page(&mut mgr.state, page - 1, &photo_index)?;
+    let cost = rebuild_single_page(&mut mgr.state, page - 1, &photo_index)?;
 
     // 3. Typst kompilieren
     let typ_path = mgr.project_name().to_string() + ".typ";
@@ -288,51 +288,6 @@ fn rebuild_all(mgr: &mut StateManager) -> Result<BuildResult> {
 }
 ```
 
-### `src/commands/shared.rs` — Geteilte Logik zwischen build und rebuild
-
-Enthält Funktionen die sowohl von `build` als auch `rebuild` genutzt werden.
-
-```rust
-use crate::dto_models::{PhotoFile, PhotoGroup, ProjectState};
-use crate::solver::{run_solver, Request, RequestType};
-use std::collections::HashMap;
-
-/// Einzelne Seite neu layouten via SinglePage-Solver.
-/// Wird von build (inkrementell) und rebuild (SinglePage) verwendet.
-///
-/// page_idx: 0-basiert
-/// Gibt den Cost des Solver-Ergebnisses zurück.
-pub fn rebuild_single_page(
-    state: &mut ProjectState,
-    page_idx: usize,
-    photo_index: &HashMap<&str, (&PhotoFile, &str)>,
-) -> Result<f64> {
-    let page = &state.layout[page_idx];
-    let files: Vec<PhotoFile> = page.photos.iter()
-        .filter_map(|id| photo_index.get(id.as_str()))
-        .map(|(pf, _)| (*pf).clone())
-        .collect();
-
-    let group = PhotoGroup {
-        group: format!("page_{}", page_idx + 1),
-        sort_key: String::new(),
-        files,
-    };
-
-    let result = run_solver(&Request {
-        request_type: RequestType::SinglePage,
-        groups: &[group],
-        config: &state.config.book_layout_solver,
-        ga_config: &state.config.page_layout_solver,
-        book_config: &state.config.book,
-    })?;
-
-    // Nur slots übernehmen, photos-Liste bleibt unverändert
-    state.layout[page_idx].slots = result[0].slots.clone();
-    Ok(0.0) // TODO: cost aus Solver-Ergebnis
-}
-```
-
 ### Hilfsfunktionen in `src/commands/rebuild.rs`
 
 #### Gruppenrekonstruktion für Range-Rebuild
@@ -407,24 +362,6 @@ fn renumber_pages(layout: &mut [LayoutPage]) {
 }
 ```
 
-### Modulstruktur-Anpassung
-
-`shared.rs` wird als neues Modul unter `commands/` eingeführt:
-
-```text
-src/commands/
-  shared.rs       # NEU: rebuild_single_page (von build und rebuild genutzt)
-  build.rs        # Nutzt shared::rebuild_single_page
-  rebuild.rs      # Nutzt shared::rebuild_single_page
-  ...
-```
-
-In `src/commands.rs`:
-
-```rust
-pub(crate) mod shared;  // Nicht öffentlich, nur für commands-interne Wiederverwendung
-```
-
 ---
 
 ## Implementierungsreihenfolge
@@ -433,17 +370,16 @@ Setzt voraus, dass Build-Plan Schritte 1-7 abgeschlossen sind sowie `StateManage
 
 | #   | Schritt | Modul | Abhängig von |
 | --- | ------- | ----- | ------------ |
-| 1 | `rebuild_single_page` aus build.rs nach `shared.rs` extrahieren | `commands/shared.rs` | Build fertig |
-| 2 | `rebuild_single` (SinglePage-Scope) | `commands/rebuild.rs` | 1, StateManager |
-| 3 | `collect_photos_as_groups`, `renumber_pages` | `commands/rebuild.rs` | — |
-| 4 | `rebuild_range` (Range-Scope inkl. flex) | `commands/rebuild.rs` | 3, StateManager |
-| 5 | `rebuild_all` (All-Scope) | `commands/rebuild.rs` | StateManager |
+| 1 | `rebuild_single` (SinglePage-Scope) | `commands/rebuild.rs` | Build fertig, StateManager |
+| 2 | `collect_photos_as_groups`, `renumber_pages` | `commands/rebuild.rs` | — |
+| 3 | `rebuild_range` (Range-Scope inkl. flex) | `commands/rebuild.rs` | 2, StateManager |
+| 4 | `rebuild_all` (All-Scope) | `commands/rebuild.rs` | StateManager |
 
 Jeder Schritt = ein Commit. Tests vor jedem Commit.
 
 ## Konventionen
 
-- **Conventional Commits**: z.B. `refactor: extract rebuild_single_page to shared module`, `feat: implement rebuild range with flex`
+- **Conventional Commits**: z.B. `feat: implement rebuild single page scope`, `feat: implement rebuild range with flex`
 - **Tests**: Unit-Tests + Integrationstests für jeden Schritt
 - **`mod solver` unberührt**: Einziger Einstiegspunkt `solver::run_solver`
 - **Dateigröße**: Bei >300 Zeilen `rebuild.rs` in Submodule aufteilen
