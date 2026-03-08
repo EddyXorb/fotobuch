@@ -43,6 +43,29 @@ pub enum Commands {
         pages: Option<Vec<usize>>,
     },
 
+    /// Force re-optimization of pages or page ranges
+    Rebuild {
+        /// Single page to rebuild (1-based)
+        #[arg(long, conflicts_with_all = ["range_start", "all"])]
+        page: Option<usize>,
+
+        /// Start of page range (1-based, requires --range-end)
+        #[arg(long, requires = "range_end", conflicts_with_all = ["page", "all"])]
+        range_start: Option<usize>,
+
+        /// End of page range (1-based, requires --range-start)
+        #[arg(long, requires = "range_start", conflicts_with_all = ["page", "all"])]
+        range_end: Option<usize>,
+
+        /// Allow page count to vary by +/- N (only with range)
+        #[arg(long, default_value = "0", requires = "range_start")]
+        flex: usize,
+
+        /// Rebuild all pages from scratch
+        #[arg(long, conflicts_with_all = ["page", "range_start", "range_end"])]
+        all: bool,
+    },
+
     /// Project management commands
     Project {
         #[command(subcommand)]
@@ -150,6 +173,44 @@ impl Execute for Commands {
                         println!("  Page {}: {} — {:.0} DPI", w.page, w.photo_id, w.actual_dpi);
                     }
                 }
+
+                Ok(())
+            }
+            Commands::Rebuild {
+                page,
+                range_start,
+                range_end,
+                flex,
+                all,
+            } => {
+                let project_root = std::env::current_dir()
+                    .context("Failed to determine current directory")?;
+
+                // Determine scope
+                let scope = if *all {
+                    commands::rebuild::RebuildScope::All
+                } else if let Some(p) = page {
+                    commands::rebuild::RebuildScope::SinglePage(*p)
+                } else if let (Some(start), Some(end)) = (range_start, range_end) {
+                    commands::rebuild::RebuildScope::Range {
+                        start: *start,
+                        end: *end,
+                        flex: *flex,
+                    }
+                } else {
+                    // Default to all if no specific scope given
+                    commands::rebuild::RebuildScope::All
+                };
+
+                let result = commands::rebuild::rebuild(&project_root, scope)?;
+
+                if !result.pages_rebuilt.is_empty() {
+                    println!("✅ Rebuilt {} page(s): {:?}", 
+                        result.pages_rebuilt.len(), 
+                        result.pages_rebuilt
+                    );
+                }
+                println!("📄 PDF: {}", result.pdf_path.display());
 
                 Ok(())
             }
