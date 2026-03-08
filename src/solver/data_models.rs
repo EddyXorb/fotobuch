@@ -5,7 +5,7 @@ pub(super) mod photo;
 pub(super) mod request;
 pub(super) mod test_fixtures;
 
-pub use layout::{PageLayout, PhotoPlacement};
+pub use layout::{SolverPageLayout, PhotoPlacement};
 pub use photo::Photo;
 pub use request::SolverRequest;
 // Re-export all public types

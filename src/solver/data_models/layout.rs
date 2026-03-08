@@ -1,4 +1,6 @@
 use super::canvas::Canvas;
+use super::photo::Photo;
+use crate::dto_models::{LayoutPage, Slot};
 
 /// Placement of a single photo on the canvas.
 #[derive(Debug, Clone, Copy)]
@@ -62,7 +64,7 @@ impl PhotoPlacement {
 
 /// Complete layout of a single page containing all photo placements.
 #[derive(Debug, Clone)]
-pub struct PageLayout {
+pub struct SolverPageLayout {
     /// All photo placements on the canvas.
     pub placements: Vec<PhotoPlacement>,
 
@@ -70,7 +72,7 @@ pub struct PageLayout {
     pub canvas: Canvas,
 }
 
-impl PageLayout {
+impl SolverPageLayout {
     /// Creates a new layout result.
     pub fn new(placements: Vec<PhotoPlacement>, canvas: Canvas) -> Self {
         Self { placements, canvas }
@@ -123,7 +125,7 @@ impl PageLayout {
     ///
     /// # Returns
     ///
-    /// A new `PageLayout` with centered placements.
+    /// A new `SolverPageLayout` with centered placements.
     pub fn centered(&self) -> Self {
         if self.placements.is_empty() {
             return self.clone();
@@ -156,7 +158,42 @@ impl PageLayout {
             .map(|p| PhotoPlacement::new(p.photo_idx, p.x + offset_x, p.y + offset_y, p.w, p.h))
             .collect();
 
-        PageLayout::new(centered_placements, self.canvas)
+        SolverPageLayout::new(centered_placements, self.canvas)
+    }
+
+    /// Converts internal solver page layout to DTO layout page.
+    ///
+    /// # Arguments
+    ///
+    /// * `page_num` - Page number (1-based)
+    /// * `photos` - Array of photos to map photo_idx to photo.id
+    ///
+    /// # Returns
+    ///
+    /// A `LayoutPage` containing photo IDs and slot positions.
+    pub fn to_layout_page(&self, page_num: usize, photos: &[Photo]) -> LayoutPage {
+        let photo_ids: Vec<String> = self
+            .placements
+            .iter()
+            .map(|p| photos[p.photo_idx as usize].id.clone())
+            .collect();
+
+        let slots: Vec<Slot> = self
+            .placements
+            .iter()
+            .map(|p| Slot {
+                x_mm: p.x,
+                y_mm: p.y,
+                width_mm: p.w,
+                height_mm: p.h,
+            })
+            .collect();
+
+        LayoutPage {
+            page: page_num,
+            photos: photo_ids,
+            slots,
+        }
     }
 }
 
@@ -209,7 +246,7 @@ mod tests {
         assert_relative_eq!(p.bottom(), 70.0, epsilon = 1e-6);
     }
 
-    // PageLayout tests
+    // SolverPageLayout tests
     #[test]
     fn test_layout_result_coverage() {
         let canvas = Canvas::new(200.0, 100.0, 2.0);
@@ -217,7 +254,7 @@ mod tests {
             PhotoPlacement::new(0, 0.0, 0.0, 100.0, 100.0), // 10000 mm²
             PhotoPlacement::new(1, 102.0, 0.0, 98.0, 100.0), // 9800 mm²
         ];
-        let layout = PageLayout::new(placements, canvas);
+        let layout = SolverPageLayout::new(placements, canvas);
 
         assert_relative_eq!(layout.total_photo_area(), 19800.0, epsilon = 1e-6);
         assert_relative_eq!(layout.coverage_ratio(), 0.99, epsilon = 1e-6);
@@ -230,7 +267,7 @@ mod tests {
             PhotoPlacement::new(0, 0.0, 0.0, 100.0, 100.0), // center: (50, 50), area: 10000
             PhotoPlacement::new(1, 100.0, 100.0, 100.0, 100.0), // center: (150, 150), area: 10000
         ];
-        let layout = PageLayout::new(placements, canvas);
+        let layout = SolverPageLayout::new(placements, canvas);
 
         let (bx, by) = layout.barycenter();
         assert_relative_eq!(bx, 100.0, epsilon = 1e-6);
@@ -240,19 +277,19 @@ mod tests {
     #[test]
     fn test_layout_result_barycenter_empty() {
         let canvas = Canvas::new(200.0, 100.0, 0.0);
-        let layout = PageLayout::new(vec![], canvas);
+        let layout = SolverPageLayout::new(vec![], canvas);
 
         let (bx, by) = layout.barycenter();
         assert_relative_eq!(bx, 100.0, epsilon = 1e-6);
         assert_relative_eq!(by, 50.0, epsilon = 1e-6);
     }
 
-    // PageLayout::centered() tests
+    // SolverPageLayout::centered() tests
     #[test]
     fn test_centered_offset() {
         let canvas = Canvas::new(500.0, 500.0, 2.0);
         let placements = vec![PhotoPlacement::new(0, 0.0, 0.0, 100.0, 100.0)];
-        let layout = PageLayout::new(placements, canvas);
+        let layout = SolverPageLayout::new(placements, canvas);
 
         let centered = layout.centered();
 
@@ -268,7 +305,7 @@ mod tests {
             PhotoPlacement::new(0, 0.0, 0.0, 100.0, 100.0),
             PhotoPlacement::new(1, 100.0, 0.0, 100.0, 100.0),
         ];
-        let layout = PageLayout::new(placements, canvas);
+        let layout = SolverPageLayout::new(placements, canvas);
 
         let centered = layout.centered();
 
@@ -281,10 +318,87 @@ mod tests {
     #[test]
     fn test_centered_empty() {
         let canvas = Canvas::new(200.0, 200.0, 2.0);
-        let layout = PageLayout::new(vec![], canvas);
+        let layout = SolverPageLayout::new(vec![], canvas);
 
         let centered = layout.centered();
 
         assert!(centered.placements.is_empty());
     }
-}
+
+    // SolverPageLayout::to_layout_page() tests
+    #[test]
+    fn test_to_layout_page_empty() {
+        let canvas = Canvas::new(200.0, 200.0, 2.0);
+        let layout = SolverPageLayout::new(vec![], canvas);
+        let photos = vec![];
+
+        let dto_page = layout.to_layout_page(1, &photos);
+
+        assert_eq!(dto_page.page, 1);
+        assert!(dto_page.photos.is_empty());
+        assert!(dto_page.slots.is_empty());
+    }
+
+    #[test]
+    fn test_to_layout_page_single_photo() {
+        let canvas = Canvas::new(200.0, 200.0, 0.0);
+        let placements = vec![PhotoPlacement::new(0, 10.0, 20.0, 100.0, 80.0)];
+        let layout = SolverPageLayout::new(placements, canvas);
+
+        let photos = vec![Photo::new(
+            "photo_abc".to_string(),
+            1.5,
+            1.0,
+            "group1".to_string(),
+        )];
+
+        let dto_page = layout.to_layout_page(2, &photos);
+
+        assert_eq!(dto_page.page, 2);
+        assert_eq!(dto_page.photos.len(), 1);
+        assert_eq!(dto_page.photos[0], "photo_abc");
+        assert_eq!(dto_page.slots.len(), 1);
+        assert_relative_eq!(dto_page.slots[0].x_mm, 10.0, epsilon = 1e-6);
+        assert_relative_eq!(dto_page.slots[0].y_mm, 20.0, epsilon = 1e-6);
+        assert_relative_eq!(dto_page.slots[0].width_mm, 100.0, epsilon = 1e-6);
+        assert_relative_eq!(dto_page.slots[0].height_mm, 80.0, epsilon = 1e-6);
+    }
+
+    #[test]
+    fn test_to_layout_page_multiple_photos() {
+        let canvas = Canvas::new(300.0, 300.0, 0.0);
+        let placements = vec![
+            PhotoPlacement::new(0, 0.0, 0.0, 150.0, 100.0),
+            PhotoPlacement::new(1, 150.0, 0.0, 150.0, 100.0),
+            PhotoPlacement::new(2, 0.0, 100.0, 300.0, 200.0),
+        ];
+        let layout = SolverPageLayout::new(placements, canvas);
+
+        let photos = vec![
+            Photo::new("id_1".to_string(), 1.5, 1.0, "group1".to_string()),
+            Photo::new("id_2".to_string(), 1.5, 1.0, "group1".to_string()),
+            Photo::new("id_3".to_string(), 1.5, 1.0, "group2".to_string()),
+        ];
+
+        let dto_page = layout.to_layout_page(3, &photos);
+
+        assert_eq!(dto_page.page, 3);
+        assert_eq!(dto_page.photos, vec!["id_1", "id_2", "id_3"]);
+        assert_eq!(dto_page.slots.len(), 3);
+
+        // Check first slot
+        assert_relative_eq!(dto_page.slots[0].x_mm, 0.0, epsilon = 1e-6);
+        assert_relative_eq!(dto_page.slots[0].y_mm, 0.0, epsilon = 1e-6);
+        assert_relative_eq!(dto_page.slots[0].width_mm, 150.0, epsilon = 1e-6);
+        assert_relative_eq!(dto_page.slots[0].height_mm, 100.0, epsilon = 1e-6);
+
+        // Check second slot
+        assert_relative_eq!(dto_page.slots[1].x_mm, 150.0, epsilon = 1e-6);
+        assert_relative_eq!(dto_page.slots[1].y_mm, 0.0, epsilon = 1e-6);
+
+        // Check third slot
+        assert_relative_eq!(dto_page.slots[2].x_mm, 0.0, epsilon = 1e-6);
+        assert_relative_eq!(dto_page.slots[2].y_mm, 100.0, epsilon = 1e-6);
+        assert_relative_eq!(dto_page.slots[2].width_mm, 300.0, epsilon = 1e-6);
+        assert_relative_eq!(dto_page.slots[2].height_mm, 200.0, epsilon = 1e-6);
+    }}

@@ -1,5 +1,4 @@
 use chrono::{DateTime, Utc};
-use std::path::PathBuf;
 
 use crate::dto_models::{PhotoFile, PhotoGroup};
 

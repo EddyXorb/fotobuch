@@ -72,7 +72,7 @@ pub fn solve_book_layout(
         local_search::improve(initial_assignment, photos, &groups, params, &mut evaluator);
 
     // Phase 3: Build BookLayout from cached results
-    let page_layouts: Vec<PageLayout> = (0..final_assignment.num_pages())
+    let page_layouts: Vec<SolverPageLayout> = (0..final_assignment.num_pages())
         .filter_map(|page_idx| {
             let range = final_assignment.page_range(page_idx);
             evaluator
@@ -107,7 +107,7 @@ impl<'a> RealPageEvaluator<'a> {
     /// Gets the cached layout for a set of photos.
     ///
     /// Returns None if the photos are not in the cache.
-    fn get_cached_layout(&self, photos: &[Photo]) -> Option<PageLayout> {
+    fn get_cached_layout(&self, photos: &[Photo]) -> Option<SolverPageLayout> {
         let range = 0..photos.len();
         self.cache.get(range).map(|result| result.layout.clone())
     }

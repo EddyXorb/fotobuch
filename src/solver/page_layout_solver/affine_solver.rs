@@ -4,7 +4,7 @@
 //! Each node stores (α, γ) such that: w = α·h + γ
 //! This allows handling β > 0 without falling back to solving linear systems.
 
-use super::super::data_models::{Canvas, PageLayout, Photo, PhotoPlacement};
+use super::super::data_models::{Canvas, SolverPageLayout, Photo, PhotoPlacement};
 use super::tree::{Cut, Node, SlicingTree};
 
 /// Affine coefficient pair (α, γ) representing the relationship w = α·h + γ.
@@ -41,10 +41,10 @@ struct Position {
 /// 2. Assign dimensions top-down from root
 /// 3. Compute positions top-down from root
 ///
-/// Returns a PageLayout with all photo placements.
-pub fn solve_layout(tree: &SlicingTree, photos: &[Photo], canvas: &Canvas) -> PageLayout {
+/// Returns a SolverPageLayout with all photo placements.
+pub fn solve_layout(tree: &SlicingTree, photos: &[Photo], canvas: &Canvas) -> SolverPageLayout {
     if tree.is_empty() {
-        return PageLayout::new(vec![], *canvas);
+        return SolverPageLayout::new(vec![], *canvas);
     }
 
     // Step 1: Compute affine coefficients for all nodes (bottom-up)
@@ -66,7 +66,7 @@ pub fn solve_layout(tree: &SlicingTree, photos: &[Photo], canvas: &Canvas) -> Pa
         }
     }
 
-    PageLayout::new(placements, *canvas)
+    SolverPageLayout::new(placements, *canvas)
 }
 
 /// Computes affine coefficients for all nodes (bottom-up).

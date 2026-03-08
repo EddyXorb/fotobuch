@@ -1,4 +1,4 @@
 pub use super::data_models::{
-    BookLayout, Canvas, PageLayout, Photo, SolverRequest,
+    Canvas, SolverPageLayout, Photo,
 };
 pub use crate::dto_models::GaConfig;
