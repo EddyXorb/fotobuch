@@ -241,6 +241,70 @@ impl StateManager {
         !StateDiff::compute(&self.last_state, &self.state).is_empty()
     }
 
+    /// Returns the 1-based page numbers that were modified since `open()`.
+    ///
+    /// A page is considered modified if:
+    /// - The list of photos changed
+    /// - Any photo's aspect ratio changed (width/height)
+    /// - Any photo's area_weight changed
+    pub fn modified_pages(&self) -> Vec<usize> {
+        let mut modified = Vec::new();
+
+        // Build photo lookup maps for metadata comparison
+        let old_photo_map: std::collections::HashMap<&str, &crate::dto_models::PhotoFile> = self
+            .last_state
+            .photos
+            .iter()
+            .flat_map(|g| g.files.iter().map(|f| (f.id.as_str(), f)))
+            .collect();
+
+        let new_photo_map: std::collections::HashMap<&str, &crate::dto_models::PhotoFile> = self
+            .state
+            .photos
+            .iter()
+            .flat_map(|g| g.files.iter().map(|f| (f.id.as_str(), f)))
+            .collect();
+
+        // Compare pages
+        for (idx, new_page) in self.state.layout.iter().enumerate() {
+            let page_num = idx + 1;
+
+            if let Some(old_page) = self.last_state.layout.get(idx) {
+                // Check if photos list changed
+                if old_page.photos != new_page.photos {
+                    modified.push(page_num);
+                    continue;
+                }
+
+                // Check if any photo metadata changed (aspect ratio via dimensions, area_weight)
+                let metadata_changed = new_page.photos.iter().any(|photo_id| {
+                    let new_photo = new_photo_map.get(photo_id.as_str());
+                    let old_photo = old_photo_map.get(photo_id.as_str());
+
+                    match (old_photo, new_photo) {
+                        (Some(old), Some(new)) => {
+                            // Check if aspect ratio or area_weight changed
+                            let old_ratio = old.width_px as f64 / old.height_px as f64;
+                            let new_ratio = new.width_px as f64 / new.height_px as f64;
+                            (old_ratio - new_ratio).abs() > 0.001
+                                || old.area_weight != new.area_weight
+                        }
+                        _ => true, // Photo added or removed
+                    }
+                });
+
+                if metadata_changed {
+                    modified.push(page_num);
+                }
+            } else {
+                // New page added
+                modified.push(page_num);
+            }
+        }
+
+        modified
+    }
+
     /// Save YAML and commit if `state` changed since `open()`.  Consumes the manager.
     ///
     /// The commit message is `"{message} — {diff_summary}"`.
