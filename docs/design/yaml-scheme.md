@@ -21,12 +21,14 @@ photos:
         height_px: 4000
         area_weight: 1.0
         timestamp: "2024-01-15T09:23:00" 
+        hash: 324345a4643a54v3...
       - id: "2024-01-15_Urlaub/IMG_002.jpg"
         file: "IMG_002.jpg"
         width_px: 4000
         height_px: 6000
         area_weight: 2.0
         timestamp: "2024-01-15T09:23:00" 
+        hash: av465a4645234234v3...
   - group: "2024-02-20_Geburtstag"
     sort_key: "2024-02-20T14:00:00"
     files:
@@ -36,6 +38,7 @@ photos:
         height_px: 3333
         area_weight: 1.0
         timestamp: "2024-01-15T09:23:00" 
+        hash: a2345234244643a54v3...
 
 layout:
   - page: 1
@@ -76,3 +79,4 @@ layout:
 - **Tausch ueber Seitengrenzen:** Zeile aus `photos` der einen Seite in die andere verschieben (gleicher Index im Ziel). Aehnliches Ratio = kein Rebuild noetig.
 - Bei Re-Optimierung einer Seite: Solver liest `layout[i].photos` -> findet Metadaten in `photos` (Top-Level) -> laesst GA laufen -> schreibt `layout[i].slots` neu. Die `photos`-Liste bleibt unangetastet.
 - `layout[].page`: ein counter, der nur für den benutzer da ist und dem index +1 in der liste entsprechend sollte; wird nicht fürs rendering verwendet und dient nur als info; d.h. änderungen daran durch benutzer ändern das fotobuch nicht. Wird nach jedem build/rebuild neu gesetzt
+- `hash`: wird bei jedem add für jedes photo berechnet und gesetzt. Der hash entsteht durch hashen der ersten und letzten 64 kb jeder datei mit blake3 (zur zeit)
