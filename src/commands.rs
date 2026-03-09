@@ -19,7 +19,7 @@ pub mod status;
 
 pub use add::{AddConfig, AddResult, GroupSummary, add};
 pub use build::{BuildConfig, BuildResult, DpiWarning, build};
-pub use config::{ResolvedConfig, config};
+pub use config::{ConfigResult, config, render_config};
 pub use history::{HistoryEntry, history};
 pub use place::{PlaceConfig, PlaceResult, place};
 pub use project::new::{project_new, validate_project_name};
