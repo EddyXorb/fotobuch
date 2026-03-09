@@ -134,6 +134,15 @@ pub enum ProjectCommands {
         #[arg(long, default_value_t = false)]
         quiet: bool,
     },
+
+    /// List all photobook projects
+    List,
+
+    /// Switch to another photobook project
+    Switch {
+        /// Project name to switch to
+        name: String,
+    },
 }
 
 impl Execute for Commands {
@@ -467,6 +476,33 @@ impl Execute for ProjectCommands {
                 println!("🌿 Branch: {}", result.branch);
                 println!("📄 YAML: {}", result.yaml_path.display());
                 println!("📝 Template: {}", result.typ_path.display());
+
+                Ok(())
+            }
+            ProjectCommands::List => {
+                let project_root = std::env::current_dir()
+                    .context("Failed to determine current directory")?;
+
+                let projects = commands::project::project_list(&project_root)?;
+
+                if projects.is_empty() {
+                    println!("ℹ️  No projects found.");
+                } else {
+                    for project in projects {
+                        let marker = if project.is_current { "* " } else { "  " };
+                        let current_label = if project.is_current { " (current)" } else { "" };
+                        println!("{}{:<15} {}{}", marker, project.name, project.branch, current_label);
+                    }
+                }
+
+                Ok(())
+            }
+            ProjectCommands::Switch { name } => {
+                let project_root = std::env::current_dir()
+                    .context("Failed to determine current directory")?;
+
+                commands::project::project_switch(&project_root, name)?;
+                println!("✅ Switched to project '{}'", name);
 
                 Ok(())
             }
