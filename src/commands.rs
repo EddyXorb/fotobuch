@@ -7,25 +7,22 @@
 //!
 //! Commands never depend on CLI parsers (clap) - they work with plain Rust types.
 
-
 pub mod add;
 pub mod build;
 pub mod config;
 pub mod history;
-pub mod new;
 pub mod place;
 pub mod project;
 pub mod rebuild;
 pub mod remove;
 pub mod status;
 
-pub use add::{add, AddConfig, AddResult, GroupSummary};
-pub use build::{build, BuildConfig, BuildResult, DpiWarning};
-pub use config::{config, ResolvedConfig};
-pub use history::{history, HistoryEntry};
-pub use new::{new, NewConfig, NewResult};
-pub use place::{place, PlaceConfig, PlaceResult};
+pub use add::{AddConfig, AddResult, GroupSummary, add};
+pub use build::{BuildConfig, BuildResult, DpiWarning, build};
+pub use config::{ResolvedConfig, config};
+pub use history::{HistoryEntry, history};
+pub use place::{PlaceConfig, PlaceResult, place};
 pub use project::new::{project_new, validate_project_name};
-pub use rebuild::{rebuild, RebuildScope};
-pub use remove::{remove, RemoveConfig, RemoveResult};
-pub use status::{status, PageStatus, SlotInfo, StatusReport};
+pub use rebuild::{RebuildScope, rebuild};
+pub use remove::{RemoveConfig, RemoveResult, remove};
+pub use status::{PageStatus, SlotInfo, StatusReport, status};
