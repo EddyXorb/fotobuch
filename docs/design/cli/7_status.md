@@ -9,7 +9,7 @@ Zeigt Projektstatus: Fotos, Gruppen, Layout-Zusammenfassung, geänderte Seiten s
 ## Abhängigkeiten
 
 - `StateManager` — öffnet Projekt, lädt State, erkennt Änderungen intern via `StateDiff`
-- `project::diff::detect_changes`, `build_photo_index`, `PageChange` — seitenweiser Diff (aus Build-Plan)
+- `build:helpers::build_photo_index` (aus Build-Plan)
 
 **Keine neuen Crates.**
 
@@ -18,13 +18,13 @@ Zeigt Projektstatus: Fotos, Gruppen, Layout-Zusammenfassung, geänderte Seiten s
 `status` nutzt **dieselbe Änderungserkennung** wie `build`:
 
 - `StateManager::open(project_root)` → Projekt öffnen, committed State intern verwaltet
-- `StateManager::has_changes()` → Gesamtstatus (clean / modified)
-- `project::diff::detect_changes` → `PageChange` pro Seite (NeedsRebuild / SwapOnly / Clean)
-- `project::diff::build_photo_index` → Photo-Lookup für Ratio/Swap-Gruppen
+- `StateManager::has_changes_since_last_build()` → Gesamtstatus (clean / modified)
+- `StateManager::modified_pages()` → `Vec<usize>` mit 1-basierten Seitennummern (geändert seit letztem Build)
+- `build::helpers::build_photo_index()` → Photo-Lookup für Ratio/Swap-Gruppen (`HashMap<String, (PhotoFile, String)>`)
 
-Für seitengenauen Diff benötigt `status` noch den committed State. Dieser wird intern vom StateManager verwaltet; ein Accessor (`mgr.committed_state()` o.Ä.) kann ihn exponieren. Die direkte Nutzung von `git::read_committed_file` entfällt — Git-Interaktion liegt vollständig im StateManager.
+Der committed State wird intern vom StateManager geladen und verwaltet. `status` hat Zugriff auf `mgr.state` (aktuell) und kann über `StateManager::modified_pages()` die geänderten Seiten direkt abfragen.
 
-Keine eigene Diff-Logik in `status` — alles lebt in `project/diff.rs`.
+Keine eigene Diff-Logik in `status` — Änderungserkennung ist zentral im StateManager implementiert.
 
 ---
 
@@ -49,8 +49,8 @@ pub struct StatusReport {
     pub unplaced: usize,
     pub page_count: usize,
     pub avg_photos_per_page: f64,
-    /// Pro Seite: welche Art von Änderung
-    pub page_changes: Vec<(usize, PageChange)>,  // (1-basiert, Change)
+    /// Seitennummern (1-basiert) die seit letztem Build geändert wurden
+    pub page_changes: Vec<usize>,
     /// Detaillierte Seiteninfo (nur für Detail-View)
     pub detail: Option<PageDetail>,
     pub warnings: Vec<String>,
@@ -82,7 +82,7 @@ Layout: 12 pages, 7.1 photos/page avg
 pub struct PageDetail {
     pub page: usize,
     pub photo_count: usize,
-    pub change: PageChange,
+    pub modified: bool,  // true wenn seit letztem Build geändert
     pub slots: Vec<SlotInfo>,
 }
 
@@ -90,7 +90,7 @@ pub struct SlotInfo {
     pub photo_id: String,
     pub ratio: f64,
     pub swap_group: char,  // A, B, C, ... — on-the-fly berechnet
-    pub slot_mm: Option<(f64, f64, f64, f64)>,  // x, y, w, h — None wenn keine Slots
+    pub slot_mm: (f64, f64, f64, f64),  // x, y, w, h
 }
 ```
 
@@ -179,8 +179,9 @@ fn count_unplaced(state: &ProjectState) -> usize {
 ### `src/commands/status.rs`
 
 ```rust
-use crate::project::diff::{self, PageChange, build_photo_index, ratios_compatible};
+use crate::commands::build::helpers::build_photo_index;
 use crate::state_manager::StateManager;
+use crate::dto_models::ProjectState;
 use std::collections::HashSet;
 use std::path::Path;
 
@@ -198,43 +199,33 @@ pub fn status(project_root: &Path, page: Option<usize>) -> Result<StatusReport> 
     } else { 0.0 };
 
     // Projektzustand bestimmen
-    // mgr.has_changes() liefert den Gesamtstatus; für seitengenauen Diff
-    // wird der committed State über mgr.committed_state() bezogen —
-    // Git-Zugriff verbleibt vollständig im StateManager.
+    // StateManager::has_changes_since_last_build() liefert den Gesamtstatus
+    // StateManager::modified_pages() gibt die modizierten Seitennummern (1-basiert) zurück
     let (project_state, page_changes) = if mgr.state.layout.is_empty() {
         (ProjectState_::Empty, vec![])
-    } else if !mgr.has_changes() {
+    } else if !mgr.has_changes_since_last_build() {
         (ProjectState_::Clean, vec![])
     } else {
-        match mgr.committed_state()? {
-            Some(committed) => {
-                let diff = diff::detect_changes(
-                    &mgr.state.layout, &committed.layout, &mgr.state, &committed
-                );
-                let changes: Vec<(usize, PageChange)> = diff.pages.iter()
-                    .enumerate()
-                    .filter(|(_, c)| **c != PageChange::Clean)
-                    .map(|(i, c)| (i + 1, c.clone()))
-                    .collect();
-                let ps = if changes.is_empty() {
-                    ProjectState_::Clean
-                } else {
-                    ProjectState_::Modified
-                };
-                (ps, changes)
-            }
-            None => {
-                // Kein Commit vorhanden → StateManager hat keinen committed State
-                (ProjectState_::Clean, vec![])
-            }
+        // Geänderte Seiten direkt vom StateManager
+        let modified = mgr.modified_pages();
+        if modified.is_empty() {
+            (ProjectState_::Clean, vec![])
+        } else {
+            (ProjectState_::Modified, modified)  // Vec<usize> (1-basierte Seitennummern)
         }
     };
 
     // Konsistenzprüfungen
     let warnings = check_consistency(&mgr.state);
 
-    // Detail-View
-    let detail = page.map(|p| build_page_detail(&mgr.state, p)).transpose()?;
+    // Detail-View (nur für angeforderte Seite)
+    let modified_pages = if mgr.state.layout.is_empty() {
+        vec![]
+    } else {
+        mgr.modified_pages()
+    };
+
+    let detail = page.map(|p| build_page_detail(&mgr.state, p, &modified_pages)).transpose()?;
 
     Ok(StatusReport {
         project_name,
@@ -251,13 +242,13 @@ pub fn status(project_root: &Path, page: Option<usize>) -> Result<StatusReport> 
 }
 
 /// Baut Detail-Info für eine einzelne Seite.
-fn build_page_detail(state: &ProjectState, page_num: usize) -> Result<PageDetail> {
+fn build_page_detail(state: &ProjectState, page_num: usize, modified_pages: &[usize]) -> Result<PageDetail> {
     if page_num == 0 || page_num > state.layout.len() {
         anyhow::bail!("Invalid page {} (layout has {} pages)", page_num, state.layout.len());
     }
 
     let page = &state.layout[page_num - 1];
-    let photo_index = build_photo_index(state);
+    let photo_index = build_photo_index(&state.photos);
 
     // Ratios sammeln
     let ratios: Vec<f64> = page.photos.iter()
@@ -268,10 +259,15 @@ fn build_page_detail(state: &ProjectState, page_num: usize) -> Result<PageDetail
 
     let swap_groups = assign_swap_groups(&ratios);
 
+    // Prüfe, ob diese Seite seit letztem Build geändert wurde
+    let modified = modified_pages.contains(&page_num);
+
     let slots: Vec<SlotInfo> = page.photos.iter()
         .enumerate()
         .map(|(i, id)| {
-            let slot_mm = page.slots.get(i).map(|s| (s.x_mm, s.y_mm, s.width_mm, s.height_mm));
+            let slot_mm = page.slots.get(i)
+                .map(|s| (s.x_mm, s.y_mm, s.width_mm, s.height_mm))
+                .unwrap_or((0.0, 0.0, 0.0, 0.0));
             SlotInfo {
                 photo_id: id.clone(),
                 ratio: ratios[i],
@@ -284,7 +280,7 @@ fn build_page_detail(state: &ProjectState, page_num: usize) -> Result<PageDetail
     Ok(PageDetail {
         page: page_num,
         photo_count: page.photos.len(),
-        change: PageChange::Clean, // TODO: aus diff-Ergebnis übernehmen wenn verfügbar
+        modified,
         slots,
     })
 }
@@ -294,11 +290,11 @@ fn build_page_detail(state: &ProjectState, page_num: usize) -> Result<PageDetail
 
 ## Verhalten ohne Git
 
-Der `StateManager` erkennt intern, ob ein Git-Repository vorhanden ist und ob ein committed State existiert. `status` muss das nicht selbst prüfen:
+Der `StateManager` erkennt intern, ob ein Git-Repository vorhanden ist und ob ein Build-Commit existiert. `status` muss das nicht selbst prüfen:
 
-- Kein Repo / kein Commit → `StateManager::has_changes()` gibt `false`, `committed_state()` gibt `None`
-- Folge: keine Änderungserkennung → `ProjectState_::Clean` (Annahme)
-- Konsistenzprüfungen funktionieren normal
+- Kein Repo / kein Build-Commit → `StateManager::has_changes_since_last_build()` gibt `false`, `modified_pages()` gibt leere Vec
+- Folge: keine Änderungserkennung → `ProjectState_::Clean` oder `ProjectState_::Empty`
+- Konsistenzprüfungen funktionieren normal (unabhängig von Git)
 - Detail-View funktioniert normal
 
 ---
@@ -322,10 +318,9 @@ Jeder Schritt = ein Commit.
 | ---- | ----- |
 | Leeres Layout → `ProjectState_::Empty` | Zustandserkennung |
 | Nichts geändert → `ProjectState_::Clean`, leere page_changes | Idempotenz |
-| Foto getauscht (anderes Ratio) → `Modified`, NeedsRebuild | Diff-Integration |
-| Foto getauscht (gleiches Ratio) → `Modified`, SwapOnly | Ratio-Toleranz |
+| Layout-Foto-Liste geändert → `Modified`, page_changes enthält Seitennummern | Änderungserkennung |
 | Unplaced korrekt gezählt | count_unplaced |
 | Orphaned Placement → Warning | check_consistency |
 | Swap-Gruppen: 3 Fotos Ratio 0.67, 2 Fotos Ratio 1.5 → 2 Gruppen | assign_swap_groups |
 | Detail-View: ungültige Seite → Fehler | Validierung |
-| Ohne Git-Commit → Status funktioniert (ohne Diff) | Fallback |
+| Ohne Git-Commit → Status funktioniert (StateManager Fallback) | Fallback |
