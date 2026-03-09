@@ -24,7 +24,7 @@ In dieser Reihe abzuarbeiten.
    - [x] [place](docs/design/cli/5_place.md)
    - [x] [remove](docs/design/cli/6_remove.md)
    - [x] [status](docs/design/cli/7_status.md)
-   - [ ] [config](docs/design/cli/8_config.md)
+   - [x] [config](docs/design/cli/8_config.md)
    - [ ] [history](docs/design/cli/9_history.md)
    - [ ]  [project list](docs/design/cli/10_project_list.md)
    - [ ]  [project switch](docs/design/cli/11_project_switch.md)
