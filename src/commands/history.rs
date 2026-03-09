@@ -17,31 +17,49 @@ pub struct HistoryEntry {
 /// This is a thin wrapper around `git log` in the project directory.
 /// Shows date + commit message without hash.
 ///
-/// # Steps
-/// 1. Run `git log --oneline --format="%ai %s"` in project_root
-/// 2. Parse output into HistoryEntry structs
-/// 3. Return list for CLI formatting
-///
-/// For more detailed analysis, users can use git directly:
-/// - `git log`
-/// - `git diff HEAD~2 HEAD`
-/// - `git checkout <hash> -- fotobuch.yaml`
-///
 /// # Arguments
 /// * `project_root` - Path to the project directory
 ///
 /// # Returns
 /// * Vector of `HistoryEntry` with timestamp and message
+/// * Empty vector if no git repo or no commits
 pub fn history(project_root: &Path) -> Result<Vec<HistoryEntry>> {
-    // TODO: Implement history command
-    // - Run `git log --format="%ai %s"` via std::process::Command
-    // - Parse output lines
-    // - Split into timestamp and message
-    // - Return as Vec<HistoryEntry>
-    //
-    // If git is not available or not a git repo: return empty vec or error
+    use std::process::Command;
 
-    let _ = project_root; // Silence unused warning
+    let output = Command::new("git")
+        .args(["log", "--format=%ai\t%s"])
+        .current_dir(project_root)
+        .output()?;
 
-    Ok(Vec::new())
+    if !output.status.success() {
+        return Ok(Vec::new()); // Kein Git oder keine Commits
+    }
+
+    let entries = String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .filter_map(|line| {
+            let (ts, msg) = line.split_once('\t')?;
+            Some(HistoryEntry {
+                timestamp: ts.trim().to_string(),
+                message: msg.to_string(),
+            })
+        })
+        .collect();
+
+    Ok(entries)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_history_entry_creation() {
+        let entry = HistoryEntry {
+            timestamp: "2024-03-07 14:22 +0100".to_string(),
+            message: "build: completed layout".to_string(),
+        };
+        assert_eq!(entry.timestamp, "2024-03-07 14:22 +0100");
+        assert_eq!(entry.message, "build: completed layout");
+    }
 }
