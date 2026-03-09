@@ -20,6 +20,7 @@ pub fn first_build(mgr: StateManager, project_root: &Path) -> Result<BuildResult
             custom_config: None,
             commit_message: "build: initial layout".to_string(),
             images_processed: 0,
+            always_commit: false,
         },
     )?;
 

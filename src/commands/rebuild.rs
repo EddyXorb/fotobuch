@@ -164,6 +164,7 @@ fn rebuild_range(
             custom_config: Some(custom_config),
             commit_message: format!("rebuild: pages {}-{}", start, end),
             images_processed: 0,
+            always_commit: true,
         },
     )
 }
@@ -183,6 +184,7 @@ fn rebuild_all(mgr: StateManager, project_root: &Path) -> Result<BuildResult> {
             custom_config: None,
             commit_message: format!("rebuild: {} photos redistributed", page_count),
             images_processed: 0,
+            always_commit: true,
         },
     )
 }
