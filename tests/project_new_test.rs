@@ -14,6 +14,7 @@ fn test_project_new_mode1_creates_complete_structure() -> Result<()> {
         width_mm: 1234.0,
         height_mm: 1234.0,
         bleed_mm: 1234.0,
+        quiet: true,
     };
 
     let result = project_new(temp_dir.path(), &config)?;
@@ -79,6 +80,7 @@ fn test_project_new_mode2_creates_additional_project() -> Result<()> {
         width_mm: 200.0,
         height_mm: 250.0,
         bleed_mm: 2.0,
+        quiet: true,
     };
     let result1 = project_new(temp_dir.path(), &config1)?;
 
@@ -88,6 +90,7 @@ fn test_project_new_mode2_creates_additional_project() -> Result<()> {
         width_mm: 180.0,
         height_mm: 240.0,
         bleed_mm: 4.0,
+        quiet: true,
     };
     let result2 = project_new(&result1.project_root, &config2)?;
 
@@ -126,6 +129,7 @@ fn test_project_new_rejects_duplicate_name() -> Result<()> {
         width_mm: 210.0,
         height_mm: 297.0,
         bleed_mm: 3.0,
+        quiet: true,
     };
 
     // Create first project
@@ -189,6 +193,7 @@ fn test_project_new_with_different_page_dimensions() -> Result<()> {
             width_mm: width,
             height_mm: height,
             bleed_mm: bleed,
+            quiet: true,
         };
 
         let result = project_new(temp_dir.path(), &config)?;

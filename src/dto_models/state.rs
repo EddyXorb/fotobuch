@@ -8,6 +8,7 @@ use crate::dto_models::*;
 
 /// Complete project state as persisted in fotobuch.yaml
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct ProjectState {
     /// Configuration (page dimensions, GA settings, etc.)
     pub config: ProjectConfig,
@@ -17,6 +18,7 @@ pub struct ProjectState {
     #[serde(default)]
     pub layout: Vec<LayoutPage>,
 }
+
 
 impl ProjectState {
     /// Load project state from fotobuch.yaml

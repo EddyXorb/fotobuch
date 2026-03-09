@@ -8,7 +8,7 @@ mod template;
 mod validation;
 mod yaml;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -27,6 +27,8 @@ pub struct NewConfig {
     pub height_mm: f64,
     /// Bleed distance in millimeters
     pub bleed_mm: f64,
+    /// Quiet mode (suppress welcome message)
+    pub quiet: bool,
 }
 
 /// Result of project creation
@@ -84,7 +86,7 @@ pub fn project_new(parent_dir_or_root: &Path, config: &NewConfig) -> Result<NewR
     let mode = if git::is_git_repo(parent_dir_or_root) {
         let repo = git::open_repo(parent_dir_or_root)?;
         let branches = git::list_branches_with_prefix(&repo, "fotobuch/")?;
-        
+
         if branches.is_empty() {
             Mode::FirstProject
         } else {
@@ -153,7 +155,7 @@ fn create_first_project(parent_dir: &Path, config: &NewConfig) -> Result<NewResu
     let branch_name = format!("fotobuch/{}", config.name);
     let yaml_name = format!("{}.yaml", config.name);
     let typ_name = format!("{}.typ", config.name);
-    
+
     git::stage_and_commit(
         &repo,
         &[".gitignore", &yaml_name, &typ_name],
@@ -167,7 +169,9 @@ fn create_first_project(parent_dir: &Path, config: &NewConfig) -> Result<NewResu
     git::create_branch(&repo, &branch_name)?;
 
     // 9. Print welcome message
-    println!("{}", WELCOME_MESSAGE);
+    if !config.quiet {
+        println!("{}", WELCOME_MESSAGE);
+    }
 
     Ok(NewResult {
         project_root,
@@ -225,7 +229,7 @@ fn create_additional_project(repo_root: &Path, config: &NewConfig) -> Result<New
     if let Some(old_name) = old_project_name {
         let old_yaml = format!("{}.yaml", old_name);
         let old_typ = format!("{}.typ", old_name);
-        
+
         // Try to remove from index, but don't fail if they don't exist
         let mut index = repo.index().context("Failed to get repository index")?;
         let _ = index.remove_path(Path::new(&old_yaml));
@@ -236,7 +240,7 @@ fn create_additional_project(repo_root: &Path, config: &NewConfig) -> Result<New
     // 8. Stage new project files and commit
     let yaml_name = format!("{}.yaml", config.name);
     let typ_name = format!("{}.typ", config.name);
-    
+
     git::stage_and_commit(
         &repo,
         &[&yaml_name, &typ_name],
@@ -267,6 +271,7 @@ mod tests {
             width_mm: 210.0,
             height_mm: 297.0,
             bleed_mm: 3.0,
+            quiet: true,
         };
 
         let result = project_new(temp_dir.path(), &config).unwrap();
@@ -298,6 +303,7 @@ mod tests {
             width_mm: 200.0,
             height_mm: 250.0,
             bleed_mm: 5.0,
+            quiet: true,
         };
 
         let result = project_new(temp_dir.path(), &config).unwrap();
@@ -316,6 +322,7 @@ mod tests {
             width_mm: 210.0,
             height_mm: 297.0,
             bleed_mm: 3.0,
+            quiet: true,
         };
 
         let result = project_new(temp_dir.path(), &config).unwrap();
@@ -334,6 +341,7 @@ mod tests {
             width_mm: 210.0,
             height_mm: 297.0,
             bleed_mm: 3.0,
+            quiet: true,
         };
 
         let result = project_new(temp_dir.path(), &config);
@@ -348,6 +356,7 @@ mod tests {
             width_mm: 210.0,
             height_mm: 297.0,
             bleed_mm: 3.0,
+            quiet: true,
         };
 
         // Create first project
