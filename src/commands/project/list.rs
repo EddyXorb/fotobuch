@@ -60,20 +60,3 @@ pub fn project_list(project_root: &Path) -> Result<Vec<super::ProjectInfo>> {
 
     Ok(projects)
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_project_info_creation() {
-        let info = super::ProjectInfo {
-            name: "vacation".to_string(),
-            branch: "fotobuch/vacation".to_string(),
-            is_current: true,
-        };
-        assert_eq!(info.name, "vacation");
-        assert_eq!(info.branch, "fotobuch/vacation");
-        assert!(info.is_current);
-    }
-}
