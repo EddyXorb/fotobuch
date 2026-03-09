@@ -53,7 +53,6 @@ Die CLI-Schicht formatiert den Timestamp auf `YYYY-MM-DD HH:MM` (Timezone option
 
 ## Fehlerbehandlung
 
-- Kein Git im PATH → leere Liste (kein Fehler)
 - Kein Git-Repo → leere Liste
 - Keine Commits → leere Liste
 
