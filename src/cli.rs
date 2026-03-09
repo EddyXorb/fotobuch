@@ -6,8 +6,15 @@ use photobook_solver::commands::{self};
 use std::path::PathBuf;
 
 // Handler modules for each command
+pub mod add;
+pub mod build;
 pub mod config;
 pub mod history;
+pub mod place;
+pub mod project;
+pub mod rebuild;
+pub mod remove;
+pub mod status;
 
 /// Photobook layout solver and project manager
 #[derive(Parser, Debug)]
@@ -152,265 +159,14 @@ pub enum ProjectCommands {
 impl Execute for Commands {
     fn execute(&self) -> Result<()> {
         match self {
-            Commands::Add {
-                paths,
-                allow_duplicates,
-            } => {
-                let project_root = std::env::current_dir()
-                    .context("Failed to determine current directory")?;
-
-                let config = commands::AddConfig {
-                    paths: paths.clone(),
-                    allow_duplicates: *allow_duplicates,
-                };
-
-                let result = commands::add(&project_root, &config)?;
-
-                if result.groups_added.is_empty() {
-                    println!("ℹ️  No new photos added (all skipped).");
-                } else {
-                    println!("✅ Added {} photos in {} groups", 
-                        result.groups_added.iter().map(|g| g.photo_count).sum::<usize>(),
-                        result.groups_added.len()
-                    );
-                    
-                    for group in &result.groups_added {
-                        println!("   📁 {} — {} photos ({})", 
-                            group.name, 
-                            group.photo_count, 
-                            group.timestamp
-                        );
-                    }
-                }
-
-                if result.skipped > 0 {
-                    println!("⏭️  Skipped {} duplicate photos", result.skipped);
-                }
-
-                if !result.warnings.is_empty() {
-                    println!("⚠️  Warnings:");
-                    for warning in &result.warnings {
-                        println!("   - {}", warning);
-                    }
-                }
-
-                Ok(())
+            Commands::Add { paths, allow_duplicates } => add::handle(paths.clone(), *allow_duplicates),
+            Commands::Build { release, pages } => build::handle(*release, pages.clone()),
+            Commands::Rebuild { page, range_start, range_end, flex, all } => {
+                rebuild::handle(*page, *range_start, *range_end, *flex, *all)
             }
-            Commands::Build { release, pages } => {
-                let project_root = std::env::current_dir()
-                    .context("Failed to determine current directory")?;
-
-                let config = commands::build::BuildConfig {
-                    release: *release,
-                    pages: pages.clone(),
-                };
-
-                let result = commands::build::build(&project_root, &config)?;
-
-                if result.nothing_to_do {
-                    println!("Nothing to do.");
-                    return Ok(());
-                }
-
-                if !result.pages_rebuilt.is_empty() {
-                    println!("Rebuilt {} page(s): {:?}", result.pages_rebuilt.len(), result.pages_rebuilt);
-                }
-                println!("PDF: {}", result.pdf_path.display());
-
-                if !result.dpi_warnings.is_empty() {
-                    println!("\nWARNING: {} photo(s) below 300 DPI:", result.dpi_warnings.len());
-                    for w in &result.dpi_warnings {
-                        println!("  Page {}: {} — {:.0} DPI", w.page, w.photo_id, w.actual_dpi);
-                    }
-                }
-
-                Ok(())
-            }
-            Commands::Rebuild {
-                page,
-                range_start,
-                range_end,
-                flex,
-                all,
-            } => {
-                let project_root = std::env::current_dir()
-                    .context("Failed to determine current directory")?;
-
-                // Determine scope
-                let scope = if *all {
-                    commands::rebuild::RebuildScope::All
-                } else if let Some(p) = page {
-                    commands::rebuild::RebuildScope::SinglePage(*p)
-                } else if let (Some(start), Some(end)) = (range_start, range_end) {
-                    commands::rebuild::RebuildScope::Range {
-                        start: *start,
-                        end: *end,
-                        flex: *flex,
-                    }
-                } else {
-                    // Default to all if no specific scope given
-                    commands::rebuild::RebuildScope::All
-                };
-
-                let result = commands::rebuild::rebuild(&project_root, scope)?;
-
-                if !result.pages_rebuilt.is_empty() {
-                    println!("✅ Rebuilt {} page(s): {:?}",
-                        result.pages_rebuilt.len(),
-                        result.pages_rebuilt
-                    );
-                }
-                println!("📄 PDF: {}", result.pdf_path.display());
-
-                Ok(())
-            }
-            Commands::Place { filter, into } => {
-                let project_root = std::env::current_dir()
-                    .context("Failed to determine current directory")?;
-
-                let config = commands::place::PlaceConfig {
-                    filter: filter.clone(),
-                    into_page: *into,
-                };
-
-                let result = commands::place::place(&project_root, &config)?;
-
-                if result.photos_placed == 0 {
-                    println!("ℹ️  No photos to place.");
-                } else {
-                    let pages_str = if result.pages_affected.len() == 1 {
-                        format!("page {}", result.pages_affected[0])
-                    } else {
-                        format!("pages {:?}", result.pages_affected)
-                    };
-                    println!("✅ Placed {} photo(s) onto {}", result.photos_placed, pages_str);
-                    println!("🔄 Run 'fotobuch build' or 'fotobuch rebuild' to regenerate PDFs.");
-                }
-
-                Ok(())
-            }
-            Commands::Remove { patterns, keep_files } => {
-                let project_root = std::env::current_dir()
-                    .context("Failed to determine current directory")?;
-
-                let config = commands::remove::RemoveConfig {
-                    patterns: patterns.clone(),
-                    keep_files: *keep_files,
-                };
-
-                let result = commands::remove::remove(&project_root, &config)?;
-
-                if result.photos_removed == 0 && result.placements_removed == 0 {
-                    println!("ℹ️  No photos matched the pattern(s).");
-                } else {
-                    if result.photos_removed > 0 {
-                        println!("✅ Removed {} photo(s) from project", result.photos_removed);
-                        if !result.groups_removed.is_empty() {
-                            println!("   Removed groups: {}", result.groups_removed.join(", "));
-                        }
-                    }
-                    if result.placements_removed > 0 {
-                        let pages_str = if result.pages_affected.len() == 1 {
-                            format!("page {}", result.pages_affected[0])
-                        } else {
-                            format!("pages {:?}", result.pages_affected)
-                        };
-                        println!("✅ Removed {} placement(s) from {}", result.placements_removed, pages_str);
-                    }
-                    if *keep_files {
-                        println!("ℹ️  Photos kept in project as unplaced.");
-                    }
-                    println!("🔄 Run 'fotobuch build' or 'fotobuch rebuild' to regenerate PDFs.");
-                }
-
-                Ok(())
-            }
-            Commands::Status { page } => {
-                let project_root = std::env::current_dir()
-                    .context("Failed to determine current directory")?;
-
-                let config = commands::StatusConfig { page: *page };
-                let report = commands::status(&project_root, &config)?;
-
-                // Format output
-                println!("Project: {}", report.project_name);
-                println!(
-                    "{} photos in {} groups ({} unplaced)",
-                    report.total_photos, report.group_count, report.unplaced
-                );
-                println!();
-
-                match report.state {
-                    commands::ProjectState_::Empty => {
-                        println!("Layout: empty (not yet built)");
-                    }
-                    commands::ProjectState_::Clean => {
-                        println!(
-                            "Layout: {} pages, {:.1} photos/page avg",
-                            report.page_count, report.avg_photos_per_page
-                        );
-                        println!("Status: clean (no changes since last build)");
-                    }
-                    commands::ProjectState_::Modified => {
-                        println!(
-                            "Layout: {} pages, {:.1} photos/page avg",
-                            report.page_count, report.avg_photos_per_page
-                        );
-                        println!(
-                            "Status: modified — {} page(s) changed since last build",
-                            report.page_changes.len()
-                        );
-                        if !report.page_changes.is_empty() {
-                            let pages_str = if report.page_changes.len() <= 5 {
-                                report
-                                    .page_changes
-                                    .iter()
-                                    .map(|p| p.to_string())
-                                    .collect::<Vec<_>>()
-                                    .join(", ")
-                            } else {
-                                format!(
-                                    "{}, ..., {}",
-                                    report.page_changes[0],
-                                    report.page_changes[report.page_changes.len() - 1]
-                                )
-                            };
-                            println!("   pages: {}", pages_str);
-                        }
-                    }
-                }
-
-                // Show detail view if requested
-                if let Some(detail) = report.detail {
-                    println!();
-                    println!("Page {} — {} photos ({})", detail.page, detail.photo_count, if detail.modified { "modified" } else { "clean" });
-                    println!();
-
-                    for slot in &detail.slots {
-                        println!(
-                            "  {} — ratio {:.2} [{}]",
-                            slot.photo_id, slot.ratio, slot.swap_group
-                        );
-                        if slot.slot_mm != (0.0, 0.0, 0.0, 0.0) {
-                            println!(
-                                "      slot: x={:.1}mm, y={:.1}mm, {}×{}mm",
-                                slot.slot_mm.0, slot.slot_mm.1, slot.slot_mm.2, slot.slot_mm.3
-                            );
-                        }
-                    }
-                }
-
-                // Show warnings if any
-                if !report.warnings.is_empty() {
-                    println!();
-                    println!("⚠️  Warnings:");
-                    for warning in &report.warnings {
-                        println!("   - {}", warning);
-                    }
-                }
-
-                Ok(())
-            }
+            Commands::Place { filter, into } => place::handle(filter.clone(), *into),
+            Commands::Remove { patterns, keep_files } => remove::handle(patterns.clone(), *keep_files),
+            Commands::Status { page } => status::handle(*page),
             Commands::Config => config::handle(),
             Commands::History => history::handle(),
             Commands::Project { command } => command.execute(),
@@ -421,63 +177,19 @@ impl Execute for Commands {
 impl Execute for ProjectCommands {
     fn execute(&self) -> Result<()> {
         match self {
-            ProjectCommands::New {
-                name,
-                width,
-                height,
-                bleed,
-                parent_dir,
-                quiet,
-            } => {
-                let parent = parent_dir
-                    .as_ref()
-                    .map(|p| p.as_path())
-                    .unwrap_or_else(|| std::path::Path::new("."));
-
-                let config = commands::project::new::NewConfig {
+            ProjectCommands::New { name, width, height, bleed, parent_dir, quiet } => {
+                project::handle(project::ProjectSubcommand::New {
                     name: name.clone(),
-                    width_mm: *width,
-                    height_mm: *height,
-                    bleed_mm: *bleed,
+                    width: *width,
+                    height: *height,
+                    bleed: *bleed,
+                    parent_dir: parent_dir.clone(),
                     quiet: *quiet,
-                };
-
-                let result = commands::project_new(parent, &config)?;
-
-                println!("✅ Project '{}' created successfully!", name);
-                println!("📁 Location: {}", result.project_root.display());
-                println!("🌿 Branch: {}", result.branch);
-                println!("📄 YAML: {}", result.yaml_path.display());
-                println!("📝 Template: {}", result.typ_path.display());
-
-                Ok(())
+                })
             }
-            ProjectCommands::List => {
-                let project_root = std::env::current_dir()
-                    .context("Failed to determine current directory")?;
-
-                let projects = commands::project::project_list(&project_root)?;
-
-                if projects.is_empty() {
-                    println!("ℹ️  No projects found.");
-                } else {
-                    for project in projects {
-                        let marker = if project.is_current { "* " } else { "  " };
-                        let current_label = if project.is_current { " (current)" } else { "" };
-                        println!("{}{:<15} {}{}", marker, project.name, project.branch, current_label);
-                    }
-                }
-
-                Ok(())
-            }
+            ProjectCommands::List => project::handle(project::ProjectSubcommand::List),
             ProjectCommands::Switch { name } => {
-                let project_root = std::env::current_dir()
-                    .context("Failed to determine current directory")?;
-
-                commands::project::project_switch(&project_root, name)?;
-                println!("✅ Switched to project '{}'", name);
-
-                Ok(())
+                project::handle(project::ProjectSubcommand::Switch { name: name.clone() })
             }
         }
     }
