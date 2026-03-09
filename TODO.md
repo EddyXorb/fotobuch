@@ -21,7 +21,7 @@ In dieser Reihe abzuarbeiten.
        - Tests prüfen: first_build, incremental_build, release, --pages filter, clean check
      - [x] CLI-Integration in main.rs und cli.rs
    - [ ] [rebuild](docs/design/cli/4_rebuild.md)
-   - [ ] [place](docs/design/cli/5_place.md)
+   - [x] [place](docs/design/cli/5_place.md)
    - [ ] [remove](docs/design/cli/6_remove.md)
    - [ ] [status](docs/design/cli/7_status.md)
    - [ ] [config](docs/design/cli/8_config.md)
