@@ -26,3 +26,17 @@ fn default_gap_mm() -> f64 {
 fn default_bleed_threshold_mm() -> f64 {
     3.0
 }
+
+impl Default for BookConfig {
+    fn default() -> Self {
+        Self {
+            title: "Untitled".into(),
+            page_width_mm: 210.0,
+            page_height_mm: 297.0,
+            bleed_mm: 3.0,
+            margin_mm: default_margin_mm(),
+            gap_mm: default_gap_mm(),
+            bleed_threshold_mm: default_bleed_threshold_mm(),
+        }
+    }
+}

@@ -107,6 +107,10 @@ pub enum ProjectCommands {
         /// Parent directory where project will be created (default: current directory)
         #[arg(long)]
         parent_dir: Option<PathBuf>,
+
+        /// Suppress welcome message
+        #[arg(long, default_value_t = false)]
+        quiet: bool,
     },
 }
 
@@ -264,6 +268,7 @@ impl Execute for ProjectCommands {
                 height,
                 bleed,
                 parent_dir,
+                quiet,
             } => {
                 let parent = parent_dir
                     .as_ref()
@@ -275,7 +280,7 @@ impl Execute for ProjectCommands {
                     width_mm: *width,
                     height_mm: *height,
                     bleed_mm: *bleed,
-                    quiet: false,
+                    quiet: *quiet,
                 };
 
                 let result = commands::project_new(parent, &config)?;

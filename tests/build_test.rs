@@ -16,6 +16,7 @@ fn create_test_project_with_photos(temp_dir: &TempDir) -> Result<PathBuf> {
         width_mm: 200.0,
         height_mm: 250.0,
         bleed_mm: 3.0,
+        quiet: true,
     };
     let result = project_new(temp_dir.path(), &config)?;
     let project_root = result.project_root;
@@ -296,6 +297,7 @@ fn test_build_handles_empty_photo_list() -> Result<()> {
         width_mm: 200.0,
         height_mm: 250.0,
         bleed_mm: 3.0,
+        quiet: true,
     };
     let result = project_new(temp_dir.path(), &config)?;
     let project_root = result.project_root;
