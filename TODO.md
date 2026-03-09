@@ -22,7 +22,7 @@ In dieser Reihe abzuarbeiten.
      - [x] CLI-Integration in main.rs und cli.rs
    - [ ] [rebuild](docs/design/cli/4_rebuild.md)
    - [x] [place](docs/design/cli/5_place.md)
-   - [ ] [remove](docs/design/cli/6_remove.md)
+   - [x] [remove](docs/design/cli/6_remove.md)
    - [ ] [status](docs/design/cli/7_status.md)
    - [ ] [config](docs/design/cli/8_config.md)
    - [ ] [history](docs/design/cli/9_history.md)
