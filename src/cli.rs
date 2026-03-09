@@ -66,6 +66,17 @@ pub enum Commands {
         all: bool,
     },
 
+    /// Place unplaced photos into the book
+    Place {
+        /// Only place photos matching this regex pattern
+        #[arg(long)]
+        filter: Option<String>,
+
+        /// Place all matching photos onto this specific page (1-based)
+        #[arg(long)]
+        into: Option<usize>,
+    },
+
     /// Project management commands
     Project {
         #[command(subcommand)]
@@ -205,12 +216,37 @@ impl Execute for Commands {
                 let result = commands::rebuild::rebuild(&project_root, scope)?;
 
                 if !result.pages_rebuilt.is_empty() {
-                    println!("✅ Rebuilt {} page(s): {:?}", 
-                        result.pages_rebuilt.len(), 
+                    println!("✅ Rebuilt {} page(s): {:?}",
+                        result.pages_rebuilt.len(),
                         result.pages_rebuilt
                     );
                 }
                 println!("📄 PDF: {}", result.pdf_path.display());
+
+                Ok(())
+            }
+            Commands::Place { filter, into } => {
+                let project_root = std::env::current_dir()
+                    .context("Failed to determine current directory")?;
+
+                let config = commands::place::PlaceConfig {
+                    filter: filter.clone(),
+                    into_page: *into,
+                };
+
+                let result = commands::place::place(&project_root, &config)?;
+
+                if result.photos_placed == 0 {
+                    println!("ℹ️  No photos to place.");
+                } else {
+                    let pages_str = if result.pages_affected.len() == 1 {
+                        format!("page {}", result.pages_affected[0])
+                    } else {
+                        format!("pages {:?}", result.pages_affected)
+                    };
+                    println!("✅ Placed {} photo(s) onto {}", result.photos_placed, pages_str);
+                    println!("🔄 Run 'fotobuch build' or 'fotobuch rebuild' to regenerate PDFs.");
+                }
 
                 Ok(())
             }
@@ -239,6 +275,7 @@ impl Execute for ProjectCommands {
                     width_mm: *width,
                     height_mm: *height,
                     bleed_mm: *bleed,
+                    quiet: false,
                 };
 
                 let result = commands::project_new(parent, &config)?;
