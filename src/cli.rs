@@ -93,6 +93,9 @@ pub enum Commands {
         page: Option<usize>,
     },
 
+    /// Show resolved configuration with defaults
+    Config,
+
     /// Project management commands
     Project {
         #[command(subcommand)]
@@ -389,6 +392,16 @@ impl Execute for Commands {
                         println!("   - {}", warning);
                     }
                 }
+
+                Ok(())
+            }
+            Commands::Config => {
+                let project_root = std::env::current_dir()
+                    .context("Failed to determine current directory")?;
+
+                let result = commands::config(&project_root)?;
+                let output = commands::render_config(&result)?;
+                println!("{}", output);
 
                 Ok(())
             }
