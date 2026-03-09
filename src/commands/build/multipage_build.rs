@@ -23,6 +23,8 @@ pub struct MultiPageParams<'a> {
     pub commit_message: String,
     /// Number of images processed in cache (for BuildResult)
     pub images_processed: usize,
+    /// Whether to always create a commit even if state doesn't change (for rebuild operations)
+    pub always_commit: bool,
 }
 
 /// Shared multipage build logic used by first_build, rebuild_all, and rebuild_range.
@@ -77,7 +79,11 @@ pub fn multipage_build(
     let pdf_path = typst::compile_preview(project_root, mgr.project_name())?;
 
     // 6. Save and commit
-    mgr.finish(&params.commit_message)?;
+    if params.always_commit {
+        mgr.finish_always(&params.commit_message)?;
+    } else {
+        mgr.finish(&params.commit_message)?;
+    }
 
     Ok(BuildResult {
         pdf_path,
