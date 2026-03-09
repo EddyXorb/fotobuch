@@ -25,4 +25,4 @@ pub use place::{PlaceConfig, PlaceResult, place};
 pub use project::new::{project_new, validate_project_name};
 pub use rebuild::{RebuildScope, rebuild};
 pub use remove::{RemoveConfig, RemoveResult, remove};
-pub use status::{PageStatus, SlotInfo, StatusReport, status};
+pub use status::{PageDetail, ProjectState_, SlotInfo, StatusConfig, StatusReport, status};
