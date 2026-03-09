@@ -4,6 +4,7 @@
 - jeder Teilschritt ist ein conventional commit
 - unittests für jedes neue feature sind pflicht
 - regelmäßig cargo build ausführen und alle warnings beheben
+- **keine Co-Authored-By trailers in Commit-Nachrichten** — verwende nur normales Conventional Commit Format
 
 ## Rust specific
 
