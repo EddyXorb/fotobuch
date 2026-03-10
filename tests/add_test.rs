@@ -4,6 +4,7 @@ use anyhow::Result;
 use photobook_solver::commands::{add, AddConfig};
 use photobook_solver::commands::project::new::{project_new, NewConfig};
 use photobook_solver::dto_models::ProjectState;
+use regex::Regex;
 use std::fs;
 use std::path::PathBuf;
 use tempfile::TempDir;
@@ -38,6 +39,8 @@ fn test_add_single_directory_creates_groups() -> Result<()> {
     let add_config = AddConfig {
         paths: vec![test_photos_path()],
         allow_duplicates: false,
+        xmp_filter: None,
+        dry_run: false,
     };
 
     let result = add(&project_root, &add_config)?;
@@ -86,6 +89,8 @@ fn test_add_duplicate_path_skips() -> Result<()> {
     let add_config = AddConfig {
         paths: vec![test_photos_path()],
         allow_duplicates: false,
+        xmp_filter: None,
+        dry_run: false,
     };
 
     // First add
@@ -114,6 +119,8 @@ fn test_add_merges_existing_group() -> Result<()> {
     let add_config1 = AddConfig {
         paths: vec![group1_path.clone()],
         allow_duplicates: false,
+        xmp_filter: None,
+        dry_run: false,
     };
     let result1 = add(&project_root, &add_config1)?;
 
@@ -127,6 +134,8 @@ fn test_add_merges_existing_group() -> Result<()> {
     let add_config2 = AddConfig {
         paths: vec![group2_path],
         allow_duplicates: false,
+        xmp_filter: None,
+        dry_run: false,
     };
     let _result2 = add(&project_root, &add_config2)?;
 
@@ -170,6 +179,8 @@ fn test_add_allow_duplicates_flag() -> Result<()> {
     let add_config1 = AddConfig {
         paths: vec![temp_photo_dir1.clone()],
         allow_duplicates: false,
+        xmp_filter: None,
+        dry_run: false,
     };
     let result1 = add(&project_root, &add_config1)?;
     assert_eq!(result1.groups_added.iter().map(|g| g.photo_count).sum::<usize>(), 1);
@@ -178,6 +189,8 @@ fn test_add_allow_duplicates_flag() -> Result<()> {
     let add_config2 = AddConfig {
         paths: vec![temp_photo_dir2.clone()],
         allow_duplicates: false,
+        xmp_filter: None,
+        dry_run: false,
     };
     let result2 = add(&project_root, &add_config2)?;
     
@@ -189,6 +202,8 @@ fn test_add_allow_duplicates_flag() -> Result<()> {
     let add_config3 = AddConfig {
         paths: vec![temp_photo_dir2],
         allow_duplicates: true,
+        xmp_filter: None,
+        dry_run: false,
     };
     let result3 = add(&project_root, &add_config3)?;
     assert_eq!(result3.groups_added.iter().map(|g| g.photo_count).sum::<usize>(), 1, 
@@ -207,6 +222,8 @@ fn test_add_sorts_groups_by_sort_key() -> Result<()> {
     let add_config = AddConfig {
         paths: vec![test_photos_path()],
         allow_duplicates: false,
+        xmp_filter: None,
+        dry_run: false,
     };
     add(&project_root, &add_config)?;
 
@@ -228,6 +245,57 @@ fn test_add_sorts_groups_by_sort_key() -> Result<()> {
 }
 
 #[test]
+fn test_dry_run_does_not_write_state() -> Result<()> {
+    let temp_dir = TempDir::new()?;
+    let project_root = create_test_project(&temp_dir)?;
+
+    let yaml_path = project_root.join("testproject.yaml");
+    let state_before = ProjectState::load(&yaml_path)?;
+
+    let add_config = AddConfig {
+        paths: vec![test_photos_path()],
+        allow_duplicates: false,
+        xmp_filter: None,
+        dry_run: true,
+    };
+    let result = add(&project_root, &add_config)?;
+
+    assert!(result.dry_run);
+    assert!(!result.groups_added.is_empty(), "Dry run should still report what would be added");
+
+    let state_after = ProjectState::load(&yaml_path)?;
+    assert_eq!(
+        state_before.photos.len(),
+        state_after.photos.len(),
+        "Dry run must not modify the persisted state"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_xmp_filter_with_no_match_excludes_all() -> Result<()> {
+    let temp_dir = TempDir::new()?;
+    let project_root = create_test_project(&temp_dir)?;
+
+    // Pattern that matches nothing in XMP metadata of plain test fixtures
+    let add_config = AddConfig {
+        paths: vec![test_photos_path()],
+        allow_duplicates: false,
+        xmp_filter: Some(Regex::new(r"THIS_WILL_NEVER_MATCH_ANY_XMP_abc123xyz").unwrap()),
+        dry_run: true,
+    };
+    let result = add(&project_root, &add_config)?;
+
+    assert!(
+        result.groups_added.is_empty(),
+        "All photos should be excluded when XMP filter matches nothing"
+    );
+
+    Ok(())
+}
+
+#[test]
 fn test_add_handles_missing_directory() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let project_root = create_test_project(&temp_dir)?;
@@ -236,6 +304,8 @@ fn test_add_handles_missing_directory() -> Result<()> {
     let add_config = AddConfig {
         paths: vec![nonexistent_path],
         allow_duplicates: false,
+        xmp_filter: None,
+        dry_run: false,
     };
 
     // Should return an error for missing directory
@@ -253,6 +323,8 @@ fn test_add_hashes_are_persisted() -> Result<()> {
     let add_config = AddConfig {
         paths: vec![test_photos_path()],
         allow_duplicates: false,
+        xmp_filter: None,
+        dry_run: false,
     };
     let result = add(&project_root, &add_config)?;
 
