@@ -12,22 +12,28 @@ pub use deduplication::deduplicate;
 pub use merge::merge_group;
 
 use anyhow::{Context, Result};
+use regex::Regex;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 use crate::input::scanner;
+use crate::input::xmp;
 use crate::state_manager::StateManager;
 
 /// Configuration for adding photos
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct AddConfig {
     /// Directories or individual files to add
     pub paths: Vec<PathBuf>,
     /// Allow adding files with identical content (hash collision)
     pub allow_duplicates: bool,
+    /// When set, only include photos whose XMP metadata matches this regex
+    pub xmp_filter: Option<Regex>,
+    /// Preview mode: scan and report what would be added without touching the project
+    pub dry_run: bool,
 }
 
-/// Summary of a single added group
+/// Summary of a single added (or would-be-added) group
 #[derive(Debug)]
 pub struct GroupSummary {
     /// Group name (relative path from add argument)
@@ -41,51 +47,52 @@ pub struct GroupSummary {
 /// Result of adding photos
 #[derive(Debug)]
 pub struct AddResult {
-    /// Groups that were added
+    /// Groups that were added (or would be added in dry-run mode)
     pub groups_added: Vec<GroupSummary>,
     /// Number of photos that were skipped (already exist)
     pub skipped: usize,
+    /// Number of photos that were excluded by the XMP filter
+    pub xmp_filtered: usize,
     /// Warnings about duplicates or other issues
     pub warnings: Vec<String>,
+    /// Whether this was a dry run (no changes written)
+    pub dry_run: bool,
 }
 
-/// Add photos to the project
+/// Add photos to the project (or preview what would be added with `dry_run`).
 ///
 /// # Steps
-/// 1. Open StateManager (commits any manual edits)
+/// 1. Open StateManager (commits any manual edits) — skipped in dry-run
 /// 2. Scan directories for photo files
-/// 3. Deduplicate (path and hash check)
-/// 4. Merge groups (extend existing or add new)
-/// 5. Sort groups by sort_key
-/// 6. Commit changes via StateManager
-///
-/// # Arguments
-/// * `project_root` - Root directory of the fotobuch project (containing .git)
-/// * `config` - Configuration (paths to add, duplicate policy)
-///
-/// # Returns
-/// Summary of added groups, skipped photos, and warnings
+/// 3. Apply XMP filter (if configured)
+/// 4. Deduplicate (path and hash check)
+/// 5. Merge groups (extend existing or add new) — skipped in dry-run
+/// 6. Sort groups by sort_key — skipped in dry-run
+/// 7. Commit changes via StateManager — skipped in dry-run
 pub fn add(project_root: &Path, config: &AddConfig) -> Result<AddResult> {
-    // Step 1: Open StateManager
     let mut mgr = StateManager::open(project_root)
         .context("Failed to open project via StateManager")?;
 
-    // Step 2: Collect existing paths and hashes
-    let mut existing_paths = HashSet::new();
-    let mut existing_hashes = HashSet::new();
+    let mut existing_paths: HashSet<PathBuf> = mgr
+        .state
+        .photos
+        .iter()
+        .flat_map(|g| g.files.iter())
+        .map(|f| PathBuf::from(&f.source))
+        .collect();
 
-    for group in &mgr.state.photos {
-        for file in &group.files {
-            existing_paths.insert(PathBuf::from(&file.source));
-            if !file.hash.is_empty() {
-                existing_hashes.insert(file.hash.clone());
-            }
-        }
-    }
+    let mut existing_hashes: HashSet<String> = mgr
+        .state
+        .photos
+        .iter()
+        .flat_map(|g| g.files.iter())
+        .filter(|f| !f.hash.is_empty())
+        .map(|f| f.hash.clone())
+        .collect();
 
-    // Step 3: Scan directories
     let mut all_warnings = Vec::new();
     let mut total_skipped = 0;
+    let mut total_xmp_filtered = 0;
     let mut groups_added = Vec::new();
 
     for path in &config.paths {
@@ -93,7 +100,15 @@ pub fn add(project_root: &Path, config: &AddConfig) -> Result<AddResult> {
             .with_context(|| format!("Failed to scan {}", path.display()))?;
 
         for mut scanned_group in scanned_groups {
-            // Step 4: Deduplicate
+            // Apply XMP filter before dedup (cheap to skip files early)
+            if let Some(pattern) = &config.xmp_filter {
+                let before = scanned_group.files.len();
+                scanned_group
+                    .files
+                    .retain(|f| xmp::xmp_matches(Path::new(&f.source), pattern));
+                total_xmp_filtered += before - scanned_group.files.len();
+            }
+
             let (kept_files, skipped, warnings) = deduplicate(
                 &mut scanned_group.files,
                 &existing_paths,
@@ -104,12 +119,11 @@ pub fn add(project_root: &Path, config: &AddConfig) -> Result<AddResult> {
             total_skipped += skipped;
             all_warnings.extend(warnings);
 
-            // Skip empty groups (all photos were duplicates)
             if kept_files.is_empty() {
                 continue;
             }
 
-            // Update existing paths/hashes with newly kept files
+            // Track newly seen paths/hashes to catch cross-group duplicates
             for file in &kept_files {
                 existing_paths.insert(PathBuf::from(&file.source));
                 if !file.hash.is_empty() {
@@ -117,15 +131,14 @@ pub fn add(project_root: &Path, config: &AddConfig) -> Result<AddResult> {
                 }
             }
 
-            // Store summary before merge
             let group_name = scanned_group.group.clone();
             let photo_count = kept_files.len();
             let timestamp = scanned_group.sort_key.clone();
 
-            scanned_group.files = kept_files;
-
-            // Step 5: Merge group
-            merge_group(&mut mgr.state.photos, scanned_group);
+            if !config.dry_run {
+                scanned_group.files = kept_files;
+                merge_group(&mut mgr.state.photos, scanned_group);
+            }
 
             groups_added.push(GroupSummary {
                 name: group_name,
@@ -135,21 +148,22 @@ pub fn add(project_root: &Path, config: &AddConfig) -> Result<AddResult> {
         }
     }
 
-    // Step 6: Sort groups by sort_key
-    mgr.state.photos.sort_by(|a, b| a.sort_key.cmp(&b.sort_key));
+    if !config.dry_run {
+        mgr.state.photos.sort_by(|a, b| a.sort_key.cmp(&b.sort_key));
 
-    // Step 7: Commit via StateManager
-    let total_photos: usize = groups_added.iter().map(|g| g.photo_count).sum();
-    let commit_msg = format!(
-        "add: {} photos in {} groups",
-        total_photos,
-        groups_added.len()
-    );
-    mgr.finish(&commit_msg)?;
+        let total_photos: usize = groups_added.iter().map(|g| g.photo_count).sum();
+        mgr.finish(&format!(
+            "add: {} photos in {} groups",
+            total_photos,
+            groups_added.len()
+        ))?;
+    }
 
     Ok(AddResult {
         groups_added,
         skipped: total_skipped,
+        xmp_filtered: total_xmp_filtered,
         warnings: all_warnings,
+        dry_run: config.dry_run,
     })
 }
