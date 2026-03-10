@@ -1,8 +1,7 @@
 //! Command-line interface for the photobook solver.
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use clap::{Parser, Subcommand};
-use photobook_solver::commands::{self};
 use std::path::PathBuf;
 
 // Handler modules for each command
@@ -41,6 +40,14 @@ pub enum Commands {
         /// Allow adding duplicate photos (by hash)
         #[arg(long)]
         allow_duplicates: bool,
+
+        /// Only include photos whose XMP metadata matches this regex
+        #[arg(long, value_name = "REGEX")]
+        filter_xmp: Option<String>,
+
+        /// Preview what would be added without writing anything
+        #[arg(long, short = 'd')]
+        dry: bool,
     },
 
     /// Calculate layout and generate preview or final PDF
@@ -159,7 +166,9 @@ pub enum ProjectCommands {
 impl Execute for Commands {
     fn execute(&self) -> Result<()> {
         match self {
-            Commands::Add { paths, allow_duplicates } => add::handle(paths.clone(), *allow_duplicates),
+            Commands::Add { paths, allow_duplicates, filter_xmp, dry } => {
+                add::handle(paths.clone(), *allow_duplicates, filter_xmp.clone(), *dry)
+            }
             Commands::Build { release, pages } => build::handle(*release, pages.clone()),
             Commands::Rebuild { page, range_start, range_end, flex, all } => {
                 rebuild::handle(*page, *range_start, *range_end, *flex, *all)
