@@ -27,6 +27,7 @@ pub struct Photo {
 
 impl Photo {
     /// Creates a new photo with the given parameters.
+    #[allow(dead_code)]
     pub fn new(id: String, aspect_ratio: f64, area_weight: f64, group: String) -> Self {
         assert!(aspect_ratio > 0.0, "Aspect ratio must be positive");
         assert!(area_weight > 0.0, "Area weight must be positive");
@@ -42,11 +43,13 @@ impl Photo {
     }
 
     /// Returns whether the photo is in landscape orientation (width >= height).
+    #[allow(dead_code)]
     pub fn is_landscape(&self) -> bool {
         self.aspect_ratio >= 1.0
     }
 
     /// Returns whether the photo is in portrait orientation (height > width).
+    #[allow(dead_code)]
     pub fn is_portrait(&self) -> bool {
         self.aspect_ratio < 1.0
     }
@@ -133,7 +136,12 @@ mod tests {
     #[test]
     #[should_panic(expected = "Aspect ratio must be positive")]
     fn test_new_photo_negative_aspect_ratio() {
-        Photo::new("id".to_string(), -1.0, DEFAULT_AREA_WEIGHT, "test".to_string());
+        Photo::new(
+            "id".to_string(),
+            -1.0,
+            DEFAULT_AREA_WEIGHT,
+            "test".to_string(),
+        );
     }
 
     #[test]
@@ -165,7 +173,7 @@ mod tests {
         use super::*;
         use chrono::Utc;
 
-        fn create_photo_file(id: &str, width: u32, height: u32, group_override: Option<String>) -> PhotoFile {
+        fn create_photo_file(id: &str, width: u32, height: u32) -> PhotoFile {
             PhotoFile {
                 id: id.to_string(),
                 source: format!("test/{}.jpg", id),
@@ -179,7 +187,7 @@ mod tests {
 
         #[test]
         fn test_from_photo_file() {
-            let file = create_photo_file("photo1", 1500, 1000, None);
+            let file = create_photo_file("photo1", 1500, 1000);
             let photo = Photo::from_photo_file(&file, "vacation");
 
             assert_eq!(photo.id, "photo1");
@@ -192,7 +200,7 @@ mod tests {
 
         #[test]
         fn test_from_photo_file_portrait() {
-            let file = create_photo_file("photo2", 1000, 1500, None);
+            let file = create_photo_file("photo2", 1000, 1500);
             let photo = Photo::from_photo_file(&file, "portraits");
 
             assert_eq!(photo.id, "photo2");
@@ -214,8 +222,8 @@ mod tests {
                 group: "vacation".to_string(),
                 sort_key: "2024-01-01".to_string(),
                 files: vec![
-                    create_photo_file("p1", 1500, 1000, None),
-                    create_photo_file("p2", 1000, 1500, None),
+                    create_photo_file("p1", 1500, 1000),
+                    create_photo_file("p2", 1000, 1500),
                 ],
             };
 
@@ -235,16 +243,14 @@ mod tests {
                     group: "group1".to_string(),
                     sort_key: "2024-01-01".to_string(),
                     files: vec![
-                        create_photo_file("g1p1", 1500, 1000, None),
-                        create_photo_file("g1p2", 1500, 1000, None),
+                        create_photo_file("g1p1", 1500, 1000),
+                        create_photo_file("g1p2", 1500, 1000),
                     ],
                 },
                 PhotoGroup {
                     group: "group2".to_string(),
                     sort_key: "2024-01-02".to_string(),
-                    files: vec![
-                        create_photo_file("g2p1", 1000, 1500, None),
-                    ],
+                    files: vec![create_photo_file("g2p1", 1000, 1500)],
                 },
             ];
 
@@ -265,16 +271,12 @@ mod tests {
                 PhotoGroup {
                     group: "first".to_string(),
                     sort_key: "2024-01-01".to_string(),
-                    files: vec![
-                        create_photo_file("p1", 1500, 1000, None),
-                    ],
+                    files: vec![create_photo_file("p1", 1500, 1000)],
                 },
                 PhotoGroup {
                     group: "second".to_string(),
                     sort_key: "2024-01-02".to_string(),
-                    files: vec![
-                        create_photo_file("p2", 1000, 1500, None),
-                    ],
+                    files: vec![create_photo_file("p2", 1000, 1500)],
                 },
             ];
 

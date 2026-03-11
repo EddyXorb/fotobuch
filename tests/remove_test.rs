@@ -71,14 +71,20 @@ fn test_remove_single_photo_by_pattern() -> Result<()> {
     let state_before = ProjectState::load(&yaml_path)?;
 
     // Get first photo to match
-    let first_photo_id = state_before.photos.iter()
+    let first_photo_id = state_before
+        .photos
+        .iter()
         .flat_map(|g| g.files.iter())
         .next()
         .map(|f| f.id.clone())
         .expect("Should have at least one photo");
 
     // Use source path pattern to match it
-    let pattern = first_photo_id.split('/').next().unwrap_or("test_photos").to_string();
+    let pattern = first_photo_id
+        .split('/')
+        .next()
+        .unwrap_or("test_photos")
+        .to_string();
 
     let config = RemoveConfig {
         patterns: vec![pattern],
@@ -87,11 +93,17 @@ fn test_remove_single_photo_by_pattern() -> Result<()> {
     let result = remove(&project_root, &config)?;
 
     assert!(result.photos_removed > 0, "Should remove some photos");
-    assert!(result.placements_removed > 0, "Should remove some placements");
+    assert!(
+        result.placements_removed > 0,
+        "Should remove some placements"
+    );
 
     // Verify state was saved
     let state_after = ProjectState::load(&yaml_path)?;
-    assert!(state_after.photos.iter().all(|g| !g.files.is_empty()), "Should not have empty groups");
+    assert!(
+        state_after.photos.iter().all(|g| !g.files.is_empty()),
+        "Should not have empty groups"
+    );
 
     Ok(())
 }
@@ -105,7 +117,9 @@ fn test_remove_entire_group() -> Result<()> {
     let state_before = ProjectState::load(&yaml_path)?;
 
     // Get first group name
-    let group_name = state_before.photos.iter()
+    let group_name = state_before
+        .photos
+        .iter()
         .next()
         .map(|g| g.group.clone())
         .expect("Should have at least one group");
@@ -122,7 +136,10 @@ fn test_remove_entire_group() -> Result<()> {
 
     // Verify group is removed
     let state_after = ProjectState::load(&yaml_path)?;
-    assert!(!state_after.photos.iter().any(|g| g.group == group_name), "Group should be removed");
+    assert!(
+        !state_after.photos.iter().any(|g| g.group == group_name),
+        "Group should be removed"
+    );
 
     Ok(())
 }
@@ -135,7 +152,9 @@ fn test_remove_with_keep_files() -> Result<()> {
     let yaml_path = project_root.join("testremove.yaml");
     let state_before = ProjectState::load(&yaml_path)?;
 
-    let initial_photos = state_before.photos.iter()
+    let initial_photos = state_before
+        .photos
+        .iter()
         .flat_map(|g| g.files.iter())
         .count();
 
@@ -147,22 +166,38 @@ fn test_remove_with_keep_files() -> Result<()> {
     };
     let result = remove(&project_root, &config)?;
 
-    assert_eq!(result.photos_removed, 0, "No photos should be removed from photos section");
-    assert!(result.placements_removed > 0, "Placements should be removed from layout");
+    assert_eq!(
+        result.photos_removed, 0,
+        "No photos should be removed from photos section"
+    );
+    assert!(
+        result.placements_removed > 0,
+        "Placements should be removed from layout"
+    );
 
     // Verify photos still exist but are unplaced
     let state_after = ProjectState::load(&yaml_path)?;
-    let remaining_photos = state_after.photos.iter()
+    let remaining_photos = state_after
+        .photos
+        .iter()
         .flat_map(|g| g.files.iter())
         .count();
 
-    assert_eq!(remaining_photos, initial_photos, "All photos should still be in photos section");
+    assert_eq!(
+        remaining_photos, initial_photos,
+        "All photos should still be in photos section"
+    );
 
     // Verify placements removed from layout
-    let photos_in_layout = state_after.layout.iter()
+    let photos_in_layout = state_after
+        .layout
+        .iter()
         .flat_map(|p| p.photos.iter())
         .count();
-    assert!(photos_in_layout < initial_photos, "Some photos should be removed from layout");
+    assert!(
+        photos_in_layout < initial_photos,
+        "Some photos should be removed from layout"
+    );
 
     Ok(())
 }
@@ -172,14 +207,8 @@ fn test_remove_multiple_patterns() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let project_root = create_test_project_with_layout(&temp_dir)?;
 
-    let yaml_path = project_root.join("testremove.yaml");
-    let state_before = ProjectState::load(&yaml_path)?;
-
     // Use multiple patterns that should match different photos
-    let patterns = vec![
-        "IMG_001".to_string(),
-        "IMG_002".to_string(),
-    ];
+    let patterns = vec!["IMG_001".to_string(), "IMG_002".to_string()];
 
     let config = RemoveConfig {
         patterns,
@@ -227,7 +256,9 @@ fn test_remove_empty_pages_are_deleted() -> Result<()> {
     assert!(initial_page_count > 0, "Should have at least one page");
 
     // Remove all photos from last page by targeting specific photo ID
-    let last_page_photos = _state_before.layout.last()
+    let last_page_photos = _state_before
+        .layout
+        .last()
         .map(|p| p.photos.clone())
         .unwrap_or_default();
 
@@ -269,7 +300,10 @@ fn test_remove_git_commit() -> Result<()> {
     let commit = head.peel_to_commit()?;
     let message = commit.message().unwrap_or("");
 
-    assert!(message.contains("remove:"), "Commit should contain 'remove:'");
+    assert!(
+        message.contains("remove:"),
+        "Commit should contain 'remove:'"
+    );
 
     Ok(())
 }

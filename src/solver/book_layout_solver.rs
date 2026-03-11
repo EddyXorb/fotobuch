@@ -135,7 +135,7 @@ impl PageLayoutEvaluator for RealPageEvaluator<'_> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{FitnessWeights, dto_models::BookLayoutSolverConfig};
+    use crate::{ dto_models::BookLayoutSolverConfig};
 
     use super::*;
 

@@ -33,6 +33,7 @@ impl Canvas {
     }
 
     /// Returns the aspect ratio of the canvas (width / height).
+    #[allow(dead_code)]
     pub fn aspect_ratio(&self) -> f64 {
         self.width / self.height
     }
@@ -210,4 +211,3 @@ mod tests {
         }
     }
 }
-

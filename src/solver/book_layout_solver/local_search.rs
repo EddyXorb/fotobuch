@@ -6,12 +6,10 @@
 mod improve;
 mod perturbation;
 
-use super::cache::LayoutCache;
 use super::model::{GroupInfo, PageAssignment};
 use crate::dto_models::BookLayoutSolverConfig;
-use crate::solver::page_layout_solver::{self, CostBreakdown};
+use crate::solver::page_layout_solver::CostBreakdown;
 use crate::solver::prelude::*;
-use std::ops::Range;
 
 /// Trait for evaluating single-page layouts for testing purposes.
 ///
@@ -22,38 +20,6 @@ pub trait PageLayoutEvaluator {
     ///
     /// Returns cost breakdown (total, size, coverage, barycenter, order).
     fn evaluate(&mut self, photos: &[Photo]) -> CostBreakdown;
-}
-
-/// Evaluates a page layout with caching using the real GA solver.
-///
-/// First checks the cache for an existing result. If not found,
-/// runs the GA solver and inserts the full GaResult into the cache
-/// (using monotonic improvement logic: only insert if better than existing).
-///
-/// # Arguments
-/// * `cache` - Layout cache for memoization
-/// * `photos` - Full photo array
-/// * `range` - Photo range for the page to evaluate
-/// * `canvas` - Canvas dimensions
-/// * `ga_config` - GA configuration
-///
-/// # Returns
-/// Cost breakdown for the page
-pub fn evaluate_cached(
-    cache: &mut LayoutCache,
-    photos: &[Photo],
-    range: Range<usize>,
-    canvas: &Canvas,
-    ga_config: &GaConfig,
-) -> CostBreakdown {
-    if let Some(cached) = cache.get(range.clone()) {
-        return cached.cost_breakdown.clone();
-    }
-
-    let result = page_layout_solver::run_ga(&photos[range.clone()], canvas, ga_config);
-    let breakdown = result.cost_breakdown.clone();
-    cache.insert_if_better(range, result);
-    breakdown
 }
 
 /// Improves an initial page assignment using local search.
@@ -91,6 +57,7 @@ mod tests {
 
     /// Mock evaluator for testing that returns deterministic costs
     /// based on photo count deviation from an ideal value.
+    #[allow(dead_code)]
     struct MockEvaluator {
         ideal_count: usize,
     }
@@ -111,15 +78,6 @@ mod tests {
                 order: 0.01,
             }
         }
-    }
-
-    fn create_test_photos(count: usize) -> Vec<Photo> {
-        (0..count)
-            .map(|i| {
-                let group = format!("group_{}", i);
-                Photo::new(format!("photo_{}", i), 16.0 / 9.0, 1.0, group)
-            })
-            .collect()
     }
 
     // Note: evaluate_cached() now takes Canvas + GaConfig and runs real GA,

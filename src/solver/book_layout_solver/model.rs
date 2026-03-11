@@ -155,11 +155,13 @@ impl PageAssignment {
     }
 
     /// Creates an empty assignment (zero pages, zero photos).
+    #[allow(dead_code)]
     pub fn empty() -> Self {
         Self { cuts: vec![0] }
     }
 
     /// Creates an assignment with a single page containing all photos.
+    #[allow(dead_code)]
     pub fn single_page(total_photos: usize) -> Self {
         Self {
             cuts: vec![0, total_photos],
@@ -167,6 +169,7 @@ impl PageAssignment {
     }
 
     /// Returns the number of pages.
+    #[allow(dead_code)]
     pub fn num_pages(&self) -> usize {
         self.cuts.len() - 1
     }
@@ -197,12 +200,14 @@ impl PageAssignment {
     /// # Panics
     ///
     /// Panics if `cut_index` is 0 or >= cuts.len() - 1 (boundary cuts have no adjacent pages on both sides).
+    #[allow(dead_code)]
     pub fn affected_pages(&self, cut_index: usize) -> (usize, usize) {
         assert!(cut_index > 0 && cut_index < self.cuts.len() - 1);
         (cut_index - 1, cut_index)
     }
 
     /// Returns the total number of photos.
+    #[allow(dead_code)]
     pub fn total_photos(&self) -> usize {
         *self.cuts.last().unwrap()
     }

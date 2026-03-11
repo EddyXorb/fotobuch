@@ -1,6 +1,6 @@
 //! `fotobuch project switch` command - Switch to another project
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use std::path::Path;
 
 /// Switch to another photobook project
@@ -25,11 +25,14 @@ pub fn project_switch(project_root: &Path, name: &str) -> Result<()> {
     let branch_name = format!("fotobuch/{}", name);
 
     // Check if branch exists
-    let _branch = repo.find_branch(&branch_name, git2::BranchType::Local)
-        .map_err(|_| anyhow::anyhow!(
-            "Project '{}' not found. Use 'fotobuch project list' to see available projects.",
-            name
-        ))?;
+    let _branch = repo
+        .find_branch(&branch_name, git2::BranchType::Local)
+        .map_err(|_| {
+            anyhow::anyhow!(
+                "Project '{}' not found. Use 'fotobuch project list' to see available projects.",
+                name
+            )
+        })?;
 
     // Check for uncommitted changes (dirty working tree)
     let statuses = repo.statuses(None)?;
@@ -75,7 +78,6 @@ pub fn project_switch(project_root: &Path, name: &str) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn test_project_switch_validates_name() {
