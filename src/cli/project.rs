@@ -3,6 +3,7 @@
 use anyhow::Context;
 use anyhow::Result;
 use photobook_solver::commands;
+use tracing::info;
 use std::path::PathBuf;
 
 pub enum ProjectSubcommand {
@@ -43,11 +44,11 @@ pub fn handle(command: ProjectSubcommand) -> Result<()> {
 
             let result = commands::project_new(parent, &config)?;
 
-            println!("✅ Project '{}' created successfully!", name);
-            println!("📁 Location: {}", result.project_root.display());
-            println!("🌿 Branch: {}", result.branch);
-            println!("📄 YAML: {}", result.yaml_path.display());
-            println!("📝 Template: {}", result.typ_path.display());
+            info!("✅ Project '{}' created successfully!", name);
+            info!("📁 Location: {}", result.project_root.display());
+            info!("🌿 Branch: {}", result.branch);
+            info!("📄 YAML: {}", result.yaml_path.display());
+            info!("📝 Template: {}", result.typ_path.display());
 
             Ok(())
         }
@@ -58,12 +59,12 @@ pub fn handle(command: ProjectSubcommand) -> Result<()> {
             let projects = commands::project::project_list(&project_root)?;
 
             if projects.is_empty() {
-                println!("ℹ️  No projects found.");
+                info!("ℹ️  No projects found.");
             } else {
                 for project in projects {
                     let marker = if project.is_current { "* " } else { "  " };
                     let current_label = if project.is_current { " (current)" } else { "" };
-                    println!("{}{:<15} {}{}", marker, project.name, project.branch, current_label);
+                    info!("{}{:<15} {}{}", marker, project.name, project.branch, current_label);
                 }
             }
 
@@ -74,7 +75,7 @@ pub fn handle(command: ProjectSubcommand) -> Result<()> {
                 .context("Failed to determine current directory")?;
 
             commands::project::project_switch(&project_root, &name)?;
-            println!("✅ Switched to project '{}'", name);
+            info!("✅ Switched to project '{}'", name);
 
             Ok(())
         }
