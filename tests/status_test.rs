@@ -33,6 +33,8 @@ fn create_test_project_with_layout(temp_dir: &TempDir) -> Result<PathBuf> {
     let add_config = AddConfig {
         paths: vec![photos_path],
         allow_duplicates: false,
+        xmp_filter: None,
+        dry_run: false,
     };
     add(&project_root, &add_config)?;
 
