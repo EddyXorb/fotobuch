@@ -7,6 +7,7 @@ use photobook_solver::dto_models::ProjectState;
 use regex::Regex;
 use std::fs;
 use std::path::PathBuf;
+use std::process::Command;
 use tempfile::TempDir;
 
 /// Helper to create a test project
@@ -294,6 +295,89 @@ fn test_xmp_filter_with_no_match_excludes_all() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn test_xmp_filter_matches_modified_description() -> Result<()> {
+    let temp_dir = TempDir::new()?;
+    let project_root = create_test_project(&temp_dir)?;
+
+    // Copy test_photos_unique into temp directory
+    let temp_photos = temp_dir.path().join("test_photos");
+    fs::create_dir_all(&temp_photos)?;
+    
+    let source_photos = test_photos_path();
+    copy_dir_recursive(&source_photos, &temp_photos)?;
+
+    // Manipulate one photo (photo2.jpg from group2) using exiftool to set XMP description
+    let photo_to_modify = temp_photos.join("group2/photo2.jpg");
+    
+    // Use exiftool to set XMP description field
+    let output = Command::new("exiftool")
+        .arg("-XMP:Description=HIER_STEHT_WAS")
+        .arg("-overwrite_original")
+        .arg(&photo_to_modify)
+        .output()
+        .expect("Failed to execute exiftool");
+    
+    assert!(output.status.success(), 
+        "exiftool failed: {}", 
+        String::from_utf8_lossy(&output.stderr));
+
+    // Add photos with XMP filter that matches ".*STEHT.*"
+    let add_config = AddConfig {
+        paths: vec![temp_photos],
+        allow_duplicates: false,
+        xmp_filter: Some(Regex::new(r".*STEHT.*")?),
+        dry_run: false,
+    };
+    let result = add(&project_root, &add_config)?;
+
+    // Verify that exactly 2 photos were filtered out (xmp_filtered = 2)
+    assert_eq!(result.xmp_filtered, 2, "Should have filtered out 2 photos without matching XMP");
+    
+    // Verify that exactly 1 group was added with 1 photo
+    assert_eq!(result.groups_added.len(), 1, "Should have added exactly 1 group");
+    assert_eq!(result.groups_added[0].photo_count, 1, "Group should contain exactly 1 photo");
+    
+    // Load YAML and verify only the modified photo was added
+    let yaml_path = project_root.join("testproject.yaml");
+    let state = ProjectState::load(&yaml_path)?;
+    
+    assert_eq!(state.photos.len(), 1, "Should have exactly 1 photo group in YAML");
+    assert_eq!(state.photos[0].files.len(), 1, "Group should have exactly 1 photo file");
+    
+    // Verify the added photo is the one we modified (photo2.jpg)
+    let added_photo = &state.photos[0].files[0];
+    assert!(
+        added_photo.source.contains("photo2.jpg"),
+        "Added photo should be photo2.jpg, got: {}",
+        added_photo.source
+    );
+
+    Ok(())
+}
+
+/// Helper function to recursively copy directories
+fn copy_dir_recursive(src: &PathBuf, dst: &PathBuf) -> Result<()> {
+    fs::create_dir_all(dst)?;
+    
+    for entry in fs::read_dir(src)? {
+        let entry = entry?;
+        let path = entry.path();
+        let file_name = entry.file_name();
+        let dest_path = dst.join(&file_name);
+        
+        if path.is_dir() {
+            copy_dir_recursive(&path, &dest_path)?;
+        } else {
+            fs::copy(&path, &dest_path)?;
+        }
+    }
+    
+    Ok(())
+}
+
+
 
 #[test]
 fn test_add_handles_missing_directory() -> Result<()> {
