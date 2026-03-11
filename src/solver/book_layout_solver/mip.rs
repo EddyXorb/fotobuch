@@ -11,6 +11,7 @@ use super::model::{GroupInfo, PageAssignment};
 use crate::dto_models::BookLayoutSolverConfig as Params;
 use good_lp::ProblemVariables;
 use thiserror::Error;
+use tracing::info;
 use variables::MipVariables;
 
 /// Error type for MIP solver.
@@ -68,6 +69,12 @@ pub fn solve_mip(groups: &GroupInfo, params: &Params) -> Result<PageAssignment, 
     // Build and solve
     let mut model = problem.minimise(objective).using(default_solver);
 
+    info!(
+        "Solving MIP with {} variables and {} constraints...",
+        vars.len(),
+        all_constraints.len()
+    );
+
     for constraint in all_constraints {
         model = model.with(constraint);
     }
@@ -93,23 +100,20 @@ fn extract_assignment(
     let total_photos = groups.total_photos();
 
     // Determine active pages by checking a_j
-    let mut active_pages = Vec::new();
-    for j in 1..=b_max {
-        let a_j = solution.value(vars.a.get([j]));
-        if a_j > 0.5 {
-            // Binary variable, use 0.5 threshold
-            active_pages.push(j);
-        }
-    }
 
-    if active_pages.is_empty() {
+    let nr_pages = (1..=b_max)
+        .rev()
+        .find(|p| solution.value(vars.a.get([*p])) > 0.5)
+        .unwrap_or(0);
+
+    if nr_pages == 0 {
         return Err(MipError::Infeasible);
     }
 
     // Compute page sizes from g_lj variables
     let mut cuts = vec![0]; // Always start at 0
 
-    for &j in &active_pages {
+    for j in 1..=nr_pages {
         // Page j contains sum_l n_lj photos
         // n_lj = g_lj - g_l(j-1)
         let mut page_size = 0;

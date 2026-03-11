@@ -20,23 +20,23 @@ impl<const N: usize> VarMap<N> {
     pub fn insert(&mut self, index: [usize; N], var: Variable) {
         self.vars.insert(index, var);
     }
-
+    #[allow(dead_code)]
     pub fn get(&self, index: [usize; N]) -> Variable {
         self.vars[&index]
     }
-
+    #[allow(dead_code)]
     pub fn contains(&self, index: [usize; N]) -> bool {
         self.vars.contains_key(&index)
     }
-
+    #[allow(dead_code)]
     pub fn iter(&self) -> impl Iterator<Item = (&[usize; N], &Variable)> {
         self.vars.iter()
     }
-
+    #[allow(dead_code)]
     pub fn len(&self) -> usize {
         self.vars.len()
     }
-
+    #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
         self.vars.is_empty()
     }
@@ -51,7 +51,7 @@ impl<const N: usize> Default for VarMap<N> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use good_lp::{variable, ProblemVariables};
+    use good_lp::{ProblemVariables, variable};
 
     /// Helper function to create test variables.
     fn setup_test_variables() -> (ProblemVariables, Variable, Variable, Variable) {
