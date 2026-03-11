@@ -259,4 +259,226 @@ mod tests {
             );
         }
     }
+
+    // --- Objective weight isolation tests ---
+
+    /// D_even dominant: 9 photos in 3 equal groups, target 3 pages.
+    /// With w1 very high and w2=w3=0, the solver minimises deviation from n̄=3.
+    /// The unique optimum is three pages of exactly 3 photos each (D_even=0).
+    #[test]
+    fn test_weight_even_only_produces_equal_pages() {
+        let groups = GroupInfo::new(&[3, 3, 3]);
+        let params = Params {
+            page_target: 3,
+            page_min: 2,
+            page_max: 5,
+            photos_per_page_min: 1,
+            photos_per_page_max: 9,
+            group_max_per_page: 3,
+            group_min_photos: 1,
+            weight_even: 1000.0,
+            weight_split: 0.0,
+            weight_pages: 0.0,
+            search_timeout: Duration::from_secs(10),
+            max_coverage_cost: 0.1,
+        };
+
+        let result = solve_mip(&groups, &params);
+        assert!(result.is_ok(), "MIP should be feasible: {:?}", result);
+
+        let assignment = result.unwrap();
+        assert_eq!(assignment.total_photos(), 9);
+        assert_eq!(
+            assignment.num_pages(),
+            3,
+            "High D_even should select 3 pages (D_even=0) over 2 pages (D_even=3)"
+        );
+        for i in 0..3 {
+            assert_eq!(
+                assignment.page_size(i),
+                3,
+                "Page {i} should have exactly 3 photos for perfect evenness"
+            );
+        }
+    }
+
+    /// D_even dominant: single group of 9, target 3 pages.
+    /// Optimal split is 3×3 (D_even=0). Splitting adds D_split cost, but since
+    /// w2=0 the solver ignores it and still picks 3×3 for evenness.
+    #[test]
+    fn test_weight_even_only_splits_single_group_evenly() {
+        let groups = GroupInfo::new(&[9]);
+        let params = Params {
+            page_target: 3,
+            page_min: 2,
+            page_max: 5,
+            photos_per_page_min: 2,
+            photos_per_page_max: 5,
+            group_max_per_page: 1,
+            group_min_photos: 1,
+            weight_even: 1000.0,
+            weight_split: 0.0,
+            weight_pages: 0.0,
+            search_timeout: Duration::from_secs(10),
+            max_coverage_cost: 0.1,
+        };
+
+        let result = solve_mip(&groups, &params);
+        assert!(result.is_ok(), "MIP should be feasible: {:?}", result);
+
+        let assignment = result.unwrap();
+        assert_eq!(assignment.total_photos(), 9);
+        // All active pages must have exactly 3 photos (n̄=3, D_even=0 is achievable)
+        for i in 0..assignment.num_pages() {
+            assert_eq!(
+                assignment.page_size(i),
+                3,
+                "Page {i} should have 3 photos for minimum D_even"
+            );
+        }
+    }
+
+    /// D_split dominant: two groups [5, 4], target 2 pages.
+    /// With w2 very high, splitting groups is expensive; optimal assigns
+    /// each group to its own page (D_split=0), giving pages of sizes 5 and 4.
+    #[test]
+    fn test_weight_split_only_keeps_groups_together() {
+        let groups = GroupInfo::new(&[5, 4]);
+        let params = Params {
+            page_target: 2,
+            page_min: 1,
+            page_max: 4,
+            photos_per_page_min: 1,
+            photos_per_page_max: 9,
+            group_max_per_page: 2,
+            group_min_photos: 2,
+            weight_even: 0.0,
+            weight_split: 1000.0,
+            weight_pages: 0.0,
+            search_timeout: Duration::from_secs(10),
+            max_coverage_cost: 0.1,
+        };
+
+        let result = solve_mip(&groups, &params);
+        assert!(result.is_ok(), "MIP should be feasible: {:?}", result);
+
+        let assignment = result.unwrap();
+        assert_eq!(assignment.total_photos(), 9);
+        // Each group whole on one page → exactly two pages with sizes 5 and 4
+        assert_eq!(
+            assignment.num_pages(),
+            2,
+            "High D_split should keep each group on its own page"
+        );
+        let sizes: Vec<usize> = (0..assignment.num_pages())
+            .map(|i| assignment.page_size(i))
+            .collect();
+        assert!(
+            sizes.contains(&5) && sizes.contains(&4),
+            "Expected pages of size 5 and 4, got {sizes:?}"
+        );
+    }
+
+    /// D_pages dominant: 9 photos, target 2 pages.
+    /// With w3 very high the solver minimises |num_pages - 2|, so exactly 2 pages
+    /// are expected regardless of their sizes.
+    #[test]
+    fn test_weight_pages_only_hits_target_page_count() {
+        let groups = GroupInfo::new(&[9]);
+        let params = Params {
+            page_target: 2,
+            page_min: 1,
+            page_max: 5,
+            photos_per_page_min: 1,
+            photos_per_page_max: 9,
+            group_max_per_page: 1,
+            group_min_photos: 1,
+            weight_even: 0.0,
+            weight_split: 0.0,
+            weight_pages: 1000.0,
+            search_timeout: Duration::from_secs(10),
+            max_coverage_cost: 0.1,
+        };
+
+        let result = solve_mip(&groups, &params);
+        assert!(result.is_ok(), "MIP should be feasible: {:?}", result);
+
+        let assignment = result.unwrap();
+        assert_eq!(assignment.total_photos(), 9);
+        assert_eq!(
+            assignment.num_pages(),
+            2,
+            "High D_pages should land exactly on target of 2 pages"
+        );
+    }
+
+    /// Contrasting D_even vs D_split: groups [6, 2], 2 pages, n̄=4.
+    ///
+    /// * With w1=1000, w2=0: split group 1 as [4|2+2] → pages [4, 4], D_even=0.
+    /// * With w2=1000, w1=0: keep groups intact as [6|2]  → D_split=0.
+    #[test]
+    fn test_weight_even_vs_split_tradeoff() {
+        let base = Params {
+            page_target: 2,
+            page_min: 2,
+            page_max: 3,
+            photos_per_page_min: 1,
+            photos_per_page_max: 8,
+            group_max_per_page: 2,
+            group_min_photos: 1,
+            weight_even: 0.0,
+            weight_split: 0.0,
+            weight_pages: 0.0,
+            search_timeout: Duration::from_secs(10),
+            max_coverage_cost: 0.1,
+        };
+
+        // --- high D_even: prefer equal pages ---
+        let even_result = solve_mip(
+            &GroupInfo::new(&[6, 2]),
+            &Params {
+                weight_even: 1000.0,
+                weight_split: 0.0,
+                weight_pages: 1.0, // small nudge to use 2 pages
+                ..base.clone()
+            },
+        );
+        assert!(even_result.is_ok(), "even-dominant MIP failed: {:?}", even_result);
+        let even_assignment = even_result.unwrap();
+        assert_eq!(even_assignment.total_photos(), 8);
+        // All pages must be equal (size 4) to achieve D_even=0
+        for i in 0..even_assignment.num_pages() {
+            assert_eq!(
+                even_assignment.page_size(i),
+                4,
+                "D_even-dominant: page {i} should have 4 photos (equal pages)"
+            );
+        }
+
+        // --- high D_split: keep groups together, accept uneven pages ---
+        let split_result = solve_mip(
+            &GroupInfo::new(&[6, 2]),
+            &Params {
+                weight_even: 0.0,
+                weight_split: 1000.0,
+                weight_pages: 1.0, // small nudge to use 2 pages
+                ..base
+            },
+        );
+        assert!(split_result.is_ok(), "split-dominant MIP failed: {:?}", split_result);
+        let split_assignment = split_result.unwrap();
+        assert_eq!(split_assignment.total_photos(), 8);
+        assert_eq!(
+            split_assignment.num_pages(),
+            2,
+            "D_split-dominant: should use 2 pages"
+        );
+        let sizes: Vec<usize> = (0..split_assignment.num_pages())
+            .map(|i| split_assignment.page_size(i))
+            .collect();
+        assert!(
+            sizes.contains(&6) && sizes.contains(&2),
+            "D_split-dominant: expected pages [6, 2] to avoid splitting, got {sizes:?}"
+        );
+    }
 }
