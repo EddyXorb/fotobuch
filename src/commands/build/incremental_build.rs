@@ -5,6 +5,7 @@ use crate::output::typst;
 use crate::state_manager::StateManager;
 use crate::cache::preview;
 use anyhow::Result;
+use tracing::{info, warn};
 use std::path::Path;
 use std::sync::atomic::AtomicUsize;
 
@@ -14,7 +15,7 @@ pub fn incremental_build(
     project_root: &Path,
     page_filter: Option<&[usize]>,
 ) -> Result<BuildResult> {
-    println!("Incremental build: checking for changes...");
+    info!("Incremental build: checking for changes...");
 
     // 1. Generate/update preview cache
     let progress = AtomicUsize::new(0);
@@ -22,7 +23,7 @@ pub fn incremental_build(
     let cache_result = preview::ensure_previews(&mgr.state, &preview_cache_dir, &progress)?;
 
     if cache_result.created > 0 {
-        println!(
+        info!(
             "Preview cache: {} created, {} skipped",
             cache_result.created, cache_result.skipped
         );
@@ -35,7 +36,7 @@ pub fn incremental_build(
     let pages_needing_rebuild = apply_page_filter(pages_needing_rebuild, page_filter);
 
     if pages_needing_rebuild.is_empty() {
-        println!("No changes detected. Nothing to do.");
+        info!("No changes detected. Nothing to do.");
         return Ok(BuildResult {
             pdf_path: project_root.join(format!("{}.pdf", mgr.project_name())),
             pages_rebuilt: vec![],
@@ -47,7 +48,7 @@ pub fn incremental_build(
         });
     }
 
-    println!(
+    info!(
         "Rebuilding {} page(s): {:?}",
         pages_needing_rebuild.len(),
         pages_needing_rebuild
@@ -63,7 +64,7 @@ pub fn incremental_build(
 
     // 6. Compile Typst template to PDF
     let pdf_path = typst::compile_preview(project_root, mgr.project_name())?;
-    println!("PDF updated: {}", pdf_path.display());
+    warn!("PDF updated: {}", pdf_path.display());
 
     // 7. Save state and commit
     let total_cost = 0.0; //TODO: calculate actual cost from modified pages when available

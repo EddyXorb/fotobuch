@@ -1,15 +1,16 @@
-use super::multipage_build::{multipage_build, MultiPageParams};
 use super::BuildResult;
+use super::multipage_build::{MultiPageParams, multipage_build};
 use crate::state_manager::StateManager;
 use anyhow::Result;
 use std::path::Path;
+use tracing::info;
 
 /// Performs the first build: generates layout for all photos and creates preview PDF.
 pub fn first_build(mgr: StateManager, project_root: &Path) -> Result<BuildResult> {
-    println!("First build: creating layout for all photos...");
+    info!("First build: creating layout for all photos...");
 
     let groups = mgr.state.photos.clone();
-    
+
     let result = multipage_build(
         mgr,
         project_root,
@@ -24,7 +25,10 @@ pub fn first_build(mgr: StateManager, project_root: &Path) -> Result<BuildResult
         },
     )?;
 
-    println!("First build complete: {} pages generated", result.pages_rebuilt.len());
-    
+    info!(
+        "First build complete: {} pages generated",
+        result.pages_rebuilt.len()
+    );
+
     Ok(result)
 }

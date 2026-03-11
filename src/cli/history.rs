@@ -3,6 +3,7 @@
 use anyhow::Context;
 use anyhow::Result;
 use photobook_solver::commands;
+use tracing::info;
 
 pub fn handle() -> Result<()> {
     let project_root = std::env::current_dir()
@@ -11,7 +12,7 @@ pub fn handle() -> Result<()> {
     let entries = commands::history(&project_root)?;
 
     if entries.is_empty() {
-        println!("ℹ️  No history available (not a git repository or no commits yet).");
+        info!("ℹ️  No history available (not a git repository or no commits yet).");
     } else {
         for entry in entries {
             // Format timestamp: "2024-03-07 14:22 +0100" -> "2024-03-07 14:22"
@@ -21,7 +22,7 @@ pub fn handle() -> Result<()> {
             } else {
                 entry.timestamp.clone()
             };
-            println!("{}  {}", formatted_ts, entry.message);
+            info!("{}  {}", formatted_ts, entry.message);
         }
     }
 

@@ -188,6 +188,8 @@ fn find_candidate_cuts(
 
 #[cfg(test)]
 mod tests {
+    use tracing::info;
+
     use super::*;
     use crate::solver::page_layout_solver::CostBreakdown;
     use std::time::Duration;
@@ -265,10 +267,10 @@ mod tests {
         // Let's just check that the algorithm ran without errors
 
         // If it improves, great. If not, that's also OK since coverage is below threshold
-        println!("Initial assignment: {:?}", initial.cuts());
-        println!("Improved assignment: {:?}", improved.cuts());
-        println!("Worst coverage: {}", worst_coverage);
-        println!("Iterations: {}", iterations);
+        info!("Initial assignment: {:?}", initial.cuts());
+        info!("Improved assignment: {:?}", improved.cuts());
+        info!("Worst coverage: {}", worst_coverage);
+        info!("Iterations: {}", iterations);
     }
 
     #[test]

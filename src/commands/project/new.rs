@@ -170,7 +170,7 @@ fn create_first_project(parent_dir: &Path, config: &NewConfig) -> Result<NewResu
 
     // 9. Print welcome message
     if !config.quiet {
-        println!("{}", WELCOME_MESSAGE);
+        println!("{}", WELCOME_MESSAGE); //intentionally avoid logging this
     }
 
     Ok(NewResult {

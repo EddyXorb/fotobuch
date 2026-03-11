@@ -5,6 +5,7 @@ use crate::{cache::final_cache, state_manager::StateManager};
 
 use crate::output::typst;
 use anyhow::Result;
+use tracing::{info, warn};
 /// Performs release build: generates final high-quality PDF at 300 DPI.
 ///
 /// # Requirements
@@ -17,7 +18,7 @@ use anyhow::Result;
 /// 3. Compile final.typ -> final.pdf
 /// 4. Save and commit
 pub fn release_build(mgr: StateManager, project_root: &Path) -> Result<super::BuildResult> {
-    println!("Release build: generating final PDF at 300 DPI...");
+    info!("Release build: generating final PDF at 300 DPI...");
 
     // 1. Check that layout is clean (no changes since last build)
     if mgr.has_changes_since_last_build() {
@@ -35,7 +36,7 @@ pub fn release_build(mgr: StateManager, project_root: &Path) -> Result<super::Bu
     let final_cache_dir = mgr.final_cache_dir();
     let final_result = final_cache::build_final_cache(&mgr.state, &final_cache_dir, &progress)?;
 
-    println!(
+    info!(
         "Final cache: {} images generated, {} DPI warnings",
         final_result.created,
         final_result.dpi_warnings.len()
@@ -43,9 +44,9 @@ pub fn release_build(mgr: StateManager, project_root: &Path) -> Result<super::Bu
 
     // Print DPI warnings
     if !final_result.dpi_warnings.is_empty() {
-        println!("\nWARNING: Some photos will be displayed below 300 DPI:");
+        warn!("\nWARNING: Some photos will be displayed below 300 DPI:");
         for warning in &final_result.dpi_warnings {
-            println!(
+            warn!(
                 "  Page {}: {} - {:.1} DPI ({}x{} px in {:.1}x{:.1} mm slot)",
                 warning.page,
                 warning.photo_id,
@@ -56,12 +57,12 @@ pub fn release_build(mgr: StateManager, project_root: &Path) -> Result<super::Bu
                 warning.slot_mm.1
             );
         }
-        println!();
+        info!("");
     }
 
     // 3. Compile final.typ -> final.pdf
     let pdf_path = typst::compile_final(project_root, mgr.project_name())?;
-    println!("Final PDF generated: {}", pdf_path.display());
+    info!("Final PDF generated: {}", pdf_path.display());
 
     // 4. Save state and commit
     let page_count = mgr.state.layout.len();
