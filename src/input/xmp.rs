@@ -10,13 +10,13 @@ use xmpkit::XmpFile;
 
 /// Returns `true` when the file's XMP packet contains a match for `pattern`.
 ///
-/// Files without XMP metadata return `false` — they are excluded by the filter.
-pub fn xmp_matches(path: &Path, pattern: &Regex) -> bool {
+/// Files without XMP metadata return None
+pub fn xmp_matches(path: &Path, pattern: &Regex) -> Option<bool> {
     let Some(packet) = read_xmp_packet(path) else {
-        debug!("No XMP found in {:?}, excluding from filter", path);
-        return false;
+        debug!("No XMP found in {:?}, ", path);
+        return None;
     };
-    pattern.is_match(&packet)
+    Some(pattern.is_match(&packet))
 }
 
 /// Reads and serializes the full XMP packet from a file as an XML string.
@@ -40,6 +40,6 @@ mod tests {
         let mut f = NamedTempFile::new().unwrap();
         f.write_all(b"not an image").unwrap();
         let re = Regex::new(".*").unwrap();
-        assert!(!xmp_matches(f.path(), &re));
+        assert!(xmp_matches(f.path(), &re).is_none());
     }
 }

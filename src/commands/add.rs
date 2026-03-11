@@ -70,8 +70,8 @@ pub struct AddResult {
 /// 6. Sort groups by sort_key — skipped in dry-run
 /// 7. Commit changes via StateManager — skipped in dry-run
 pub fn add(project_root: &Path, config: &AddConfig) -> Result<AddResult> {
-    let mut mgr = StateManager::open(project_root)
-        .context("Failed to open project via StateManager")?;
+    let mut mgr =
+        StateManager::open(project_root).context("Failed to open project via StateManager")?;
 
     let mut existing_paths: HashSet<PathBuf> = mgr
         .state
@@ -105,7 +105,7 @@ pub fn add(project_root: &Path, config: &AddConfig) -> Result<AddResult> {
                 let before = scanned_group.files.len();
                 scanned_group
                     .files
-                    .retain(|f| xmp::xmp_matches(Path::new(&f.source), pattern));
+                    .retain(|f| xmp::xmp_matches(Path::new(&f.source), pattern).unwrap_or(true));
                 total_xmp_filtered += before - scanned_group.files.len();
             }
 
