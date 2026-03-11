@@ -47,16 +47,19 @@ impl PhotoPlacement {
     }
 
     /// Returns the aspect ratio of the photo (width / height).
+    #[allow(dead_code)]
     pub fn aspect_ratio(&self) -> f64 {
         self.w / self.h
     }
 
     /// Returns the right edge x-coordinate.
+    #[allow(dead_code)]
     pub fn right(&self) -> f64 {
         self.x + self.w
     }
 
     /// Returns the bottom edge y-coordinate.
+    #[allow(dead_code)]
     pub fn bottom(&self) -> f64 {
         self.y + self.h
     }
@@ -401,4 +404,5 @@ mod tests {
         assert_relative_eq!(dto_page.slots[2].y_mm, 100.0, epsilon = 1e-6);
         assert_relative_eq!(dto_page.slots[2].width_mm, 300.0, epsilon = 1e-6);
         assert_relative_eq!(dto_page.slots[2].height_mm, 200.0, epsilon = 1e-6);
-    }}
+    }
+}

@@ -19,21 +19,25 @@ impl BookLayout {
     }
 
     /// Creates a book layout with a single page.
+    #[allow(dead_code)]
     pub fn single_page(page: SolverPageLayout) -> Self {
         Self { pages: vec![page] }
     }
 
     /// Returns the number of pages in the book.
+    #[allow(dead_code)]
     pub fn page_count(&self) -> usize {
         self.pages.len()
     }
 
     /// Returns the total number of photos across all pages.
+    #[allow(dead_code)]
     pub fn total_photo_count(&self) -> usize {
         self.pages.iter().map(|p| p.placements.len()).sum()
     }
 
     /// Returns true if the book has no pages or all pages are empty.
+    #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
         self.pages.is_empty() || self.pages.iter().all(|p| p.placements.is_empty())
     }
