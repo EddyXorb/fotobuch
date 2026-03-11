@@ -3,6 +3,7 @@
 use super::super::model::{GroupInfo, Params};
 use super::variables::MipVariables;
 use good_lp::Expression;
+use good_lp::constraint;
 
 /// Builds all constraints for the MIP problem.
 /// Returns a vector of constraint expressions.
@@ -32,7 +33,6 @@ pub fn build_constraints(
 
 /// Boundary conditions: g_l0 = 0, g_l(b_max) = |G_l|
 fn build_boundary_conditions(vars: &MipVariables, groups: &GroupInfo) -> Vec<good_lp::Constraint> {
-    use good_lp::constraint;
     let mut constraints = Vec::new();
     let num_groups = groups.num_groups();
     let b_max = vars.g.iter().map(|(idx, _)| idx[1]).max().unwrap_or(0);
@@ -56,7 +56,6 @@ fn build_monotonicity(
     num_groups: usize,
     b_max: usize,
 ) -> Vec<good_lp::Constraint> {
-    use good_lp::constraint;
     let mut constraints = Vec::new();
 
     for l in 0..num_groups {
@@ -71,7 +70,6 @@ fn build_monotonicity(
 
 /// Page activity: a_j >= a_(j+1) and page count bounds
 fn build_page_activity(vars: &MipVariables, params: &Params) -> Vec<good_lp::Constraint> {
-    use good_lp::constraint;
     let mut constraints = Vec::new();
     let b_max = params.page_max;
 
@@ -97,7 +95,6 @@ fn build_page_size(
     b_max: usize,
     params: &Params,
 ) -> Vec<good_lp::Constraint> {
-    use good_lp::constraint;
     let mut constraints = Vec::new();
 
     for j in 1..=b_max {
@@ -121,7 +118,6 @@ fn build_b_linking(
     groups: &GroupInfo,
     b_max: usize,
 ) -> Vec<good_lp::Constraint> {
-    use good_lp::constraint;
     let mut constraints = Vec::new();
     let num_groups = groups.num_groups();
 
@@ -148,7 +144,6 @@ fn build_sequential_ordering(
     groups: &GroupInfo,
     b_max: usize,
 ) -> Vec<good_lp::Constraint> {
-    use good_lp::constraint;
     let mut constraints = Vec::new();
     let num_groups = groups.num_groups();
 
@@ -172,7 +167,6 @@ fn build_max_groups_per_page(
     b_max: usize,
     params: &Params,
 ) -> Vec<good_lp::Constraint> {
-    use good_lp::constraint;
     let mut constraints = Vec::new();
 
     for j in 1..=b_max {
@@ -191,7 +185,6 @@ fn build_group_splitting(
     b_max: usize,
     params: &Params,
 ) -> Vec<good_lp::Constraint> {
-    use good_lp::constraint;
     let mut constraints = Vec::new();
     let num_groups = groups.num_groups();
 
@@ -236,7 +229,6 @@ fn build_evenness(
     b_max: usize,
     params: &Params,
 ) -> Vec<good_lp::Constraint> {
-    use good_lp::constraint;
     let mut constraints = Vec::new();
     let total_photos = groups.total_photos() as f64;
     let n_bar = total_photos / params.page_target as f64;
@@ -268,7 +260,6 @@ fn build_page_count_deviation(
     b_max: usize,
     params: &Params,
 ) -> Vec<good_lp::Constraint> {
-    use good_lp::constraint;
     let mut constraints = Vec::new();
     let sum_a: Expression = (1..=b_max).map(|j| Expression::from(vars.a.get([j]))).sum();
     let d_s = vars.d_s;

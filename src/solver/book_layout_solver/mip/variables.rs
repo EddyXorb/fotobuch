@@ -123,4 +123,8 @@ impl MipVariables {
 
         Expression::from(g_lj) - Expression::from(g_lj_prev)
     }
+
+    pub fn len(&self) -> usize {
+        self.g.len() + self.b.len() + self.w.len() + self.a.len() + self.d.len() + 1
+    }
 }
