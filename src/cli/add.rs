@@ -1,48 +1,95 @@
 //! Handler for `fotobuch add` command
 
-use anyhow::Context;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use photobook_solver::commands;
+use regex::Regex;
 use std::path::PathBuf;
 
-pub fn handle(paths: Vec<PathBuf>, allow_duplicates: bool) -> Result<()> {
+pub fn handle(
+    paths: Vec<PathBuf>,
+    allow_duplicates: bool,
+    filter_xmp: Option<String>,
+    dry: bool,
+) -> Result<()> {
     let project_root = std::env::current_dir()
         .context("Failed to determine current directory")?;
+
+    let xmp_filter = filter_xmp
+        .as_deref()
+        .map(|pat| Regex::new(pat).with_context(|| format!("Invalid --filter-xmp regex: {pat}")))
+        .transpose()?;
 
     let config = commands::AddConfig {
         paths,
         allow_duplicates,
+        xmp_filter,
+        dry_run: dry,
     };
 
     let result = commands::add(&project_root, &config)?;
 
+    if result.dry_run {
+        print_dry_run(&result);
+    } else {
+        print_result(&result);
+    }
+
+    Ok(())
+}
+
+fn print_result(result: &commands::AddResult) {
     if result.groups_added.is_empty() {
         println!("ℹ️  No new photos added (all skipped).");
     } else {
-        println!("✅ Added {} photos in {} groups", 
+        println!(
+            "✅ Added {} photos in {} groups",
             result.groups_added.iter().map(|g| g.photo_count).sum::<usize>(),
             result.groups_added.len()
         );
-        
         for group in &result.groups_added {
-            println!("   📁 {} — {} photos ({})", 
-                group.name, 
-                group.photo_count, 
-                group.timestamp
+            println!(
+                "   📁 {} — {} photos ({})",
+                group.name, group.photo_count, group.timestamp
             );
         }
     }
 
+    print_shared_stats(result);
+}
+
+fn print_dry_run(result: &commands::AddResult) {
+    println!("🔍 Dry run — no changes written.\n");
+
+    if result.groups_added.is_empty() {
+        println!("ℹ️  No photos would be added.");
+    } else {
+        println!(
+            "Would add {} photos in {} groups:",
+            result.groups_added.iter().map(|g| g.photo_count).sum::<usize>(),
+            result.groups_added.len()
+        );
+        for group in &result.groups_added {
+            println!(
+                "   📁 {} — {} photos ({})",
+                group.name, group.photo_count, group.timestamp
+            );
+        }
+    }
+
+    print_shared_stats(result);
+}
+
+fn print_shared_stats(result: &commands::AddResult) {
+    if result.xmp_filtered > 0 {
+        println!("🔎 Filtered {} photos by XMP metadata", result.xmp_filtered);
+    }
     if result.skipped > 0 {
         println!("⏭️  Skipped {} duplicate photos", result.skipped);
     }
-
     if !result.warnings.is_empty() {
         println!("⚠️  Warnings:");
         for warning in &result.warnings {
             println!("   - {}", warning);
         }
     }
-
-    Ok(())
 }

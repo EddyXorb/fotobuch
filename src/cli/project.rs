@@ -30,9 +30,7 @@ pub fn handle(command: ProjectSubcommand) -> Result<()> {
             parent_dir,
             quiet,
         } => {
-            let parent = parent_dir
-                .as_ref()
-                .map(|p| p.as_path())
+            let parent = parent_dir.as_deref()
                 .unwrap_or_else(|| std::path::Path::new("."));
 
             let config = commands::project::new::NewConfig {

@@ -50,6 +50,9 @@ serde_yaml = "0.9"
 # Regex for parsing dates from folder names
 regex = "1.10"
 
+# XMP metadata reading
+xmpkit = "0.1"
+
 # Fast hashing for duplicate detection
 blake3 = "1.5"
 
