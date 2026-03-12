@@ -76,7 +76,8 @@ pub fn multipage_build(
     };
 
     // 5. Compile Typst
-    let pdf_path = typst::compile_preview(project_root, mgr.project_name())?;
+    let bleed_mm = mgr.state.config.book.bleed_mm;
+    let pdf_path = typst::compile_preview(project_root, mgr.project_name(), bleed_mm)?;
 
     // 6. Save and commit
     if params.always_commit {

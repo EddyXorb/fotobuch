@@ -1,13 +1,13 @@
 use super::super::BuildResult;
 use super::helpers::build_photo_index;
 use super::rebuild_single_page::rebuild_single_page;
+use crate::cache::preview;
 use crate::output::typst;
 use crate::state_manager::StateManager;
-use crate::cache::preview;
 use anyhow::Result;
-use tracing::{info, warn};
 use std::path::Path;
 use std::sync::atomic::AtomicUsize;
+use tracing::{info, warn};
 
 /// Performs incremental build: updates only modified pages.
 pub fn incremental_build(
@@ -63,7 +63,8 @@ pub fn incremental_build(
     }
 
     // 6. Compile Typst template to PDF
-    let pdf_path = typst::compile_preview(project_root, mgr.project_name())?;
+    let bleed_mm = mgr.state.config.book.bleed_mm;
+    let pdf_path = typst::compile_preview(project_root, mgr.project_name(), bleed_mm)?;
     warn!("PDF updated: {}", pdf_path.display());
 
     // 7. Save state and commit
