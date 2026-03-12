@@ -1,6 +1,7 @@
 //! Typst template compilation to PDF
 
 use anyhow::{Context, Result};
+use lopdf::{Document, Object};
 use std::fs;
 use std::path::{Path, PathBuf};
 use typst::diag::{FileError, FileResult};
@@ -11,24 +12,15 @@ use typst::utils::LazyHash;
 use typst::{Library, LibraryExt, World};
 use typst_kit::fonts::{FontSlot, Fonts};
 
-/// Compiles a Typst template to PDF.
-/// Uses the typst crate directly (no external binary needed).
-///
-/// # Arguments
-/// * `template_path` - Path to the `.typ` template file
-/// * `output_path` - Path where the PDF should be saved
-pub fn compile(template_path: &Path, output_path: &Path) -> Result<()> {
-    // Read template content
+/// Compiles a Typst template and returns the raw PDF bytes.
+fn compile_to_bytes(template_path: &Path) -> Result<Vec<u8>> {
     let content = fs::read_to_string(template_path)
         .with_context(|| format!("Failed to read template: {}", template_path.display()))?;
 
-    // Create world
     let world = SimpleWorld::new(template_path, content)?;
 
-    // Compile
     let result = typst::compile(&world);
 
-    // Check for warnings and errors
     if !result.warnings.is_empty() {
         eprintln!("Typst warnings:");
         for warning in &result.warnings {
@@ -45,22 +37,89 @@ pub fn compile(template_path: &Path, output_path: &Path) -> Result<()> {
         anyhow::anyhow!("Typst compilation failed:\n{}", error_msg)
     })?;
 
-    // Export to PDF
-    let pdf_bytes =
-        typst_pdf::pdf(&document, &typst_pdf::PdfOptions::default()).map_err(|errors| {
-            let error_msg = errors
-                .iter()
-                .map(|e| format!("{:?}", e))
-                .collect::<Vec<_>>()
-                .join("\n");
-            anyhow::anyhow!("PDF export failed:\n{}", error_msg)
-        })?;
+    typst_pdf::pdf(&document, &typst_pdf::PdfOptions::default()).map_err(|errors| {
+        let error_msg = errors
+            .iter()
+            .map(|e| format!("{:?}", e))
+            .collect::<Vec<_>>()
+            .join("\n");
+        anyhow::anyhow!("PDF export failed:\n{}", error_msg)
+    })
+}
 
-    // Write PDF
+/// Compiles a Typst template to PDF.
+/// Uses the typst crate directly (no external binary needed).
+///
+/// # Arguments
+/// * `template_path` - Path to the `.typ` template file
+/// * `output_path` - Path where the PDF should be saved
+pub fn compile(template_path: &Path, output_path: &Path) -> Result<()> {
+    let pdf_bytes = compile_to_bytes(template_path)?;
     fs::write(output_path, pdf_bytes)
-        .with_context(|| format!("Failed to write PDF: {}", output_path.display()))?;
+        .with_context(|| format!("Failed to write PDF: {}", output_path.display()))
+}
 
-    Ok(())
+/// Sets TrimBox and BleedBox in a PDF to mark the printable area vs. bleed zone.
+///
+/// The PDF page (MediaBox) must already be sized as `TrimSize + 2 × bleed_mm` on each side.
+/// After this call:
+/// - `BleedBox` = full page (identical to MediaBox)
+/// - `TrimBox`  = page inset by `bleed_mm` on every side
+fn add_pdf_boxes(pdf_bytes: &[u8], bleed_mm: f64) -> Result<Vec<u8>> {
+    const MM_TO_PT: f32 = 72.0 / 25.4;
+    let bleed_pt = bleed_mm as f32 * MM_TO_PT;
+
+    let mut doc = Document::load_mem(pdf_bytes)
+        .map_err(|e| anyhow::anyhow!("Failed to parse PDF for box annotations: {e}"))?;
+
+    let page_ids: Vec<_> = doc.get_pages().values().copied().collect();
+    for page_id in page_ids {
+        let media_box: Vec<Object> = {
+            let page = doc
+                .get_object(page_id)
+                .map_err(|e| anyhow::anyhow!("Page object not found: {e}"))?
+                .as_dict()
+                .map_err(|e| anyhow::anyhow!("Page is not a dict: {e}"))?;
+            page.get(b"MediaBox")
+                .map_err(|e| anyhow::anyhow!("MediaBox missing: {e}"))?
+                .as_array()
+                .map_err(|e| anyhow::anyhow!("MediaBox is not an array: {e}"))?
+                .clone()
+        };
+
+        let x0 = media_box[0].as_float().unwrap_or(0.0);
+        let y0 = media_box[1].as_float().unwrap_or(0.0);
+        let x1 = media_box[2].as_float()
+            .map_err(|e| anyhow::anyhow!("MediaBox x1 invalid: {e}"))?;
+        let y1 = media_box[3].as_float()
+            .map_err(|e| anyhow::anyhow!("MediaBox y1 invalid: {e}"))?;
+
+        let trim_box = vec![
+            Object::Real(x0 + bleed_pt),
+            Object::Real(y0 + bleed_pt),
+            Object::Real(x1 - bleed_pt),
+            Object::Real(y1 - bleed_pt),
+        ];
+        let bleed_box = vec![
+            Object::Real(x0),
+            Object::Real(y0),
+            Object::Real(x1),
+            Object::Real(y1),
+        ];
+
+        let page = doc
+            .get_object_mut(page_id)
+            .map_err(|e| anyhow::anyhow!("Page object not found: {e}"))?
+            .as_dict_mut()
+            .map_err(|e| anyhow::anyhow!("Page is not a dict: {e}"))?;
+        page.set(b"TrimBox", Object::Array(trim_box));
+        page.set(b"BleedBox", Object::Array(bleed_box));
+    }
+
+    let mut output = Vec::new();
+    doc.save_to(&mut output)
+        .map_err(|e| anyhow::anyhow!("Failed to write PDF with boxes: {e}"))?;
+    Ok(output)
 }
 
 /// Compiles the preview PDF.
@@ -72,19 +131,31 @@ pub fn compile_preview(project_root: &Path, project_name: &str) -> Result<PathBu
     Ok(output)
 }
 
-/// Compiles the final PDF.
+/// Compiles the final PDF with bleed and sets TrimBox/BleedBox in the output PDF.
+///
 /// Generates `final.typ` from `{name}.typ` with `is_final = true`.
 /// Template: `{project_root}/final.typ` → Output: `{project_root}/final.pdf`
-pub fn compile_final(project_root: &Path, project_name: &str) -> Result<PathBuf> {
+///
+/// When `bleed_mm > 0`, the PDF page size is `TrimSize + 2×bleed_mm` and the
+/// PDF boxes are set accordingly so professional print shops can read the
+/// correct trim and bleed areas.
+pub fn compile_final(project_root: &Path, project_name: &str, bleed_mm: f64) -> Result<PathBuf> {
     let source_template = project_root.join(format!("{project_name}.typ"));
     let final_template = project_root.join("final.typ");
     let output = project_root.join("final.pdf");
 
-    // Generate final.typ with is_final = true
     generate_final_template(&source_template, &final_template)?;
 
-    // Compile
-    compile(&final_template, &output)?;
+    let pdf_bytes = compile_to_bytes(&final_template)?;
+
+    let pdf_bytes = if bleed_mm > 0.0 {
+        add_pdf_boxes(&pdf_bytes, bleed_mm)?
+    } else {
+        pdf_bytes
+    };
+
+    fs::write(&output, pdf_bytes)
+        .with_context(|| format!("Failed to write PDF: {}", output.display()))?;
 
     Ok(output)
 }
@@ -262,7 +333,7 @@ mod tests {
         )
         .unwrap();
 
-        let result = compile_final(temp.path(), "mybook");
+        let result = compile_final(temp.path(), "mybook", 0.0);
 
         assert!(result.is_ok(), "compile_final failed: {:?}", result.err());
         let pdf_path = result.unwrap();
