@@ -32,13 +32,19 @@ impl Canvas {
         self.width * self.height
     }
 
+    pub fn center(&self) -> (f64, f64) {
+        (self.width / 2.0, self.height / 2.0)
+    }
+
     /// Returns the aspect ratio of the canvas (width / height).
     #[allow(dead_code)]
     pub fn aspect_ratio(&self) -> f64 {
         self.width / self.height
     }
 
-    /// Creates a Canvas from BookConfig with proper bleed/margin logic.
+    /// Creates a Canvas for the solver from BookConfig.
+    /// We only pass the dimensions of the pdf-Trimbox to the solver
+    /// and do the margin/bleed logic in an outside step.
     ///
     /// Canvas dimensions are calculated as:
     /// - If margin = 0: canvas = page + 2*bleed (photos can extend into bleed area)
