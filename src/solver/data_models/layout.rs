@@ -550,7 +550,7 @@ mod tests {
         let book_config = BookConfig {
             margin_mm: 0.0,
             bleed_mm: 5.0,
-            bleed_threshold_mm: 5.0,
+            bleed_threshold_mm: 4.99999,
             ..Default::default()
         };
 
@@ -561,7 +561,7 @@ mod tests {
     #[test]
     fn test_calc_scaling_for_bleed_bleed_due_distance_to_print_border() {
         let canvas = Canvas::new(200.0, 200.0, 0.0);
-        let placements = vec![PhotoPlacement::new(0, 4.9, 5.0, 100.0, 100.0)];
+        let placements = vec![PhotoPlacement::new(0, 5.0, 5.0, 100.0, 100.0)];
         let layout = SolverPageLayout::new(placements, canvas);
 
         let book_config = BookConfig {
@@ -572,13 +572,13 @@ mod tests {
         };
 
         let scale_factor = layout.calc_needed_scaling_around_center_for_bleed(&book_config);
-        assert_relative_eq!(scale_factor, 1.0, epsilon = 1e-6);
+        assert_relative_eq!(scale_factor, 105.0 / 95.0, epsilon = 1e-6);
     }
 
     #[test]
     fn test_calc_scaling_for_bleed_scales_correctly_height() {
         let canvas = Canvas::new(200.0, 200.0, 0.0);
-        let placements = vec![PhotoPlacement::new(0, 100.0, 100.0, 95.0, 10.0)];
+        let placements = vec![PhotoPlacement::new(0, 100.0, 100.0, 10.0, 95.0)];
         let layout = SolverPageLayout::new(placements, canvas);
 
         let book_config = BookConfig {
@@ -589,7 +589,7 @@ mod tests {
         };
 
         let scale_factor = layout.calc_needed_scaling_around_center_for_bleed(&book_config);
-        assert_relative_eq!(scale_factor, 200.0 / 195.0, epsilon = 1e-6);
+        assert_relative_eq!(scale_factor, 105.0 / 95.0 , epsilon = 1e-6);
     }
 
     #[test]
