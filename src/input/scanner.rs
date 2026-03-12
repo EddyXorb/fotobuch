@@ -189,6 +189,22 @@ fn enrich_photo_metadata(photo: &mut PhotoFile) {
             photo.height_px = h;
         }
     }
+
+    // Handle EXIF Orientation tag to correctly interpret portrait/landscape photos.
+    // Tag 0x0112: 1=normal, 6=90°CW, 8=270°CW (common for portrait photos)
+    // Note: The actual image rotation happens in cache::common::resize_and_save
+    if let Some(field) = exif.get_field(exif::Tag::Orientation, exif::In::PRIMARY)
+        && let exif::Value::Short(ref vec) = field.value
+        && let Some(orientation) = vec.first()
+    {
+        match orientation {
+            6 | 8 => {
+                // 90° or 270° rotation: swap width and height
+                std::mem::swap(&mut photo.width_px, &mut photo.height_px);
+            }
+            _ => {} // 1, 2, 3, 4, 5, 7 don't require dimension swapping
+        }
+    }
 }
 
 fn exif_u32(exif: &exif::Exif, tag: exif::Tag) -> Option<u32> {
@@ -266,5 +282,41 @@ mod tests {
     fn test_parse_timestamp_none() {
         let ts = parse_timestamp_from_name("Sonstiges");
         assert!(ts.is_none());
+    }
+
+    #[test]
+    fn test_exif_orientation_swaps_dimensions() {
+        // Test that a portrait photo with EXIF orientation tag 6 (90° CW)
+        // has its width and height swapped to match display orientation.
+        let portrait_path = PathBuf::from("tests/fixtures/rotated/portrait.jpg");
+
+        if !portrait_path.exists() {
+            eprintln!("Test fixture not found: {:?}", portrait_path);
+            return;
+        }
+
+        let mut photo = PhotoFile {
+            id: "test/portrait.jpg".to_string(),
+            source: portrait_path.to_string_lossy().to_string(),
+            width_px: 1,
+            height_px: 1,
+            area_weight: 1.0,
+            timestamp: Utc::now(),
+            hash: String::new(),
+        };
+
+        enrich_photo_metadata(&mut photo);
+
+        // After reading EXIF with orientation 6, dimensions should be swapped.
+        // Original pixels are read, then swapped because orientation tag says "rotate 90°".
+        // Portrait photo dimensions should have width < height after orientation handling.
+        assert!(photo.width_px > 0, "width should be set");
+        assert!(photo.height_px > 0, "height should be set");
+        assert!(
+            photo.width_px < photo.height_px,
+            "Portrait photo should have width < height (got {}x{})",
+            photo.width_px,
+            photo.height_px
+        );
     }
 }

@@ -8,6 +8,16 @@
   ".fotobuch/cache/{name}/preview/"
 }
 
+// Convert EXIF orientation tag to rotation angle for Typst
+// EXIF: 1=normal, 6=90°CW, 8=270°CW
+// Typst rotate(): positive = counter-clockwise
+#let get_rotation_angle(orientation) = {
+  if orientation == 6 { -90deg }
+  else if orientation == 8 { 90deg }
+  else if orientation == 3 { 180deg }
+  else { 0deg }
+}
+
 // Seitengröße aus YAML inkl. Beschnitt / Bleed
 #let bleed = data.config.book.bleed_mm * 1mm
 #set page(
