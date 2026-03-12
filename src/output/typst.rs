@@ -65,6 +65,23 @@ pub fn compile(template_path: &Path, output_path: &Path) -> Result<()> {
 /// After this call:
 /// - `BleedBox` = full page (identical to MediaBox)
 /// - `TrimBox`  = page inset by `bleed_mm` on every side
+// PDF box hierarchy:
+//
+//  ╔════════════════════════════════════╗← MediaBox (full page, includes bleed, most times same as BleedBox)
+//  ║                                    ║
+//  ║  ╔══════════════════════════════╗  ║
+//  ║  ║                              ║  ║
+//  ║  ║  ╔────────────────────────╗  ║← ║  BleedBox (= MediaBox in our case)
+//  ║  ║  │                        │  ║  ║
+//  ║  ║  │  (Content Area)        │  ║  ║
+//  ║  ║  │                        │  ║  ║
+//  ║  ║  │     Trimbox            │← ║  ║  TrimBox (actual page size to cut)
+//  ║  ║  └────────────────────────┘  ║  ║  Inset from MediaBox by bleed_mm
+//  ║  ║     BleedBox                 ║  ║
+//  ║  └──────────────────────────────┘  ║
+//  ║       MediaBox                     ║
+//  └────────────────────────────────────┘
+//
 fn add_pdf_boxes(pdf_bytes: &[u8], bleed_mm: f64) -> Result<Vec<u8>> {
     const MM_TO_PT: f32 = 72.0 / 25.4;
     let bleed_pt = bleed_mm as f32 * MM_TO_PT;
@@ -89,9 +106,11 @@ fn add_pdf_boxes(pdf_bytes: &[u8], bleed_mm: f64) -> Result<Vec<u8>> {
 
         let x0 = media_box[0].as_float().unwrap_or(0.0);
         let y0 = media_box[1].as_float().unwrap_or(0.0);
-        let x1 = media_box[2].as_float()
+        let x1 = media_box[2]
+            .as_float()
             .map_err(|e| anyhow::anyhow!("MediaBox x1 invalid: {e}"))?;
-        let y1 = media_box[3].as_float()
+        let y1 = media_box[3]
+            .as_float()
             .map_err(|e| anyhow::anyhow!("MediaBox y1 invalid: {e}"))?;
 
         let trim_box = vec![
@@ -142,15 +161,21 @@ pub fn compile_preview(project_root: &Path, project_name: &str, bleed_mm: f64) -
 /// Compiles the final PDF with bleed and sets TrimBox/BleedBox in the output PDF.
 ///
 /// Generates `final.typ` from `{name}.typ` with `is_final = true`.
-/// Template: `{project_root}/final.typ` → Output: `{project_root}/final.pdf`
+/// Template: `{project_root}/final.typ` → Output: `{project_root}/{name}_final.pdf`
 ///
 /// When `bleed_mm > 0`, the PDF page size is `TrimSize + 2×bleed_mm` and the
 /// PDF boxes are set accordingly so professional print shops can read the
 /// correct trim and bleed areas.
+///
+/// The **reason** why the template is named "final.typ" is that the user should not edit it directly, but instead work on the {name}.typ
+/// template, otherwise there might be multiple sources of truth, which can lead to confusion.
+/// At the other hand the user should be able to inspect the final.typ to see how the final PDF is generated,
+/// and it can also be useful for debugging to have the final template available as a separate file,
+/// so we write it to disk instead of keeping it in memory.
 pub fn compile_final(project_root: &Path, project_name: &str, bleed_mm: f64) -> Result<PathBuf> {
     let source_template = project_root.join(format!("{project_name}.typ"));
     let final_template = project_root.join("final.typ");
-    let output = project_root.join("final.pdf");
+    let output = project_root.join(format!("{}_final.pdf", project_name));
 
     generate_final_template(&source_template, &final_template)?;
 
@@ -248,7 +273,7 @@ impl World for SimpleWorld {
             // Try to load file from filesystem
             let relative_path = id.vpath().as_rootless_path();
             let full_path = self.root.join(relative_path);
-            
+
             fs::read_to_string(&full_path)
                 .map(|content| Source::new(id, content))
                 .map_err(|_| FileError::NotFound(relative_path.into()))
@@ -258,7 +283,7 @@ impl World for SimpleWorld {
     fn file(&self, id: FileId) -> FileResult<Bytes> {
         let relative_path = id.vpath().as_rootless_path();
         let full_path = self.root.join(relative_path);
-        
+
         fs::read(&full_path)
             .map(Bytes::new)
             .map_err(|_| FileError::NotFound(relative_path.into()))
@@ -284,13 +309,20 @@ mod tests {
         let source = temp.path().join("preview.typ");
         let target = temp.path().join("final.typ");
 
-        fs::write(&source, "#let is_final = false\n// Preview template\n#text(\"Hello\")").unwrap();
+        fs::write(
+            &source,
+            "#let is_final = false\n// Preview template\n#text(\"Hello\")",
+        )
+        .unwrap();
 
         generate_final_template(&source, &target).unwrap();
 
         let content = fs::read_to_string(&target).unwrap();
         assert!(content.starts_with("#let is_final = true\n"));
-        assert!(!content.contains("#let is_final = false"), "old declaration must be replaced");
+        assert!(
+            !content.contains("#let is_final = false"),
+            "old declaration must be replaced"
+        );
         assert!(content.contains("// Preview template"));
     }
 
@@ -345,7 +377,7 @@ mod tests {
 
         assert!(result.is_ok(), "compile_final failed: {:?}", result.err());
         let pdf_path = result.unwrap();
-        assert_eq!(pdf_path, temp.path().join("final.pdf"));
+        assert_eq!(pdf_path, temp.path().join("mybook_final.pdf"));
         assert!(pdf_path.exists());
 
         // Verify final.typ was created with is_final = true (declaration replaced)
@@ -383,10 +415,26 @@ mod tests {
         let my1 = media_box[3].as_float().unwrap();
 
         let bleed_box = page.get(b"BleedBox").unwrap().as_array().unwrap();
-        assert_eq!(bleed_box[0].as_float().unwrap(), mx0, "BleedBox x0 must equal MediaBox x0");
-        assert_eq!(bleed_box[1].as_float().unwrap(), my0, "BleedBox y0 must equal MediaBox y0");
-        assert_eq!(bleed_box[2].as_float().unwrap(), mx1, "BleedBox x1 must equal MediaBox x1");
-        assert_eq!(bleed_box[3].as_float().unwrap(), my1, "BleedBox y1 must equal MediaBox y1");
+        assert_eq!(
+            bleed_box[0].as_float().unwrap(),
+            mx0,
+            "BleedBox x0 must equal MediaBox x0"
+        );
+        assert_eq!(
+            bleed_box[1].as_float().unwrap(),
+            my0,
+            "BleedBox y0 must equal MediaBox y0"
+        );
+        assert_eq!(
+            bleed_box[2].as_float().unwrap(),
+            mx1,
+            "BleedBox x1 must equal MediaBox x1"
+        );
+        assert_eq!(
+            bleed_box[3].as_float().unwrap(),
+            my1,
+            "BleedBox y1 must equal MediaBox y1"
+        );
 
         let bleed_pt = bleed_mm as f32 * (72.0 / 25.4);
         let trim_box = page.get(b"TrimBox").unwrap().as_array().unwrap();
@@ -395,9 +443,25 @@ mod tests {
         let tx1 = trim_box[2].as_float().unwrap();
         let ty1 = trim_box[3].as_float().unwrap();
 
-        assert!((tx0 - (mx0 + bleed_pt)).abs() < 0.01, "TrimBox x0 off: {tx0} vs {}", mx0 + bleed_pt);
-        assert!((ty0 - (my0 + bleed_pt)).abs() < 0.01, "TrimBox y0 off: {ty0} vs {}", my0 + bleed_pt);
-        assert!((tx1 - (mx1 - bleed_pt)).abs() < 0.01, "TrimBox x1 off: {tx1} vs {}", mx1 - bleed_pt);
-        assert!((ty1 - (my1 - bleed_pt)).abs() < 0.01, "TrimBox y1 off: {ty1} vs {}", my1 - bleed_pt);
+        assert!(
+            (tx0 - (mx0 + bleed_pt)).abs() < 0.01,
+            "TrimBox x0 off: {tx0} vs {}",
+            mx0 + bleed_pt
+        );
+        assert!(
+            (ty0 - (my0 + bleed_pt)).abs() < 0.01,
+            "TrimBox y0 off: {ty0} vs {}",
+            my0 + bleed_pt
+        );
+        assert!(
+            (tx1 - (mx1 - bleed_pt)).abs() < 0.01,
+            "TrimBox x1 off: {tx1} vs {}",
+            mx1 - bleed_pt
+        );
+        assert!(
+            (ty1 - (my1 - bleed_pt)).abs() < 0.01,
+            "TrimBox y1 off: {ty1} vs {}",
+            my1 - bleed_pt
+        );
     }
 }
