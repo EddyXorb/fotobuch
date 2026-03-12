@@ -75,9 +75,7 @@ pub fn solve_book_layout(
     let page_layouts: Vec<SolverPageLayout> = (0..final_assignment.num_pages())
         .filter_map(|page_idx| {
             let range = final_assignment.page_range(page_idx);
-            evaluator
-                .get_cached_layout(&photos[range])
-                .map(|layout| layout.centered())
+            evaluator.get_cached_layout(&photos[range])
         })
         .collect();
 

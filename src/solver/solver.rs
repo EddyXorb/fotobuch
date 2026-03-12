@@ -71,7 +71,10 @@ fn run_single_page(
     let ga_result = page_layout_solver::run_ga(photos, canvas, request.ga_config);
 
     // Convert to DTO
-    let layout_page = ga_result.layout.to_layout_page(1, photos);
+    let layout_page = ga_result
+        .layout
+        .centered()
+        .to_layout_page(1, photos, &request.book_config);
 
     Ok(vec![layout_page])
 }
@@ -91,7 +94,10 @@ fn run_multi_page(
         .pages
         .iter()
         .enumerate()
-        .map(|(i, page)| page.to_layout_page(i + 1, photos))
+        .map(|(i, page)| {
+            page.centered()
+                .to_layout_page(i + 1, photos, &request.book_config)
+        })
         .collect();
 
     Ok(layout_pages)
