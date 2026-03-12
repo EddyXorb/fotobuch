@@ -1,8 +1,8 @@
 //! Preview image cache generation
 
-use anyhow::Result;
 use crate::cache::common::{is_cache_fresh, preview_path, resize_and_save};
 use crate::dto_models::{PhotoFile, ProjectState};
+use anyhow::Result;
 use rayon::prelude::*;
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -37,11 +37,7 @@ pub fn ensure_previews(
     let max_px = state.config.preview.max_preview_px;
 
     // Collect all photos across groups
-    let all_photos: Vec<&PhotoFile> = state
-        .photos
-        .iter()
-        .flat_map(|g| g.files.iter())
-        .collect();
+    let all_photos: Vec<&PhotoFile> = state.photos.iter().flat_map(|g| g.files.iter()).collect();
 
     let total = all_photos.len();
     let created = AtomicUsize::new(0);
@@ -55,11 +51,8 @@ pub fn ensure_previews(
         if is_cache_fresh(source, &cached) {
             skipped.fetch_add(1, Ordering::Relaxed);
         } else {
-            let (target_width, target_height) = fit_dimensions(
-                photo.width_px,
-                photo.height_px,
-                max_px,
-            );
+            let (target_width, target_height) =
+                fit_dimensions(photo.width_px, photo.height_px, max_px);
             resize_and_save(source, &cached, target_width, target_height, 85)?;
             created.fetch_add(1, Ordering::Relaxed);
         }
@@ -101,8 +94,8 @@ mod tests {
     use crate::dto_models::*;
     use chrono::Utc;
     use image::ImageFormat;
-    use std::{fs, thread};
     use std::time::Duration;
+    use std::{fs, thread};
     use tempfile::TempDir;
 
     fn create_test_image(path: &Path, width: u32, height: u32) {

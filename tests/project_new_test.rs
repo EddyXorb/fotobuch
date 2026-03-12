@@ -1,7 +1,7 @@
 //! Integration tests for `fotobuch project new` command
 
 use anyhow::Result;
-use photobook_solver::commands::project::new::{project_new, validate_project_name, NewConfig};
+use photobook_solver::commands::project::new::{NewConfig, project_new, validate_project_name};
 use std::fs;
 use tempfile::TempDir;
 
@@ -51,8 +51,12 @@ fn test_project_new_mode1_creates_complete_structure() -> Result<()> {
     assert!(gitignore_content.contains("final.typ"));
 
     // Check cache directories exist
-    let cache_preview = result.project_root.join(".fotobuch/cache/vacation2024/preview");
-    let cache_final = result.project_root.join(".fotobuch/cache/vacation2024/final");
+    let cache_preview = result
+        .project_root
+        .join(".fotobuch/cache/vacation2024/preview");
+    let cache_final = result
+        .project_root
+        .join(".fotobuch/cache/vacation2024/final");
     assert!(cache_preview.exists());
     assert!(cache_preview.is_dir());
     assert!(cache_final.exists());

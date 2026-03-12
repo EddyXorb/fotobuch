@@ -6,9 +6,9 @@ use regex::Regex;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
+use crate::commands::build::build_photo_index;
 use crate::dto_models::{PhotoFile, ProjectState};
 use crate::state_manager::StateManager;
-use crate::commands::build::build_photo_index;
 
 /// Configuration for placing photos
 #[derive(Debug, Clone)]
@@ -86,13 +86,14 @@ pub fn place(project_root: &Path, config: &PlaceConfig) -> Result<PlaceResult> {
         anyhow::bail!("No layout yet. Run `fotobuch build` first.");
     }
     if let Some(page) = config.into_page
-        && (page == 0 || page > mgr.state.layout.len()) {
-            anyhow::bail!(
-                "Invalid page {} (layout has {} pages)",
-                page,
-                mgr.state.layout.len()
-            );
-        }
+        && (page == 0 || page > mgr.state.layout.len())
+    {
+        anyhow::bail!(
+            "Invalid page {} (layout has {} pages)",
+            page,
+            mgr.state.layout.len()
+        );
+    }
 
     // 1. Find unplaced photos
     let unplaced = find_unplaced(&mgr.state);
@@ -205,10 +206,7 @@ fn find_target_page(
 
 /// Places photos chronologically onto appropriate pages
 /// Returns affected page numbers (1-based, sorted, deduplicated)
-fn place_chronologically(
-    state: &mut ProjectState,
-    photos: &[&UnplacedPhoto],
-) -> Vec<usize> {
+fn place_chronologically(state: &mut ProjectState, photos: &[&UnplacedPhoto]) -> Vec<usize> {
     let photo_index = build_photo_index(&state.photos);
     let page_ranges = compute_page_ranges(state, &photo_index);
 
@@ -251,8 +249,8 @@ fn format_page_list(pages: &[usize]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::dto_models::{LayoutPage, PhotoGroup};
     use chrono::TimeZone;
-    use crate::dto_models::{PhotoGroup, LayoutPage};
 
     fn make_unplaced(id: &str, source: &str, ts: DateTime<Utc>) -> UnplacedPhoto {
         UnplacedPhoto {
@@ -304,9 +302,11 @@ mod tests {
 
     #[test]
     fn test_apply_filter_no_pattern() {
-        let photos = vec![
-            make_unplaced("a.jpg", "/path/to/a.jpg", Utc.timestamp_opt(1000, 0).unwrap()),
-        ];
+        let photos = vec![make_unplaced(
+            "a.jpg",
+            "/path/to/a.jpg",
+            Utc.timestamp_opt(1000, 0).unwrap(),
+        )];
         let filtered = apply_filter(&photos, None).unwrap();
         assert_eq!(filtered.len(), 1);
     }
@@ -314,8 +314,16 @@ mod tests {
     #[test]
     fn test_apply_filter_with_pattern() {
         let photos = vec![
-            make_unplaced("a.jpg", "/path/vacation/a.jpg", Utc.timestamp_opt(1000, 0).unwrap()),
-            make_unplaced("b.jpg", "/path/work/b.jpg", Utc.timestamp_opt(2000, 0).unwrap()),
+            make_unplaced(
+                "a.jpg",
+                "/path/vacation/a.jpg",
+                Utc.timestamp_opt(1000, 0).unwrap(),
+            ),
+            make_unplaced(
+                "b.jpg",
+                "/path/work/b.jpg",
+                Utc.timestamp_opt(2000, 0).unwrap(),
+            ),
         ];
         let filtered = apply_filter(&photos, Some("vacation")).unwrap();
         assert_eq!(filtered.len(), 1);

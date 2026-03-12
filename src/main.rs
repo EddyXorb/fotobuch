@@ -30,7 +30,9 @@ fn setup_logging() -> tracing_appender::non_blocking::WorkerGuard {
 
     let stdout_layer = tracing_subscriber::fmt::layer()
         .with_target(false)
-        .with_timer(tracing_subscriber::fmt::time::ChronoUtc::new("%Y-%m-%d %H:%M:%S".to_string()));
+        .with_timer(tracing_subscriber::fmt::time::ChronoUtc::new(
+            "%Y-%m-%d %H:%M:%S".to_string(),
+        ));
     let file_layer = tracing_subscriber::fmt::layer()
         .with_ansi(false)
         .with_writer(non_blocking);

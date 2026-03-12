@@ -1,6 +1,6 @@
 //! Project name validation
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 
 /// Validate a project name against the naming rules
 ///

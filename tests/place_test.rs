@@ -145,11 +145,12 @@ fn test_place_into_specific_page() -> Result<()> {
 
     // Remove first photo and first slot from first page to create an unplaced photo
     let mut state_modified = state_before.clone();
-    let removed_photo = if !state_modified.layout.is_empty() && !state_modified.layout[0].photos.is_empty() {
-        state_modified.layout[0].photos.remove(0)
-    } else {
-        return Ok(()); // Skip test if no photos
-    };
+    let removed_photo =
+        if !state_modified.layout.is_empty() && !state_modified.layout[0].photos.is_empty() {
+            state_modified.layout[0].photos.remove(0)
+        } else {
+            return Ok(()); // Skip test if no photos
+        };
     if !state_modified.layout[0].slots.is_empty() {
         state_modified.layout[0].slots.remove(0);
     }
@@ -171,7 +172,10 @@ fn test_place_into_specific_page() -> Result<()> {
 
     // Verify state was saved and photo is back on page 1
     let state_after = ProjectState::load(&yaml_path)?;
-    assert!(state_after.layout[0].photos.contains(&removed_photo), "Removed photo should be on page 1");
+    assert!(
+        state_after.layout[0].photos.contains(&removed_photo),
+        "Removed photo should be on page 1"
+    );
 
     // Verify git commit
     let repo = git2::Repository::open(&project_root)?;
@@ -213,7 +217,10 @@ fn test_place_filter_by_pattern() -> Result<()> {
     let result = place(&project_root, &config)?;
 
     // Should place at least the one unplaced photo if it matches pattern
-    assert!(result.photos_placed > 0, "Should place some photos matching pattern");
+    assert!(
+        result.photos_placed > 0,
+        "Should place some photos matching pattern"
+    );
 
     Ok(())
 }

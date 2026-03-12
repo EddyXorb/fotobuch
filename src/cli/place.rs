@@ -6,8 +6,7 @@ use photobook_solver::commands;
 use tracing::info;
 
 pub fn handle(filter: Option<String>, into: Option<usize>) -> Result<()> {
-    let project_root = std::env::current_dir()
-        .context("Failed to determine current directory")?;
+    let project_root = std::env::current_dir().context("Failed to determine current directory")?;
 
     let config = commands::place::PlaceConfig {
         filter,
@@ -24,7 +23,10 @@ pub fn handle(filter: Option<String>, into: Option<usize>) -> Result<()> {
         } else {
             format!("pages {:?}", result.pages_affected)
         };
-        info!("✅ Placed {} photo(s) onto {}", result.photos_placed, pages_str);
+        info!(
+            "✅ Placed {} photo(s) onto {}",
+            result.photos_placed, pages_str
+        );
         info!("🔄 Run 'fotobuch build' or 'fotobuch rebuild' to regenerate PDFs.");
     }
 

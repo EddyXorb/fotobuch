@@ -9,8 +9,8 @@ use std::path::Path;
 use std::sync::atomic::AtomicUsize;
 
 use super::build::{
-    build_photo_index, collect_photos_as_groups, multipage_build, rebuild_single_page,
-    BuildResult, MultiPageParams,
+    BuildResult, MultiPageParams, build_photo_index, collect_photos_as_groups, multipage_build,
+    rebuild_single_page,
 };
 
 /// Scope of rebuild operation
@@ -82,26 +82,30 @@ pub fn rebuild(project_root: &Path, scope: RebuildScope) -> Result<BuildResult> 
 
     // Scope-Validierung
     if let RebuildScope::Range { start, end, .. } = &scope
-        && (*start == 0 || *end == 0 || *start > *end || *end > mgr.state.layout.len()) {
-            anyhow::bail!(
-                "Invalid page range {}-{} (layout has {} pages)",
-                start,
-                end,
-                mgr.state.layout.len()
-            );
-        }
+        && (*start == 0 || *end == 0 || *start > *end || *end > mgr.state.layout.len())
+    {
+        anyhow::bail!(
+            "Invalid page range {}-{} (layout has {} pages)",
+            start,
+            end,
+            mgr.state.layout.len()
+        );
+    }
     if let RebuildScope::SinglePage(n) = &scope
-        && (*n == 0 || *n > mgr.state.layout.len()) {
-            anyhow::bail!(
-                "Invalid page {} (layout has {} pages)",
-                n,
-                mgr.state.layout.len()
-            );
-        }
+        && (*n == 0 || *n > mgr.state.layout.len())
+    {
+        anyhow::bail!(
+            "Invalid page {} (layout has {} pages)",
+            n,
+            mgr.state.layout.len()
+        );
+    }
 
     match scope {
         RebuildScope::SinglePage(n) => rebuild_single(mgr, project_root, n),
-        RebuildScope::Range { start, end, flex } => rebuild_range(mgr, project_root, start, end, flex),
+        RebuildScope::Range { start, end, flex } => {
+            rebuild_range(mgr, project_root, start, end, flex)
+        }
         RebuildScope::All => rebuild_all(mgr, project_root),
     }
 }

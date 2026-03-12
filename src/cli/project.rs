@@ -3,8 +3,8 @@
 use anyhow::Context;
 use anyhow::Result;
 use photobook_solver::commands;
-use tracing::info;
 use std::path::PathBuf;
+use tracing::info;
 
 pub enum ProjectSubcommand {
     New {
@@ -31,7 +31,8 @@ pub fn handle(command: ProjectSubcommand) -> Result<()> {
             parent_dir,
             quiet,
         } => {
-            let parent = parent_dir.as_deref()
+            let parent = parent_dir
+                .as_deref()
                 .unwrap_or_else(|| std::path::Path::new("."));
 
             let config = commands::project::new::NewConfig {
@@ -53,8 +54,8 @@ pub fn handle(command: ProjectSubcommand) -> Result<()> {
             Ok(())
         }
         ProjectSubcommand::List => {
-            let project_root = std::env::current_dir()
-                .context("Failed to determine current directory")?;
+            let project_root =
+                std::env::current_dir().context("Failed to determine current directory")?;
 
             let projects = commands::project::project_list(&project_root)?;
 
@@ -64,15 +65,18 @@ pub fn handle(command: ProjectSubcommand) -> Result<()> {
                 for project in projects {
                     let marker = if project.is_current { "* " } else { "  " };
                     let current_label = if project.is_current { " (current)" } else { "" };
-                    info!("{}{:<15} {}{}", marker, project.name, project.branch, current_label);
+                    info!(
+                        "{}{:<15} {}{}",
+                        marker, project.name, project.branch, current_label
+                    );
                 }
             }
 
             Ok(())
         }
         ProjectSubcommand::Switch { name } => {
-            let project_root = std::env::current_dir()
-                .context("Failed to determine current directory")?;
+            let project_root =
+                std::env::current_dir().context("Failed to determine current directory")?;
 
             commands::project::project_switch(&project_root, &name)?;
             info!("✅ Switched to project '{}'", name);

@@ -135,7 +135,7 @@ impl PageLayoutEvaluator for RealPageEvaluator<'_> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{ dto_models::BookLayoutSolverConfig};
+    use crate::dto_models::BookLayoutSolverConfig;
 
     use super::*;
 
@@ -229,7 +229,12 @@ mod tests {
             let mut id_counter = 0;
             for group in &["groupA", "groupB", "groupC"] {
                 for _ in 0..5 {
-                    photos.push(Photo::new(format!("photo_{}", id_counter), 1.5, 1.0, group.to_string()));
+                    photos.push(Photo::new(
+                        format!("photo_{}", id_counter),
+                        1.5,
+                        1.0,
+                        group.to_string(),
+                    ));
                     id_counter += 1;
                 }
             }

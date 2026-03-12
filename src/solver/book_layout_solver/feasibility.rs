@@ -15,7 +15,9 @@ pub enum ConstraintViolation {
         page_max: usize,
     },
 
-    #[error("page {page_index} has {page_size} photos, outside [{photos_per_page_min}, {photos_per_page_max}]")]
+    #[error(
+        "page {page_index} has {page_size} photos, outside [{photos_per_page_min}, {photos_per_page_max}]"
+    )]
     PageSizeOutOfRange {
         page_index: usize,
         page_size: usize,
@@ -30,7 +32,9 @@ pub enum ConstraintViolation {
         group_max_per_page: usize,
     },
 
-    #[error("page {page_index} has {photos_in_group} photos from group {group_index} (size {group_size}), violates g_min rule (min {group_min_photos})")]
+    #[error(
+        "page {page_index} has {photos_in_group} photos from group {group_index} (size {group_size}), violates g_min rule (min {group_min_photos})"
+    )]
     GroupMinViolation {
         page_index: usize,
         group_index: usize,
@@ -69,7 +73,7 @@ pub fn check_feasibility(
     // 2. Check each page size and group constraints
     for page_idx in 0..page_count {
         let page_size = assignment.page_size(page_idx);
-        
+
         // 2a. Page size bounds
         if page_size < params.photos_per_page_min || page_size > params.photos_per_page_max {
             return Err(ConstraintViolation::PageSizeOutOfRange {
@@ -96,21 +100,23 @@ pub fn check_feasibility(
         // 2c. g_min rule
         for (group_idx, photos_in_group) in groups_on_page {
             let group_size = groups.group_size(group_idx);
-            
+
             // Group is split if it doesn't contain all photos
             let is_split = photos_in_group < group_size;
-            
+
             // If group is large enough and split, each portion must satisfy g_min
-            if is_split && group_size >= params.group_min_photos
-                && photos_in_group < params.group_min_photos {
-                    return Err(ConstraintViolation::GroupMinViolation {
-                        page_index: page_idx,
-                        group_index: group_idx,
-                        group_size,
-                        photos_in_group,
-                        group_min_photos: params.group_min_photos,
-                    });
-                }
+            if is_split
+                && group_size >= params.group_min_photos
+                && photos_in_group < params.group_min_photos
+            {
+                return Err(ConstraintViolation::GroupMinViolation {
+                    page_index: page_idx,
+                    group_index: group_idx,
+                    group_size,
+                    photos_in_group,
+                    group_min_photos: params.group_min_photos,
+                });
+            }
         }
     }
 
@@ -138,7 +144,7 @@ fn groups_on_page_with_counts(
 
     for group_idx in first_group..=last_group {
         let group_range = groups.group_range(group_idx);
-        
+
         // Count overlap between page_range and group_range
         let overlap_start = page_range.start.max(group_range.start);
         let overlap_end = page_range.end.min(group_range.end);

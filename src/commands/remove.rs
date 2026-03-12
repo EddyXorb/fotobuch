@@ -53,8 +53,7 @@ fn match_photos(state: &ProjectState, patterns: &[String]) -> Result<MatchResult
         }
 
         // 2. Regex auf photo.source
-        let re = Regex::new(pattern)
-            .context(format!("Invalid pattern: {pattern}"))?;
+        let re = Regex::new(pattern).context(format!("Invalid pattern: {pattern}"))?;
         for group in &state.photos {
             for file in &group.files {
                 if re.is_match(&file.source) {
@@ -64,7 +63,10 @@ fn match_photos(state: &ProjectState, patterns: &[String]) -> Result<MatchResult
         }
     }
 
-    Ok(MatchResult { matched_ids, matched_groups })
+    Ok(MatchResult {
+        matched_ids,
+        matched_groups,
+    })
 }
 
 /// Result of removing from layout
@@ -86,11 +88,15 @@ fn remove_from_layout(
         let before = page.photos.len();
 
         // Photos und Slots parallel filtern (index-gekoppelt)
-        let keep: Vec<bool> = page.photos.iter()
+        let keep: Vec<bool> = page
+            .photos
+            .iter()
             .map(|id| !matched_ids.contains(id))
             .collect();
 
-        let new_photos: Vec<String> = page.photos.iter()
+        let new_photos: Vec<String> = page
+            .photos
+            .iter()
             .zip(&keep)
             .filter(|&(_, k)| *k)
             .map(|(id, _)| id.clone())
@@ -98,7 +104,8 @@ fn remove_from_layout(
 
         let new_slots = if page.slots.len() == page.photos.len() {
             // Slots vorhanden und index-gekoppelt
-            page.slots.iter()
+            page.slots
+                .iter()
                 .zip(&keep)
                 .filter(|&(_, k)| *k)
                 .map(|(slot, _)| slot.clone())
@@ -118,7 +125,10 @@ fn remove_from_layout(
         page.slots = new_slots;
     }
 
-    LayoutRemoveResult { placements_removed, pages_affected }
+    LayoutRemoveResult {
+        placements_removed,
+        pages_affected,
+    }
 }
 
 /// Entfernt Seiten ohne Fotos aus dem Layout.
@@ -150,7 +160,8 @@ fn remove_from_photos(
     }
 
     // Leere Gruppen entfernen
-    let empty_groups: Vec<String> = photos.iter()
+    let empty_groups: Vec<String> = photos
+        .iter()
         .filter(|g| g.files.is_empty())
         .map(|g| g.group.clone())
         .collect();
@@ -207,12 +218,19 @@ pub fn remove(project_root: &Path, config: &RemoveConfig) -> Result<RemoveResult
     let photos_removed = if config.keep_files {
         0
     } else {
-        remove_from_photos(&mut mgr.state.photos, &matches.matched_ids, &mut groups_removed)
+        remove_from_photos(
+            &mut mgr.state.photos,
+            &matches.matched_ids,
+            &mut groups_removed,
+        )
     };
 
     // 5. Speichern + Git commit
     let commit_msg = if config.keep_files {
-        format!("remove: {} placements from layout (photos kept)", layout_result.placements_removed)
+        format!(
+            "remove: {} placements from layout (photos kept)",
+            layout_result.placements_removed
+        )
     } else {
         format!("remove: {} photos", photos_removed)
     };
@@ -229,7 +247,7 @@ pub fn remove(project_root: &Path, config: &RemoveConfig) -> Result<RemoveResult
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::dto_models::{PhotoFile, LayoutPage, Slot};
+    use crate::dto_models::{LayoutPage, PhotoFile, Slot};
     use chrono::Utc;
 
     fn make_photo(id: &str, source: &str) -> PhotoFile {
@@ -251,7 +269,10 @@ mod tests {
             photos: vec![PhotoGroup {
                 group: "Vacation".to_string(),
                 sort_key: "2024-01-01".to_string(),
-                files: vec![make_photo("v1.jpg", "/photos/v1.jpg"), make_photo("v2.jpg", "/photos/v2.jpg")],
+                files: vec![
+                    make_photo("v1.jpg", "/photos/v1.jpg"),
+                    make_photo("v2.jpg", "/photos/v2.jpg"),
+                ],
             }],
             layout: vec![],
         };
@@ -292,8 +313,18 @@ mod tests {
 
     #[test]
     fn test_remove_from_layout_basic() {
-        let slot1 = Slot { x_mm: 10.0, y_mm: 10.0, width_mm: 100.0, height_mm: 100.0 };
-        let slot2 = Slot { x_mm: 120.0, y_mm: 10.0, width_mm: 100.0, height_mm: 100.0 };
+        let slot1 = Slot {
+            x_mm: 10.0,
+            y_mm: 10.0,
+            width_mm: 100.0,
+            height_mm: 100.0,
+        };
+        let slot2 = Slot {
+            x_mm: 120.0,
+            y_mm: 10.0,
+            width_mm: 100.0,
+            height_mm: 100.0,
+        };
 
         let mut layout = vec![LayoutPage {
             page: 1,
@@ -315,9 +346,21 @@ mod tests {
     #[test]
     fn test_remove_empty_pages() {
         let mut layout = vec![
-            LayoutPage { page: 1, photos: vec![], slots: vec![] },
-            LayoutPage { page: 2, photos: vec!["a.jpg".to_string()], slots: vec![] },
-            LayoutPage { page: 3, photos: vec![], slots: vec![] },
+            LayoutPage {
+                page: 1,
+                photos: vec![],
+                slots: vec![],
+            },
+            LayoutPage {
+                page: 2,
+                photos: vec!["a.jpg".to_string()],
+                slots: vec![],
+            },
+            LayoutPage {
+                page: 3,
+                photos: vec![],
+                slots: vec![],
+            },
         ];
 
         remove_empty_pages(&mut layout);
@@ -328,8 +371,16 @@ mod tests {
     #[test]
     fn test_renumber_pages() {
         let mut layout = vec![
-            LayoutPage { page: 5, photos: vec!["a.jpg".to_string()], slots: vec![] },
-            LayoutPage { page: 7, photos: vec!["b.jpg".to_string()], slots: vec![] },
+            LayoutPage {
+                page: 5,
+                photos: vec!["a.jpg".to_string()],
+                slots: vec![],
+            },
+            LayoutPage {
+                page: 7,
+                photos: vec!["b.jpg".to_string()],
+                slots: vec![],
+            },
         ];
 
         renumber_pages(&mut layout);
@@ -339,13 +390,14 @@ mod tests {
 
     #[test]
     fn test_remove_from_photos() {
-        let mut photos = vec![
-            PhotoGroup {
-                group: "Group1".to_string(),
-                sort_key: "2024-01-01".to_string(),
-                files: vec![make_photo("a.jpg", "/path/a.jpg"), make_photo("b.jpg", "/path/b.jpg")],
-            },
-        ];
+        let mut photos = vec![PhotoGroup {
+            group: "Group1".to_string(),
+            sort_key: "2024-01-01".to_string(),
+            files: vec![
+                make_photo("a.jpg", "/path/a.jpg"),
+                make_photo("b.jpg", "/path/b.jpg"),
+            ],
+        }];
 
         let mut matched = HashSet::new();
         matched.insert("a.jpg".to_string());
@@ -360,13 +412,11 @@ mod tests {
 
     #[test]
     fn test_remove_from_photos_empty_group() {
-        let mut photos = vec![
-            PhotoGroup {
-                group: "Group1".to_string(),
-                sort_key: "2024-01-01".to_string(),
-                files: vec![make_photo("a.jpg", "/path/a.jpg")],
-            },
-        ];
+        let mut photos = vec![PhotoGroup {
+            group: "Group1".to_string(),
+            sort_key: "2024-01-01".to_string(),
+            files: vec![make_photo("a.jpg", "/path/a.jpg")],
+        }];
 
         let mut matched = HashSet::new();
         matched.insert("a.jpg".to_string());

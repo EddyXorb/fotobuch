@@ -139,10 +139,7 @@ mod tests {
     fn test_preview_path() {
         let base = Path::new("/cache/preview");
         let path = preview_path(base, "Urlaub/IMG_001.jpg");
-        assert_eq!(
-            path.to_str().unwrap(),
-            "/cache/preview/Urlaub/IMG_001.jpg"
-        );
+        assert_eq!(path.to_str().unwrap(), "/cache/preview/Urlaub/IMG_001.jpg");
     }
 
     #[test]

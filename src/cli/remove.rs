@@ -6,8 +6,7 @@ use photobook_solver::commands;
 use tracing::info;
 
 pub fn handle(patterns: Vec<String>, keep_files: bool) -> Result<()> {
-    let project_root = std::env::current_dir()
-        .context("Failed to determine current directory")?;
+    let project_root = std::env::current_dir().context("Failed to determine current directory")?;
 
     let config = commands::remove::RemoveConfig {
         patterns,
@@ -31,7 +30,10 @@ pub fn handle(patterns: Vec<String>, keep_files: bool) -> Result<()> {
             } else {
                 format!("pages {:?}", result.pages_affected)
             };
-            info!("✅ Removed {} placement(s) from {}", result.placements_removed, pages_str);
+            info!(
+                "✅ Removed {} placement(s) from {}",
+                result.placements_removed, pages_str
+            );
         }
         if keep_files {
             info!("ℹ️  Photos kept in project as unplaced.");

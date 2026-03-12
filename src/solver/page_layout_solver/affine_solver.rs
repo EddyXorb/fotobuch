@@ -4,7 +4,7 @@
 //! Each node stores (α, γ) such that: w = α·h + γ
 //! This allows handling β > 0 without falling back to solving linear systems.
 
-use super::super::data_models::{Canvas, SolverPageLayout, Photo, PhotoPlacement};
+use super::super::data_models::{Canvas, Photo, PhotoPlacement, SolverPageLayout};
 use super::tree::{Cut, Node, SlicingTree};
 
 /// Affine coefficient pair (α, γ) representing the relationship w = α·h + γ.
@@ -290,7 +290,12 @@ mod tests {
     use rand_chacha::ChaCha8Rng;
 
     fn make_photo(aspect_ratio: f64) -> Photo {
-        Photo::new(format!("test_{}", aspect_ratio), aspect_ratio, 1.0, "test".to_string())
+        Photo::new(
+            format!("test_{}", aspect_ratio),
+            aspect_ratio,
+            1.0,
+            "test".to_string(),
+        )
     }
 
     #[test]

@@ -15,7 +15,9 @@ pub fn build_objective(vars: &MipVariables, groups: &GroupInfo, params: &Params)
     // D_split = sum_l (sum_j b_lj - 1)
     let d_split: Expression = (0..num_groups)
         .map(|l| {
-            let sum_b: Expression = (1..=b_max).map(|j| Expression::from(vars.b.get([l, j]))).sum();
+            let sum_b: Expression = (1..=b_max)
+                .map(|j| Expression::from(vars.b.get([l, j])))
+                .sum();
             sum_b - 1
         })
         .sum();
