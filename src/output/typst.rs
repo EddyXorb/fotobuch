@@ -355,4 +355,49 @@ mod tests {
         assert!(content.contains("#let is_final = true"));
         assert!(!content.contains("#let is_final = false"));
     }
+
+    #[test]
+    fn test_add_pdf_boxes_sets_trim_and_bleed_box() {
+        // Compile a minimal PDF with a known page size (A4: 595.28 × 841.89 pt)
+        let temp = TempDir::new().unwrap();
+        let template = temp.path().join("bleed_test.typ");
+        fs::write(&template, "#set page(width: 210mm, height: 297mm)\nHello").unwrap();
+        let pdf_bytes = compile_to_bytes(&template).unwrap();
+
+        let bleed_mm = 3.0_f64;
+        let result = add_pdf_boxes(&pdf_bytes, bleed_mm);
+        assert!(result.is_ok(), "add_pdf_boxes failed: {:?}", result.err());
+        let annotated = result.unwrap();
+
+        // Parse the annotated PDF and check the boxes on the first page
+        let doc = Document::load_mem(&annotated).unwrap();
+        let page_ids: Vec<_> = doc.get_pages().values().copied().collect();
+        assert_eq!(page_ids.len(), 1, "expected exactly one page");
+
+        let page = doc.get_object(page_ids[0]).unwrap().as_dict().unwrap();
+
+        let media_box = page.get(b"MediaBox").unwrap().as_array().unwrap();
+        let mx0 = media_box[0].as_float().unwrap();
+        let my0 = media_box[1].as_float().unwrap();
+        let mx1 = media_box[2].as_float().unwrap();
+        let my1 = media_box[3].as_float().unwrap();
+
+        let bleed_box = page.get(b"BleedBox").unwrap().as_array().unwrap();
+        assert_eq!(bleed_box[0].as_float().unwrap(), mx0, "BleedBox x0 must equal MediaBox x0");
+        assert_eq!(bleed_box[1].as_float().unwrap(), my0, "BleedBox y0 must equal MediaBox y0");
+        assert_eq!(bleed_box[2].as_float().unwrap(), mx1, "BleedBox x1 must equal MediaBox x1");
+        assert_eq!(bleed_box[3].as_float().unwrap(), my1, "BleedBox y1 must equal MediaBox y1");
+
+        let bleed_pt = bleed_mm as f32 * (72.0 / 25.4);
+        let trim_box = page.get(b"TrimBox").unwrap().as_array().unwrap();
+        let tx0 = trim_box[0].as_float().unwrap();
+        let ty0 = trim_box[1].as_float().unwrap();
+        let tx1 = trim_box[2].as_float().unwrap();
+        let ty1 = trim_box[3].as_float().unwrap();
+
+        assert!((tx0 - (mx0 + bleed_pt)).abs() < 0.01, "TrimBox x0 off: {tx0} vs {}", mx0 + bleed_pt);
+        assert!((ty0 - (my0 + bleed_pt)).abs() < 0.01, "TrimBox y0 off: {ty0} vs {}", my0 + bleed_pt);
+        assert!((tx1 - (mx1 - bleed_pt)).abs() < 0.01, "TrimBox x1 off: {tx1} vs {}", mx1 - bleed_pt);
+        assert!((ty1 - (my1 - bleed_pt)).abs() < 0.01, "TrimBox y1 off: {ty1} vs {}", my1 - bleed_pt);
+    }
 }
