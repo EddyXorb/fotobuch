@@ -33,7 +33,6 @@ pub fn handle(
             result.pages_rebuilt
         );
     }
-    info!("📄 PDF: {}", result.pdf_path.display());
 
     Ok(())
 }

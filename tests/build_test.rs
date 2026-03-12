@@ -514,14 +514,13 @@ fn test_build_from_scratch_with_max_groups_per_page_one() -> Result<()> {
 
     println!("Page 1 photos: {:?}", page1_photos);
     println!("Page 2 photos: {:?}", page2_photos);
-    
+
     assert!(
         page1_photos.len() + page2_photos.len() == all_photos.len(),
         "Pages should contain all photos"
     );
 
     let intersection: Vec<_> = page1_photos.intersection(&page2_photos).collect();
-
 
     assert!(
         intersection.is_empty(),
