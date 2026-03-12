@@ -589,7 +589,7 @@ mod tests {
         };
 
         let scale_factor = layout.calc_needed_scaling_around_center_for_bleed(&book_config);
-        assert_relative_eq!(scale_factor, 105.0 / 95.0 , epsilon = 1e-6);
+        assert_relative_eq!(scale_factor, 105.0 / 95.0, epsilon = 1e-6);
     }
 
     #[test]

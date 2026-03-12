@@ -1,30 +1,9 @@
 # TODOs
 
-In dieser Reihe abzuarbeiten.
+To be done in this order
 
-1. [x] [state_manager](docs/design/state_and_data_persistence/statemanager.md)
-2. [ ] Der Reihe nach wie nummeriert alle cli-commands in docs/design/cli:
-   - [x] [project new](docs/design/cli/1_new.md)
-   - [x] [add](docs/design/cli/2_add.md)
-   - [x] [build](docs/design/cli/3_build.md)
-     - [x] cache/common.rs (Pfad-Helpers, mtime-Check, resize mit Lanczos3/Triangle)
-     - [x] cache/preview.rs (parallele Preview-Generierung mit rayon)
-     - [x] cache/final_cache.rs (300 DPI mit DPI-Validierung)
-     - [x] output/typst.rs (Typst-Kompilierung via typst-crate)
-     - [x] commands/build.rs (first_build, incremental_build, release_build)
-     - [x] **BUGFIX**: SimpleWorld in output/typst.rs muss VirtualPath::within_root() verwenden
-       - Problem: FileId wird mit VirtualPath::new() erstellt, sollte aber within_root() nutzen
-       - Lösung: root vor FileId berechnen, dann `VirtualPath::within_root(path, &root)` verwenden
-       - Symptom: Integration-Tests schlagen mit "file not found (searched at ...)" fehl
-     - [x] Integration-Tests (tests/build_test.rs) zum Laufen bringen
-       - 7 Tests erstellt, alle schlagen wegen SimpleWorld-Bug fehl
-       - Tests prüfen: first_build, incremental_build, release, --pages filter, clean check
-     - [x] CLI-Integration in main.rs und cli.rs
-   - [ ] [rebuild](docs/design/cli/4_rebuild.md)
-   - [x] [place](docs/design/cli/5_place.md)
-   - [x] [remove](docs/design/cli/6_remove.md)
-   - [x] [status](docs/design/cli/7_status.md)
-   - [x] [config](docs/design/cli/8_config.md)
-   - [ ] [history](docs/design/cli/9_history.md)
-   - [ ]  [project list](docs/design/cli/10_project_list.md)
-   - [ ]  [project switch](docs/design/cli/11_project_switch.md)
+- [ ]  history outputs whole history, but should per default only be the last 5 (configurable via -n NR)
+- [ ] images are rotated wrongly when read; probably due to the way how we read height and width (should take exif information)
+- [ ] it should be possible to enable subtexts for each image during preview that shows the image id (configurable via variable in typst template and also via cli-flag on build (--annotate), which is incompatible with --release)
+- [ ] have a typst template that creates an image appendix with group name, time and date of each photo ( sorted by groups) and referenced either by a small counter subtext for each photo or without the subtext by lexicographic ordering of the upper left edge of each image (configurable in the template) 
+- [ ] images should be ordered according to timestamp also *within* the same page. This needs to be considered within the ga_solver by introducing a penalty for photos being on the wrong side of the page (it should have linear complexity to calculate). This can be achieved by calculating the cumsum of the photo weight of each page and transform that for each photo to a x-coordinate and divide that by the canvas width (to scale it to 1);. Then look at each photo's center x, transform that to the [0,1] range as before and penalize the difference between actual A and wanted W coordinate by (A-X)^2, adding the penalty for each photo and divide that by the number of photos. This should then also get a new weight "in_page_order_deviation" or similar.

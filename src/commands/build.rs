@@ -118,9 +118,9 @@ pub fn build(project_root: &Path, config: &BuildConfig) -> Result<BuildResult> {
 }
 
 /// Output build result summary (pages rebuilt, PDF path, DPI warnings).
-/// 
+///
 /// This is called after build() to log the final result.
-/// Note: The build functions already log incremental progress, 
+/// Note: The build functions already log incremental progress,
 /// this logs only the final summary.
 pub fn print_build_result(result: &BuildResult) {
     if !result.pages_rebuilt.is_empty() {
@@ -130,7 +130,6 @@ pub fn print_build_result(result: &BuildResult) {
             result.pages_rebuilt
         );
     }
-    
 
     if !result.dpi_warnings.is_empty() {
         warn!(

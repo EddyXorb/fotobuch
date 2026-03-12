@@ -7,7 +7,7 @@ use crate::state_manager::StateManager;
 use anyhow::Result;
 use std::path::Path;
 use std::sync::atomic::AtomicUsize;
-use tracing::{info, warn};
+use tracing::info;
 
 /// Performs incremental build: updates only modified pages.
 pub fn incremental_build(

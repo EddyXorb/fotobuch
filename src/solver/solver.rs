@@ -74,7 +74,7 @@ fn run_single_page(
     let layout_page = ga_result
         .layout
         .centered()
-        .to_layout_page(1, photos, &request.book_config);
+        .to_layout_page(1, photos, request.book_config);
 
     Ok(vec![layout_page])
 }
@@ -96,7 +96,7 @@ fn run_multi_page(
         .iter()
         .enumerate()
         .map(|(i, page)| {
-            let layout_page = page.to_layout_page(i + 1, &photos[curr_idx..], &request.book_config);
+            let layout_page = page.to_layout_page(i + 1, &photos[curr_idx..], request.book_config);
             curr_idx += page.placements.len();
             layout_page
         })
