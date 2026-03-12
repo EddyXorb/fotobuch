@@ -67,7 +67,10 @@ pub fn solve_mip(groups: &GroupInfo, params: &Params) -> Result<PageAssignment, 
     let all_constraints = constraints::build_constraints(&vars, groups, params);
 
     // Build and solve
-    let mut model = problem.minimise(objective).using(default_solver);
+    let mut model = problem
+        .minimise(objective)
+        .using(default_solver)
+        .set_parallel(good_lp::solvers::highs::HighsParallelType::On);
 
     info!(
         "Solving MIP with {} variables and {} constraints...",
