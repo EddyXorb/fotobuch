@@ -371,3 +371,165 @@ fn test_build_handles_empty_photo_list() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn test_max_groups_per_page_limits_to_one_group() -> Result<()> {
+    let temp_dir = TempDir::new()?;
+    let project_root = create_test_project_with_photos(&temp_dir)?;
+
+    // Load initial state
+    let yaml_path = project_root.join("testbuild.yaml");
+    let mut state = ProjectState::load(&yaml_path)?;
+
+    // Verify we have 2 groups with photos
+    assert_eq!(
+        state.photos.len(),
+        2,
+        "Test fixture should have 2 groups (group1 and group2)"
+    );
+
+    // Count total photos
+    let total_photos: usize = state.photos.iter().map(|g| g.files.len()).sum();
+    assert_eq!(total_photos, 3, "Test fixture should have 3 photos total");
+
+    // Set max_groups_per_page = 1 and adjust related constraints
+    // to allow single-photo groups
+    state.config.book_layout_solver.group_max_per_page = 1;
+    state.config.book_layout_solver.group_min_photos = 1;
+    state.config.book_layout_solver.photos_per_page_min = 1;
+    state.save(&yaml_path)?;
+
+    // Build with the constraint
+    let build_config = BuildConfig {
+        release: false,
+        pages: None,
+    };
+    let result = build(&project_root, &build_config)?;
+
+    // Verify build succeeded
+    assert!(
+        !result.pages_rebuilt.is_empty(),
+        "Build should create pages"
+    );
+
+    // Load state after build
+    let state_after = ProjectState::load(&yaml_path)?;
+    assert_eq!(state_after.layout.len(), 2, "Should have exactly 2 pages");
+
+    // Verify each page contains photos from only one group
+    for page in state_after.layout.iter() {
+        let page_groups: std::collections::HashSet<String> = page
+            .photos
+            .iter()
+            .map(|photo_id| {
+                // Photo ID format is "group/filename", extract group name
+                photo_id.split('/').next().unwrap_or("").to_string()
+            })
+            .collect();
+
+        assert_eq!(
+            page_groups.len(),
+            1,
+            "Page {} should contain photos from only 1 group, but has {}",
+            page.page,
+            page_groups.len()
+        );
+    }
+
+    // Verify pages have disjunct photo IDs
+    let page1_photos: std::collections::HashSet<_> = state_after.layout[0].photos.iter().collect();
+    let page2_photos: std::collections::HashSet<_> = state_after.layout[1].photos.iter().collect();
+
+    let intersection: Vec<_> = page1_photos.intersection(&page2_photos).collect();
+
+    assert!(
+        intersection.is_empty(),
+        "Pages should have disjunct photos, but found overlap: {:?}",
+        intersection
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_build_from_scratch_with_max_groups_per_page_one() -> Result<()> {
+    let temp_dir = TempDir::new()?;
+    let project_root = create_test_project_with_photos(&temp_dir)?;
+
+    // First, do an initial build to ensure everything is set up
+    let build_config = BuildConfig {
+        release: false,
+        pages: None,
+    };
+    build(&project_root, &build_config)?;
+
+    // Now clear the layout and reconfigure with max_groups_per_page = 1
+    let yaml_path = project_root.join("testbuild.yaml");
+    let mut state = ProjectState::load(&yaml_path)?;
+
+    // Verify we have 2 groups
+    assert_eq!(
+        state.photos.len(),
+        2,
+        "Test fixture should have 2 groups (group1 and group2)"
+    );
+
+    // Clear the layout to force rebuild from scratch
+    state.layout.clear();
+
+    // Set max_groups_per_page = 1 and adjust related constraints
+    state.config.book_layout_solver.group_max_per_page = 1;
+    state.config.book_layout_solver.group_min_photos = 1;
+    state.config.book_layout_solver.photos_per_page_min = 1;
+    state.save(&yaml_path)?;
+
+    // Build from scratch with the constraint
+    let result = build(&project_root, &build_config)?;
+
+    // Verify build succeeded
+    assert!(
+        !result.pages_rebuilt.is_empty(),
+        "Build should create pages"
+    );
+
+    // Load state after build
+    let state_after = ProjectState::load(&yaml_path)?;
+    let num_pages = state_after.layout.len();
+    assert!(
+        num_pages >= 2,
+        "Should have at least 2 pages, got {}",
+        num_pages
+    );
+
+    // Collect all photo IDs from all pages
+    let mut all_photos = std::collections::HashSet::new();
+    for page in &state_after.layout {
+        for photo_id in &page.photos {
+            all_photos.insert(photo_id.clone());
+        }
+    }
+
+    let page1_photos: std::collections::HashSet<_> = state_after.layout[0].photos.iter().collect();
+    let page2_photos: std::collections::HashSet<_> = state_after.layout[1].photos.iter().collect();
+
+    println!("Page 1 photos: {:?}", page1_photos);
+    println!("Page 2 photos: {:?}", page2_photos);
+    
+    assert!(
+        page1_photos.len() + page2_photos.len() == all_photos.len(),
+        "Pages should contain all photos"
+    );
+
+    let intersection: Vec<_> = page1_photos.intersection(&page2_photos).collect();
+
+
+    assert!(
+        intersection.is_empty(),
+        "Page {} and Page {} should have disjunct photos, but found overlap: {:?}",
+        state_after.layout[0].page,
+        state_after.layout[1].page,
+        intersection
+    );
+
+    Ok(())
+}

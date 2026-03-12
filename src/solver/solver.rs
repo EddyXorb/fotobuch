@@ -89,16 +89,22 @@ fn run_multi_page(
     let book_layout =
         book_layout_solver::solve_book_layout(photos, request.config, canvas, request.ga_config)?;
 
+    let mut curr_idx = 0;
     // Convert each page to DTO
     let layout_pages: Vec<LayoutPage> = book_layout
         .pages
         .iter()
         .enumerate()
         .map(|(i, page)| {
-            page.centered()
-                .to_layout_page(i + 1, photos, &request.book_config)
+            let layout_page = page.to_layout_page(i + 1, &photos[curr_idx..], &request.book_config);
+            curr_idx += page.placements.len();
+            layout_page
         })
         .collect();
+    assert!(
+        curr_idx == photos.len(),
+        "All photos should be assigned to pages"
+    );
 
     Ok(layout_pages)
 }
