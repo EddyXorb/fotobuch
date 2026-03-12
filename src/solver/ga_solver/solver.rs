@@ -8,7 +8,7 @@ use super::evolution::{EvolutionDynamic, Island, World};
 use super::individual::Individual;
 use rayon::prelude::*;
 use std::marker::PhantomData;
-use tracing::info;
+use tracing::{debug, info};
 
 /// Generic genetic algorithm with parallel island model support.
 ///
@@ -63,7 +63,7 @@ where
                 break;
             }
 
-            info!(
+            debug!(
                 "Generation {}: Global best fitness = {:.4}",
                 generation, current_best_fitness
             );
