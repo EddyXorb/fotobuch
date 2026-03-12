@@ -16,6 +16,7 @@ use release_build::release_build;
 use crate::state_manager::StateManager;
 use anyhow::Result;
 use std::path::{Path, PathBuf};
+use tracing::{info, warn};
 
 /// DPI warning for final build
 #[derive(Debug)]
@@ -113,5 +114,35 @@ pub fn build(project_root: &Path, config: &BuildConfig) -> Result<BuildResult> {
         first_build(mgr, project_root)
     } else {
         incremental_build(mgr, project_root, config.pages.as_deref())
+    }
+}
+
+/// Output build result summary (pages rebuilt, PDF path, DPI warnings).
+/// 
+/// This is called after build() to log the final result.
+/// Note: The build functions already log incremental progress, 
+/// this logs only the final summary.
+pub fn print_build_result(result: &BuildResult) {
+    if !result.pages_rebuilt.is_empty() {
+        info!(
+            "Rebuilt {} page(s): {:?}",
+            result.pages_rebuilt.len(),
+            result.pages_rebuilt
+        );
+    }
+    
+    info!("PDF: {}", result.pdf_path.display());
+
+    if !result.dpi_warnings.is_empty() {
+        warn!(
+            "\nWARNING: {} photo(s) below 300 DPI:",
+            result.dpi_warnings.len()
+        );
+        for w in &result.dpi_warnings {
+            warn!(
+                "  Page {}: {} — {:.0} DPI",
+                w.page, w.photo_id, w.actual_dpi
+            );
+        }
     }
 }
