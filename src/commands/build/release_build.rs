@@ -60,8 +60,9 @@ pub fn release_build(mgr: StateManager, project_root: &Path) -> Result<super::Bu
         info!("");
     }
 
-    // 3. Compile final.typ -> final.pdf
-    let pdf_path = typst::compile_final(project_root, mgr.project_name())?;
+    // 3. Compile final.typ -> final.pdf (with bleed boxes)
+    let bleed_mm = mgr.state.config.book.bleed_mm;
+    let pdf_path = typst::compile_final(project_root, mgr.project_name(), bleed_mm)?;
     info!("Final PDF generated: {}", pdf_path.display());
 
     // 4. Save state and commit

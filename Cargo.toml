@@ -32,6 +32,9 @@ typst-pdf = "0.14"
 typst-kit = { version = "0.14", features = ["fonts"] }
 comemo = "0.5"
 
+# PDF post-processing (TrimBox/BleedBox)
+lopdf = "0.35"
+
 # Logging
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "chrono"] }
