@@ -2,7 +2,8 @@
 
 To be done in this order
 
-- [ ]  history outputs whole history, but should per default only be the last 5 (configurable via -n NR)
+- [ ] typst template's width and height must be increased by the bleed and the pagelayout needs to be shifted towards (bleed,bleed) for x,y 
+- [ ] history outputs whole history, but should per default only be the last 5 (configurable via -n NR)
 - [ ] images are rotated wrongly when read; probably due to the way how we read height and width (should take exif information)
 - [ ] it should be possible to enable subtexts for each image during preview that shows the image id (configurable via variable in typst template and also via cli-flag on build (--annotate), which is incompatible with --release)
 - [ ] have a typst template that creates an image appendix with group name, time and date of each photo ( sorted by groups) and referenced either by a small counter subtext for each photo or without the subtext by lexicographic ordering of the upper left edge of each image (configurable in the template) 
