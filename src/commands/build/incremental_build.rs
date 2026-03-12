@@ -36,9 +36,11 @@ pub fn incremental_build(
     let pages_needing_rebuild = apply_page_filter(pages_needing_rebuild, page_filter);
 
     if pages_needing_rebuild.is_empty() {
-        info!("No changes detected. Nothing to do.");
+        info!("No changes detected. Nothing to do. Build only pdf.");
+        let pdf_path = update_pdf(&mgr, project_root)?;
+
         return Ok(BuildResult {
-            pdf_path: project_root.join(format!("{}.pdf", mgr.project_name())),
+            pdf_path,
             pages_rebuilt: vec![],
             pages_swapped: vec![],
             images_processed: cache_result.created,
@@ -63,9 +65,7 @@ pub fn incremental_build(
     }
 
     // 6. Compile Typst template to PDF
-    let bleed_mm = mgr.state.config.book.bleed_mm;
-    let pdf_path = typst::compile_preview(project_root, mgr.project_name(), bleed_mm)?;
-    warn!("PDF updated: {}", pdf_path.display());
+    let pdf_path = update_pdf(&mgr, project_root)?;
 
     // 7. Save state and commit
     let total_cost = 0.0; //TODO: calculate actual cost from modified pages when available
@@ -83,6 +83,19 @@ pub fn incremental_build(
         dpi_warnings: vec![],
         nothing_to_do: false,
     })
+}
+
+fn update_pdf(
+    mgr: &StateManager,
+    project_root: &Path,
+) -> Result<std::path::PathBuf, anyhow::Error> {
+    let pdf_path = typst::compile_preview(
+        project_root,
+        mgr.project_name(),
+        mgr.state.config.book.bleed_mm,
+    )?;
+    info!("PDF updated: {}", pdf_path.display());
+    Ok(pdf_path)
 }
 
 /// Applies page filter to the list of pages needing rebuild.

@@ -131,7 +131,6 @@ pub fn print_build_result(result: &BuildResult) {
         );
     }
     
-    info!("PDF: {}", result.pdf_path.display());
 
     if !result.dpi_warnings.is_empty() {
         warn!(
