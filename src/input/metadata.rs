@@ -50,7 +50,9 @@ mod tests {
     fn test_partial_hash_consistency() {
         // Create a test file
         let mut tmpfile = NamedTempFile::new().unwrap();
-        tmpfile.write_all(b"Hello, world! This is test data.").unwrap();
+        tmpfile
+            .write_all(b"Hello, world! This is test data.")
+            .unwrap();
         tmpfile.flush().unwrap();
 
         let hash1 = compute_partial_hash(tmpfile.path()).unwrap();

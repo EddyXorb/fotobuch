@@ -67,7 +67,11 @@ fn test_history_with_commits() -> Result<()> {
     assert_eq!(entries[0].message, "feat: add new file");
 
     // Earlier commit should be "initial: setup project"
-    assert!(entries.iter().any(|e| e.message == "initial: setup project"));
+    assert!(
+        entries
+            .iter()
+            .any(|e| e.message == "initial: setup project")
+    );
 
     // All entries should have timestamps
     for entry in &entries {

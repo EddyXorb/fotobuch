@@ -1,6 +1,6 @@
 //! Fitness function components for the genetic algorithm.
 
-use super::super::data_models::{Canvas, SolverPageLayout, Photo};
+use super::super::data_models::{Canvas, Photo, SolverPageLayout};
 use crate::dto_models::FitnessWeights;
 /// Threshold ratio below which a photo is considered severely undersized.
 const UNDERSIZED_THRESHOLD: f64 = 0.5;

@@ -166,15 +166,25 @@ pub enum ProjectCommands {
 impl Execute for Commands {
     fn execute(&self) -> Result<()> {
         match self {
-            Commands::Add { paths, allow_duplicates, filter_xmp, dry } => {
-                add::handle(paths.clone(), *allow_duplicates, filter_xmp.clone(), *dry)
-            }
+            Commands::Add {
+                paths,
+                allow_duplicates,
+                filter_xmp,
+                dry,
+            } => add::handle(paths.clone(), *allow_duplicates, filter_xmp.clone(), *dry),
             Commands::Build { release, pages } => build::handle(*release, pages.clone()),
-            Commands::Rebuild { page, range_start, range_end, flex, all } => {
-                rebuild::handle(*page, *range_start, *range_end, *flex, *all)
-            }
+            Commands::Rebuild {
+                page,
+                range_start,
+                range_end,
+                flex,
+                all,
+            } => rebuild::handle(*page, *range_start, *range_end, *flex, *all),
             Commands::Place { filter, into } => place::handle(filter.clone(), *into),
-            Commands::Remove { patterns, keep_files } => remove::handle(patterns.clone(), *keep_files),
+            Commands::Remove {
+                patterns,
+                keep_files,
+            } => remove::handle(patterns.clone(), *keep_files),
             Commands::Status { page } => status::handle(*page),
             Commands::Config => config::handle(),
             Commands::History => history::handle(),
@@ -186,16 +196,21 @@ impl Execute for Commands {
 impl Execute for ProjectCommands {
     fn execute(&self) -> Result<()> {
         match self {
-            ProjectCommands::New { name, width, height, bleed, parent_dir, quiet } => {
-                project::handle(project::ProjectSubcommand::New {
-                    name: name.clone(),
-                    width: *width,
-                    height: *height,
-                    bleed: *bleed,
-                    parent_dir: parent_dir.clone(),
-                    quiet: *quiet,
-                })
-            }
+            ProjectCommands::New {
+                name,
+                width,
+                height,
+                bleed,
+                parent_dir,
+                quiet,
+            } => project::handle(project::ProjectSubcommand::New {
+                name: name.clone(),
+                width: *width,
+                height: *height,
+                bleed: *bleed,
+                parent_dir: parent_dir.clone(),
+                quiet: *quiet,
+            }),
             ProjectCommands::List => project::handle(project::ProjectSubcommand::List),
             ProjectCommands::Switch { name } => {
                 project::handle(project::ProjectSubcommand::Switch { name: name.clone() })

@@ -25,7 +25,7 @@ pub fn try_perturbation(
     params: &Params,
 ) -> Option<PageAssignment> {
     let cuts = assignment.cuts();
-    
+
     // Bounds check
     if cut_index >= cuts.len() {
         return None;
@@ -34,12 +34,12 @@ pub fn try_perturbation(
     // Compute new cut value
     let current_cut = cuts[cut_index];
     let new_cut_signed = current_cut as i32 + delta;
-    
+
     // Must stay within photo bounds
     if new_cut_signed < 0 || new_cut_signed as usize > groups.total_photos() {
         return None;
     }
-    
+
     let new_cut = new_cut_signed as usize;
 
     // Ensure monotonicity: cuts must be strictly increasing
@@ -57,7 +57,7 @@ pub fn try_perturbation(
 
     // Create new assignment and validate
     let new_assignment = PageAssignment::new(new_cuts);
-    
+
     // Check feasibility
     if check_feasibility(&new_assignment, groups, params).is_err() {
         return None;
@@ -105,10 +105,10 @@ mod tests {
     fn test_try_perturbation_valid_positive_delta() {
         let groups = create_test_groups();
         let params = create_test_params();
-        
+
         // Assignment: [0, 5, 10, 15] → pages with 5 photos each
         let assignment = PageAssignment::new(vec![0, 5, 10, 15]);
-        
+
         // Shift second cut (index 1) +1: [0, 6, 10, 15]
         let result = try_perturbation(&assignment, 1, 1, &groups, &params);
         assert!(result.is_some());
@@ -119,9 +119,9 @@ mod tests {
     fn test_try_perturbation_valid_negative_delta() {
         let groups = create_test_groups();
         let params = create_test_params();
-        
+
         let assignment = PageAssignment::new(vec![0, 5, 10, 15]);
-        
+
         // Shift third cut (index 2) -1: [0, 5, 9, 15]
         // This gives: page 0: 5 photos, page 1: 4 photos, page 2: 6 photos
         // All pages >= photos_per_page_min = 4
@@ -134,9 +134,9 @@ mod tests {
     fn test_try_perturbation_violates_monotonicity_lower() {
         let groups = create_test_groups();
         let params = create_test_params();
-        
+
         let assignment = PageAssignment::new(vec![0, 5, 10, 15]);
-        
+
         // Try to shift third cut below second: delta = -6 → 10 - 6 = 4 < 5
         let result = try_perturbation(&assignment, 2, -6, &groups, &params);
         assert!(result.is_none());
@@ -146,9 +146,9 @@ mod tests {
     fn test_try_perturbation_violates_monotonicity_upper() {
         let groups = create_test_groups();
         let params = create_test_params();
-        
+
         let assignment = PageAssignment::new(vec![0, 5, 10, 15]);
-        
+
         // Try to shift second cut above third: delta = +6 → 5 + 6 = 11 > 10
         let result = try_perturbation(&assignment, 1, 6, &groups, &params);
         assert!(result.is_none());
@@ -158,9 +158,9 @@ mod tests {
     fn test_try_perturbation_out_of_bounds_negative() {
         let groups = create_test_groups();
         let params = create_test_params();
-        
+
         let assignment = PageAssignment::new(vec![0, 5, 10, 15]);
-        
+
         // Try to shift second cut to negative: delta = -10 → 5 - 10 = -5 < 0
         // (can't shift first cut since it's always 0)
         let result = try_perturbation(&assignment, 1, -10, &groups, &params);
@@ -171,9 +171,9 @@ mod tests {
     fn test_try_perturbation_out_of_bounds_positive() {
         let groups = create_test_groups();
         let params = create_test_params();
-        
+
         let assignment = PageAssignment::new(vec![0, 5, 10, 15]);
-        
+
         // Try to shift last cut beyond total: delta = +10 → 15 + 10 = 25 > 15
         let result = try_perturbation(&assignment, 3, 10, &groups, &params);
         assert!(result.is_none());
@@ -183,10 +183,10 @@ mod tests {
     fn test_try_perturbation_violates_page_size() {
         let groups = create_test_groups();
         let params = create_test_params();
-        
+
         // Start with valid assignment: [0, 5, 10, 15]
         let assignment = PageAssignment::new(vec![0, 5, 10, 15]);
-        
+
         // Shift second cut way down: delta = -3 → 5 - 3 = 2 photos on first page
         // This should violate photos_per_page_min = 4
         let result = try_perturbation(&assignment, 1, -3, &groups, &params);

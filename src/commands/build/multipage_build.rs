@@ -2,7 +2,7 @@ use super::BuildResult;
 use crate::cache::preview;
 use crate::dto_models::{BookLayoutSolverConfig, LayoutPage, PhotoGroup};
 use crate::output::typst;
-use crate::solver::{run_solver, Request, RequestType};
+use crate::solver::{Request, RequestType, run_solver};
 use crate::state_manager::StateManager;
 use anyhow::Result;
 use std::path::Path;

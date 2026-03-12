@@ -31,18 +31,15 @@ pub struct GaResult {
 }
 
 /// Entry point for running GA on a single page layout.
-pub fn run_ga(
-    photos: &[Photo],
-    canvas: &Canvas,
-    ga_config: &GaConfig,
-) -> GaResult {
+pub fn run_ga(photos: &[Photo], canvas: &Canvas, ga_config: &GaConfig) -> GaResult {
     use crate::solver::ga_solver::{Config, GeneticAlgorithm, Individual};
 
     // Create evaluation context
     let context = evolution::EvaluationContext::new(photos, canvas, &ga_config.weights);
 
     // Create initial population
-    let initial_pop = create_initial_population(&context, ga_config.population_size, ga_config.seed);
+    let initial_pop =
+        create_initial_population(&context, ga_config.population_size, ga_config.seed);
 
     // Create GA configuration
     let config = Config {

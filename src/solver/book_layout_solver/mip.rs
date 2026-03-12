@@ -443,7 +443,11 @@ mod tests {
                 ..base.clone()
             },
         );
-        assert!(even_result.is_ok(), "even-dominant MIP failed: {:?}", even_result);
+        assert!(
+            even_result.is_ok(),
+            "even-dominant MIP failed: {:?}",
+            even_result
+        );
         let even_assignment = even_result.unwrap();
         assert_eq!(even_assignment.total_photos(), 8);
         // All pages must be equal (size 4) to achieve D_even=0
@@ -465,7 +469,11 @@ mod tests {
                 ..base
             },
         );
-        assert!(split_result.is_ok(), "split-dominant MIP failed: {:?}", split_result);
+        assert!(
+            split_result.is_ok(),
+            "split-dominant MIP failed: {:?}",
+            split_result
+        );
         let split_assignment = split_result.unwrap();
         assert_eq!(split_assignment.total_photos(), 8);
         assert_eq!(

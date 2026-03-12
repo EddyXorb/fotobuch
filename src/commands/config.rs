@@ -37,7 +37,12 @@ pub fn config(project_root: &Path) -> Result<ConfigResult> {
 /// with "# default" annotation. The output is valid YAML.
 pub fn render_config(result: &ConfigResult) -> Result<String> {
     let mut output = String::new();
-    render_annotated(&to_yaml_value(&result.resolved)?, &result.raw, 0, &mut output);
+    render_annotated(
+        &to_yaml_value(&result.resolved)?,
+        &result.raw,
+        0,
+        &mut output,
+    );
     Ok(output)
 }
 
@@ -47,12 +52,7 @@ fn to_yaml_value(config: &ProjectConfig) -> Result<Value> {
 }
 
 /// Recursively renders a YAML value tree with annotations for defaulted fields
-fn render_annotated(
-    resolved: &Value,
-    raw: &Value,
-    indent: usize,
-    output: &mut String,
-) {
+fn render_annotated(resolved: &Value, raw: &Value, indent: usize, output: &mut String) {
     match resolved {
         Value::Mapping(map) => {
             let raw_map = raw.as_mapping();
@@ -60,9 +60,7 @@ fn render_annotated(
                 let key_str = key.as_str().unwrap_or("?");
 
                 // Check if this key was present in the raw YAML
-                let is_default = raw_map
-                    .map(|m| !m.contains_key(key))
-                    .unwrap_or(true);
+                let is_default = raw_map.map(|m| !m.contains_key(key)).unwrap_or(true);
 
                 if value.is_mapping() {
                     // Nested mapping: recurse without annotation on the key itself
@@ -78,10 +76,7 @@ fn render_annotated(
                 } else if value.is_sequence() {
                     // Sequence: render inline or multiline
                     write_indent(output, indent);
-                    output.push_str(&format!(
-                        "{key_str}: {:<24}",
-                        format_sequence(value)
-                    ));
+                    output.push_str(&format!("{key_str}: {:<24}", format_sequence(value)));
 
                     if is_default {
                         output.push_str("# default");
@@ -180,10 +175,8 @@ mod tests {
 
     #[test]
     fn test_render_annotated_defaults() {
-        let resolved: Value = serde_yaml::from_str(
-            "key1: value1\nkey2: 42\nnested:\n  inner: true",
-        )
-        .unwrap();
+        let resolved: Value =
+            serde_yaml::from_str("key1: value1\nkey2: 42\nnested:\n  inner: true").unwrap();
 
         let raw: Value = serde_yaml::from_str("key1: value1").unwrap();
 

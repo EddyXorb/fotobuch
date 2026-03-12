@@ -1,12 +1,12 @@
 //! Final cache generation for high-quality PDF output
 
-use anyhow::Result;
 use crate::commands::build::DpiWarning;
 use crate::dto_models::ProjectState;
+use anyhow::Result;
+use rayon::prelude::*;
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use rayon::prelude::*;
 
 use super::common::{cache_rel_path, is_cache_fresh, resize_and_save};
 
@@ -42,9 +42,10 @@ pub fn build_final_cache(
     for page in &state.layout {
         for (idx, photo_id) in page.photos.iter().enumerate() {
             if let Some(slot) = page.slots.get(idx)
-                && let Some(&photo) = photo_map.get(photo_id.as_str()) {
-                    tasks.push((page.page, slot.clone(), photo, photo_id.clone()));
-                }
+                && let Some(&photo) = photo_map.get(photo_id.as_str())
+            {
+                tasks.push((page.page, slot.clone(), photo, photo_id.clone()));
+            }
         }
     }
 
@@ -53,34 +54,36 @@ pub fn build_final_cache(
     let warnings = std::sync::Mutex::new(Vec::new());
 
     // Process in parallel
-    tasks.par_iter().try_for_each(|(page_num, slot, photo, photo_id)| {
-        let source = Path::new(&photo.source);
-        let cached = final_cache_dir.join(cache_rel_path(photo_id));
+    tasks
+        .par_iter()
+        .try_for_each(|(page_num, slot, photo, photo_id)| {
+            let source = Path::new(&photo.source);
+            let cached = final_cache_dir.join(cache_rel_path(photo_id));
 
-        // Calculate target dimensions at 300 DPI
-        let (target_w, target_h) = target_pixels(slot, TARGET_DPI);
+            // Calculate target dimensions at 300 DPI
+            let (target_w, target_h) = target_pixels(slot, TARGET_DPI);
 
-        // Check if photo meets DPI requirements
-        let photo_dpi = actual_dpi(photo.width_px, photo.height_px, slot);
-        if photo_dpi < TARGET_DPI {
-            warnings.lock().unwrap().push(DpiWarning {
-                page: *page_num,
-                photo_id: photo_id.clone(),
-                actual_dpi: photo_dpi,
-                original_px: (photo.width_px, photo.height_px),
-                slot_mm: (slot.width_mm, slot.height_mm),
-            });
-        }
+            // Check if photo meets DPI requirements
+            let photo_dpi = actual_dpi(photo.width_px, photo.height_px, slot);
+            if photo_dpi < TARGET_DPI {
+                warnings.lock().unwrap().push(DpiWarning {
+                    page: *page_num,
+                    photo_id: photo_id.clone(),
+                    actual_dpi: photo_dpi,
+                    original_px: (photo.width_px, photo.height_px),
+                    slot_mm: (slot.width_mm, slot.height_mm),
+                });
+            }
 
-        // Generate final image if missing or stale
-        if !is_cache_fresh(source, &cached) {
-            resize_and_save(source, &cached, target_w, target_h, 95)?;
-            created.fetch_add(1, Ordering::Relaxed);
-        }
+            // Generate final image if missing or stale
+            if !is_cache_fresh(source, &cached) {
+                resize_and_save(source, &cached, target_w, target_h, 95)?;
+                created.fetch_add(1, Ordering::Relaxed);
+            }
 
-        progress.fetch_add(1, Ordering::Relaxed);
-        Ok::<_, anyhow::Error>(())
-    })?;
+            progress.fetch_add(1, Ordering::Relaxed);
+            Ok::<_, anyhow::Error>(())
+        })?;
 
     Ok(FinalCacheResult {
         created: created.into_inner(),
@@ -116,8 +119,8 @@ mod tests {
         let slot = Slot {
             x_mm: 0.0,
             y_mm: 0.0,
-            width_mm: 100.0,  // 100mm ~= 3.937 inches
-            height_mm: 50.0,  // 50mm ~= 1.969 inches
+            width_mm: 100.0, // 100mm ~= 3.937 inches
+            height_mm: 50.0, // 50mm ~= 1.969 inches
         };
 
         let (w, h) = target_pixels(&slot, 300.0);

@@ -8,7 +8,7 @@ pub mod new;
 pub mod switch;
 
 pub use list::project_list;
-pub use new::{project_new, validate_project_name, NewConfig, NewResult};
+pub use new::{NewConfig, NewResult, project_new, validate_project_name};
 pub use switch::project_switch;
 
 /// Information about a project

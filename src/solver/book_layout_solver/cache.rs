@@ -71,19 +71,19 @@ impl LayoutCache {
     }
 
     /// Returns the number of cached entries.
-        #[allow(dead_code)]
+    #[allow(dead_code)]
     pub fn len(&self) -> usize {
         self.entries.len()
     }
 
     /// Returns whether the cache is empty.
-        #[allow(dead_code)]
+    #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
         self.entries.is_empty()
     }
 
     /// Clears all entries from the cache.
-        #[allow(dead_code)]
+    #[allow(dead_code)]
     pub fn clear(&mut self) {
         self.entries.clear();
     }

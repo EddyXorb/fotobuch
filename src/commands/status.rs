@@ -139,7 +139,11 @@ fn assign_swap_groups(ratios: &[f64]) -> Vec<char> {
 
     // Sort indices by ratio
     let mut indices: Vec<usize> = (0..ratios.len()).collect();
-    indices.sort_by(|&a, &b| ratios[a].partial_cmp(&ratios[b]).unwrap_or(std::cmp::Ordering::Equal));
+    indices.sort_by(|&a, &b| {
+        ratios[a]
+            .partial_cmp(&ratios[b])
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
 
     let mut groups = vec![' '; ratios.len()];
     let mut current_group = b'A';
@@ -288,17 +292,15 @@ mod tests {
             photos: vec![crate::dto_models::PhotoGroup {
                 group: "Test".to_string(),
                 sort_key: "2024-01-01".to_string(),
-                files: vec![
-                    crate::dto_models::PhotoFile {
-                        id: "a.jpg".to_string(),
-                        source: "/path/a.jpg".to_string(),
-                        width_px: 1920,
-                        height_px: 1080,
-                        area_weight: 1.0,
-                        timestamp: chrono::Utc::now(),
-                        hash: "test".to_string(),
-                    },
-                ],
+                files: vec![crate::dto_models::PhotoFile {
+                    id: "a.jpg".to_string(),
+                    source: "/path/a.jpg".to_string(),
+                    width_px: 1920,
+                    height_px: 1080,
+                    area_weight: 1.0,
+                    timestamp: chrono::Utc::now(),
+                    hash: "test".to_string(),
+                }],
             }],
             layout: vec![crate::dto_models::LayoutPage {
                 page: 1,

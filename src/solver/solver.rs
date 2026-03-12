@@ -83,12 +83,8 @@ fn run_multi_page(
     request: &Request,
 ) -> Result<Vec<LayoutPage>, SolverError> {
     // Run book layout solver (MIP + local search)
-    let book_layout = book_layout_solver::solve_book_layout(
-        photos,
-        request.config,
-        canvas,
-        request.ga_config,
-    )?;
+    let book_layout =
+        book_layout_solver::solve_book_layout(photos, request.config, canvas, request.ga_config)?;
 
     // Convert each page to DTO
     let layout_pages: Vec<LayoutPage> = book_layout

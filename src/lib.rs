@@ -83,7 +83,6 @@
 //! and photo transfers, with each candidate evaluated using the GA-based page solver.
 //!
 
-
 pub mod cache;
 pub mod commands;
 pub mod dto_models;

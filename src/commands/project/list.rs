@@ -46,7 +46,10 @@ pub fn project_list(project_root: &Path) -> Result<Vec<super::ProjectInfo>> {
             continue;
         }
 
-        let is_current = current_branch.as_ref().map(|cb| cb == branch_name).unwrap_or(false);
+        let is_current = current_branch
+            .as_ref()
+            .map(|cb| cb == branch_name)
+            .unwrap_or(false);
 
         projects.push(super::ProjectInfo {
             name: project_name,

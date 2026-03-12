@@ -127,7 +127,10 @@ fn test_project_switch_with_uncommitted_changes() -> Result<()> {
     let dir = temp_dir.path();
 
     // Make a change to a file
-    std::fs::write(dir.join("project2.yaml"), "name: project2\nmodified: true\n")?;
+    std::fs::write(
+        dir.join("project2.yaml"),
+        "name: project2\nmodified: true\n",
+    )?;
 
     // Try to switch with uncommitted changes
     let result = photobook_solver::commands::project::project_switch(dir, "project1");
@@ -176,7 +179,8 @@ fn test_project_switch_invalid_name() -> Result<()> {
     init_git_with_projects(&temp_dir)?;
 
     // Try with invalid project name (contains slash)
-    let result = photobook_solver::commands::project::project_switch(temp_dir.path(), "invalid/name");
+    let result =
+        photobook_solver::commands::project::project_switch(temp_dir.path(), "invalid/name");
 
     // Should fail validation
     assert!(result.is_err());

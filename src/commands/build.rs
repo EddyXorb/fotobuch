@@ -7,9 +7,9 @@ mod rebuild_single_page;
 mod release_build;
 
 use first_build::first_build;
-use incremental_build::incremental_build;
 pub use helpers::{build_photo_index, collect_photos_as_groups};
-pub use multipage_build::{multipage_build, MultiPageParams};
+use incremental_build::incremental_build;
+pub use multipage_build::{MultiPageParams, multipage_build};
 pub use rebuild_single_page::rebuild_single_page;
 use release_build::release_build;
 
