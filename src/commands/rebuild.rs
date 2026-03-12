@@ -118,7 +118,8 @@ fn rebuild_single(mut mgr: StateManager, project_root: &Path, page: usize) -> Re
     rebuild_single_page(&mut mgr.state, page, &photo_index)?;
 
     // 3. Typst kompilieren
-    let pdf_path = typst::compile_preview(project_root, mgr.project_name())?;
+    let bleed_mm = mgr.state.config.book.bleed_mm;
+    let pdf_path = typst::compile_preview(project_root, mgr.project_name(), bleed_mm)?;
 
     // 4. Fertigstellen — speichert YAML und committed
     mgr.finish(&format!("rebuild: page {}", page))?;

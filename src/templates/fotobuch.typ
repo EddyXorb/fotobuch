@@ -8,8 +8,8 @@
   ".fotobuch/cache/{name}/preview/"
 }
 
-// Seitengröße aus YAML (im Final-Modus inklusive Beschnitt / Bleed)
-#let bleed = if is_final { data.config.book.bleed_mm * 1mm } else { 0mm }
+// Seitengröße aus YAML inkl. Beschnitt / Bleed
+#let bleed = data.config.book.bleed_mm * 1mm
 #set page(
   width: data.config.book.page_width_mm * 1mm + 2 * bleed,
   height: data.config.book.page_height_mm * 1mm + 2 * bleed,

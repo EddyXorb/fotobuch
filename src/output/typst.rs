@@ -122,12 +122,20 @@ fn add_pdf_boxes(pdf_bytes: &[u8], bleed_mm: f64) -> Result<Vec<u8>> {
     Ok(output)
 }
 
-/// Compiles the preview PDF.
+/// Compiles the preview PDF with bleed and sets TrimBox/BleedBox in the output PDF.
 /// Template: `{project_root}/{name}.typ` → Output: `{project_root}/{name}.pdf`
-pub fn compile_preview(project_root: &Path, project_name: &str) -> Result<PathBuf> {
+pub fn compile_preview(project_root: &Path, project_name: &str, bleed_mm: f64) -> Result<PathBuf> {
     let template = project_root.join(format!("{project_name}.typ"));
     let output = project_root.join(format!("{project_name}.pdf"));
-    compile(&template, &output)?;
+
+    let pdf_bytes = compile_to_bytes(&template)?;
+    let pdf_bytes = if bleed_mm > 0.0 {
+        add_pdf_boxes(&pdf_bytes, bleed_mm)?
+    } else {
+        pdf_bytes
+    };
+    fs::write(&output, pdf_bytes)
+        .with_context(|| format!("Failed to write PDF: {}", output.display()))?;
     Ok(output)
 }
 
@@ -314,7 +322,7 @@ mod tests {
 
         fs::write(&template, "= My Book\n\nPreview content.").unwrap();
 
-        let result = compile_preview(temp.path(), "mybook");
+        let result = compile_preview(temp.path(), "mybook", 0.0);
 
         assert!(result.is_ok());
         let pdf_path = result.unwrap();
