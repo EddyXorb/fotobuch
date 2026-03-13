@@ -1,4 +1,5 @@
 //! Integration tests for `fotobuch rebuild` command
+mod common;
 
 use anyhow::Result;
 use photobook_solver::commands::build::{BuildConfig, build};
@@ -26,6 +27,7 @@ fn create_test_project_with_build(temp_dir: &TempDir) -> Result<PathBuf> {
     let yaml_path = project_root.join("testrebuild.yaml");
     let mut state = ProjectState::load(&yaml_path)?;
     state.config.book_layout_solver.page_max = 5;
+        state.config.book_layout_solver.page_target = 5;
     state.config.book_layout_solver.photos_per_page_max = 2; // Max 2 photos per page
     state.config.book_layout_solver.photos_per_page_min = 1; // Min 1 photo per page
     state.config.book_layout_solver.group_min_photos = 1; // Allow single-photo groups
@@ -361,6 +363,8 @@ fn test_rebuild_range_preserves_groups() -> Result<()> {
 
 #[test]
 fn test_rebuild_all_redistributes_everything() -> Result<()> {
+    common::init_tests();
+
     let temp_dir = TempDir::new()?;
     let project_root = create_test_project_with_build(&temp_dir)?;
 
