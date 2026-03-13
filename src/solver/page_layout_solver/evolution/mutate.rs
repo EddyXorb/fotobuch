@@ -11,10 +11,11 @@ pub(super) fn apply_mutation<R: Rng>(
     mutation_rate: f64,
     context: &EvaluationContext,
     rng: &mut R,
+    enforce_order: bool,
 ) {
     for individual in individuals.iter_mut() {
         if rng.r#gen::<f64>() < mutation_rate {
-            mutate_individual(individual, context, rng);
+            mutate_individual(individual, context, rng, enforce_order);
         }
     }
 }
@@ -24,31 +25,53 @@ fn mutate_individual<R: Rng>(
     individual: &mut LayoutIndividual,
     context: &EvaluationContext,
     rng: &mut R,
+    enforce_order: bool,
 ) {
     let mut tree = individual.tree().clone();
-    mutate(&mut tree, rng);
+    mutate(&mut tree, rng, enforce_order);
     *individual = LayoutIndividual::from_tree(tree, context);
 }
 
-/// Mutates a slicing tree by swapping the labels of two random nodes of the same type.
+/// Mutates a slicing tree.
 ///
-/// If both nodes are leaves, swap their photo_idx.
-/// If both nodes are internal, swap their cut type.
+/// If `enforce_order` is true, performs cut-flip: picks a random internal node and toggles its cut (V ↔ H).
+/// Otherwise, performs legacy leaf-swap: swaps photo indices of two random leaves.
 ///
 /// The tree structure remains unchanged.
-pub(crate) fn mutate<R: Rng>(tree: &mut SlicingTree, rng: &mut R) {
+pub(crate) fn mutate<R: Rng>(tree: &mut SlicingTree, rng: &mut R, enforce_order: bool) {
     let n = tree.len();
     if n < 2 {
-        return; // Nothing to swap
+        return; // Nothing to mutate
     }
 
-    let (leaf_indices, internal_indices) = collect_node_indices(tree);
+    if enforce_order {
+        // Cut-flip: toggle one random internal node's cut type
+        let internal_indices: Vec<u16> = tree
+            .nodes()
+            .iter()
+            .enumerate()
+            .filter_map(|(i, n)| if n.is_internal() { Some(i as u16) } else { None })
+            .collect();
 
-    // Try to swap leaves first (more common), otherwise swap internals
-    if leaf_indices.len() >= 2 {
-        swap_random_leaves(tree, &leaf_indices, rng);
-    } else if internal_indices.len() >= 2 {
-        swap_random_internals(tree, &internal_indices, rng);
+        if !internal_indices.is_empty() {
+            let idx = internal_indices[rng.gen_range(0..internal_indices.len())];
+            if let Node::Internal { cut, .. } = tree.node_mut(idx) {
+                *cut = match cut {
+                    Cut::V => Cut::H,
+                    Cut::H => Cut::V,
+                };
+            }
+        }
+    } else {
+        // Legacy behavior: leaf-swap
+        let (leaf_indices, internal_indices) = collect_node_indices(tree);
+
+        // Try to swap leaves first (more common), otherwise swap internals
+        if leaf_indices.len() >= 2 {
+            swap_random_leaves(tree, &leaf_indices, rng);
+        } else if internal_indices.len() >= 2 {
+            swap_random_internals(tree, &internal_indices, rng);
+        }
     }
 }
 
@@ -163,7 +186,7 @@ mod tests {
         let original_len = tree.len();
         let original_leaf_count = tree.leaf_count();
 
-        mutate(&mut tree, &mut rng);
+        mutate(&mut tree, &mut rng, true);
 
         // Structure unchanged
         assert_eq!(tree.len(), original_len);
@@ -186,7 +209,7 @@ mod tests {
             }
         }
 
-        mutate(&mut tree, &mut rng);
+        mutate(&mut tree, &mut rng, true);
 
         // Collect photo indices after mutation
         let mut photo_indices_after: Vec<u16> = Vec::new();
@@ -211,7 +234,7 @@ mod tests {
 
             // Mutate 100 times
             for _ in 0..100 {
-                mutate(&mut tree, &mut rng);
+                mutate(&mut tree, &mut rng, true);
                 assert!(validate_tree(&tree).is_ok());
             }
         }
@@ -223,7 +246,7 @@ mod tests {
         let mut tree = random_tree(1, &mut rng, true);
 
         // Should not crash on single-photo tree
-        mutate(&mut tree, &mut rng);
+        mutate(&mut tree, &mut rng, true);
         assert!(validate_tree(&tree).is_ok());
     }
 
@@ -232,7 +255,7 @@ mod tests {
         let mut rng = ChaCha8Rng::seed_from_u64(42);
         let mut tree = random_tree(2, &mut rng, true);
 
-        mutate(&mut tree, &mut rng);
+        mutate(&mut tree, &mut rng, true);
 
         // With 2 photos, mutation should swap them (if it targets leaves)
         assert!(validate_tree(&tree).is_ok());
