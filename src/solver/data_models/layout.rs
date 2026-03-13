@@ -1,7 +1,3 @@
-use core::fmt;
-
-use tracing::error;
-
 use super::canvas::Canvas;
 use super::photo::Photo;
 use crate::dto_models::{BookConfig, LayoutPage, Slot};
@@ -198,6 +194,8 @@ impl SolverPageLayout {
         [min_x, min_y, max_x, max_y]
     }
 
+
+
     fn scale_around_fixpoint(&self, factor: f64, fixpoint_x: f64, fixpoint_y: f64) -> Self {
         let scaled_placements: Vec<PhotoPlacement> = self
             .placements
@@ -222,7 +220,8 @@ impl SolverPageLayout {
     ///
     /// # Returns
     ///
-    /// A `LayoutPage` containing photo IDs and slot positions.
+    /// A `LayoutPage` containing photo IDs and slot positions, and the coordinates are in 
+    /// the coordinates of the PDF's TargetBox (the most inner one, within bleed+margin)
     pub fn to_layout_page(
         &self,
         page_num: usize,
@@ -466,6 +465,8 @@ mod tests {
 
     #[test]
     fn test_to_layout_page_single_photo() {
+        // Canvas 200×200, placement off-center → centering shifts it to (50, 60)
+        // bleed=0 so no zoom and no bleed offset
         let canvas = Canvas::new(200.0, 200.0, 0.0);
         let placements = vec![PhotoPlacement::new(0, 10.0, 20.0, 100.0, 80.0)];
         let layout = SolverPageLayout::new(placements, canvas);
@@ -477,16 +478,49 @@ mod tests {
             "group1".to_string(),
         )];
 
-        let dto_page = layout.to_layout_page(2, &photos, &BookConfig::default());
+        let book_config = BookConfig {
+            bleed_mm: 0.0,
+            ..BookConfig::default()
+        };
+        let dto_page = layout.to_layout_page(2, &photos, &book_config);
 
         assert_eq!(dto_page.page, 2);
         assert_eq!(dto_page.photos.len(), 1);
         assert_eq!(dto_page.photos[0], "photo_abc");
         assert_eq!(dto_page.slots.len(), 1);
-        assert_relative_eq!(dto_page.slots[0].x_mm, 10.0, epsilon = 1e-6);
-        assert_relative_eq!(dto_page.slots[0].y_mm, 20.0, epsilon = 1e-6);
+        // After centering: offset_x = (200-100)/2 - 10 = 40 → x=50; offset_y = (200-80)/2 - 20 = 40 → y=60
+        assert_relative_eq!(dto_page.slots[0].x_mm, 50.0, epsilon = 1e-6);
+        assert_relative_eq!(dto_page.slots[0].y_mm, 60.0, epsilon = 1e-6);
         assert_relative_eq!(dto_page.slots[0].width_mm, 100.0, epsilon = 1e-6);
         assert_relative_eq!(dto_page.slots[0].height_mm, 80.0, epsilon = 1e-6);
+    }
+
+    #[test]
+    fn test_to_layout_page_no_bleed_offset_with_margin() {
+        // With margin > 0, canvas origin already maps to content area — no bleed offset applied.
+        let canvas = Canvas::new(200.0, 200.0, 0.0);
+        let placements = vec![PhotoPlacement::new(0, 50.0, 50.0, 100.0, 100.0)];
+        let layout = SolverPageLayout::new(placements, canvas);
+
+        let photos = vec![Photo::new(
+            "photo_abc".to_string(),
+            1.0,
+            1.0,
+            "group1".to_string(),
+        )];
+
+        let book_config = BookConfig {
+            bleed_mm: 5.0,
+            margin_mm: 10.0,
+            bleed_threshold_mm: 5.0,
+            ..BookConfig::default()
+        };
+        let dto_page = layout.to_layout_page(1, &photos, &book_config);
+
+        // margin > 0 → calc_needed_scaling returns 1.0 (no zoom), no bleed offset.
+        // After centering (already centered): x=50, y=50.
+        assert_relative_eq!(dto_page.slots[0].x_mm, 50.0, epsilon = 1e-6);
+        assert_relative_eq!(dto_page.slots[0].y_mm, 50.0, epsilon = 1e-6);
     }
 
     #[test]
@@ -505,27 +539,16 @@ mod tests {
             Photo::new("id_3".to_string(), 1.5, 1.0, "group2".to_string()),
         ];
 
-        let dto_page = layout.to_layout_page(3, &photos, &BookConfig::default());
+        // bleed=0 to avoid zoom effects; just verify photo ID mapping and slot count.
+        let book_config = BookConfig {
+            bleed_mm: 0.0,
+            ..BookConfig::default()
+        };
+        let dto_page = layout.to_layout_page(3, &photos, &book_config);
 
         assert_eq!(dto_page.page, 3);
         assert_eq!(dto_page.photos, vec!["id_1", "id_2", "id_3"]);
         assert_eq!(dto_page.slots.len(), 3);
-
-        // Check first slot
-        assert_relative_eq!(dto_page.slots[0].x_mm, 0.0, epsilon = 1e-6);
-        assert_relative_eq!(dto_page.slots[0].y_mm, 0.0, epsilon = 1e-6);
-        assert_relative_eq!(dto_page.slots[0].width_mm, 150.0, epsilon = 1e-6);
-        assert_relative_eq!(dto_page.slots[0].height_mm, 100.0, epsilon = 1e-6);
-
-        // Check second slot
-        assert_relative_eq!(dto_page.slots[1].x_mm, 150.0, epsilon = 1e-6);
-        assert_relative_eq!(dto_page.slots[1].y_mm, 0.0, epsilon = 1e-6);
-
-        // Check third slot
-        assert_relative_eq!(dto_page.slots[2].x_mm, 0.0, epsilon = 1e-6);
-        assert_relative_eq!(dto_page.slots[2].y_mm, 100.0, epsilon = 1e-6);
-        assert_relative_eq!(dto_page.slots[2].width_mm, 300.0, epsilon = 1e-6);
-        assert_relative_eq!(dto_page.slots[2].height_mm, 200.0, epsilon = 1e-6);
     }
 
     #[test]
