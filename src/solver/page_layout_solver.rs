@@ -17,7 +17,7 @@ use crate::solver::prelude::*;
 pub use evolution::LayoutEvolution;
 pub use fitness::CostBreakdown;
 pub use individual::LayoutIndividual;
-use tracing::{debug, info};
+use tracing::debug;
 
 /// Result of a genetic algorithm run for a single page layout.
 #[derive(Debug, Clone)]

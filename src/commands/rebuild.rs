@@ -72,9 +72,7 @@ pub enum RebuildScope {
 pub fn rebuild(project_root: &Path, scope: RebuildScope) -> Result<BuildResult> {
     let mgr = StateManager::open(project_root)?;
 
-    if let Err(e) = validate_scope(&scope, &mgr) {
-        return Err(e);
-    }
+    validate_scope(&scope, &mgr)?;
 
     match scope {
         RebuildScope::SinglePage(n) => rebuild_single(mgr, project_root, n),
