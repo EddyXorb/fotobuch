@@ -125,7 +125,6 @@ mod tests {
             size: 0.0,
             coverage: fitness,
             barycenter: 0.0,
-            order: 0.0,
         };
         GaResult {
             layout,
@@ -140,7 +139,6 @@ mod tests {
             size: 0.0,
             coverage: fitness,
             barycenter: 0.0,
-            order: 0.0,
         }
     }
 

@@ -260,4 +260,24 @@ mod tests {
         // With 2 photos, mutation should swap them (if it targets leaves)
         assert!(validate_tree(&tree).is_ok());
     }
+
+    #[test]
+    fn test_cut_flip_preserves_ordering_invariant() {
+        let mut rng = ChaCha8Rng::seed_from_u64(42);
+        let mut tree = random_tree(5, &mut rng, true);
+
+        // Mutate 100 times with enforce_order=true (cut-flip)
+        for _ in 0..100 {
+            mutate(&mut tree, &mut rng, true);
+
+            // DFS-traversal should always yield 0, 1, 2, 3, 4 in that order
+            let mut photos = Vec::new();
+            tree.visit(|_, node| {
+                if let Node::Leaf { photo_idx, .. } = node {
+                    photos.push(*photo_idx);
+                }
+            });
+            assert_eq!(photos, vec![0, 1, 2, 3, 4], "Ordering invariant violated after cut-flip");
+        }
+    }
 }

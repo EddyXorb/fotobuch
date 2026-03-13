@@ -148,7 +148,7 @@ mod tests {
         let canvas = Canvas::default();
         let layout = SolverPageLayout::new(vec![], canvas);
         let photos = vec![];
-        let weights = FitnessWeights::new(0.0, 0.0, 0.0, 0.0);
+        let weights = FitnessWeights::new(0.0, 0.0, 0.0);
 
         let cost = total_cost(&layout, &photos, &canvas, &weights);
         assert_eq!(cost, 0.0);
@@ -267,55 +267,6 @@ mod tests {
 
         let cost = cost_size_distribution(&layout, &photos);
         assert_relative_eq!(cost, 0.04, epsilon = 1e-6);
-    }
-
-    #[test]
-    fn test_cost_reading_order_correct() {
-        let canvas = Canvas::new(200.0, 100.0, 0.0);
-        // Photos in correct reading order: left to right, top to bottom
-        let placements = vec![
-            PhotoPlacement::new(0, 0.0, 0.0, 50.0, 50.0), // Top-left
-            PhotoPlacement::new(1, 50.0, 0.0, 50.0, 50.0), // Top-right
-            PhotoPlacement::new(2, 0.0, 50.0, 50.0, 50.0), // Bottom-left
-        ];
-        let layout = SolverPageLayout::new(placements, canvas);
-        let photos = vec![
-            make_photo(1.0, 1.0),
-            make_photo(1.0, 1.0),
-            make_photo(1.0, 1.0),
-        ];
-
-        let cost = cost_reading_order(&layout, &photos);
-        assert_relative_eq!(cost, 0.0, epsilon = 1e-6);
-    }
-
-    #[test]
-    fn test_cost_reading_order_inverted() {
-        let canvas = Canvas::new(200.0, 100.0, 0.0);
-        // Photos in wrong order: later photos appear earlier in reading
-        let placements = vec![
-            PhotoPlacement::new(0, 100.0, 50.0, 50.0, 50.0), // Photo 0 bottom-right
-            PhotoPlacement::new(1, 0.0, 0.0, 50.0, 50.0),    // Photo 1 top-left
-        ];
-        let layout = SolverPageLayout::new(placements, canvas);
-        let photos = vec![make_photo(1.0, 1.0), make_photo(1.0, 1.0)];
-
-        // Photo 0 score: 100/200 + 50/100 = 0.5 + 0.5 = 1.0
-        // Photo 1 score: 0/200 + 0/100 = 0.0
-        // Inversion: max(0, 1.0 - 0.0) = 1.0
-        let cost = cost_reading_order(&layout, &photos);
-        assert_relative_eq!(cost, 1.0, epsilon = 1e-6);
-    }
-
-    #[test]
-    fn test_cost_reading_order_single_photo() {
-        let canvas = Canvas::new(100.0, 100.0, 0.0);
-        let placements = vec![PhotoPlacement::new(0, 0.0, 0.0, 50.0, 50.0)];
-        let layout = SolverPageLayout::new(placements, canvas);
-        let photos = vec![make_photo(1.0, 1.0)];
-
-        let cost = cost_reading_order(&layout, &photos);
-        assert_eq!(cost, 0.0);
     }
 
     #[test]
