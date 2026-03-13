@@ -25,6 +25,7 @@ fn create_test_project_with_build(temp_dir: &TempDir) -> Result<PathBuf> {
     // Restrict book layout solver to force multiple pages with few photos
     let yaml_path = project_root.join("testrebuild.yaml");
     let mut state = ProjectState::load(&yaml_path)?;
+    state.config.book_layout_solver.page_max = 5;
     state.config.book_layout_solver.photos_per_page_max = 2; // Max 2 photos per page
     state.config.book_layout_solver.photos_per_page_min = 1; // Min 1 photo per page
     state.config.book_layout_solver.group_min_photos = 1; // Allow single-photo groups
