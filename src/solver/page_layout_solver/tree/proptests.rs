@@ -109,7 +109,7 @@ mod tests {
             let mut tree = tree;
             let mut rng = ChaCha8Rng::seed_from_u64(seed);
 
-            mutate(&mut tree, &mut rng);
+            mutate(&mut tree, &mut rng, true);
 
             prop_assert!(validate_tree(&tree).is_ok(), "Tree is invalid after mutation: {:?}", validate_tree(&tree));
         }
@@ -121,7 +121,7 @@ mod tests {
             let mut tree = tree;
             let mut rng = ChaCha8Rng::seed_from_u64(seed);
 
-            mutate(&mut tree, &mut rng);
+            mutate(&mut tree, &mut rng, true);
 
             prop_assert_eq!(tree.leaf_count(), original_leaves,
                 "Leaf count changed from {} to {} (expected n={})", original_leaves, tree.leaf_count(), n);
@@ -134,7 +134,7 @@ mod tests {
             let mut tree = tree;
             let mut rng = ChaCha8Rng::seed_from_u64(seed);
 
-            mutate(&mut tree, &mut rng);
+            mutate(&mut tree, &mut rng, true);
 
             prop_assert_eq!(tree.internal_count(), original_internal,
                 "Internal count changed from {} to {}", original_internal, tree.internal_count());
@@ -147,7 +147,7 @@ mod tests {
             let mut tree = tree;
             let mut rng = ChaCha8Rng::seed_from_u64(seed);
 
-            mutate(&mut tree, &mut rng);
+            mutate(&mut tree, &mut rng, true);
 
             let new_photos = get_photo_indices(&tree);
             prop_assert_eq!(original_photos, new_photos,
@@ -161,7 +161,7 @@ mod tests {
             let mut tree = tree;
             let mut rng = ChaCha8Rng::seed_from_u64(seed);
 
-            mutate(&mut tree, &mut rng);
+            mutate(&mut tree, &mut rng, true);
 
             prop_assert_eq!(tree.len(), original_len,
                 "Node count changed from {} to {}", original_len, tree.len());
@@ -221,7 +221,7 @@ mod tests {
             let mut rng = ChaCha8Rng::seed_from_u64(seed);
 
             for _ in 0..count {
-                mutate(&mut tree, &mut rng);
+                mutate(&mut tree, &mut rng, true);
             }
 
             prop_assert!(validate_tree(&tree).is_ok(),
@@ -239,8 +239,8 @@ mod tests {
 
             if let Some((mut new_a, mut new_b)) = crossover(&tree_a, &tree_b, &mut rng1) {
                 let mut rng2 = ChaCha8Rng::seed_from_u64(seed2);
-                mutate(&mut new_a, &mut rng2);
-                mutate(&mut new_b, &mut rng2);
+                mutate(&mut new_a, &mut rng2, true);
+                mutate(&mut new_b, &mut rng2, true);
 
                 prop_assert!(validate_tree(&new_a).is_ok(),
                     "Tree A is invalid after crossover + mutation: {:?}", validate_tree(&new_a));

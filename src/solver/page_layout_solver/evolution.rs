@@ -14,14 +14,16 @@ pub struct EvaluationContext<'a> {
     pub photos: &'a [Photo],
     pub canvas: &'a Canvas,
     pub weights: &'a FitnessWeights,
+    pub enforce_order: bool,
 }
 
 impl<'a> EvaluationContext<'a> {
-    pub fn new(photos: &'a [Photo], canvas: &'a Canvas, weights: &'a FitnessWeights) -> Self {
+    pub fn new(photos: &'a [Photo], canvas: &'a Canvas, weights: &'a FitnessWeights, enforce_order: bool) -> Self {
         Self {
             photos,
             canvas,
             weights,
+            enforce_order,
         }
     }
 }
@@ -76,6 +78,7 @@ impl<'a> EvolutionDynamic<LayoutIndividual> for LayoutEvolution<'a> {
             self.mutation_rate,
             &self.context,
             &mut rand::thread_rng(),
+            self.context.enforce_order,
         );
     }
 }

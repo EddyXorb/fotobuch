@@ -35,7 +35,7 @@ pub fn run_ga(photos: &[Photo], canvas: &Canvas, ga_config: &GaConfig) -> GaResu
     use crate::solver::ga_solver::{Config, GeneticAlgorithm, Individual};
 
     // Create evaluation context
-    let context = evolution::EvaluationContext::new(photos, canvas, &ga_config.weights);
+    let context = evolution::EvaluationContext::new(photos, canvas, &ga_config.weights, ga_config.enforce_order);
 
     // Create initial population
     let initial_pop =
