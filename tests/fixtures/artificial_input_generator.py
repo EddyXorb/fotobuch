@@ -106,6 +106,7 @@ def generate(
     max_photos: Annotated[int, typer.Option("--max", help="Max. Fotos pro Gruppe")] = 8,
     output: Annotated[Path, typer.Option("--output", "-o", help="Ausgabe-Verzeichnis")] = Path("test_photos_generated"),
     seed: Annotated[int | None, typer.Option("--seed", "-s", help="Random seed für Reproduzierbarkeit")] = None,
+    with_timestamps: Annotated[bool, typer.Option("--with-timestamps", help="Dateinamen mit Timestamps (1s Abstand) versehen")] = False,
 ) -> None:
     """Generiert Test-Fotos mit zufälligen Farben und Größen.
     
@@ -136,32 +137,39 @@ def generate(
     
     base_date = datetime(2024, 1, 1)
     total_photos = 0
-    
+    photo_timestamp = datetime(2024, 1, 1, 10, 10, 10)
+
     for group_idx in range(num_groups):
         # Gruppenname: Datum + Thema (lexikalisch sortierbar)
         group_date = base_date + timedelta(days=group_idx * 30)
-        themes = ["Urlaub", "Geburtstag", "Hochzeit", "Ausflug", "Festival", 
+        themes = ["Urlaub", "Geburtstag", "Hochzeit", "Ausflug", "Festival",
                   "Wanderung", "Strand", "Stadt", "Familie", "Party"]
         theme = random.choice(themes)
         group_name = f"{group_date.strftime('%Y-%m-%d')}_{theme}"
-        
+
         # Gruppen-Ordner erstellen
         group_dir = output / group_name
         group_dir.mkdir(exist_ok=True)
-        
+
         # Anzahl Fotos für diese Gruppe
         num_photos = random.randint(min_photos, max_photos)
-        
+
         typer.echo(f"  📂 Gruppe {group_idx + 1}/{num_groups}: {group_name} ({num_photos} Fotos)")
-        
+
         for photo_idx in range(num_photos):
             # Foto-Eigenschaften
             width, height = generate_random_size()
             color = generate_random_color()
             label = f"{group_name}\nFoto {photo_idx + 1}/{num_photos}\n{width}×{height}"
-            
-            # Dateiname mit fortlaufender Nummer
-            filename = f"IMG_{(group_idx * 100 + photo_idx + 1):04d}.jpg"
+
+            # Dateiname mit fortlaufender Nummer (optional mit Timestamp)
+            base_name = f"IMG_{(group_idx * 100 + photo_idx + 1):04d}"
+            if with_timestamps:
+                ts = photo_timestamp.strftime("%Y-%m-%d@%H%M%S")
+                filename = f"{ts}_{base_name}.jpg"
+                photo_timestamp += timedelta(days=1)
+            else:
+                filename = f"{base_name}.jpg"
             output_path = group_dir / filename
             
             # Foto erstellen
