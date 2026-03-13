@@ -133,7 +133,7 @@ fn find_candidate_cuts(
         })
         .collect();
 
-    let mut candidates: Vec<(usize, f64)> = (1..assignment.cuts().len())
+    let mut candidates: Vec<(usize, f64)> = (1..assignment.cuts().len() - 1)
         .map(|cut_index| {
             let page_before = cut_index - 1;
             let page_after = cut_index.min(num_pages - 1);
