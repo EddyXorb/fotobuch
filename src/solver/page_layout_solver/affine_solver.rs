@@ -458,7 +458,7 @@ mod tests {
         let mut rng = ChaCha8Rng::seed_from_u64(42);
 
         for n in 2..=10 {
-            let tree = random_tree(n, &mut rng);
+            let tree = random_tree(n, &mut rng, true);
             assert!(validate_tree(&tree).is_ok());
 
             let photos: Vec<Photo> = (0..n)

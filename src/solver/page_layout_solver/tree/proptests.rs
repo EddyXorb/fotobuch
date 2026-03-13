@@ -22,7 +22,7 @@ mod tests {
             // Generate a seed for reproducibility within proptest
             any::<u64>().prop_map(move |seed| {
                 let mut rng = ChaCha8Rng::seed_from_u64(seed);
-                let tree = random_tree(n, &mut rng);
+                let tree = random_tree(n, &mut rng, true);
                 (tree, n)
             })
         })
@@ -34,8 +34,8 @@ mod tests {
             any::<(u64, u64)>().prop_map(move |(seed1, seed2)| {
                 let mut rng1 = ChaCha8Rng::seed_from_u64(seed1);
                 let mut rng2 = ChaCha8Rng::seed_from_u64(seed2);
-                let tree1 = random_tree(n, &mut rng1);
-                let tree2 = random_tree(n, &mut rng2);
+                let tree1 = random_tree(n, &mut rng1, true);
+                let tree2 = random_tree(n, &mut rng2, true);
                 (tree1, tree2, n)
             })
         })
@@ -64,7 +64,7 @@ mod tests {
         #[test]
         fn prop_random_tree_is_valid(n in tree_size(), seed in any::<u64>()) {
             let mut rng = ChaCha8Rng::seed_from_u64(seed);
-            let tree = random_tree(n, &mut rng);
+            let tree = random_tree(n, &mut rng, true);
 
             // The tree should always be valid
             prop_assert!(validate_tree(&tree).is_ok(), "Tree is invalid: {:?}", validate_tree(&tree));
@@ -74,7 +74,7 @@ mod tests {
         #[test]
         fn prop_random_tree_has_n_leaves(n in tree_size(), seed in any::<u64>()) {
             let mut rng = ChaCha8Rng::seed_from_u64(seed);
-            let tree = random_tree(n, &mut rng);
+            let tree = random_tree(n, &mut rng, true);
 
             prop_assert_eq!(tree.leaf_count(), n, "Expected {} leaves, got {}", n, tree.leaf_count());
         }
@@ -83,7 +83,7 @@ mod tests {
         #[test]
         fn prop_random_tree_has_n_minus_1_internal(n in tree_size(), seed in any::<u64>()) {
             let mut rng = ChaCha8Rng::seed_from_u64(seed);
-            let tree = random_tree(n, &mut rng);
+            let tree = random_tree(n, &mut rng, true);
 
             let expected_internal = if n == 1 { 0 } else { n - 1 };
             prop_assert_eq!(tree.internal_count(), expected_internal,
@@ -94,7 +94,7 @@ mod tests {
         #[test]
         fn prop_random_tree_has_all_photos(n in tree_size(), seed in any::<u64>()) {
             let mut rng = ChaCha8Rng::seed_from_u64(seed);
-            let tree = random_tree(n, &mut rng);
+            let tree = random_tree(n, &mut rng, true);
 
             let photo_indices = get_photo_indices(&tree);
             let expected: Vec<u16> = (0..n as u16).collect();

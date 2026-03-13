@@ -33,6 +33,10 @@ pub struct GaConfig {
     /// Number of individuals to migrate per island per migration event.
     #[serde(default = "default_islands_nr_migrants")]
     pub islands_nr_migrants: usize,
+
+    /// Enable deterministic in-page photo ordering via DFS-preorder assignment.
+    #[serde(default = "default_enforce_order")]
+    pub enforce_order: bool,
 }
 
 impl Default for GaConfig {
@@ -49,6 +53,7 @@ impl Default for GaConfig {
             elite_count: default_elite_count(),
             no_improvement_limit: default_no_improvement_limit(),
             weights: FitnessWeights::default(),
+            enforce_order: default_enforce_order(),
         }
     }
 }
@@ -93,6 +98,10 @@ fn default_elite_count() -> usize {
 
 fn default_no_improvement_limit() -> Option<usize> {
     Some(15)
+}
+
+fn default_enforce_order() -> bool {
+    true
 }
 
 #[cfg(test)]

@@ -282,7 +282,7 @@ mod tests {
         for seed in 0..100 {
             let mut rng = ChaCha8Rng::seed_from_u64(seed);
             for n in 1..=20 {
-                let tree = random_tree(n, &mut rng);
+                let tree = random_tree(n, &mut rng, true);
                 assert!(
                     validate_tree(&tree).is_ok(),
                     "Random tree with {} photos failed validation",
