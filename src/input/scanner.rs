@@ -17,7 +17,7 @@ fn naive_to_utc(naive: NaiveDateTime) -> DateTime<Utc> {
 ///
 /// The group name is derived from the file's parent directory name.
 /// If the file is unsupported or cannot be read, returns an empty vector.
-pub fn scan_single_file(path: &Path) -> Result<Vec<PhotoGroup>> {
+pub fn scan_single_photo_file(path: &Path) -> Result<Vec<PhotoGroup>> {
     if !is_supported_image(path) {
         return Ok(Vec::new());
     }
@@ -29,25 +29,7 @@ pub fn scan_single_file(path: &Path) -> Result<Vec<PhotoGroup>> {
         .unwrap_or("no_group")
         .to_string();
 
-    let filename = path
-        .file_name()
-        .and_then(|s| s.to_str())
-        .unwrap_or("unknown.jpg")
-        .to_string();
-    let id = format!("{parent}/{filename}");
-
-    let mut photo = PhotoFile {
-        id,
-        source: path.to_str().unwrap_or("").to_string(),
-        width_px: 1,
-        height_px: 1,
-        area_weight: 1.0,
-        timestamp: Utc::now(),
-        hash: String::new(),
-    };
-
-    enrich_photo_metadata(&mut photo);
-
+    let photo = read_single_photo(path, &parent, None);
     let sort_key = photo.timestamp.to_rfc3339();
 
     Ok(vec![PhotoGroup {
@@ -61,10 +43,10 @@ pub fn scan_single_file(path: &Path) -> Result<Vec<PhotoGroup>> {
 ///
 /// Each subdirectory becomes one group. If the root directory itself contains photos,
 /// they are grouped under the root directory's name.
-pub fn scan_photo_dirs(root: &Path) -> Result<Vec<PhotoGroup>> {
-    let mut groups: Vec<PhotoGroup> = read_subdirs(root)?
+pub fn scan_photo_group_dirs(root: &Path) -> Result<Vec<PhotoGroup>> {
+    let mut groups: Vec<PhotoGroup> = get_subdirs(root)?
         .into_iter()
-        .filter_map(|dir| match load_group(&dir) {
+        .filter_map(|dir| match read_photo_group(&dir) {
             Ok(group) => Some(group),
             Err(e) => {
                 warn!("Skipping {:?}: {}", dir, e);
@@ -74,7 +56,7 @@ pub fn scan_photo_dirs(root: &Path) -> Result<Vec<PhotoGroup>> {
         .collect();
 
     // Check if the root directory itself contains photos
-    if let Ok(root_group) = load_group(root)
+    if let Ok(root_group) = read_photo_group(root)
         && !root_group.files.is_empty()
     {
         groups.push(root_group);
@@ -87,7 +69,7 @@ pub fn scan_photo_dirs(root: &Path) -> Result<Vec<PhotoGroup>> {
 }
 
 /// Returns all direct subdirectories of the given root path.
-fn read_subdirs(root: &Path) -> Result<Vec<PathBuf>> {
+fn get_subdirs(root: &Path) -> Result<Vec<PathBuf>> {
     let entries =
         std::fs::read_dir(root).with_context(|| format!("Cannot read directory {:?}", root))?;
 
@@ -101,7 +83,7 @@ fn read_subdirs(root: &Path) -> Result<Vec<PathBuf>> {
 }
 
 /// Loads all photos from a directory and attempts to parse the folder timestamp.
-fn load_group(dir: &Path) -> Result<PhotoGroup> {
+fn read_photo_group(dir: &Path) -> Result<PhotoGroup> {
     let group_name = dir
         .file_name()
         .and_then(|n| n.to_str())
@@ -116,16 +98,7 @@ fn load_group(dir: &Path) -> Result<PhotoGroup> {
 
     let folder_dt = folder_timestamp.map(naive_to_utc);
 
-    let mut photo_files: Vec<PhotoFile> = read_photos(dir, &group_name)?;
-
-    for photo in &mut photo_files {
-        let found_timestamp = enrich_photo_metadata(photo);
-        // Fall back to folder timestamp if neither EXIF nor filename provided one.
-        if !found_timestamp
-            && let Some(dt) = folder_dt {
-                photo.timestamp = dt;
-            }
-    }
+    let mut photo_files = read_photos_from_dir(dir, &group_name, folder_dt)?;
 
     // Sort photos within the group by timestamp.
     photo_files.sort_by(|a, b| a.timestamp.cmp(&b.timestamp));
@@ -144,34 +117,18 @@ fn load_group(dir: &Path) -> Result<PhotoGroup> {
 }
 
 /// Reads all supported image files from a directory (non-recursive).
-fn read_photos(dir: &Path, group_name: &str) -> Result<Vec<PhotoFile>> {
+fn read_photos_from_dir(
+    dir: &Path,
+    group_name: &str,
+    folder_dt: Option<DateTime<Utc>>,
+) -> Result<Vec<PhotoFile>> {
     let entries = std::fs::read_dir(dir).with_context(|| format!("Cannot read {:?}", dir))?;
 
     let photos = entries
         .filter_map(|e| e.ok())
         .map(|e| e.path())
         .filter(|p| is_supported_image(p))
-        .enumerate()
-        .map(|(idx, path)| {
-            // Generate unique ID: "{group}/{filename_with_extension}"
-            // The ID doubles as the relative cache path (per YAML schema).
-            let filename = path
-                .file_name()
-                .and_then(|s| s.to_str())
-                .unwrap_or(&format!("photo_{idx}.jpg"))
-                .to_string();
-            let id = format!("{group_name}/{filename}");
-
-            PhotoFile {
-                id,
-                source: path.to_str().unwrap_or("").to_string(),
-                width_px: 1,  // Placeholder, will be updated by enrich_photo_metadata
-                height_px: 1, // Placeholder
-                area_weight: 1.0,
-                timestamp: Utc::now(), // Placeholder, will be updated
-                hash: String::new(),   // Will be computed by add command
-            }
-        })
+        .map(|path| read_single_photo(&path, group_name, folder_dt))
         .collect();
 
     Ok(photos)
@@ -182,6 +139,38 @@ fn is_supported_image(path: &Path) -> bool {
         .and_then(|ext| ext.to_str())
         .map(|ext| SUPPORTED_EXTENSIONS.contains(&ext.to_lowercase().as_str()))
         .unwrap_or(false)
+}
+
+/// Builds a PhotoFile from a path, enriches it with metadata, and applies the fallback timestamp.
+fn read_single_photo(
+    path: &Path,
+    group_name: &str,
+    fallback_dt: Option<DateTime<Utc>>,
+) -> PhotoFile {
+    let filename = path
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("unknown.jpg")
+        .to_string();
+
+    let mut photo = PhotoFile {
+        id: format!("{group_name}/{filename}"),
+        source: path.to_str().unwrap_or("").to_string(),
+        width_px: 1,
+        height_px: 1,
+        area_weight: 1.0,
+        timestamp: Utc::now(),
+        hash: String::new(),
+    };
+
+    let found_timestamp = enrich_photo_metadata(&mut photo);
+    if !found_timestamp {
+        if let Some(dt) = fallback_dt {
+            photo.timestamp = dt;
+        }
+    }
+
+    photo
 }
 
 /// Tries to read EXIF metadata from a photo to get timestamp and dimensions.
@@ -255,11 +244,11 @@ fn enrich_photo_metadata(photo: &mut PhotoFile) -> bool {
     // Fallback: parse timestamp from filename if EXIF had none.
     if !found_timestamp
         && let Some(stem) = photo_path.file_stem().and_then(|s| s.to_str())
-            && let Some(dt) = parse_timestamp_from_name(stem)
-        {
-            photo.timestamp = naive_to_utc(dt);
-            found_timestamp = true;
-        }
+        && let Some(dt) = parse_timestamp_from_name(stem)
+    {
+        photo.timestamp = naive_to_utc(dt);
+        found_timestamp = true;
+    }
 
     found_timestamp
 }
@@ -386,7 +375,7 @@ mod tests {
             return;
         }
 
-        let groups = scan_single_file(&portrait_path).expect("scan_single_file should succeed");
+        let groups = scan_single_photo_file(&portrait_path).expect("scan_single_file should succeed");
 
         assert_eq!(groups.len(), 1, "should return exactly one group");
         let group = &groups[0];
@@ -405,7 +394,7 @@ mod tests {
     #[test]
     fn test_scan_single_file_unsupported() {
         let unsupported_path = PathBuf::from("tests/fixtures/unsupported.txt");
-        let groups = scan_single_file(&unsupported_path)
+        let groups = scan_single_photo_file(&unsupported_path)
             .expect("scan_single_file should return empty for unsupported");
         assert_eq!(
             groups.len(),

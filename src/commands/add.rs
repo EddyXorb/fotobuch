@@ -97,10 +97,10 @@ pub fn add(project_root: &Path, config: &AddConfig) -> Result<AddResult> {
 
     for path in &config.paths {
         let scanned_groups = if path.is_file() {
-            scanner::scan_single_file(path)
+            scanner::scan_single_photo_file(path)
                 .with_context(|| format!("Failed to scan file {}", path.display()))?
         } else if path.is_dir() {
-            scanner::scan_photo_dirs(path)
+            scanner::scan_photo_group_dirs(path)
                 .with_context(|| format!("Failed to scan directory {}", path.display()))?
         } else {
             anyhow::bail!("Path is neither a file nor a directory: {}", path.display());

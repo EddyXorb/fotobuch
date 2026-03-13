@@ -1,6 +1,6 @@
 //! Photo loading and metadata extraction.
 use crate::dto_models::PhotoFile;
-use crate::input::scanner::scan_photo_dirs;
+use crate::input::scanner::scan_photo_group_dirs;
 use anyhow::Result;
 use std::path::Path;
 
@@ -8,7 +8,7 @@ use std::path::Path;
 ///
 /// Returns a vector of photos with metadata.
 pub fn load_photos_from_dir(dir: &Path) -> Result<Vec<PhotoFile>> {
-    let groups = scan_photo_dirs(dir)?;
+    let groups = scan_photo_group_dirs(dir)?;
 
     let mut photos = Vec::new();
 
