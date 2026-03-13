@@ -5,7 +5,7 @@ To be done in this order
 ## To make is usable
 
 - [x] typst template's width and height must be increased by the bleed and the pagelayout needs to be shifted towards (bleed,bleed) for x,y in to_page_layout.
-- [ ] images should be ordered according to timestamp also *within* the same page → [Design: In-Page Ordering via DFS-Indexing](docs/design/page_layout_solver_genetic_algorithm/in_page_ordering_improvement.md)
+- [x] images should be ordered according to timestamp also *within* the same page → [Design: In-Page Ordering via DFS-Indexing](docs/design/page_layout_solver_genetic_algorithm/in_page_ordering_improvement.md)
 - [x] Add should be able to handle single files too/groups of files, instead of ONLY whole dirs
 - [ ] Verify that each image gets has a colour space and if not, set it for missing ones with a default that makes sense when creating the photo cache
 - [ ] add output to mip solver and configure timeout and gap to optimum as well as activate parallelism for that

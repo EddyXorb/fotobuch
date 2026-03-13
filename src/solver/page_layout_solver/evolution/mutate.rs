@@ -158,7 +158,7 @@ mod tests {
     #[test]
     fn test_mutate_preserves_structure() {
         let mut rng = ChaCha8Rng::seed_from_u64(42);
-        let mut tree = random_tree(5, &mut rng);
+        let mut tree = random_tree(5, &mut rng, true);
 
         let original_len = tree.len();
         let original_leaf_count = tree.leaf_count();
@@ -176,7 +176,7 @@ mod tests {
     #[test]
     fn test_mutate_swaps_labels() {
         let mut rng = ChaCha8Rng::seed_from_u64(42);
-        let mut tree = random_tree(4, &mut rng);
+        let mut tree = random_tree(4, &mut rng, true);
 
         // Collect photo indices before mutation
         let mut photo_indices_before: Vec<u16> = Vec::new();
@@ -207,7 +207,7 @@ mod tests {
         let mut rng = ChaCha8Rng::seed_from_u64(42);
 
         for n in 2..=10 {
-            let mut tree = random_tree(n, &mut rng);
+            let mut tree = random_tree(n, &mut rng, true);
 
             // Mutate 100 times
             for _ in 0..100 {
@@ -220,7 +220,7 @@ mod tests {
     #[test]
     fn test_mutate_single_photo_no_crash() {
         let mut rng = ChaCha8Rng::seed_from_u64(42);
-        let mut tree = random_tree(1, &mut rng);
+        let mut tree = random_tree(1, &mut rng, true);
 
         // Should not crash on single-photo tree
         mutate(&mut tree, &mut rng);
@@ -230,7 +230,7 @@ mod tests {
     #[test]
     fn test_mutate_two_photos() {
         let mut rng = ChaCha8Rng::seed_from_u64(42);
-        let mut tree = random_tree(2, &mut rng);
+        let mut tree = random_tree(2, &mut rng, true);
 
         mutate(&mut tree, &mut rng);
 

@@ -331,8 +331,8 @@ mod tests {
     #[test]
     fn test_crossover_basic() {
         let mut rng = ChaCha8Rng::seed_from_u64(42);
-        let tree_a = random_tree(5, &mut rng);
-        let tree_b = random_tree(5, &mut rng);
+        let tree_a = random_tree(5, &mut rng, true);
+        let tree_b = random_tree(5, &mut rng, true);
 
         let result = crossover(&tree_a, &tree_b, &mut rng);
 
@@ -354,8 +354,8 @@ mod tests {
 
         // Try multiple times to get a successful crossover
         for _ in 0..50 {
-            let tree_a = random_tree(10, &mut rng);
-            let tree_b = random_tree(10, &mut rng);
+            let tree_a = random_tree(10, &mut rng, true);
+            let tree_b = random_tree(10, &mut rng, true);
 
             if let Some((new_a, new_b)) = crossover(&tree_a, &tree_b, &mut rng) {
                 // Collect photo indices from original trees
@@ -409,8 +409,8 @@ mod tests {
         // With enough photos and attempts, crossover should succeed
         let mut success_count = 0;
         for _ in 0..100 {
-            let tree_a = random_tree(10, &mut rng);
-            let tree_b = random_tree(10, &mut rng);
+            let tree_a = random_tree(10, &mut rng, true);
+            let tree_b = random_tree(10, &mut rng, true);
 
             if let Some((new_a, new_b)) = crossover(&tree_a, &tree_b, &mut rng) {
                 assert!(validate_tree(&new_a).is_ok());
@@ -431,13 +431,13 @@ mod tests {
         let mut rng = ChaCha8Rng::seed_from_u64(42);
 
         // With only 2 photos, no subtree has >= 3 leaves
-        let tree_a = random_tree(2, &mut rng);
-        let tree_b = random_tree(2, &mut rng);
+        let tree_a = random_tree(2, &mut rng, true);
+        let tree_b = random_tree(2, &mut rng, true);
         assert!(crossover(&tree_a, &tree_b, &mut rng).is_none());
 
         // With 3 photos, might work if structure is right
-        let tree_a = random_tree(3, &mut rng);
-        let tree_b = random_tree(3, &mut rng);
+        let tree_a = random_tree(3, &mut rng, true);
+        let tree_b = random_tree(3, &mut rng, true);
         let _ = crossover(&tree_a, &tree_b, &mut rng);
         // Don't assert result - depends on random structure
     }
