@@ -294,7 +294,7 @@ impl World for SimpleWorld {
     }
 
     fn today(&self, _offset: Option<i64>) -> Option<Datetime> {
-        Datetime::from_ymd(2024, 1, 1)
+        Datetime::from_ymd(2026, 1, 1)
     }
 }
 
