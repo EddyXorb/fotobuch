@@ -14,10 +14,6 @@ pub struct FitnessWeights {
     /// Weight for barycenter centering cost C_bary.
     #[serde(default = "default_w_barycenter")]
     pub w_barycenter: f64,
-
-    /// Weight for reading order cost C_order.
-    #[serde(default = "default_w_order")]
-    pub w_order: f64,
 }
 
 fn default_w_size() -> f64 {
@@ -32,23 +28,17 @@ fn default_w_barycenter() -> f64 {
     0.5
 }
 
-fn default_w_order() -> f64 {
-    0.3
-}
-
 impl FitnessWeights {
     /// Creates new fitness weights.
-    pub fn new(w_size: f64, w_coverage: f64, w_barycenter: f64, w_order: f64) -> Self {
+    pub fn new(w_size: f64, w_coverage: f64, w_barycenter: f64) -> Self {
         assert!(w_size >= 0.0, "w_size must be non-negative");
         assert!(w_coverage >= 0.0, "w_coverage must be non-negative");
         assert!(w_barycenter >= 0.0, "w_barycenter must be non-negative");
-        assert!(w_order >= 0.0, "w_order must be non-negative");
 
         Self {
             w_size,
             w_coverage,
             w_barycenter,
-            w_order,
         }
     }
 }
@@ -60,7 +50,6 @@ impl Default for FitnessWeights {
             w_size: default_w_size(),
             w_coverage: default_w_coverage(),
             w_barycenter: default_w_barycenter(),
-            w_order: default_w_order(),
         }
     }
 }
@@ -71,17 +60,16 @@ mod tests {
 
     #[test]
     fn test_new_weights() {
-        let w = FitnessWeights::new(1.0, 0.15, 0.5, 0.3);
+        let w = FitnessWeights::new(1.0, 0.15, 0.5);
         assert_eq!(w.w_size, 1.0);
         assert_eq!(w.w_coverage, 0.15);
         assert_eq!(w.w_barycenter, 0.5);
-        assert_eq!(w.w_order, 0.3);
     }
 
     #[test]
     #[should_panic(expected = "w_size must be non-negative")]
     fn test_new_weights_negative_size() {
-        FitnessWeights::new(-1.0, 0.15, 0.5, 0.3);
+        FitnessWeights::new(-1.0, 0.15, 0.5);
     }
 
     #[test]
@@ -90,16 +78,14 @@ mod tests {
         assert_eq!(w.w_size, 1.0);
         assert_eq!(w.w_coverage, 0.15);
         assert_eq!(w.w_barycenter, 0.5);
-        assert_eq!(w.w_order, 0.3);
     }
 
     #[test]
     fn test_zero_weights() {
-        let w = FitnessWeights::new(0.0, 0.0, 0.0, 0.0);
+        let w = FitnessWeights::new(0.0, 0.0, 0.0);
         assert_eq!(w.w_size, 0.0);
         assert_eq!(w.w_coverage, 0.0);
         assert_eq!(w.w_barycenter, 0.0);
-        assert_eq!(w.w_order, 0.0);
     }
 
     #[test]
@@ -110,7 +96,6 @@ mod tests {
         assert_eq!(deserialized.w_size, 1.0);
         assert_eq!(deserialized.w_coverage, 0.15);
         assert_eq!(deserialized.w_barycenter, 0.5);
-        assert_eq!(deserialized.w_order, 0.3);
     }
 
     #[test]
@@ -121,6 +106,5 @@ mod tests {
         assert_eq!(w.w_size, 2.0);
         assert_eq!(w.w_coverage, 0.25);
         assert_eq!(w.w_barycenter, 0.5); // default
-        assert_eq!(w.w_order, 0.3); // default
     }
 }
