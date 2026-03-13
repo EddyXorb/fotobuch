@@ -72,33 +72,8 @@ pub enum RebuildScope {
 pub fn rebuild(project_root: &Path, scope: RebuildScope) -> Result<BuildResult> {
     let mgr = StateManager::open(project_root)?;
 
-    // Validierung: Layout muss existieren (außer bei All)
-    if !matches!(scope, RebuildScope::All) && mgr.state.layout.is_empty() {
-        anyhow::bail!(
-            "No layout exists. Run `fotobuch build` first, \
-             or use `fotobuch rebuild` (without arguments) for a full rebuild."
-        );
-    }
-
-    // Scope-Validierung
-    if let RebuildScope::Range { start, end, .. } = &scope
-        && (*start == 0 || *end == 0 || *start > *end || *end > mgr.state.layout.len())
-    {
-        anyhow::bail!(
-            "Invalid page range {}-{} (layout has {} pages)",
-            start,
-            end,
-            mgr.state.layout.len()
-        );
-    }
-    if let RebuildScope::SinglePage(n) = &scope
-        && (*n == 0 || *n > mgr.state.layout.len())
-    {
-        anyhow::bail!(
-            "Invalid page {} (layout has {} pages)",
-            n,
-            mgr.state.layout.len()
-        );
+    if let Err(e) = validate_scope(&scope, &mgr) {
+        return Err(e);
     }
 
     match scope {
@@ -108,6 +83,39 @@ pub fn rebuild(project_root: &Path, scope: RebuildScope) -> Result<BuildResult> 
         }
         RebuildScope::All => rebuild_all(mgr, project_root),
     }
+}
+
+fn validate_scope(scope: &RebuildScope, mgr: &StateManager) -> Result<()> {
+    // Validierung: Layout muss existieren (außer bei All)
+    if !matches!(scope, RebuildScope::All) && mgr.state.layout.is_empty() {
+        anyhow::bail!(
+            "No layout exists. Run `fotobuch build` first, \
+             or use `fotobuch rebuild` (without arguments) for a full rebuild."
+        );
+    }
+
+    // Scope-Validierung
+    if let RebuildScope::Range { start, end, .. } = scope
+        && (*start == 0 || *end == 0 || *start > *end || *end > mgr.state.layout.len())
+    {
+        anyhow::bail!(
+            "Invalid page range {}-{} (layout has {} pages)",
+            start,
+            end,
+            mgr.state.layout.len()
+        );
+    }
+    if let RebuildScope::SinglePage(n) = scope
+        && (*n == 0 || *n > mgr.state.layout.len())
+    {
+        anyhow::bail!(
+            "Invalid page {} (layout has {} pages)",
+            n,
+            mgr.state.layout.len()
+        );
+    }
+
+    Ok(())
 }
 
 /// Rebuild a single page using the SinglePage solver.
