@@ -40,6 +40,39 @@ impl ProjectState {
 
         Ok(())
     }
+
+    pub fn is_valid(&self) -> Result<()> {
+        let id_to_photo = self
+            .photos
+            .iter()
+            .flat_map(|group| group.files.iter())
+            .map(|file| (&file.id, file))
+            .collect::<std::collections::HashMap<_, _>>();
+
+        for (page_index, page) in self.layout.iter().enumerate() {
+            for (slot_index, (slot, photo)) in page.slots.iter().zip(page.photos.iter()).enumerate()
+            {
+                let slot_ratio = slot.width_mm / slot.height_mm;
+                let photo_ratio = id_to_photo
+                    .get(&photo)
+                    .with_context(|| format!("Photo ID {} in layout not found in photos", photo))?
+                    .aspect_ratio();
+
+                if (slot_ratio - photo_ratio).abs() > 0.01 {
+                    return Err(anyhow::anyhow!(
+                        "Aspect ratio mismatch for page {} with photo {} in slot {}: slot ratio {:.2}, photo ratio {:.2}",
+                        page_index,
+                        photo,
+                        slot_index,
+                        slot_ratio,
+                        photo_ratio
+                    ));
+                }
+            }
+        }
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]

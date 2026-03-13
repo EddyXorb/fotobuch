@@ -14,6 +14,7 @@ use serde_yaml::Value;
 use std::cell::RefCell;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
+use tracing::error;
 
 use crate::dto_models::{LayoutPage, PhotoGroup, ProjectState};
 use crate::git;
@@ -337,6 +338,10 @@ impl StateManager {
         if diff.is_empty() {
             self.committed = true;
             return Ok(());
+        }
+
+        if let Err(e) = self.state.is_valid() {
+            error!("State is invalid! Reason(s): {e}");
         }
 
         let yaml_name = format!("{}.yaml", self.project_name);
