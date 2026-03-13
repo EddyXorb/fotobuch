@@ -263,9 +263,15 @@ fn test_release_creates_final_cache_and_pdf() -> Result<()> {
 
     // Verify final PDF was created
     assert!(result.pdf_path.exists(), "Final PDF should be created");
+    let filename = result
+        .pdf_path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("");
     assert!(
-        result.pdf_path.ends_with("final.pdf"),
-        "Should create final.pdf"
+        filename.ends_with("_final.pdf"),
+        "Should create *_final.pdf, got: {}",
+        filename
     );
 
     // Verify final cache was created
