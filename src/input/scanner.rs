@@ -9,6 +9,10 @@ use crate::dto_models::{PhotoFile, PhotoGroup};
 
 const SUPPORTED_EXTENSIONS: &[&str] = &["jpg", "jpeg", "png", "webp", "tiff", "tif"];
 
+fn naive_to_utc(naive: NaiveDateTime) -> DateTime<Utc> {
+    DateTime::<Utc>::from_naive_utc_and_offset(naive, Utc)
+}
+
 /// Scans a single image file and returns it as a photo group.
 ///
 /// The group name is derived from the file's parent directory name.
@@ -28,7 +32,7 @@ pub fn scan_single_file(path: &Path) -> Result<Vec<PhotoGroup>> {
     let filename = path
         .file_name()
         .and_then(|s| s.to_str())
-        .unwrap()
+        .unwrap_or("unknown.jpg")
         .to_string();
     let id = format!("{parent}/{filename}");
 
@@ -110,33 +114,25 @@ fn load_group(dir: &Path) -> Result<PhotoGroup> {
         group_name, folder_timestamp
     );
 
+    let folder_dt = folder_timestamp.map(naive_to_utc);
+
     let mut photo_files: Vec<PhotoFile> = read_photos(dir, &group_name)?;
 
-    // Enrich each photo with EXIF timestamp and dimensions.
     for photo in &mut photo_files {
-        enrich_photo_metadata(photo);
-
-        // Fall back to folder timestamp if EXIF is missing.
-        if folder_timestamp.is_some() {
-            let folder_dt = folder_timestamp
-                .map(|naive| DateTime::<Utc>::from_naive_utc_and_offset(naive, Utc))
-                .unwrap();
-
-            // Use folder timestamp if photo timestamp is still placeholder (Utc::now())
-            // We consider a timestamp "placeholder" if it's very recent (within 1 second of now)
-            let now = Utc::now();
-            if (now - photo.timestamp).num_seconds().abs() < 1 {
-                photo.timestamp = folder_dt;
+        let found_timestamp = enrich_photo_metadata(photo);
+        // Fall back to folder timestamp if neither EXIF nor filename provided one.
+        if !found_timestamp
+            && let Some(dt) = folder_dt {
+                photo.timestamp = dt;
             }
-        }
     }
 
     // Sort photos within the group by timestamp.
     photo_files.sort_by(|a, b| a.timestamp.cmp(&b.timestamp));
 
     // Determine sort_key from folder timestamp or earliest photo timestamp
-    let sort_key = folder_timestamp
-        .map(|naive| DateTime::<Utc>::from_naive_utc_and_offset(naive, Utc).to_rfc3339())
+    let sort_key = folder_dt
+        .map(|dt| dt.to_rfc3339())
         .or_else(|| photo_files.first().map(|p| p.timestamp.to_rfc3339()))
         .unwrap_or_else(|| "9999-12-31T23:59:59Z".to_string());
 
@@ -189,7 +185,8 @@ fn is_supported_image(path: &Path) -> bool {
 }
 
 /// Tries to read EXIF metadata from a photo to get timestamp and dimensions.
-fn enrich_photo_metadata(photo: &mut PhotoFile) {
+/// Returns true if a real timestamp was found (EXIF or filename), false if only placeholder.
+fn enrich_photo_metadata(photo: &mut PhotoFile) -> bool {
     use image::ImageDecoder;
     let photo_path = PathBuf::from(&photo.source);
 
@@ -221,39 +218,50 @@ fn enrich_photo_metadata(photo: &mut PhotoFile) {
         Ok(f) => f,
         Err(e) => {
             warn!("Cannot open {:?}: {}", photo_path, e);
-            return;
+            return false;
         }
     };
 
     let mut bufreader = std::io::BufReader::new(file);
     let exif_reader = exif::Reader::new();
 
-    let exif = match exif_reader.read_from_container(&mut bufreader) {
-        Ok(e) => e,
-        Err(_) => return, // No EXIF — not an error, many PNGs lack it.
-    };
+    let mut found_timestamp = false;
 
-    // Parse DateTimeOriginal from EXIF.
-    if let Some(field) = exif.get_field(exif::Tag::DateTimeOriginal, exif::In::PRIMARY)
-        && let exif::Value::Ascii(ref vec) = field.value
-        && let Some(bytes) = vec.first()
-    {
-        let s = String::from_utf8_lossy(bytes);
-        // EXIF datetime format: "YYYY:MM:DD HH:MM:SS"
-        if let Ok(dt) = NaiveDateTime::parse_from_str(&s, "%Y:%m:%d %H:%M:%S") {
-            photo.timestamp = DateTime::<Utc>::from_naive_utc_and_offset(dt, Utc);
+    if let Ok(exif) = exif_reader.read_from_container(&mut bufreader) {
+        // Parse DateTimeOriginal from EXIF.
+        if let Some(field) = exif.get_field(exif::Tag::DateTimeOriginal, exif::In::PRIMARY)
+            && let exif::Value::Ascii(ref vec) = field.value
+            && let Some(bytes) = vec.first()
+        {
+            let s = String::from_utf8_lossy(bytes);
+            // EXIF datetime format: "YYYY:MM:DD HH:MM:SS"
+            if let Ok(dt) = NaiveDateTime::parse_from_str(&s, "%Y:%m:%d %H:%M:%S") {
+                photo.timestamp = naive_to_utc(dt);
+                found_timestamp = true;
+            }
+        }
+
+        // Read pixel dimensions from EXIF if not already read from header.
+        if photo.width_px == 1 && photo.height_px == 1 {
+            let width = exif_u32(&exif, exif::Tag::PixelXDimension);
+            let height = exif_u32(&exif, exif::Tag::PixelYDimension);
+            if let (Some(w), Some(h)) = (width, height) {
+                photo.width_px = w;
+                photo.height_px = h;
+            }
         }
     }
 
-    // Read pixel dimensions from EXIF if not already read from header.
-    if photo.width_px == 1 && photo.height_px == 1 {
-        let width = exif_u32(&exif, exif::Tag::PixelXDimension);
-        let height = exif_u32(&exif, exif::Tag::PixelYDimension);
-        if let (Some(w), Some(h)) = (width, height) {
-            photo.width_px = w;
-            photo.height_px = h;
+    // Fallback: parse timestamp from filename if EXIF had none.
+    if !found_timestamp
+        && let Some(stem) = photo_path.file_stem().and_then(|s| s.to_str())
+            && let Some(dt) = parse_timestamp_from_name(stem)
+        {
+            photo.timestamp = naive_to_utc(dt);
+            found_timestamp = true;
         }
-    }
+
+    found_timestamp
 }
 
 fn exif_u32(exif: &exif::Exif, tag: exif::Tag) -> Option<u32> {
