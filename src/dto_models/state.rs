@@ -41,7 +41,7 @@ impl ProjectState {
         Ok(())
     }
 
-    pub fn is_valid(&self) -> Result<()> {
+    pub fn check_validity(&self) -> Result<()> {
         let id_to_photo = self
             .photos
             .iter()

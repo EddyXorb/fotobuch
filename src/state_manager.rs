@@ -231,6 +231,10 @@ impl StateManager {
         let state = ProjectState::load(&yaml_path)
             .with_context(|| format!("Failed to load {}", yaml_path.display()))?;
 
+        if let Err(e) = state.check_validity() {
+            error!("State is invalid! Reason(s): {e}");
+        }
+
         // Store raw config value for the config command
         let raw_config = load_raw_config(&yaml_path)?;
 
@@ -333,40 +337,36 @@ impl StateManager {
     ///
     /// The commit message is `"{message} — {diff_summary}"`.
     /// When there are no changes this is a no-op.
-    pub fn finish(mut self, message: &str) -> Result<()> {
-        let diff = StateDiff::compute(&self.baseline, &self.state);
-        if diff.is_empty() {
-            self.committed = true;
-            return Ok(());
-        }
-
-        if let Err(e) = self.state.is_valid() {
-            error!("State is invalid! Reason(s): {e}");
-        }
-
-        let yaml_name = format!("{}.yaml", self.project_name);
-        self.state
-            .save(&self.project_root.join(&yaml_name))
-            .context("Failed to save YAML")?;
-
-        let commit_msg = format!("{} — {}", message, diff.summary());
-        git::stage_and_commit(&self.repo, &[&yaml_name], &commit_msg)?;
-
-        self.committed = true;
-        Ok(())
+    pub fn finish(self, message: &str) -> Result<()> {
+        self.finish_internal(message, false)
     }
 
     /// Save YAML and always commit, even if `state` is unchanged. Consumes the manager.
     ///
     /// Use this for commands like `release_build` that need a git marker commit
     /// even when no state changes occur.
-    pub fn finish_always(mut self, message: &str) -> Result<()> {
+    pub fn finish_always(self, message: &str) -> Result<()> {
+        self.finish_internal(message, true)
+    }
+
+    // ── private helpers ───────────────────────────────────────────────────────
+
+    fn finish_internal(mut self, message: &str, always_commit: bool) -> Result<()> {
+        if let Err(e) = self.state.check_validity() {
+            error!("State is invalid! Reason(s): {e}");
+        }
+        let diff = StateDiff::compute(&self.baseline, &self.state);
+
+        if diff.is_empty() && !always_commit {
+            self.committed = true;
+            return Ok(());
+        }
+
         let yaml_name = format!("{}.yaml", self.project_name);
         self.state
             .save(&self.project_root.join(&yaml_name))
             .context("Failed to save YAML")?;
 
-        let diff = StateDiff::compute(&self.baseline, &self.state);
         let commit_msg = if diff.is_empty() {
             message.to_owned()
         } else {
@@ -377,8 +377,6 @@ impl StateManager {
         self.committed = true;
         Ok(())
     }
-
-    // ── private helpers ───────────────────────────────────────────────────────
 
     /// If the on-disk YAML differs from the last committed version, auto-commit
     /// the manual edits with `"chore: manual edits — {summary}"`.
