@@ -1,8 +1,18 @@
-#let is_final = false
-#let show_image_captions = true
-#let show_borders = true
-#let data = yaml("{name}.yaml")
+// ===== user space: you can edit these flags here safely ===
 
+#let is_final = false
+#let show_image_captions_on_preview = true
+#let show_borders_on_preview = true
+
+// ====== user space end, do nonly edit below this line if you know typst well enough =======
+
+#if is_final [
+  #let show_image_captions_on_preview = false
+  #let show_borders_on_preview = false
+]
+
+#let data = yaml("{name}.yaml")
+#set text(font: "Libertinus Serif")
 // Cache-Pfad je nach Modus
 #let cache_prefix = if is_final {
   ".fotobuch/cache/{name}/final/"
@@ -18,7 +28,6 @@
   height: data.config.book.page_height_mm * 1mm + 2 * bleed,
   margin: bleed + margin,
 )
-
 // Draw border overlays for bleed and margin
 #let draw_borders() = [
   // Red Bleed rectangle (outer boundary)
@@ -37,12 +46,12 @@
   ))
 ]
 
-
-
 // Seiten rendern
-#for page_data in data.layout [
+#let page_nr = 1
+#for (page_index, page_data) in data.layout.enumerate() [
+
   // Border Overlays
-  #if show_borders [
+  #if show_borders_on_preview [
     #draw_borders()
   ]
 
@@ -56,12 +65,12 @@
         height: slot.height_mm * 1mm,
         fit: "cover",
       ))
-      #if show_image_captions [
+      #if show_image_captions_on_preview [
         #place(
           top + left,
           dx: slot.x_mm * 1mm,
-          dy: (slot.y_mm + slot.height_mm + 1) * 1mm,
-          text(size: 8pt, photo_id.split("/").last()),
+          dy: (slot.y_mm + slot.height_mm / 2) * 1mm,
+          text(size: 8pt, photo_id.split("/").last(), white),
         )
       ]
     ]
@@ -72,7 +81,7 @@
     #place(center + horizon, rotate(-30deg, text(size: 120pt, fill: rgb("#00000055"), weight: "bold")[PREVIEW]))
   ]
 
-  #pagebreak()
+  #if page_index < data.layout.len() - 1 [#pagebreak()]
 ]
 
 
