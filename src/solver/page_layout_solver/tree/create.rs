@@ -7,7 +7,7 @@ use rand::Rng;
 ///
 /// Ensures photos are visited in reading order (left-to-right, top-to-bottom
 /// according to tree structure). Photo index 0 gets the oldest photo, 1 the next, etc.
-fn assign_photos_by_dfs(tree: &mut SlicingTree) {
+pub(crate) fn assign_photos_by_dfs(tree: &mut SlicingTree) {
     let mut counter = 0u16;
     assign_recursive(tree, 0, &mut counter);
 }

@@ -1,6 +1,7 @@
 //! Crossover operator for slicing trees.
 
 use super::super::individual::LayoutIndividual;
+use super::super::tree::create::assign_photos_by_dfs;
 use super::EvaluationContext;
 use crate::solver::page_layout_solver::tree::{Cut, Node, SlicingTree};
 use rand::Rng;
@@ -40,7 +41,7 @@ fn crossover_pair<R: Rng>(
     let tree_a = pair[0].tree();
     let tree_b = pair[1].tree();
 
-    if let Some((child_a, child_b)) = crossover(tree_a, tree_b, rng) {
+    if let Some((child_a, child_b)) = crossover(tree_a, tree_b, rng, context.enforce_order) {
         offspring.push(LayoutIndividual::from_tree(child_a, context));
         offspring.push(LayoutIndividual::from_tree(child_b, context));
     } else {
@@ -51,13 +52,15 @@ fn crossover_pair<R: Rng>(
 /// Performs crossover between two slicing trees.
 ///
 /// Exchanges subtrees with equal leaf counts (≥3) between two parent trees.
-/// The topology (structure and cuts) is swapped, but photo labels remain in their original tree.
+/// If `enforce_order` is true, reassigns photos by DFS after the swap.
+/// Otherwise, photo labels remain in their original positions.
 ///
 /// Returns None if no compatible subtrees exist.
 pub(crate) fn crossover<R: Rng>(
     tree_a: &SlicingTree,
     tree_b: &SlicingTree,
     rng: &mut R,
+    enforce_order: bool,
 ) -> Option<(SlicingTree, SlicingTree)> {
     // Step 1: Compute leaf counts for both trees
     let counts_a = leaf_counts(tree_a);
@@ -77,8 +80,14 @@ pub(crate) fn crossover<R: Rng>(
     let (topo_b, labels_b) = extract_subtree(tree_b, node_b);
 
     // Step 4 & 5: Rebuild trees with swapped topologies
-    let new_a = rebuild_with_graft(tree_a, node_a, &topo_b, &labels_a);
-    let new_b = rebuild_with_graft(tree_b, node_b, &topo_a, &labels_b);
+    let mut new_a = rebuild_with_graft(tree_a, node_a, &topo_b, &labels_a);
+    let mut new_b = rebuild_with_graft(tree_b, node_b, &topo_a, &labels_b);
+
+    // Step 6: If enforce_order, reassign photos by DFS
+    if enforce_order {
+        assign_photos_by_dfs(&mut new_a);
+        assign_photos_by_dfs(&mut new_b);
+    }
 
     Some((new_a, new_b))
 }
@@ -334,7 +343,7 @@ mod tests {
         let tree_a = random_tree(5, &mut rng, true);
         let tree_b = random_tree(5, &mut rng, true);
 
-        let result = crossover(&tree_a, &tree_b, &mut rng);
+        let result = crossover(&tree_a, &tree_b, &mut rng, true);
 
         if let Some((new_a, new_b)) = result {
             // Both results should be valid trees
@@ -357,7 +366,7 @@ mod tests {
             let tree_a = random_tree(10, &mut rng, true);
             let tree_b = random_tree(10, &mut rng, true);
 
-            if let Some((new_a, new_b)) = crossover(&tree_a, &tree_b, &mut rng) {
+            if let Some((new_a, new_b)) = crossover(&tree_a, &tree_b, &mut rng, true) {
                 // Collect photo indices from original trees
                 let mut photos_a: Vec<u16> = Vec::new();
                 let mut photos_b: Vec<u16> = Vec::new();
@@ -412,7 +421,7 @@ mod tests {
             let tree_a = random_tree(10, &mut rng, true);
             let tree_b = random_tree(10, &mut rng, true);
 
-            if let Some((new_a, new_b)) = crossover(&tree_a, &tree_b, &mut rng) {
+            if let Some((new_a, new_b)) = crossover(&tree_a, &tree_b, &mut rng, true) {
                 assert!(validate_tree(&new_a).is_ok());
                 assert!(validate_tree(&new_b).is_ok());
                 success_count += 1;
@@ -433,12 +442,12 @@ mod tests {
         // With only 2 photos, no subtree has >= 3 leaves
         let tree_a = random_tree(2, &mut rng, true);
         let tree_b = random_tree(2, &mut rng, true);
-        assert!(crossover(&tree_a, &tree_b, &mut rng).is_none());
+        assert!(crossover(&tree_a, &tree_b, &mut rng, true).is_none());
 
         // With 3 photos, might work if structure is right
         let tree_a = random_tree(3, &mut rng, true);
         let tree_b = random_tree(3, &mut rng, true);
-        let _ = crossover(&tree_a, &tree_b, &mut rng);
+        let _ = crossover(&tree_a, &tree_b, &mut rng, true);
         // Don't assert result - depends on random structure
     }
 }
