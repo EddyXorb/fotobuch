@@ -21,6 +21,7 @@ pub enum RequestType {
 }
 
 /// Request containing all data for running the solver.
+#[derive(Debug)]
 pub struct Request<'a> {
     /// Type of optimization to perform.
     pub request_type: RequestType,
@@ -104,10 +105,31 @@ fn run_multi_page(
             layout_page
         })
         .collect();
-    assert!(
-        curr_idx == photos.len(),
-        "All photos should be assigned to pages"
-    );
+
+    check_validity(photos, request, curr_idx, &layout_pages);
 
     Ok(layout_pages)
+}
+
+fn check_validity(
+    photos: &[Photo],
+    request: &Request<'_>,
+    curr_idx: usize,
+    layout_pages: &Vec<LayoutPage>,
+) {
+    assert!(
+        curr_idx == photos.len(),
+        "All photos should be assigned to pages. Request:\n {:#?} Photos: \n{}\nPages: \n{}",
+        request,
+        photos
+            .iter()
+            .map(|p| format!("{:?}", p))
+            .collect::<Vec<_>>()
+            .join("\n"),
+        layout_pages
+            .iter()
+            .map(|p| format!("{:?}", p))
+            .collect::<Vec<_>>()
+            .join("\n")
+    );
 }
