@@ -1,5 +1,5 @@
 //! Improvement algorithm for local search.
-use super::super::cache::LayoutCache;
+use super::super::cache::PhotoCombinationCache;
 use super::super::model::{GroupInfo, PageAssignment, Params};
 use super::PageLayoutEvaluator;
 use super::perturbation::{max_perturbation_delta, try_perturbation};
@@ -28,7 +28,7 @@ pub fn improve(
     params: &Params,
     evaluator: &mut impl PageLayoutEvaluator,
 ) -> (PageAssignment, f64, usize) {
-    let mut cache = LayoutCache::new();
+    let mut cache: PhotoCombinationCache<CostBreakdown> = PhotoCombinationCache::new();
     let deadline = Instant::now() + params.search_timeout;
     let max_delta = max_perturbation_delta(params);
     let mut iterations = 0;
@@ -100,13 +100,13 @@ pub fn improve(
 fn compute_worst_coverage(
     assignment: &PageAssignment,
     photos: &[Photo],
-    cache: &mut LayoutCache,
+    cache: &mut PhotoCombinationCache<CostBreakdown>,
     evaluator: &mut impl PageLayoutEvaluator,
 ) -> f64 {
     let breakdowns: Vec<CostBreakdown> = (0..assignment.num_pages())
         .map(|page_idx| {
             let range = assignment.page_range(page_idx);
-            evaluate_page(evaluator, cache, photos, range)
+            evaluate_page(evaluator, cache, &photos[range])
         })
         .collect();
 
@@ -120,21 +120,16 @@ fn compute_worst_coverage(
 /// Evaluates a single page using the evaluator and cache.
 fn evaluate_page(
     evaluator: &mut impl PageLayoutEvaluator,
-    cache: &mut LayoutCache,
+    cache: &mut PhotoCombinationCache<CostBreakdown>,
     photos: &[Photo],
-    range: std::ops::Range<usize>,
 ) -> CostBreakdown {
-    // Check cache first
-    if let Some(result) = cache.get(range.clone()) {
-        return result.cost_breakdown.clone();
+    if let Some(breakdown) = cache.get(photos) {
+        return breakdown.clone();
     }
 
-    // Evaluate using trait
-
-    // For mock evaluator, we can't cache GaResult (no tree/layout available)
-    // So we skip caching here. In production, RealPageEvaluator does its own caching.
-
-    evaluator.evaluate(&photos[range.clone()])
+    let breakdown = evaluator.evaluate(photos);
+    cache.insert_if_better(photos, breakdown.clone());
+    breakdown
 }
 
 /// Identifies candidate cuts for perturbation.
@@ -144,7 +139,7 @@ fn evaluate_page(
 fn find_candidate_cuts(
     assignment: &PageAssignment,
     photos: &[Photo],
-    cache: &mut LayoutCache,
+    cache: &mut PhotoCombinationCache<CostBreakdown>,
     evaluator: &mut impl PageLayoutEvaluator,
     _params: &Params,
 ) -> Vec<usize> {
@@ -159,7 +154,7 @@ fn find_candidate_cuts(
     let breakdowns: Vec<CostBreakdown> = (0..num_pages)
         .map(|page_idx| {
             let range = assignment.page_range(page_idx);
-            evaluate_page(evaluator, cache, photos, range)
+            evaluate_page(evaluator, cache, &photos[range])
         })
         .collect();
 
@@ -319,7 +314,7 @@ mod tests {
         let photos = create_test_photos(12);
         let params = create_test_params();
         let mut evaluator = MockEvaluator { ideal_count: 6 };
-        let mut cache = LayoutCache::new();
+        let mut cache: PhotoCombinationCache<CostBreakdown> = PhotoCombinationCache::new();
 
         // Assignment: [0, 4, 8, 12] → 3 pages with 4 photos each
         // Deviation = 2, coverage = 0.4 for each page
@@ -341,7 +336,7 @@ mod tests {
         let params = create_test_params();
         // Use higher deviation to get coverage > 0.5
         let mut evaluator = MockEvaluator { ideal_count: 10 };
-        let mut cache = LayoutCache::new();
+        let mut cache: PhotoCombinationCache<CostBreakdown> = PhotoCombinationCache::new();
 
         // Assignment: [0, 4, 8, 12] → 3 pages with 4 photos each
         // Deviation from 10 = 6, coverage = 1.2 > 0.5
@@ -350,14 +345,6 @@ mod tests {
         let candidates =
             find_candidate_cuts(&assignment, &photos, &mut cache, &mut evaluator, &params);
 
-        // All cuts (except first which is 0) should be candidates
-        // cuts = [0, 4, 8, 12] has 4 elements, but num_cuts = len - 1 = 3
-        // Actually in PageAssignment, cuts() includes the 0, so we have indices 1, 2, 3
-        // But we only iterate cut_index 0..cuts.len() which is 0..4
-        // Wait,let me re-check the logic...
-        // candidates checks cut_index in 0..assignment.cuts().len()
-        // That includes the first 0, which shouldn't be movable!
-        // This is a bug in find_candidate_cuts - it should start from cut_index 1
         assert!(
             candidates.len() > 0,
             "Should have candidates with high coverage"
