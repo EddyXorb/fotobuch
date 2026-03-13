@@ -2,8 +2,8 @@
 
 use anyhow::{Context, Result};
 use image::imageops::FilterType;
+use image::{DynamicImage, ImageDecoder, ImageReader};
 use std::fs;
-use std::io::BufReader;
 use std::path::{Path, PathBuf};
 
 /// Derives the relative cache path from a photo ID.
@@ -54,52 +54,33 @@ pub fn is_cache_fresh(source: &Path, cached: &Path) -> bool {
     }
 }
 
-/// Reads EXIF orientation tag from image (1-8, or 1 if not present).
-fn get_exif_orientation(source: &Path) -> u32 {
-    let file = match fs::File::open(source) {
-        Ok(f) => f,
-        Err(_) => return 1,
-    };
+/// Loads image and applies EXIF orientation correction.
+/// Automatically reads EXIF orientation from the image decoder and applies it.
+fn load_with_orientation(source: &Path) -> Result<DynamicImage> {
+    let mut decoder = ImageReader::open(source)
+        .with_context(|| format!("Failed to open image: {}", source.display()))?
+        .into_decoder()
+        .with_context(|| format!("Failed to decode image: {}", source.display()))?;
 
-    let mut bufreader = BufReader::new(file);
-    let exif_reader = exif::Reader::new();
+    let orientation = decoder.orientation().ok();
+    let mut image = DynamicImage::from_decoder(decoder)
+        .with_context(|| format!("Failed to load image: {}", source.display()))?;
 
-    let exif = match exif_reader.read_from_container(&mut bufreader) {
-        Ok(e) => e,
-        Err(_) => return 1, // No EXIF — return default
-    };
-
-    if let Some(field) = exif.get_field(exif::Tag::Orientation, exif::In::PRIMARY)
-        && let exif::Value::Short(ref vec) = field.value
-        && let Some(orientation) = vec.first()
-    {
-        *orientation as u32
-    } else {
-        1
-    }
-}
-
-/// Rotates an image based on EXIF orientation tag.
-/// Returns the image rotated appropriately.
-fn apply_exif_rotation(mut img: image::DynamicImage, orientation: u32) -> image::DynamicImage {
-    match orientation {
-        2 => img.fliph(), // Horizontal flip
-        3 => img.rotate180(), // 180°
-        4 => img.flipv(), // Vertical flip
-        5 => {
-            // Transpose + flip
-            img = img.rotate90();
-            img.fliph()
+    if let Some(orientation) = orientation {
+        image.apply_orientation(orientation);
+        if source
+            .to_string_lossy()
+            .contains("2025-01-11@125715_P1113169")
+        {
+            println!(
+                "Applied orientation {:?} to {}",
+                orientation,
+                source.display()
+            );
         }
-        6 => img.rotate270(), // 90° CW = 270° CCW
-        7 => {
-            // Transverse (270° CW + flip)
-            img = img.rotate270();
-            img.flipv()
-        }
-        8 => img.rotate90(), // 270° CW = 90° CCW
-        _ => img, // 1 or unknown
     }
+
+    Ok(image)
 }
 
 /// Resizes image and saves as JPEG with specified quality.
@@ -120,13 +101,8 @@ pub fn resize_and_save(
     target_height: u32,
     jpeg_quality: u8,
 ) -> Result<()> {
-    // Load image
-    let img = image::open(source)
-        .with_context(|| format!("Failed to open image: {}", source.display()))?;
-
-    // Read and apply EXIF orientation
-    let orientation = get_exif_orientation(source);
-    let img = apply_exif_rotation(img, orientation);
+    // Load image with EXIF orientation applied
+    let img = load_with_orientation(source)?;
 
     // Calculate scale factor
     let scale_x = img.width() as f64 / target_width as f64;

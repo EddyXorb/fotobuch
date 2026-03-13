@@ -1,5 +1,7 @@
 use anyhow::{Context, Result};
 use chrono::{DateTime, NaiveDateTime, Utc};
+use image::ImageReader;
+use image::metadata::Orientation;
 use std::path::{Path, PathBuf};
 use tracing::{debug, warn};
 
@@ -144,6 +146,7 @@ fn is_supported_image(path: &Path) -> bool {
 
 /// Tries to read EXIF metadata from a photo to get timestamp and dimensions.
 fn enrich_photo_metadata(photo: &mut PhotoFile) {
+    use image::ImageDecoder;
     let photo_path = PathBuf::from(&photo.source);
 
     // Try to read dimensions from image header first (fast, works for all formats)
@@ -152,6 +155,25 @@ fn enrich_photo_metadata(photo: &mut PhotoFile) {
         photo.height_px = dimensions.1;
     }
 
+    // Read EXIF orientation using ImageReader API
+    if let Ok(reader) = ImageReader::open(&photo_path) {
+        if let Ok(mut decoder) = reader.into_decoder() {
+            if let Ok(orientation) = decoder.orientation() {
+                // Swap dimensions if orientation requires 90° or 270° rotation
+                match orientation {
+                    Orientation::Rotate90
+                    | Orientation::Rotate270
+                    | Orientation::Rotate90FlipH
+                    | Orientation::Rotate270FlipH => {
+                        std::mem::swap(&mut photo.width_px, &mut photo.height_px);
+                    }
+                    _ => {} // Other orientations don't require dimension swapping
+                }
+            }
+        }
+    }
+
+    // Read EXIF timestamp using exif crate
     let file = match std::fs::File::open(&photo_path) {
         Ok(f) => f,
         Err(e) => {
@@ -187,22 +209,6 @@ fn enrich_photo_metadata(photo: &mut PhotoFile) {
         if let (Some(w), Some(h)) = (width, height) {
             photo.width_px = w;
             photo.height_px = h;
-        }
-    }
-
-    // Handle EXIF Orientation tag to correctly interpret portrait/landscape photos.
-    // Tag 0x0112: 1=normal, 6=90°CW, 8=270°CW (common for portrait photos)
-    // Note: The actual image rotation happens in cache::common::resize_and_save
-    if let Some(field) = exif.get_field(exif::Tag::Orientation, exif::In::PRIMARY)
-        && let exif::Value::Short(ref vec) = field.value
-        && let Some(orientation) = vec.first()
-    {
-        match orientation {
-            6 | 8 => {
-                // 90° or 270° rotation: swap width and height
-                std::mem::swap(&mut photo.width_px, &mut photo.height_px);
-            }
-            _ => {} // 1, 2, 3, 4, 5, 7 don't require dimension swapping
         }
     }
 }
