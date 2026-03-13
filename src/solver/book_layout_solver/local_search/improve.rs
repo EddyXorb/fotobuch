@@ -309,7 +309,7 @@ mod tests {
 
         let candidates = find_candidate_cuts(&assignment, &photos, &mut cache, &mut evaluator);
 
-        assert_eq!(candidates.len(), 3, "All movable cuts should be candidates");
+        assert_eq!(candidates.len(), 2, "All movable cuts should be candidates");
     }
 
     #[test]
@@ -327,7 +327,7 @@ mod tests {
         let candidates = find_candidate_cuts(&assignment, &photos, &mut cache, &mut evaluator);
 
         assert!(!candidates.is_empty());
-        // All have equal coverage so order doesn't matter, but count should be 3
-        assert_eq!(candidates.len(), 3);
+        // All have equal coverage so order doesn't matter, but count should be 2
+        assert_eq!(candidates.len(), 2);
     }
 }

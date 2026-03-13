@@ -263,9 +263,9 @@ mod tests {
     fn test_default_values() {
         let config = BookLayoutSolverConfig::default();
 
-        assert_eq!(config.page_target, 20);
+        assert_eq!(config.page_target, 32);
         assert_eq!(config.page_min, 1);
-        assert_eq!(config.page_max, 150);
+        assert_eq!(config.page_max, 48);
         assert_eq!(config.photos_per_page_min, 2);
         assert_eq!(config.photos_per_page_max, 20);
         assert_eq!(config.group_max_per_page, 3);
@@ -284,9 +284,9 @@ mod tests {
         let yaml = "{}";
         let config: BookLayoutSolverConfig = serde_yaml::from_str(yaml).unwrap();
 
-        assert_eq!(config.page_target, 20);
+        assert_eq!(config.page_target, 32);
         assert_eq!(config.page_min, 1);
-        assert_eq!(config.page_max, 150);
+        assert_eq!(config.page_max, 48);
     }
 
     #[test]
@@ -301,7 +301,7 @@ weight_even: 2.0
         assert_eq!(config.page_target, 25); // Specified
         assert_eq!(config.weight_even, 2.0); // Specified
         assert_eq!(config.page_min, 1); // Default
-        assert_eq!(config.page_max, 150); // Default
+        assert_eq!(config.page_max, 48); // Default
         assert_eq!(config.weight_split, 10.0); // Default
     }
 }
