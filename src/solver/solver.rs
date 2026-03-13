@@ -115,7 +115,7 @@ fn check_validity(
     photos: &[Photo],
     request: &Request<'_>,
     curr_idx: usize,
-    layout_pages: &Vec<LayoutPage>,
+    layout_pages: &[LayoutPage],
 ) {
     assert!(
         curr_idx == photos.len(),
