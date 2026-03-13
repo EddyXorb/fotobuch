@@ -194,8 +194,6 @@ impl SolverPageLayout {
         [min_x, min_y, max_x, max_y]
     }
 
-
-
     fn scale_around_fixpoint(&self, factor: f64, fixpoint_x: f64, fixpoint_y: f64) -> Self {
         let scaled_placements: Vec<PhotoPlacement> = self
             .placements
@@ -220,7 +218,7 @@ impl SolverPageLayout {
     ///
     /// # Returns
     ///
-    /// A `LayoutPage` containing photo IDs and slot positions, and the coordinates are in 
+    /// A `LayoutPage` containing photo IDs and slot positions, and the coordinates are in
     /// the coordinates of the PDF's TargetBox (the most inner one, within bleed+margin)
     pub fn to_layout_page(
         &self,
