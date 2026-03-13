@@ -19,7 +19,7 @@ mod model;
 // Re-export public types
 pub use local_search::PageLayoutEvaluator;
 pub use model::GroupInfo;
-use tracing::info;
+use tracing::{debug, info};
 
 use super::data_models::book_layout::BookLayout;
 use crate::dto_models::BookLayoutSolverConfig as Params;
@@ -65,13 +65,14 @@ pub fn solve_book_layout(
 
     // Phase 1: MIP solver for initial assignment
     let initial_assignment = mip::solve_mip(&groups, params)?;
+    debug!("Cuts: {:?}", initial_assignment.cuts());
 
     // Phase 2: Evaluate pages (with optional local search refinement)
     let mut evaluator = GAPageEvaluator::new(canvas, ga_config);
 
     let (final_assignment, layout_cache) = if params.enable_local_search {
         info!("Start local search refinement..");
-        
+
         let (assignment, cache, _, nr_iterations) =
             local_search::improve(initial_assignment, photos, &groups, params, &mut evaluator);
 
@@ -86,6 +87,8 @@ pub fn solve_book_layout(
         }
         (initial_assignment, cache)
     };
+
+    debug!("Cuts after local search: {:?}", final_assignment.cuts());
 
     // Phase 3: Build BookLayout from the layout cache
     let page_layouts: Vec<SolverPageLayout> = (0..final_assignment.num_pages())

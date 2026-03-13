@@ -169,7 +169,6 @@ impl PageAssignment {
     }
 
     /// Returns the number of pages.
-    #[allow(dead_code)]
     pub fn num_pages(&self) -> usize {
         self.cuts.len() - 1
     }
