@@ -1,10 +1,13 @@
 //! Integration tests for `fotobuch build` command
 
+mod common;
+
 use anyhow::Result;
 use photobook_solver::commands::build::{BuildConfig, build};
 use photobook_solver::commands::project::new::{NewConfig, project_new};
 use photobook_solver::commands::{AddConfig, add};
 use photobook_solver::dto_models::ProjectState;
+use photobook_solver::state_manager::StateManager;
 use std::path::PathBuf;
 use tempfile::TempDir;
 
@@ -20,6 +23,13 @@ fn create_test_project_with_photos(temp_dir: &TempDir) -> Result<PathBuf> {
     };
     let result = project_new(temp_dir.path(), &config)?;
     let project_root = result.project_root;
+
+    let mut mgr = StateManager::open(&project_root)?;
+    mgr.state.config.book_layout_solver.page_max = 5; // Limit pages to speed up tests
+    mgr.state.config.book_layout_solver.page_target = 3;
+    //mgr.state.config.book_layout_solver.photos_per_page_min = 1; // Allow single-photo pages for testing
+    mgr.state.config.book_layout_solver.group_min_photos = 1; // Allow single-photo groups for testing  
+    mgr.finish("test: set page_max to 5 for faster tests")?;
 
     // Add test photos
     let photos_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
