@@ -57,6 +57,7 @@ mod tests {
         ideal_count: usize,
     }
 
+    #[allow(dead_code)]
     fn make_mock_result(photos: &[Photo], ideal_count: usize) -> GaResult {
         let count = photos.len();
         let deviation = (count as i32 - ideal_count as i32).abs() as f64;

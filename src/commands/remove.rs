@@ -277,7 +277,7 @@ mod tests {
             layout: vec![],
         };
 
-        let result = match_photos(&state, &vec!["Vacation".to_string()]).unwrap();
+        let result = match_photos(&state, &["Vacation".to_string()]).unwrap();
         assert_eq!(result.matched_ids.len(), 2);
         assert_eq!(result.matched_groups.len(), 1);
         assert!(result.matched_ids.contains("v1.jpg"));
@@ -299,7 +299,7 @@ mod tests {
             layout: vec![],
         };
 
-        let result = match_photos(&state, &vec!["vacation".to_string()]).unwrap();
+        let result = match_photos(&state, &["vacation".to_string()]).unwrap();
         assert_eq!(result.matched_ids.len(), 1);
         assert!(result.matched_ids.contains("a.jpg"));
     }
@@ -307,7 +307,7 @@ mod tests {
     #[test]
     fn test_match_photos_invalid_regex() {
         let state = ProjectState::default();
-        let result = match_photos(&state, &vec!["[invalid".to_string()]);
+        let result = match_photos(&state, &["[invalid".to_string()]);
         assert!(result.is_err());
     }
 

@@ -395,7 +395,7 @@ fn test_rebuild_all_redistributes_everything() -> Result<()> {
     // Page count may differ from before
     // (depends on solver's decision)
     assert!(
-        state_after.layout.len() > 0,
+        !state_after.layout.is_empty(),
         "Should have at least one page"
     );
 

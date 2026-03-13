@@ -133,22 +133,19 @@ fn test_config_all_defaults_when_optional_fields_removed() -> Result<()> {
     let mut yaml: serde_yaml::Value = serde_yaml::from_str(&fs::read_to_string(&yaml_path)?)?;
 
     // Remove optional fields from book config (margin_mm, gap_mm, bleed_threshold_mm have defaults)
-    if let serde_yaml::Value::Mapping(ref mut map) = yaml {
-        if let Some(serde_yaml::Value::Mapping(config_map)) =
-            map.get_mut(&serde_yaml::Value::String("config".to_string()))
-        {
-            if let Some(serde_yaml::Value::Mapping(book_map)) =
-                config_map.get_mut(&serde_yaml::Value::String("book".to_string()))
-            {
-                // Remove the fields that have defaults
-                book_map.remove(&serde_yaml::Value::String("margin_mm".to_string()));
-                book_map.remove(&serde_yaml::Value::String("gap_mm".to_string()));
-                book_map.remove(&serde_yaml::Value::String("bleed_threshold_mm".to_string()));
+    if let serde_yaml::Value::Mapping(ref mut map) = yaml
+        && let Some(serde_yaml::Value::Mapping(config_map)) =
+            map.get_mut(serde_yaml::Value::String("config".to_string()))
+        && let Some(serde_yaml::Value::Mapping(book_map)) =
+            config_map.get_mut(serde_yaml::Value::String("book".to_string()))
+    {
+        // Remove the fields that have defaults
+        book_map.remove(serde_yaml::Value::String("margin_mm".to_string()));
+        book_map.remove(serde_yaml::Value::String("gap_mm".to_string()));
+        book_map.remove(serde_yaml::Value::String("bleed_threshold_mm".to_string()));
 
-                // Also remove some page_layout_solver defaults
-                config_map.remove(&serde_yaml::Value::String("page_layout_solver".to_string()));
-            }
-        }
+        // Also remove some page_layout_solver defaults
+        config_map.remove(serde_yaml::Value::String("page_layout_solver".to_string()));
     }
 
     // Write back the YAML with removed optional fields

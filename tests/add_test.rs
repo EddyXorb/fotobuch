@@ -48,7 +48,7 @@ fn test_add_single_directory_creates_groups() -> Result<()> {
 
     // Verify result statistics
     assert!(
-        result.groups_added.len() > 0,
+        !result.groups_added.is_empty(),
         "Should have added at least one group"
     );
     assert_eq!(result.skipped, 0, "No duplicates on first add");
@@ -239,7 +239,7 @@ fn test_add_allow_duplicates_flag() -> Result<()> {
 
     assert_eq!(result2.skipped, 1, "Should skip hash duplicate");
     assert!(
-        result2.warnings.len() > 0,
+        !result2.warnings.is_empty(),
         "Should warn about hash duplicate"
     );
     assert!(

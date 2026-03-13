@@ -1,5 +1,3 @@
-use chrono::{DateTime, Utc};
-
 use crate::dto_models::{PhotoFile, PhotoGroup};
 
 /// Photo model for the layout solver with optimization metadata.
@@ -17,12 +15,6 @@ pub struct Photo {
 
     /// Group identifier (e.g., folder name, event).
     pub group: String,
-
-    /// Timestamp from EXIF or folder name.
-    pub timestamp: Option<DateTime<Utc>>,
-
-    /// Absolute pixel dimensions (width, height).
-    pub dimensions: Option<(u32, u32)>,
 }
 
 impl Photo {
@@ -37,8 +29,6 @@ impl Photo {
             aspect_ratio,
             area_weight,
             group,
-            timestamp: None,
-            dimensions: None,
         }
     }
 
@@ -70,8 +60,6 @@ impl Photo {
             aspect_ratio: file.aspect_ratio(),
             area_weight: file.area_weight,
             group: group.to_string(),
-            timestamp: Some(file.timestamp),
-            dimensions: Some((file.width_px, file.height_px)),
         }
     }
 
@@ -100,9 +88,9 @@ impl Photo {
     }
 }
 
-/// Bridge between scanned photos (with file paths) and solver photos (with optimization data).
-///
-/// Combines file system information with solver-ready photo metadata.
+// /// Bridge between scanned photos (with file paths) and solver photos (with optimization data).
+// ///
+// /// Combines file system information with solver-ready photo metadata.
 // #[derive(Debug, Clone)]
 // pub struct PhotoInfo {
 //     /// File path to the photo.
@@ -130,7 +118,6 @@ mod tests {
         assert_eq!(photo.aspect_ratio, LANDSCAPE_ASPECT);
         assert_eq!(photo.area_weight, DEFAULT_AREA_WEIGHT);
         assert_eq!(photo.group, "test");
-        assert!(photo.timestamp.is_none());
     }
 
     #[test]
@@ -194,8 +181,6 @@ mod tests {
             assert_eq!(photo.aspect_ratio, 1.5);
             assert_eq!(photo.area_weight, 1.0);
             assert_eq!(photo.group, "vacation");
-            assert!(photo.timestamp.is_some());
-            assert_eq!(photo.dimensions, Some((1500, 1000)));
         }
 
         #[test]
