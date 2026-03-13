@@ -43,6 +43,9 @@ pub struct BookLayoutSolverConfig {
     /// Maximum coverage cost threshold (pages above this are considered "bad").
     #[serde(default = "default_max_coverage_cost")]
     pub max_coverage_cost: f64,
+    /// Whether to run local search after MIP to improve page assignments.
+    #[serde(default = "default_enable_local_search")]
+    pub enable_local_search: bool,
 }
 
 // Default functions for serde
@@ -92,6 +95,10 @@ fn default_search_timeout() -> Duration {
 
 fn default_max_coverage_cost() -> f64 {
     0.95
+}
+
+fn default_enable_local_search() -> bool {
+    true
 }
 
 /// Error type for parameter validation.
@@ -243,6 +250,7 @@ impl Default for BookLayoutSolverConfig {
             weight_pages: default_weight_pages(),
             search_timeout: default_search_timeout(),
             max_coverage_cost: default_max_coverage_cost(),
+            enable_local_search: default_enable_local_search(),
         }
     }
 }
@@ -267,6 +275,7 @@ mod tests {
         assert_eq!(config.weight_pages, 5.0);
         assert_eq!(config.search_timeout, Duration::from_secs(30));
         assert_eq!(config.max_coverage_cost, 0.95);
+        assert!(config.enable_local_search);
     }
 
     #[test]
