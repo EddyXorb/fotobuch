@@ -57,8 +57,8 @@ pub fn rebuild_single_page(
         anyhow::bail!("Solver returned no result for page {}", page_num);
     }
 
-    // Update only the slots, keep photos list unchanged
     state.layout[page_idx].slots = result[0].slots.clone();
+    state.layout[page_idx].photos = result[0].photos.clone();
 
     Ok(())
 }
