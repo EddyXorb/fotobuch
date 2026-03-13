@@ -68,16 +68,6 @@ fn load_with_orientation(source: &Path) -> Result<DynamicImage> {
 
     if let Some(orientation) = orientation {
         image.apply_orientation(orientation);
-        if source
-            .to_string_lossy()
-            .contains("2025-01-11@125715_P1113169")
-        {
-            println!(
-                "Applied orientation {:?} to {}",
-                orientation,
-                source.display()
-            );
-        }
     }
 
     Ok(image)
