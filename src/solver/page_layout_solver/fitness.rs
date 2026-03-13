@@ -14,7 +14,6 @@ pub struct CostBreakdown {
     pub size: f64,
     pub coverage: f64,
     pub barycenter: f64,
-    pub order: f64,
     pub total: f64,
 }
 
@@ -28,13 +27,11 @@ pub fn cost_breakdown(
     let size = weights.w_size * cost_size_distribution(layout, photos);
     let coverage = weights.w_coverage * cost_coverage(layout);
     let barycenter = weights.w_barycenter * cost_barycenter(layout);
-    let order = weights.w_order * cost_reading_order(layout, photos);
     let total = total_cost(layout, photos, canvas, weights);
     CostBreakdown {
         size,
         coverage,
         barycenter,
-        order,
         total,
     }
 }
@@ -60,10 +57,6 @@ pub fn total_cost(
 
     if weights.w_barycenter != 0.0 {
         cost += weights.w_barycenter * cost_barycenter(layout);
-    }
-
-    if weights.w_order != 0.0 {
-        cost += weights.w_order * cost_reading_order(layout, photos);
     }
 
     cost
@@ -137,51 +130,6 @@ fn cost_barycenter(layout: &SolverPageLayout) -> f64 {
     let dx = (bx - canvas.width / 2.0) / canvas.width;
     let dy = (by - canvas.height / 2.0) / canvas.height;
     dx * dx + dy * dy
-}
-
-/// C_order: Reading order cost.
-///
-/// Penalizes inversions in the chronological reading order.
-///
-/// Formula: C_order = Σ max(0, score_i - score_{i+1})
-/// where score_i = x_i / W + y_i / H (normalized reading position)
-///
-/// Photos are assumed to be in chronological order by index.
-/// A correct layout has monotonically increasing scores (no inversions).
-fn cost_reading_order(layout: &SolverPageLayout, _photos: &[Photo]) -> f64 {
-    if layout.placements.len() <= 1 {
-        return 0.0;
-    }
-
-    let w = layout.canvas.width;
-    let h = layout.canvas.height;
-
-    // Create array of (photo_idx, score) pairs
-    let mut items: Vec<(u16, f64)> = layout
-        .placements
-        .iter()
-        .map(|p| {
-            let score = p.x / w + p.y / h;
-            (p.photo_idx, score)
-        })
-        .collect();
-
-    // Sort by photo_idx (chronological order)
-    items.sort_by_key(|(idx, _)| *idx);
-
-    // Sum penalties for inversions
-    let mut cost = 0.0;
-    for i in 0..items.len() - 1 {
-        let score_i = items[i].1;
-        let score_next = items[i + 1].1;
-
-        // Penalty if next photo appears before current in reading order
-        if score_i > score_next {
-            cost += score_i - score_next;
-        }
-    }
-
-    cost
 }
 
 #[cfg(test)]
