@@ -242,6 +242,8 @@ fn test_release_requires_clean_state() -> Result<()> {
 
 #[test]
 fn test_release_creates_final_cache_and_pdf() -> Result<()> {
+    common::init_tests();
+
     let temp_dir = TempDir::new()?;
     let project_root = create_test_project_with_photos(&temp_dir)?;
 
