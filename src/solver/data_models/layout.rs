@@ -1,3 +1,7 @@
+use core::fmt;
+
+use tracing::error;
+
 use super::canvas::Canvas;
 use super::photo::Photo;
 use crate::dto_models::{BookConfig, LayoutPage, Slot};

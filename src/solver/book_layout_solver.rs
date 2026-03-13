@@ -22,7 +22,7 @@ pub use model::GroupInfo;
 
 use super::data_models::book_layout::BookLayout;
 use crate::dto_models::BookLayoutSolverConfig as Params;
-use crate::solver::page_layout_solver::{self, CostBreakdown};
+use crate::solver::page_layout_solver::{self, CostBreakdown, GaResult};
 use crate::solver::prelude::*;
 use thiserror::Error;
 
@@ -66,7 +66,7 @@ pub fn solve_book_layout(
     let initial_assignment = mip::solve_mip(&groups, params)?;
 
     // Phase 2: Local search refinement
-    let mut evaluator = RealPageEvaluator::new(canvas, ga_config);
+    let mut evaluator: RealPageEvaluator<'_> = RealPageEvaluator::new(canvas, ga_config);
 
     let (final_assignment, _worst_coverage, _iterations) =
         local_search::improve(initial_assignment, photos, &groups, params, &mut evaluator);
@@ -86,11 +86,11 @@ pub fn solve_book_layout(
 ///
 /// This adapter connects the single-page GA solver to the book layout solver's
 /// `PageLayoutEvaluator` trait. It maintains an internal cache to avoid redundant
-/// GA runs for the same photo ranges.
+/// GA runs for the same photo combinations.
 struct RealPageEvaluator<'a> {
     canvas: &'a Canvas,
     ga_config: &'a GaConfig,
-    cache: cache::LayoutCache,
+    cache: cache::PhotoCombinationCache<GaResult>,
 }
 
 impl<'a> RealPageEvaluator<'a> {
@@ -98,7 +98,7 @@ impl<'a> RealPageEvaluator<'a> {
         Self {
             canvas,
             ga_config,
-            cache: cache::LayoutCache::new(),
+            cache: cache::PhotoCombinationCache::new(),
         }
     }
 
@@ -106,26 +106,20 @@ impl<'a> RealPageEvaluator<'a> {
     ///
     /// Returns None if the photos are not in the cache.
     fn get_cached_layout(&self, photos: &[Photo]) -> Option<SolverPageLayout> {
-        let range = 0..photos.len();
-        self.cache.get(range).map(|result| result.layout.clone())
+        self.cache.get(photos).map(|result| result.layout.clone())
     }
 }
 
 impl PageLayoutEvaluator for RealPageEvaluator<'_> {
     fn evaluate(&mut self, photos: &[Photo]) -> CostBreakdown {
-        let range = 0..photos.len();
-
-        // Check cache
-        if let Some(result) = self.cache.get(range.clone()) {
+        if let Some(result) = self.cache.get(photos) {
             return result.cost_breakdown.clone();
         }
 
-        // Run GA
         let result = page_layout_solver::run_ga(photos, self.canvas, self.ga_config);
         let breakdown = result.cost_breakdown.clone();
 
-        // Cache result
-        self.cache.insert_if_better(range, result);
+        self.cache.insert_if_better(photos, result);
 
         breakdown
     }
