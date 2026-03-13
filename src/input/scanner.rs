@@ -9,6 +9,50 @@ use crate::dto_models::{PhotoFile, PhotoGroup};
 
 const SUPPORTED_EXTENSIONS: &[&str] = &["jpg", "jpeg", "png", "webp", "tiff", "tif"];
 
+/// Scans a single image file and returns it as a photo group.
+///
+/// The group name is derived from the file's parent directory name.
+/// If the file is unsupported or cannot be read, returns an empty vector.
+pub fn scan_single_file(path: &Path) -> Result<Vec<PhotoGroup>> {
+    if !is_supported_image(path) {
+        return Ok(Vec::new());
+    }
+
+    let parent = path
+        .parent()
+        .and_then(|p| p.file_name())
+        .and_then(|n| n.to_str())
+        .unwrap_or("no_group")
+        .to_string();
+
+    let filename = path
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap()
+        .to_string();
+    let id = format!("{parent}/{filename}");
+
+    let mut photo = PhotoFile {
+        id,
+        source: path.to_str().unwrap_or("").to_string(),
+        width_px: 1,
+        height_px: 1,
+        area_weight: 1.0,
+        timestamp: Utc::now(),
+        hash: String::new(),
+    };
+
+    enrich_photo_metadata(&mut photo);
+
+    let sort_key = photo.timestamp.to_rfc3339();
+
+    Ok(vec![PhotoGroup {
+        group: parent,
+        sort_key,
+        files: vec![photo],
+    }])
+}
+
 /// Scans a root directory and returns all photo groups, sorted chronologically.
 ///
 /// Each subdirectory becomes one group. If the root directory itself contains photos,
@@ -322,6 +366,43 @@ mod tests {
             "Portrait photo should have width < height (got {}x{})",
             photo.width_px,
             photo.height_px
+        );
+    }
+
+    #[test]
+    fn test_scan_single_file_valid() {
+        let portrait_path = PathBuf::from("tests/fixtures/rotated/portrait.jpg");
+
+        if !portrait_path.exists() {
+            eprintln!("Test fixture not found: {:?}", portrait_path);
+            return;
+        }
+
+        let groups = scan_single_file(&portrait_path).expect("scan_single_file should succeed");
+
+        assert_eq!(groups.len(), 1, "should return exactly one group");
+        let group = &groups[0];
+        assert_eq!(
+            group.group, "rotated",
+            "group name should be parent dir name"
+        );
+        assert_eq!(group.files.len(), 1, "should contain exactly one photo");
+
+        let photo = &group.files[0];
+        assert!(photo.source.ends_with("portrait.jpg"));
+        assert_eq!(photo.area_weight, 1.0);
+        assert!(photo.width_px > 0 && photo.height_px > 0);
+    }
+
+    #[test]
+    fn test_scan_single_file_unsupported() {
+        let unsupported_path = PathBuf::from("tests/fixtures/unsupported.txt");
+        let groups = scan_single_file(&unsupported_path)
+            .expect("scan_single_file should return empty for unsupported");
+        assert_eq!(
+            groups.len(),
+            0,
+            "unsupported file should return empty group"
         );
     }
 }

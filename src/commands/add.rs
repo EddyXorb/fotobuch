@@ -96,8 +96,15 @@ pub fn add(project_root: &Path, config: &AddConfig) -> Result<AddResult> {
     let mut groups_added = Vec::new();
 
     for path in &config.paths {
-        let scanned_groups = scanner::scan_photo_dirs(path)
-            .with_context(|| format!("Failed to scan {}", path.display()))?;
+        let scanned_groups = if path.is_file() {
+            scanner::scan_single_file(path)
+                .with_context(|| format!("Failed to scan file {}", path.display()))?
+        } else if path.is_dir() {
+            scanner::scan_photo_dirs(path)
+                .with_context(|| format!("Failed to scan directory {}", path.display()))?
+        } else {
+            anyhow::bail!("Path is neither a file nor a directory: {}", path.display());
+        };
 
         for mut scanned_group in scanned_groups {
             // Apply XMP filter before dedup (cheap to skip files early)
