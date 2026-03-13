@@ -131,8 +131,8 @@ fn rebuild_single(mut mgr: StateManager, project_root: &Path, page: usize) -> Re
     let bleed_mm = mgr.state.config.book.bleed_mm;
     let pdf_path = typst::compile_preview(project_root, mgr.project_name(), bleed_mm)?;
 
-    // 4. Fertigstellen — speichert YAML und committed
-    mgr.finish(&format!("rebuild: page {}", page))?;
+    // 4. Fertigstellen — speichert YAML und committed (always, even if slots don't change)
+    mgr.finish_always(&format!("rebuild: page {}", page))?;
 
     Ok(BuildResult {
         pdf_path,
