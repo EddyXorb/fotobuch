@@ -156,9 +156,9 @@ fn enrich_photo_metadata(photo: &mut PhotoFile) {
     }
 
     // Read EXIF orientation using ImageReader API
-    if let Ok(reader) = ImageReader::open(&photo_path) {
-        if let Ok(mut decoder) = reader.into_decoder() {
-            if let Ok(orientation) = decoder.orientation() {
+    if let Ok(reader) = ImageReader::open(&photo_path)
+        && let Ok(mut decoder) = reader.into_decoder()
+            && let Ok(orientation) = decoder.orientation() {
                 // Swap dimensions if orientation requires 90° or 270° rotation
                 match orientation {
                     Orientation::Rotate90
@@ -170,8 +170,6 @@ fn enrich_photo_metadata(photo: &mut PhotoFile) {
                     _ => {} // Other orientations don't require dimension swapping
                 }
             }
-        }
-    }
 
     // Read EXIF timestamp using exif crate
     let file = match std::fs::File::open(&photo_path) {
