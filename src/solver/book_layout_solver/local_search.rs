@@ -67,7 +67,6 @@ mod tests {
             size: 0.01,
             coverage,
             barycenter: 0.01,
-            order: 0.01,
         };
         GaResult {
             layout: SolverPageLayout::new(vec![], Canvas::new(297.0, 210.0, 5.0)),

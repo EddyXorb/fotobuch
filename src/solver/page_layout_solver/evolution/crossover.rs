@@ -450,4 +450,24 @@ mod tests {
         let _ = crossover(&tree_a, &tree_b, &mut rng, true);
         // Don't assert result - depends on random structure
     }
+
+    #[test]
+    fn test_crossover_preserves_ordering() {
+        let mut rng = ChaCha8Rng::seed_from_u64(42);
+        let tree_a = random_tree(5, &mut rng, true);
+        let tree_b = random_tree(5, &mut rng, true);
+
+        if let Some((child_a, child_b)) = crossover(&tree_a, &tree_b, &mut rng, true) {
+            // Both children must maintain the ordering invariant
+            for child in [&child_a, &child_b] {
+                let mut photos = Vec::new();
+                child.visit(|_, node| {
+                    if let Node::Leaf { photo_idx, .. } = node {
+                        photos.push(*photo_idx);
+                    }
+                });
+                assert_eq!(photos, vec![0, 1, 2, 3, 4], "Ordering invariant violated in crossover child");
+            }
+        }
+    }
 }

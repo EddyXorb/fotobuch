@@ -248,4 +248,19 @@ mod tests {
         let mut rng = ChaCha8Rng::seed_from_u64(42);
         random_tree(0, &mut rng, true);
     }
+
+    #[test]
+    fn test_dfs_assigns_sequential_indices() {
+        let mut rng = ChaCha8Rng::seed_from_u64(42);
+        let tree = random_tree(5, &mut rng, true);
+
+        // DFS-Traversal must assign 0, 1, 2, 3, 4 in DFS preorder
+        let mut photos = Vec::new();
+        tree.visit(|_, node| {
+            if let Node::Leaf { photo_idx, .. } = node {
+                photos.push(*photo_idx);
+            }
+        });
+        assert_eq!(photos, vec![0, 1, 2, 3, 4]);
+    }
 }

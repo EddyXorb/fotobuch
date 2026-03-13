@@ -172,7 +172,7 @@ mod tests {
         fn prop_crossover_preserves_validity((tree_a, tree_b, _n) in arb_two_trees(), seed in any::<u64>()) {
             let mut rng = ChaCha8Rng::seed_from_u64(seed);
 
-            if let Some((new_a, new_b)) = crossover(&tree_a, &tree_b, &mut rng) {
+            if let Some((new_a, new_b)) = crossover(&tree_a, &tree_b, &mut rng, true) {
                 prop_assert!(validate_tree(&new_a).is_ok(),
                     "Tree A is invalid after crossover: {:?}", validate_tree(&new_a));
                 prop_assert!(validate_tree(&new_b).is_ok(),
@@ -188,7 +188,7 @@ mod tests {
             let leaves_b = tree_b.leaf_count();
             let mut rng = ChaCha8Rng::seed_from_u64(seed);
 
-            if let Some((new_a, new_b)) = crossover(&tree_a, &tree_b, &mut rng) {
+            if let Some((new_a, new_b)) = crossover(&tree_a, &tree_b, &mut rng, true) {
                 prop_assert_eq!(new_a.leaf_count(), leaves_a,
                     "Tree A leaf count changed from {} to {}", leaves_a, new_a.leaf_count());
                 prop_assert_eq!(new_b.leaf_count(), leaves_b,
@@ -203,7 +203,7 @@ mod tests {
             let photos_b = get_photo_indices(&tree_b);
             let mut rng = ChaCha8Rng::seed_from_u64(seed);
 
-            if let Some((new_a, new_b)) = crossover(&tree_a, &tree_b, &mut rng) {
+            if let Some((new_a, new_b)) = crossover(&tree_a, &tree_b, &mut rng, true) {
                 let new_photos_a = get_photo_indices(&new_a);
                 let new_photos_b = get_photo_indices(&new_b);
 
@@ -237,7 +237,7 @@ mod tests {
         ) {
             let mut rng1 = ChaCha8Rng::seed_from_u64(seed1);
 
-            if let Some((mut new_a, mut new_b)) = crossover(&tree_a, &tree_b, &mut rng1) {
+            if let Some((mut new_a, mut new_b)) = crossover(&tree_a, &tree_b, &mut rng1, true) {
                 let mut rng2 = ChaCha8Rng::seed_from_u64(seed2);
                 mutate(&mut new_a, &mut rng2, true);
                 mutate(&mut new_b, &mut rng2, true);
