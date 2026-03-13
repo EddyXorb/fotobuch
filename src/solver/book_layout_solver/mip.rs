@@ -174,6 +174,7 @@ mod tests {
             weight_pages: 1.0,
             search_timeout: Duration::from_secs(10),
             max_coverage_cost: 0.1,
+                enable_local_search: true,
         }
     }
 
@@ -208,6 +209,7 @@ mod tests {
             weight_pages: 1.0,
             search_timeout: Duration::from_secs(10),
             max_coverage_cost: 0.1,
+                enable_local_search: true,
         };
 
         let result = solve_mip(&groups, &params);
@@ -236,6 +238,7 @@ mod tests {
             weight_pages: 1.0,
             search_timeout: Duration::from_secs(10),
             max_coverage_cost: 0.1,
+                enable_local_search: true,
         };
 
         let result = solve_mip(&groups, &params);
@@ -284,6 +287,7 @@ mod tests {
             weight_pages: 0.0,
             search_timeout: Duration::from_secs(10),
             max_coverage_cost: 0.1,
+                enable_local_search: true,
         };
 
         let result = solve_mip(&groups, &params);
@@ -324,6 +328,7 @@ mod tests {
             weight_pages: 0.0,
             search_timeout: Duration::from_secs(10),
             max_coverage_cost: 0.1,
+                enable_local_search: true,
         };
 
         let result = solve_mip(&groups, &params);
@@ -360,6 +365,7 @@ mod tests {
             weight_pages: 0.0,
             search_timeout: Duration::from_secs(10),
             max_coverage_cost: 0.1,
+                enable_local_search: true,
         };
 
         let result = solve_mip(&groups, &params);
@@ -401,6 +407,7 @@ mod tests {
             weight_pages: 1000.0,
             search_timeout: Duration::from_secs(10),
             max_coverage_cost: 0.1,
+                enable_local_search: true,
         };
 
         let result = solve_mip(&groups, &params);
@@ -434,6 +441,7 @@ mod tests {
             weight_pages: 0.0,
             search_timeout: Duration::from_secs(10),
             max_coverage_cost: 0.1,
+                enable_local_search: true,
         };
 
         // --- high D_even: prefer equal pages ---

@@ -240,6 +240,7 @@ mod tests {
             weight_pages: 0.5,
             search_timeout: Duration::from_secs(10),
             max_coverage_cost: 0.1,
+            enable_local_search: true,
         };
 
         assert!(params.validate(50).is_ok());
@@ -349,6 +350,7 @@ mod tests {
     fn test_params_validate_max_coverage_cost_invalid() {
         let params = Params {
             max_coverage_cost: -0.1,
+            enable_local_search: true,
             ..default_params()
         };
 
@@ -404,6 +406,7 @@ mod tests {
             weight_pages: 0.5,
             search_timeout: Duration::from_secs(10),
             max_coverage_cost: 0.1,
+            enable_local_search: true,
         }
     }
 

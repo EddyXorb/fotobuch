@@ -94,6 +94,7 @@ mod tests {
             weight_pages: 1.0,
             search_timeout: Duration::from_secs(10),
             max_coverage_cost: 0.5,
+                enable_local_search: true,
         }
     }
 

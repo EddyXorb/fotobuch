@@ -19,10 +19,11 @@ mod model;
 // Re-export public types
 pub use local_search::PageLayoutEvaluator;
 pub use model::GroupInfo;
+use tracing::info;
 
 use super::data_models::book_layout::BookLayout;
 use crate::dto_models::BookLayoutSolverConfig as Params;
-use crate::solver::page_layout_solver::{self, CostBreakdown, GaResult};
+use crate::solver::page_layout_solver::{self, GaResult};
 use crate::solver::prelude::*;
 use thiserror::Error;
 
@@ -65,63 +66,53 @@ pub fn solve_book_layout(
     // Phase 1: MIP solver for initial assignment
     let initial_assignment = mip::solve_mip(&groups, params)?;
 
-    // Phase 2: Local search refinement
-    let mut evaluator: RealPageEvaluator<'_> = RealPageEvaluator::new(canvas, ga_config);
+    // Phase 2: Evaluate pages (with optional local search refinement)
+    let mut evaluator = GAPageEvaluator::new(canvas, ga_config);
 
-    let (final_assignment, _worst_coverage, _iterations) =
-        local_search::improve(initial_assignment, photos, &groups, params, &mut evaluator);
+    let (final_assignment, layout_cache) = if params.enable_local_search {
+        info!("Start local search refinement..");
+        
+        let (assignment, cache, _, nr_iterations) =
+            local_search::improve(initial_assignment, photos, &groups, params, &mut evaluator);
 
-    // Phase 3: Build BookLayout from cached results
+        info!("Finished local search after {} iterations.", nr_iterations);
+        (assignment, cache)
+    } else {
+        let mut cache = cache::PhotoCombinationCache::new();
+        for page_idx in 0..initial_assignment.num_pages() {
+            let range = initial_assignment.page_range(page_idx);
+            let result = evaluator.evaluate(&photos[range.clone()]);
+            cache.insert_if_better(&photos[range], result);
+        }
+        (initial_assignment, cache)
+    };
+
+    // Phase 3: Build BookLayout from the layout cache
     let page_layouts: Vec<SolverPageLayout> = (0..final_assignment.num_pages())
         .filter_map(|page_idx| {
             let range = final_assignment.page_range(page_idx);
-            evaluator.get_cached_layout(&photos[range])
+            layout_cache.get(&photos[range]).map(|r| r.layout.clone())
         })
         .collect();
 
     Ok(BookLayout::new(page_layouts))
 }
 
-/// Evaluator that uses the GA-based page layout solver with internal caching.
-///
-/// This adapter connects the single-page GA solver to the book layout solver's
-/// `PageLayoutEvaluator` trait. It maintains an internal cache to avoid redundant
-/// GA runs for the same photo combinations.
-struct RealPageEvaluator<'a> {
+/// Evaluator that runs the GA-based page layout solver.
+struct GAPageEvaluator<'a> {
     canvas: &'a Canvas,
     ga_config: &'a GaConfig,
-    cache: cache::PhotoCombinationCache<GaResult>,
 }
 
-impl<'a> RealPageEvaluator<'a> {
+impl<'a> GAPageEvaluator<'a> {
     fn new(canvas: &'a Canvas, ga_config: &'a GaConfig) -> Self {
-        Self {
-            canvas,
-            ga_config,
-            cache: cache::PhotoCombinationCache::new(),
-        }
-    }
-
-    /// Gets the cached layout for a set of photos.
-    ///
-    /// Returns None if the photos are not in the cache.
-    fn get_cached_layout(&self, photos: &[Photo]) -> Option<SolverPageLayout> {
-        self.cache.get(photos).map(|result| result.layout.clone())
+        Self { canvas, ga_config }
     }
 }
 
-impl PageLayoutEvaluator for RealPageEvaluator<'_> {
-    fn evaluate(&mut self, photos: &[Photo]) -> CostBreakdown {
-        if let Some(result) = self.cache.get(photos) {
-            return result.cost_breakdown.clone();
-        }
-
-        let result = page_layout_solver::run_ga(photos, self.canvas, self.ga_config);
-        let breakdown = result.cost_breakdown.clone();
-
-        self.cache.insert_if_better(photos, result);
-
-        breakdown
+impl PageLayoutEvaluator for GAPageEvaluator<'_> {
+    fn evaluate(&mut self, photos: &[Photo]) -> GaResult {
+        page_layout_solver::run_ga(photos, self.canvas, self.ga_config)
     }
 }
 
@@ -187,6 +178,7 @@ mod tests {
                 weight_pages: 1.0,
                 search_timeout: Duration::from_millis(100),
                 max_coverage_cost: 0.5,
+                enable_local_search: true,
             }
         }
 

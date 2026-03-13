@@ -17,7 +17,7 @@ use crate::solver::prelude::*;
 pub use evolution::LayoutEvolution;
 pub use fitness::CostBreakdown;
 pub use individual::LayoutIndividual;
-use tracing::info;
+use tracing::{debug, info};
 
 /// Result of a genetic algorithm run for a single page layout.
 #[derive(Debug, Clone)]
@@ -73,7 +73,7 @@ pub fn run_ga(photos: &[Photo], canvas: &Canvas, ga_config: &GaConfig) -> GaResu
 
     // Log cost breakdown
     let cost_breakdown = fitness::cost_breakdown(&layout, photos, canvas, &ga_config.weights);
-    info!(
+    debug!(
         "Finished layout for one page. Fitness: total={:.4}  size={:.4}  coverage={:.4}  bary={:.4}  order={:.4}",
         cost_breakdown.total,
         cost_breakdown.size,
