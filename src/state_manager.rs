@@ -181,7 +181,7 @@ enum LazyLoad {
     /// Git log was searched; no `build:` or `rebuild:` commit was found.
     Failed,
     /// State loaded from the last `build:` or `rebuild:` commit.
-    Loaded(ProjectState),
+    Loaded(Box<ProjectState>),
 }
 
 // ── StateManager ─────────────────────────────────────────────────────────────
@@ -411,7 +411,7 @@ impl StateManager {
     fn ensure_build_baseline(&self) {
         if matches!(*self.build_baseline.borrow(), LazyLoad::Pending) {
             let resolved = match self.find_last_build_state() {
-                Ok(Some(s)) => LazyLoad::Loaded(s),
+                Ok(Some(s)) => LazyLoad::Loaded(Box::new(s)),
                 _ => LazyLoad::Failed,
             };
             *self.build_baseline.borrow_mut() = resolved;

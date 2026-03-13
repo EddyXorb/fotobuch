@@ -119,8 +119,7 @@ fn test_remove_entire_group() -> Result<()> {
     // Get first group name
     let group_name = state_before
         .photos
-        .iter()
-        .next()
+        .first()
         .map(|g| g.group.clone())
         .expect("Should have at least one group");
 

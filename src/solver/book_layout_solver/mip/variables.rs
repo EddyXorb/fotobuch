@@ -37,6 +37,7 @@ impl MipVariables {
     /// * `group_sizes` - Size of each group (|G_l|)
     /// * `b_max` - Maximum number of pages
     /// * `g_min` - Minimum photos for splitting a group
+    #[allow(clippy::needless_range_loop)]
     pub fn new(
         problem: &mut ProblemVariables,
         num_groups: usize,
