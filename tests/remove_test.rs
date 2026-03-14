@@ -27,6 +27,7 @@ fn create_test_project_with_layout(temp_dir: &TempDir) -> Result<PathBuf> {
         .join("test_photos_unique");
 
     let add_config = AddConfig {
+        source_filter: None,
         paths: vec![photos_path],
         allow_duplicates: false,
         xmp_filter: None,
@@ -272,7 +273,7 @@ fn test_remove_empty_pages_are_deleted() -> Result<()> {
         let config = RemoveConfig {
             patterns: vec![last_page_photos[0].clone()],
             keep_files: false,
-        unplaced: false,
+            unplaced: false,
         };
         let _result = remove(&project_root, &config)?;
 

@@ -6,7 +6,6 @@
 mod improve;
 mod perturbation;
 
-use super::cache::PhotoCombinationCache;
 use super::model::{GroupInfo, PageAssignment};
 use crate::dto_models::BookLayoutSolverConfig;
 use crate::solver::page_layout_solver::GaResult;

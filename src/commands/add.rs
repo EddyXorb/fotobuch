@@ -29,6 +29,8 @@ pub struct AddConfig {
     pub allow_duplicates: bool,
     /// When set, only include photos whose XMP metadata matches this regex
     pub xmp_filter: Option<Regex>,
+    /// When set, only include photos whose source path matches this regex
+    pub source_filter: Option<Regex>,
     /// Preview mode: scan and report what would be added without touching the project
     pub dry_run: bool,
     /// Re-add photos whose path already exists but whose content (hash) has changed
@@ -55,6 +57,8 @@ pub struct AddResult {
     pub skipped: usize,
     /// Number of photos that were excluded by the XMP filter
     pub xmp_filtered: usize,
+    /// Number of photos that were excluded by the source path filter
+    pub source_filtered: usize,
     /// Warnings about duplicates or other issues
     pub warnings: Vec<String>,
     /// Whether this was a dry run (no changes written)
@@ -69,10 +73,11 @@ pub struct AddResult {
 /// 1. Open StateManager (commits any manual edits) — skipped in dry-run
 /// 2. Scan directories for photo files
 /// 3. Apply XMP filter (if configured)
-/// 4. Deduplicate (path and hash check)
-/// 5. Merge groups (extend existing or add new) — skipped in dry-run
-/// 6. Sort groups by sort_key — skipped in dry-run
-/// 7. Commit changes via StateManager — skipped in dry-run
+/// 4. Apply source path filter (if configured)
+/// 5. Deduplicate (path and hash check)
+/// 6. Merge groups (extend existing or add new) — skipped in dry-run
+/// 7. Sort groups by sort_key — skipped in dry-run
+/// 8. Commit changes via StateManager — skipped in dry-run
 pub fn add(project_root: &Path, config: &AddConfig) -> Result<AddResult> {
     let mut mgr =
         StateManager::open(project_root).context("Failed to open project via StateManager")?;
@@ -105,6 +110,7 @@ pub fn add(project_root: &Path, config: &AddConfig) -> Result<AddResult> {
     let mut total_skipped = 0;
     let mut total_updated = 0;
     let mut total_xmp_filtered = 0;
+    let mut total_source_filtered = 0;
     let mut groups_added = Vec::new();
 
     for path in &config.paths {
@@ -126,6 +132,15 @@ pub fn add(project_root: &Path, config: &AddConfig) -> Result<AddResult> {
                     .files
                     .retain(|f| xmp::xmp_matches(Path::new(&f.source), pattern).unwrap_or(true));
                 total_xmp_filtered += before - scanned_group.files.len();
+            }
+
+            // Apply source path filter before dedup
+            if let Some(pattern) = &config.source_filter {
+                let before = scanned_group.files.len();
+                scanned_group
+                    .files
+                    .retain(|f| pattern.is_match(&f.source));
+                total_source_filtered += before - scanned_group.files.len();
             }
 
             let (kept_files, updated_files, skipped, warnings) = deduplicate(
@@ -198,8 +213,69 @@ pub fn add(project_root: &Path, config: &AddConfig) -> Result<AddResult> {
         groups_added,
         skipped: total_skipped,
         xmp_filtered: total_xmp_filtered,
+        source_filtered: total_source_filtered,
         warnings: all_warnings,
         dry_run: config.dry_run,
         updated: total_updated,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::dto_models::PhotoFile;
+    use chrono::Utc;
+
+    fn make_photo(id: &str, source: &str) -> PhotoFile {
+        PhotoFile {
+            id: id.to_string(),
+            source: source.to_string(),
+            width_px: 1920,
+            height_px: 1080,
+            area_weight: 1.0,
+            timestamp: Utc::now(),
+            hash: "test".to_string(),
+        }
+    }
+
+    #[test]
+    fn test_source_filter_matches() {
+        let filter = Regex::new("vacation").unwrap();
+        let files = vec![
+            make_photo("a.jpg", "/photos/vacation/a.jpg"),
+            make_photo("b.jpg", "/photos/work/b.jpg"),
+            make_photo("c.jpg", "/vacation/c.jpg"),
+        ];
+
+        let matched: Vec<_> = files.iter().filter(|f| filter.is_match(&f.source)).collect();
+        assert_eq!(matched.len(), 2);
+        assert_eq!(matched[0].id, "a.jpg");
+        assert_eq!(matched[1].id, "c.jpg");
+    }
+
+    #[test]
+    fn test_source_filter_with_complex_pattern() {
+        let filter = Regex::new(r"\.jpg$").unwrap();
+        let files = vec![
+            make_photo("a.jpg", "/photos/a.jpg"),
+            make_photo("b.png", "/photos/b.png"),
+            make_photo("c.jpg", "/photos/c.jpg"),
+        ];
+
+        let matched: Vec<_> = files.iter().filter(|f| filter.is_match(&f.source)).collect();
+        assert_eq!(matched.len(), 2);
+    }
+
+    #[test]
+    fn test_source_filter_case_insensitive() {
+        let filter = Regex::new("(?i)vacation").unwrap();
+        let files = vec![
+            make_photo("a.jpg", "/photos/Vacation/a.jpg"),
+            make_photo("b.jpg", "/photos/VACATION/b.jpg"),
+            make_photo("c.jpg", "/photos/work/c.jpg"),
+        ];
+
+        let matched: Vec<_> = files.iter().filter(|f| filter.is_match(&f.source)).collect();
+        assert_eq!(matched.len(), 2);
+    }
 }
