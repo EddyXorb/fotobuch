@@ -18,6 +18,7 @@ To be done in this order
 - [ ] prüfen ob das generierte pdf wirklich die mediabox/bleedbox/targetbox so gesetzt hat, wie indesign das machen würde entsprechend den anforderungen für saal digital
 - [ ] make DPI of final configurable in yaml, as well as jpg-quality for both preview and final
 - [ ] try scip as backend for MIP
+- [ ] order the slots/photos in layout according to reading order (to make the appendix work later)
 
 ## to improve it further
 
