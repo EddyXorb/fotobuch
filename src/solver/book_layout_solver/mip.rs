@@ -40,7 +40,12 @@ pub enum MipError {
 /// # Returns
 ///
 /// `Ok(PageAssignment)` with the optimal assignment, or an error if infeasible or solver fails.
-pub fn solve_mip(groups: &GroupInfo, params: &Params) -> Result<PageAssignment, MipError> {
+pub fn solve_mip(
+    groups: &GroupInfo,
+    params: &Params,
+    hint: Option<&PageAssignment>,
+) -> Result<PageAssignment, MipError> {
+    use good_lp::solvers::WithInitialSolution;
     use good_lp::{Solution, SolverModel, default_solver};
 
     // Create problem
@@ -67,20 +72,31 @@ pub fn solve_mip(groups: &GroupInfo, params: &Params) -> Result<PageAssignment, 
     let all_constraints = constraints::build_constraints(&vars, groups, params);
 
     // Build and solve
+    let n_threads = std::thread::available_parallelism()
+        .map(|n| n.get() as u32)
+        .unwrap_or(1);
+
     let mut model = problem
         .minimise(objective)
         .using(default_solver)
+        .set_threads(n_threads)
         .set_parallel(good_lp::solvers::highs::HighsParallelType::On)
         .set_time_limit(params.search_timeout.as_secs_f64())
         .set_mip_rel_gap(params.mip_rel_gap as f32)
         .map_err(|e| MipError::SolverError(format!("invalid mip_rel_gap: {e}")))?;
 
+    if let Some(assignment) = hint {
+        let initial = build_initial_hint(assignment, groups, &vars, b_max);
+        model = model.with_initial_solution(initial);
+    }
+
     info!(
-        "Solving MIP: {} vars, {} constraints, timeout={:.1}s, gap={:.1}%",
+        "Solving MIP: {} vars, {} constraints, timeout={:.1}s, gap={:.1}%{}",
         vars.len(),
         all_constraints.len(),
         params.search_timeout.as_secs_f64(),
         params.mip_rel_gap * 100.0,
+        if hint.is_some() { ", hint=yes" } else { "" },
     );
 
     for constraint in all_constraints {
@@ -98,6 +114,72 @@ pub fn solve_mip(groups: &GroupInfo, params: &Params) -> Result<PageAssignment, 
 
     // Extract page assignment from solution
     extract_assignment(&solution, &vars, groups, b_max)
+}
+
+/// Builds a MIP start hint from a known `PageAssignment`.
+///
+/// Computes feasible values for `g_lj`, `a_j`, `b_lj`, and `w_lj` so HiGHS
+/// can use them as a warm-start solution.
+fn build_initial_hint(
+    assignment: &PageAssignment,
+    groups: &GroupInfo,
+    vars: &MipVariables,
+    b_max: usize,
+) -> Vec<(good_lp::Variable, f64)> {
+    let num_groups = groups.num_groups();
+    let nr_pages = assignment.num_pages();
+
+    // Precompute where each group starts in the global photo sequence
+    let group_starts: Vec<usize> = (0..num_groups)
+        .map(|l| (0..l).map(|i| groups.group_size(i)).sum())
+        .collect();
+
+    let mut hint = Vec::new();
+
+    for l in 0..num_groups {
+        let start_l = group_starts[l];
+        let size_l = groups.group_size(l);
+
+        for j in 0..=b_max {
+            // g_lj = photos from group l cumulatively assigned up to page j
+            let cut_j = if j <= nr_pages {
+                assignment.cuts()[j]
+            } else {
+                assignment.total_photos()
+            };
+            let g_val = (cut_j as isize - start_l as isize).clamp(0, size_l as isize) as f64;
+            hint.push((vars.g.get([l, j]), g_val));
+        }
+
+        for j in 1..=b_max {
+            let photos_on_page = if j <= nr_pages {
+                let lo = assignment.cuts()[j - 1].max(start_l).min(start_l + size_l);
+                let hi = assignment.cuts()[j].max(start_l).min(start_l + size_l);
+                hi - lo
+            } else {
+                0
+            };
+
+            if vars.b.contains([l, j]) {
+                hint.push((
+                    vars.b.get([l, j]),
+                    if photos_on_page > 0 { 1.0 } else { 0.0 },
+                ));
+            }
+            if vars.w.contains([l, j]) {
+                hint.push((
+                    vars.w.get([l, j]),
+                    if photos_on_page == size_l { 1.0 } else { 0.0 },
+                ));
+            }
+        }
+    }
+
+    for j in 1..=b_max {
+        hint.push((vars.a.get([j]), if j <= nr_pages { 1.0 } else { 0.0 }));
+    }
+
+    hint
 }
 
 /// Extracts a `PageAssignment` from the MIP solution.
@@ -195,7 +277,7 @@ mod tests {
         let groups = GroupInfo::new(&[5, 5]);
         let params = default_params();
 
-        let result = solve_mip(&groups, &params);
+        let result = solve_mip(&groups, &params, None);
         assert!(result.is_ok(), "MIP should be feasible: {:?}", result);
 
         let assignment = result.unwrap();
@@ -224,7 +306,7 @@ mod tests {
             mip_rel_gap: 0.01,
         };
 
-        let result = solve_mip(&groups, &params);
+        let result = solve_mip(&groups, &params, None);
         assert!(result.is_ok(), "MIP should be feasible: {:?}", result);
 
         let assignment = result.unwrap();
@@ -254,7 +336,7 @@ mod tests {
             mip_rel_gap: 0.01,
         };
 
-        let result = solve_mip(&groups, &params);
+        let result = solve_mip(&groups, &params, None);
         assert!(result.is_ok(), "MIP should be feasible: {:?}", result);
 
         let assignment = result.unwrap();
@@ -304,7 +386,7 @@ mod tests {
             mip_rel_gap: 0.01,
         };
 
-        let result = solve_mip(&groups, &params);
+        let result = solve_mip(&groups, &params, None);
         assert!(result.is_ok(), "MIP should be feasible: {:?}", result);
 
         let assignment = result.unwrap();
@@ -346,7 +428,7 @@ mod tests {
             mip_rel_gap: 0.01,
         };
 
-        let result = solve_mip(&groups, &params);
+        let result = solve_mip(&groups, &params, None);
         assert!(result.is_ok(), "MIP should be feasible: {:?}", result);
 
         let assignment = result.unwrap();
@@ -384,7 +466,7 @@ mod tests {
             mip_rel_gap: 0.01,
         };
 
-        let result = solve_mip(&groups, &params);
+        let result = solve_mip(&groups, &params, None);
         assert!(result.is_ok(), "MIP should be feasible: {:?}", result);
 
         let assignment = result.unwrap();
@@ -427,7 +509,7 @@ mod tests {
             mip_rel_gap: 0.01,
         };
 
-        let result = solve_mip(&groups, &params);
+        let result = solve_mip(&groups, &params, None);
         assert!(result.is_ok(), "MIP should be feasible: {:?}", result);
 
         let assignment = result.unwrap();
@@ -471,6 +553,7 @@ mod tests {
                 weight_pages: 1.0, // small nudge to use 2 pages
                 ..base.clone()
             },
+            None,
         );
         assert!(
             even_result.is_ok(),
@@ -497,6 +580,7 @@ mod tests {
                 weight_pages: 1.0, // small nudge to use 2 pages
                 ..base
             },
+            None,
         );
         assert!(
             split_result.is_ok(),

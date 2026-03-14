@@ -64,7 +64,7 @@ pub fn solve_book_layout(
     let groups = GroupInfo::from_photos(photos);
 
     // Phase 1: MIP solver for initial assignment
-    let initial_assignment = mip::solve_mip(&groups, params)?;
+    let initial_assignment = mip::solve_mip(&groups, params, None)?;
     debug!("Cuts: {:?}", initial_assignment.cuts());
 
     // Phase 2: Evaluate pages (with optional local search refinement)
