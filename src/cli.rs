@@ -145,7 +145,7 @@ pub enum Commands {
 pub enum ProjectCommands {
     /// Create a new photobook project
     New {
-        /// Project name (used as branch name fotobuch/<name>)
+        /// Project name
         name: String,
 
         /// Page width in millimeters
