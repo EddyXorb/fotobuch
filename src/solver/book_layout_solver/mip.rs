@@ -11,7 +11,7 @@ use super::model::{GroupInfo, PageAssignment};
 use crate::dto_models::BookLayoutSolverConfig as Params;
 use good_lp::ProblemVariables;
 use thiserror::Error;
-use tracing::info;
+use tracing::{debug, info};
 use variables::MipVariables;
 
 /// Error type for MIP solver.
@@ -41,7 +41,7 @@ pub enum MipError {
 ///
 /// `Ok(PageAssignment)` with the optimal assignment, or an error if infeasible or solver fails.
 pub fn solve_mip(groups: &GroupInfo, params: &Params) -> Result<PageAssignment, MipError> {
-    use good_lp::{SolverModel, default_solver};
+    use good_lp::{Solution, SolverModel, default_solver};
 
     // Create problem
     let mut problem = ProblemVariables::new();
@@ -74,7 +74,6 @@ pub fn solve_mip(groups: &GroupInfo, params: &Params) -> Result<PageAssignment, 
         .set_time_limit(params.search_timeout.as_secs_f64())
         .set_mip_rel_gap(params.mip_rel_gap as f32)
         .map_err(|e| MipError::SolverError(format!("invalid mip_rel_gap: {e}")))?;
-    model.set_verbose(true);
 
     info!(
         "Solving MIP: {} vars, {} constraints, timeout={:.1}s, gap={:.1}%",
@@ -91,6 +90,11 @@ pub fn solve_mip(groups: &GroupInfo, params: &Params) -> Result<PageAssignment, 
     let solution = model
         .solve()
         .map_err(|e| MipError::SolverError(e.to_string()))?;
+
+    debug!(
+        status = ?solution.status(),
+        "MIP done"
+    );
 
     // Extract page assignment from solution
     extract_assignment(&solution, &vars, groups, b_max)
