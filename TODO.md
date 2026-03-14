@@ -2,7 +2,7 @@
 
 To be done in this order
 
-## To make is usable
+## To make is *usable*
 
 - [x] typst template's width and height must be increased by the bleed and the pagelayout needs to be shifted towards (bleed,bleed) for x,y in to_page_layout.
 - [x] images should be ordered according to timestamp also *within* the same page → [Design: In-Page Ordering via DFS-Indexing](docs/design/page_layout_solver_genetic_algorithm/in_page_ordering_improvement.md)
@@ -30,3 +30,4 @@ To be done in this order
 - [ ] improve mutator of pagelayoutsolver: it should switch only leafes with different aspect ratios
 - [ ] log* zu gitignore hinzufügen
 - [ ] sort_key in groups should be checked to be unique to avoid randomness; to obtain a better key go into the folder of the group and take the first timestamp of all photos (as is done when no timestamp is in the group-name)
+- [ ] automatically increase image weight according to xmp-rating. Low rating = smaller
