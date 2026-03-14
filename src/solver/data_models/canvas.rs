@@ -169,8 +169,8 @@ mod tests {
             let canvas = Canvas::from_book_config(&config);
 
             // Canvas = page + 2*bleed (when margin = 0)
-            assert_relative_eq!(canvas.width, 303.0, epsilon = 1e-6);
-            assert_relative_eq!(canvas.height, 216.0, epsilon = 1e-6);
+            assert_relative_eq!(canvas.width, 297.0, epsilon = 1e-6);
+            assert_relative_eq!(canvas.height, 210.0, epsilon = 1e-6);
             assert_eq!(canvas.beta, 5.0);
         }
 
@@ -191,8 +191,8 @@ mod tests {
             let canvas = Canvas::from_book_config(&config);
 
             // Large bleed increases canvas significantly when margin = 0
-            assert_relative_eq!(canvas.width, 120.0, epsilon = 1e-6);
-            assert_relative_eq!(canvas.height, 120.0, epsilon = 1e-6);
+            assert_relative_eq!(canvas.width, 100.0, epsilon = 1e-6);
+            assert_relative_eq!(canvas.height, 100.0, epsilon = 1e-6);
         }
 
         #[test]

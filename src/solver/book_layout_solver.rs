@@ -73,11 +73,10 @@ pub fn solve_book_layout(
     let (final_assignment, layout_cache) = if params.enable_local_search {
         info!("Start local search refinement..");
 
-        let (assignment, cache, _, nr_iterations) =
-            local_search::improve(initial_assignment, photos, &groups, params, &mut evaluator);
+        let result = local_search::improve(initial_assignment, photos, &groups, params, &mut evaluator);
 
-        info!("Finished local search after {} iterations.", nr_iterations);
-        (assignment, cache)
+        info!("Finished local search after {} iterations.", result.iterations);
+        (result.assignment, result.cache)
     } else {
         let mut cache = cache::PhotoCombinationCache::new();
         for page_idx in 0..initial_assignment.num_pages() {
