@@ -12,6 +12,8 @@ use crate::dto_models::BookLayoutSolverConfig;
 use crate::solver::page_layout_solver::GaResult;
 use crate::solver::prelude::*;
 
+pub use improve::LocalSearchResult;
+
 /// Trait for evaluating single-page layouts.
 ///
 /// Implementations return a full `GaResult` for a given slice of photos.
@@ -30,16 +32,13 @@ pub trait PageLayoutEvaluator {
 /// 2. Identifies cut points adjacent to poorly-covered pages
 /// 3. Applies perturbations (shift cut by ±1, ±2, ...) in worst-first order
 /// 4. Accepts first improving move, repeats until timeout or convergence
-///
-/// # Returns
-/// `(improved assignment, layout cache, worst coverage, iteration count)`
 pub fn improve(
     assignment: PageAssignment,
     photos: &[Photo],
     groups: &GroupInfo,
     params: &BookLayoutSolverConfig,
     evaluator: &mut impl PageLayoutEvaluator,
-) -> (PageAssignment, PhotoCombinationCache<GaResult>, f64, usize) {
+) -> LocalSearchResult {
     improve::improve(assignment, photos, groups, params, evaluator)
 }
 

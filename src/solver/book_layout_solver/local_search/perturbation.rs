@@ -69,11 +69,27 @@ pub fn try_perturbation(
 /// Computes the maximum reasonable perturbation size.
 ///
 /// Based on the difference between max and min photos per page.
-/// No point trying perturbations larger than half that range, which would otherwise result in 
-/// pages not conformant to the config settings.
+/// No point trying perturbations larger than that range.
 pub fn max_perturbation_delta(params: &Params) -> usize {
     let range = params.photos_per_page_max - params.photos_per_page_min;
     range / 2
+}
+
+/// Generates all perturbation deltas for given candidates, ordered by magnitude.
+///
+/// Returns an iterator over (cut_index, delta) pairs in order:
+/// For each candidate cut (sorted by worst coverage), tries deltas: ±1, ±2, ..., ±max_delta
+pub fn generate_perturbations(
+    candidates: &[usize],
+    max_delta: usize,
+) -> impl Iterator<Item = (usize, i32)> + '_ {
+    candidates.iter().flat_map(move |&cut_index| {
+        (1..=max_delta).flat_map(move |delta_mag| {
+            std::iter::once(-(delta_mag as i32))
+                .chain(std::iter::once(delta_mag as i32))
+                .map(move |delta| (cut_index, delta))
+        })
+    })
 }
 
 #[cfg(test)]
@@ -200,8 +216,10 @@ mod tests {
     fn test_max_perturbation_delta() {
         let params = create_test_params();
         let max_delta = max_perturbation_delta(&params);
-        // (10 - 4) / 2 = 3
-        assert_eq!(max_delta, 3);
+        assert_eq!(
+            max_delta, 2,
+            "Expected max perturbation delta of 2 for range of 6"
+        );
     }
 
     #[test]
@@ -210,7 +228,21 @@ mod tests {
         params.photos_per_page_min = 9;
         params.photos_per_page_max = 10;
         let max_delta = max_perturbation_delta(&params);
-        // (10 - 9) / 2 = 0, but min is 2
-        assert_eq!(max_delta, 2);
+        assert_eq!(max_delta, 1);
+    }
+
+    #[test]
+    fn test_generate_perturbations_generates_correct_deltas() {
+        let candidates = vec![2];
+        let perturbations: Vec<_> = generate_perturbations(&candidates, 2).collect();
+
+        let expected = vec![(2, -1), (2, 1), (2, -2), (2, 2)];
+
+        assert_eq!(perturbations, expected);
+        assert_eq!(
+            perturbations.len(),
+            4,
+            "max_delta=2 should generate 4 perturbations per candidate"
+        );
     }
 }

@@ -4,24 +4,22 @@ use tracing::debug;
 use super::super::cache::PhotoCombinationCache;
 use super::super::model::{GroupInfo, PageAssignment, Params};
 use super::PageLayoutEvaluator;
-use super::perturbation::{max_perturbation_delta, try_perturbation};
+use super::perturbation::{generate_perturbations, max_perturbation_delta, try_perturbation};
 use crate::solver::page_layout_solver::{CostBreakdown, GaResult};
 use crate::solver::prelude::*;
 use std::time::Instant;
 
-/// Generates all perturbation deltas for given candidates, ordered by magnitude.
-///
-/// Returns an iterator over (cut_index, delta) pairs in order:
-/// For each candidate cut (sorted by worst coverage), tries deltas: ±1, ±2, ..., ±max_delta
-fn generate_perturbations(candidates: &[usize], max_delta: usize) -> impl Iterator<Item = (usize, i32)> + '_ {
-    candidates.iter().flat_map(move |&cut_index| {
-        (1..=max_delta)
-            .flat_map(move |delta_mag| {
-                std::iter::once(-(delta_mag as i32))
-                    .chain(std::iter::once(delta_mag as i32))
-                    .map(move |delta| (cut_index, delta))
-            })
-    })
+/// Result of the local search improvement algorithm.
+#[derive(Debug)]
+pub struct LocalSearchResult {
+    /// The improved page assignment
+    pub assignment: PageAssignment,
+    /// Cache of evaluated page layouts
+    pub cache: PhotoCombinationCache<GaResult>,
+    /// Worst (maximum) coverage value across all pages
+    pub worst_coverage: f64,
+    /// Number of iterations performed
+    pub iterations: usize,
 }
 
 /// Improves a page assignment using variable neighborhood search.
@@ -39,7 +37,7 @@ pub fn improve(
     groups: &GroupInfo,
     params: &Params,
     evaluator: &mut impl PageLayoutEvaluator,
-) -> (PageAssignment, PhotoCombinationCache<GaResult>, f64, usize) {
+) -> LocalSearchResult {
     let mut cache: PhotoCombinationCache<GaResult> = PhotoCombinationCache::new();
     let deadline = Instant::now() + params.search_timeout;
     let max_delta = max_perturbation_delta(params);
@@ -48,7 +46,12 @@ pub fn improve(
     let mut current_worst = compute_worst_coverage(&assignment, photos, &mut cache, evaluator);
 
     if max_delta == 0 {
-        return (assignment, cache, current_worst, iterations);
+        return LocalSearchResult {
+            assignment,
+            cache,
+            worst_coverage: current_worst,
+            iterations,
+        };
     }
 
     loop {
@@ -90,7 +93,12 @@ pub fn improve(
         }
     }
 
-    (assignment, cache, current_worst, iterations)
+    LocalSearchResult {
+        assignment,
+        cache,
+        worst_coverage: current_worst,
+        iterations,
+    }
 }
 
 /// Computes the worst coverage value across all pages.
@@ -240,15 +248,14 @@ mod tests {
         // Due to min-page-size=4, most perturbations are infeasible, so assignment may stay.
         let initial = PageAssignment::new(vec![0, 4, 8, 12]);
 
-        let (improved, _cache, worst_coverage, iterations) =
-            improve(initial.clone(), &photos, &groups, &params, &mut evaluator);
+        let result = improve(initial.clone(), &photos, &groups, &params, &mut evaluator);
 
-        assert!(iterations > 0, "Expected at least one iteration");
+        assert!(result.iterations > 0, "Expected at least one iteration");
 
         info!("Initial: {:?}", initial.cuts());
-        info!("Improved: {:?}", improved.cuts());
-        info!("Worst coverage: {}", worst_coverage);
-        info!("Iterations: {}", iterations);
+        info!("Improved: {:?}", result.assignment.cuts());
+        info!("Worst coverage: {}", result.worst_coverage);
+        info!("Iterations: {}", result.iterations);
     }
 
     #[test]
@@ -281,12 +288,11 @@ mod tests {
         // Already optimal: 2 pages of 6 photos each → coverage = 0.0
         let initial = PageAssignment::new(vec![0, 6, 12]);
 
-        let (improved, _cache, worst_coverage, iterations) =
-            improve(initial.clone(), &photos, &groups, &params, &mut evaluator);
+        let result = improve(initial.clone(), &photos, &groups, &params, &mut evaluator);
 
-        assert_eq!(improved.cuts(), initial.cuts());
-        assert!(iterations <= 2, "Should stop quickly when optimal");
-        approx::assert_abs_diff_eq!(worst_coverage, 0.0, epsilon = 0.01);
+        assert_eq!(result.assignment.cuts(), initial.cuts());
+        assert!(result.iterations <= 2, "Should stop quickly when optimal");
+        approx::assert_abs_diff_eq!(result.worst_coverage, 0.0, epsilon = 0.01);
     }
 
     #[test]
@@ -297,14 +303,13 @@ mod tests {
         let mut evaluator = MockEvaluator { ideal_count: 6 };
 
         let initial = PageAssignment::new(vec![0, 6, 12]);
-        let (final_assignment, cache, _, _) =
-            improve(initial, &photos, &groups, &params, &mut evaluator);
+        let result = improve(initial, &photos, &groups, &params, &mut evaluator);
 
         // Cache must contain a GaResult for each page of the final assignment
-        for page_idx in 0..final_assignment.num_pages() {
-            let range = final_assignment.page_range(page_idx);
+        for page_idx in 0..result.assignment.num_pages() {
+            let range = result.assignment.page_range(page_idx);
             assert!(
-                cache.get(&photos[range]).is_some(),
+                result.cache.get(&photos[range]).is_some(),
                 "Cache missing layout for page {page_idx}"
             );
         }
@@ -341,21 +346,5 @@ mod tests {
         assert!(!candidates.is_empty());
         // All have equal coverage so order doesn't matter, but count should be 2
         assert_eq!(candidates.len(), 2);
-    }
-
-    #[test]
-    fn test_generate_perturbations_generates_correct_deltas() {
-        let candidates = vec![2];
-        let perturbations: Vec<_> = generate_perturbations(&candidates, 2).collect();
-
-        let expected = vec![
-            (2, -1),
-            (2, 1),
-            (2, -2),
-            (2, 2),
-        ];
-
-        assert_eq!(perturbations, expected);
-        assert_eq!(perturbations.len(), 4, "max_delta=2 should generate 4 perturbations per candidate");
     }
 }
