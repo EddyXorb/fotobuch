@@ -17,15 +17,15 @@ pub struct FitnessWeights {
 }
 
 fn default_w_size() -> f64 {
-    1.0
+    0.2
 }
 
 fn default_w_coverage() -> f64 {
-    0.15
+    1.0
 }
 
 fn default_w_barycenter() -> f64 {
-    0.5
+    0.0
 }
 
 impl FitnessWeights {
@@ -75,9 +75,9 @@ mod tests {
     #[test]
     fn test_default_weights() {
         let w = FitnessWeights::default();
-        assert_eq!(w.w_size, 1.0);
-        assert_eq!(w.w_coverage, 0.15);
-        assert_eq!(w.w_barycenter, 0.5);
+        assert_eq!(w.w_size, 0.2);
+        assert_eq!(w.w_coverage, 1.0);
+        assert_eq!(w.w_barycenter, 0.0);
     }
 
     #[test]
@@ -93,9 +93,9 @@ mod tests {
         let w = FitnessWeights::default();
         let yaml = serde_yaml::to_string(&w).unwrap();
         let deserialized: FitnessWeights = serde_yaml::from_str(&yaml).unwrap();
-        assert_eq!(deserialized.w_size, 1.0);
-        assert_eq!(deserialized.w_coverage, 0.15);
-        assert_eq!(deserialized.w_barycenter, 0.5);
+        assert_eq!(deserialized.w_size, 0.2);
+        assert_eq!(deserialized.w_coverage, 1.0);
+        assert_eq!(deserialized.w_barycenter, 0.0);
     }
 
     #[test]
@@ -105,6 +105,6 @@ mod tests {
         let w: FitnessWeights = serde_yaml::from_str(yaml).unwrap();
         assert_eq!(w.w_size, 2.0);
         assert_eq!(w.w_coverage, 0.25);
-        assert_eq!(w.w_barycenter, 0.5); // default
+        assert_eq!(w.w_barycenter, 0.0); // default
     }
 }
