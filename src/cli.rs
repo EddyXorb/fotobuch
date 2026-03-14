@@ -107,6 +107,10 @@ pub enum Commands {
         /// Only remove from layout, keep photos in the project (makes them unplaced)
         #[arg(long)]
         keep_files: bool,
+
+        /// Remove all photos that are not placed in any layout page
+        #[arg(long, conflicts_with = "patterns")]
+        unplaced: bool,
     },
 
     /// Show project status
@@ -193,7 +197,8 @@ impl Execute for Commands {
             Commands::Remove {
                 patterns,
                 keep_files,
-            } => remove::handle(patterns.clone(), *keep_files),
+                unplaced,
+            } => remove::handle(patterns.clone(), *keep_files, *unplaced),
             Commands::Status { page } => status::handle(*page),
             Commands::Config => config::handle(),
             Commands::History { count } => history::handle(*count),
