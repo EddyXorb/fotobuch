@@ -1,4 +1,6 @@
 //! Improvement algorithm for local search.
+use tracing::debug;
+
 use super::super::cache::PhotoCombinationCache;
 use super::super::model::{GroupInfo, PageAssignment, Params};
 use super::PageLayoutEvaluator;
@@ -6,6 +8,21 @@ use super::perturbation::{max_perturbation_delta, try_perturbation};
 use crate::solver::page_layout_solver::{CostBreakdown, GaResult};
 use crate::solver::prelude::*;
 use std::time::Instant;
+
+/// Generates all perturbation deltas for given candidates, ordered by magnitude.
+///
+/// Returns an iterator over (cut_index, delta) pairs in order:
+/// For each candidate cut (sorted by worst coverage), tries deltas: ±1, ±2, ..., ±max_delta
+fn generate_perturbations(candidates: &[usize], max_delta: usize) -> impl Iterator<Item = (usize, i32)> + '_ {
+    candidates.iter().flat_map(move |&cut_index| {
+        (1..=max_delta)
+            .flat_map(move |delta_mag| {
+                std::iter::once(-(delta_mag as i32))
+                    .chain(std::iter::once(delta_mag as i32))
+                    .map(move |delta| (cut_index, delta))
+            })
+    })
+}
 
 /// Improves a page assignment using variable neighborhood search.
 ///
@@ -30,6 +47,10 @@ pub fn improve(
 
     let mut current_worst = compute_worst_coverage(&assignment, photos, &mut cache, evaluator);
 
+    if max_delta == 0 {
+        return (assignment, cache, current_worst, iterations);
+    }
+
     loop {
         iterations += 1;
 
@@ -45,31 +66,22 @@ pub fn improve(
 
         let mut improved = false;
 
-        for &cut_index in &candidates {
-            for delta_mag in 1..=max_delta {
-                for &delta in &[-(delta_mag as i32), delta_mag as i32] {
-                    if let Some(new_assignment) =
-                        try_perturbation(&assignment, cut_index, delta, groups, params)
-                    {
-                        let new_worst =
-                            compute_worst_coverage(&new_assignment, photos, &mut cache, evaluator);
+        for (cut_index, delta) in generate_perturbations(&candidates, max_delta) {
+            if let Some(new_assignment) =
+                try_perturbation(&assignment, cut_index, delta, groups, params)
+            {
+                let new_worst =
+                    compute_worst_coverage(&new_assignment, photos, &mut cache, evaluator);
 
-                        if new_worst < current_worst {
-                            assignment = new_assignment;
-                            current_worst = new_worst;
-                            improved = true;
-                            break;
-                        }
-                    }
-                }
-
-                if improved {
+                if new_worst < current_worst {
+                    debug!(
+                        "Iteration {iterations}: Improved by perturbing cut {cut_index} by {delta} (worst coverage {current_worst:.4} → {new_worst:.4})"
+                    );
+                    assignment = new_assignment;
+                    current_worst = new_worst;
+                    improved = true;
                     break;
                 }
-            }
-
-            if improved {
-                break;
             }
         }
 
@@ -329,5 +341,21 @@ mod tests {
         assert!(!candidates.is_empty());
         // All have equal coverage so order doesn't matter, but count should be 2
         assert_eq!(candidates.len(), 2);
+    }
+
+    #[test]
+    fn test_generate_perturbations_generates_correct_deltas() {
+        let candidates = vec![2];
+        let perturbations: Vec<_> = generate_perturbations(&candidates, 2).collect();
+
+        let expected = vec![
+            (2, -1),
+            (2, 1),
+            (2, -2),
+            (2, 2),
+        ];
+
+        assert_eq!(perturbations, expected);
+        assert_eq!(perturbations.len(), 4, "max_delta=2 should generate 4 perturbations per candidate");
     }
 }
