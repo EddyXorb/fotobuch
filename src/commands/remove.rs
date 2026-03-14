@@ -15,6 +15,8 @@ pub struct RemoveConfig {
     pub patterns: Vec<String>,
     /// Only remove from layout, keep in photos (makes them unplaced)
     pub keep_files: bool,
+    /// Remove all photos not placed in any layout page
+    pub unplaced: bool,
 }
 
 /// Result of removing photos
@@ -176,15 +178,33 @@ fn remove_from_photos(
     total_removed
 }
 
+/// Collects IDs of all photos not referenced in any layout page.
+fn collect_unplaced_ids(state: &ProjectState) -> HashSet<String> {
+    let placed: HashSet<&str> = state
+        .layout
+        .iter()
+        .flat_map(|p| p.photos.iter())
+        .map(|id| id.as_str())
+        .collect();
+
+    state
+        .photos
+        .iter()
+        .flat_map(|g| g.files.iter())
+        .filter(|f| !placed.contains(f.id.as_str()))
+        .map(|f| f.id.clone())
+        .collect()
+}
+
 /// Remove photos or groups from the project
 ///
 /// # Steps
-/// 1. Match patterns (group names, regex on source paths)
-/// 2. Remove from layout (always)
+/// 1. Match patterns (group names, regex on source paths) OR collect unplaced IDs
+/// 2. Remove from layout (always, noop for --unplaced since they aren't placed)
 /// 3. Remove empty pages + renumber
 /// 4. Remove from photos (if not keep_files)
 /// 5. Update fotobuch.yaml
-/// 6. Git commit: "remove: N photos" or "remove: N placements (photos kept)"
+/// 6. Git commit
 ///
 /// # Arguments
 /// * `project_root` - Path to the project directory
@@ -195,9 +215,15 @@ fn remove_from_photos(
 pub fn remove(project_root: &Path, config: &RemoveConfig) -> Result<RemoveResult> {
     let mut mgr = StateManager::open(project_root)?;
 
-    // 1. Pattern-Matching
-    let matches = match_photos(&mgr.state, &config.patterns)?;
-    if matches.matched_ids.is_empty() {
+    // 1. Determine which IDs to act on
+    let (matched_ids, matched_groups) = if config.unplaced {
+        (collect_unplaced_ids(&mgr.state), vec![])
+    } else {
+        let matches = match_photos(&mgr.state, &config.patterns)?;
+        (matches.matched_ids, matches.matched_groups)
+    };
+
+    if matched_ids.is_empty() {
         return Ok(RemoveResult {
             photos_removed: 0,
             placements_removed: 0,
@@ -207,26 +233,28 @@ pub fn remove(project_root: &Path, config: &RemoveConfig) -> Result<RemoveResult
     }
 
     // 2. Aus Layout entfernen (immer, auch bei --keep-files)
-    let layout_result = remove_from_layout(&mut mgr.state.layout, &matches.matched_ids);
+    let layout_result = remove_from_layout(&mut mgr.state.layout, &matched_ids);
 
     // 3. Leere Seiten entfernen + renumbern
     remove_empty_pages(&mut mgr.state.layout);
     renumber_pages(&mut mgr.state.layout);
 
     // 4. Aus Photos entfernen (nur ohne --keep-files)
-    let mut groups_removed = matches.matched_groups.clone();
+    let mut groups_removed = matched_groups;
     let photos_removed = if config.keep_files {
         0
     } else {
         remove_from_photos(
             &mut mgr.state.photos,
-            &matches.matched_ids,
+            &matched_ids,
             &mut groups_removed,
         )
     };
 
     // 5. Speichern + Git commit
-    let commit_msg = if config.keep_files {
+    let commit_msg = if config.unplaced {
+        format!("remove: {} unplaced photos", photos_removed)
+    } else if config.keep_files {
         format!(
             "remove: {} placements from layout (photos kept)",
             layout_result.placements_removed
@@ -408,6 +436,72 @@ mod tests {
         assert_eq!(removed, 1);
         assert_eq!(photos[0].files.len(), 1);
         assert_eq!(photos[0].files[0].id, "b.jpg");
+    }
+
+    #[test]
+    fn test_collect_unplaced_ids_all_unplaced() {
+        let state = ProjectState {
+            config: Default::default(),
+            photos: vec![PhotoGroup {
+                group: "Group1".to_string(),
+                sort_key: "2024-01-01".to_string(),
+                files: vec![
+                    make_photo("a.jpg", "/path/a.jpg"),
+                    make_photo("b.jpg", "/path/b.jpg"),
+                ],
+            }],
+            layout: vec![],
+        };
+
+        let unplaced = collect_unplaced_ids(&state);
+        assert_eq!(unplaced.len(), 2);
+        assert!(unplaced.contains("a.jpg"));
+        assert!(unplaced.contains("b.jpg"));
+    }
+
+    #[test]
+    fn test_collect_unplaced_ids_some_placed() {
+        let state = ProjectState {
+            config: Default::default(),
+            photos: vec![PhotoGroup {
+                group: "Group1".to_string(),
+                sort_key: "2024-01-01".to_string(),
+                files: vec![
+                    make_photo("a.jpg", "/path/a.jpg"),
+                    make_photo("b.jpg", "/path/b.jpg"),
+                ],
+            }],
+            layout: vec![LayoutPage {
+                page: 1,
+                photos: vec!["a.jpg".to_string()],
+                slots: vec![],
+            }],
+        };
+
+        let unplaced = collect_unplaced_ids(&state);
+        assert_eq!(unplaced.len(), 1);
+        assert!(unplaced.contains("b.jpg"));
+        assert!(!unplaced.contains("a.jpg"));
+    }
+
+    #[test]
+    fn test_collect_unplaced_ids_all_placed() {
+        let state = ProjectState {
+            config: Default::default(),
+            photos: vec![PhotoGroup {
+                group: "Group1".to_string(),
+                sort_key: "2024-01-01".to_string(),
+                files: vec![make_photo("a.jpg", "/path/a.jpg")],
+            }],
+            layout: vec![LayoutPage {
+                page: 1,
+                photos: vec!["a.jpg".to_string()],
+                slots: vec![],
+            }],
+        };
+
+        let unplaced = collect_unplaced_ids(&state);
+        assert!(unplaced.is_empty());
     }
 
     #[test]

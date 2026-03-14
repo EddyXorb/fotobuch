@@ -53,6 +53,7 @@ fn test_remove_no_matches_returns_zero() -> Result<()> {
     let config = RemoveConfig {
         patterns: vec!["nonexistent".to_string()],
         keep_files: false,
+        unplaced: false,
     };
     let result = remove(&project_root, &config)?;
 
@@ -90,6 +91,7 @@ fn test_remove_single_photo_by_pattern() -> Result<()> {
     let config = RemoveConfig {
         patterns: vec![pattern],
         keep_files: false,
+        unplaced: false,
     };
     let result = remove(&project_root, &config)?;
 
@@ -127,6 +129,7 @@ fn test_remove_entire_group() -> Result<()> {
     let config = RemoveConfig {
         patterns: vec![group_name.clone()],
         keep_files: false,
+        unplaced: false,
     };
     let result = remove(&project_root, &config)?;
 
@@ -163,6 +166,7 @@ fn test_remove_with_keep_files() -> Result<()> {
     let config = RemoveConfig {
         patterns: vec![pattern],
         keep_files: true,
+        unplaced: false,
     };
     let result = remove(&project_root, &config)?;
 
@@ -213,6 +217,7 @@ fn test_remove_multiple_patterns() -> Result<()> {
     let config = RemoveConfig {
         patterns,
         keep_files: false,
+        unplaced: false,
     };
     let _result = remove(&project_root, &config)?;
 
@@ -230,6 +235,7 @@ fn test_remove_invalid_regex_pattern() -> Result<()> {
     let config = RemoveConfig {
         patterns: vec!["[invalid".to_string()],
         keep_files: false,
+        unplaced: false,
     };
     let result = remove(&project_root, &config);
 
@@ -266,6 +272,7 @@ fn test_remove_empty_pages_are_deleted() -> Result<()> {
         let config = RemoveConfig {
             patterns: vec![last_page_photos[0].clone()],
             keep_files: false,
+        unplaced: false,
         };
         let _result = remove(&project_root, &config)?;
 
@@ -291,6 +298,7 @@ fn test_remove_git_commit() -> Result<()> {
     let config = RemoveConfig {
         patterns: vec![pattern],
         keep_files: false,
+        unplaced: false,
     };
     let _result = remove(&project_root, &config)?;
 
