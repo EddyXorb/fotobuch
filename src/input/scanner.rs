@@ -2,12 +2,88 @@ use anyhow::{Context, Result};
 use chrono::{DateTime, NaiveDateTime, Utc};
 use image::ImageReader;
 use image::metadata::Orientation;
+use regex::Regex;
 use std::path::{Path, PathBuf};
 use tracing::{debug, warn};
 
 use crate::dto_models::{PhotoFile, PhotoGroup};
+use crate::input::xmp;
 
 const SUPPORTED_EXTENSIONS: &[&str] = &["jpg", "jpeg", "png", "webp", "tiff", "tif"];
+
+/// Input parameters for scanning photos.
+#[derive(Debug)]
+pub struct ScannerInput {
+    /// Paths to scan (files or directories)
+    pub paths: Vec<PathBuf>,
+    /// Optional filter for XMP metadata
+    pub xmp_filter: Option<Regex>,
+    /// Optional filter for source file path
+    pub source_filter: Option<Regex>,
+}
+
+/// Statistics from photo scanning.
+#[derive(Debug, Default)]
+pub struct ScanStats {
+    /// Number of photos filtered by XMP metadata
+    pub xmp_filtered: usize,
+    /// Number of photos filtered by source path
+    pub source_filtered: usize,
+}
+
+/// Output from scanning photos.
+#[derive(Debug)]
+pub struct ScannerOutput {
+    /// Photo groups discovered during scan
+    pub groups: Vec<PhotoGroup>,
+    /// Filtering statistics
+    pub stats: ScanStats,
+}
+
+/// Scans photos from given paths, applies filters, and returns groups with statistics.
+///
+/// # Steps
+/// 1. For each path: dispatch to file or directory scanner
+/// 2. For each group: apply XMP filter, then source path filter
+/// 3. Accumulate filtering statistics
+/// 4. Return all groups + stats
+pub fn scan_photos(input: ScannerInput) -> Result<ScannerOutput> {
+    let mut groups = Vec::new();
+    let mut stats = ScanStats::default();
+
+    for path in input.paths {
+        let scanned_groups = if path.is_file() {
+            scan_single_photo_file(&path)
+                .with_context(|| format!("Failed to scan file {}", path.display()))?
+        } else if path.is_dir() {
+            scan_photo_group_dirs(&path)
+                .with_context(|| format!("Failed to scan directory {}", path.display()))?
+        } else {
+            anyhow::bail!("Path is neither a file nor a directory: {}", path.display());
+        };
+
+        for mut group in scanned_groups {
+            if let Some(pattern) = &input.source_filter {
+                let before = group.files.len();
+                group.files.retain(|f| pattern.is_match(&f.source));
+                stats.source_filtered += before - group.files.len();
+            }
+            if let Some(pattern) = &input.xmp_filter {
+                let before = group.files.len();
+                group
+                    .files
+                    .retain(|f| xmp::xmp_matches(Path::new(&f.source), pattern).unwrap_or(true));
+                stats.xmp_filtered += before - group.files.len();
+            }
+
+            if !group.files.is_empty() {
+                groups.push(group);
+            }
+        }
+    }
+
+    Ok(ScannerOutput { groups, stats })
+}
 
 fn naive_to_utc(naive: NaiveDateTime) -> DateTime<Utc> {
     DateTime::<Utc>::from_naive_utc_and_offset(naive, Utc)
@@ -164,10 +240,9 @@ fn read_single_photo(
     };
 
     let found_timestamp = enrich_photo_metadata(&mut photo);
-    if !found_timestamp
-        && let Some(dt) = fallback_dt {
-            photo.timestamp = dt;
-        }
+    if !found_timestamp && let Some(dt) = fallback_dt {
+        photo.timestamp = dt;
+    }
 
     photo
 }
@@ -374,7 +449,8 @@ mod tests {
             return;
         }
 
-        let groups = scan_single_photo_file(&portrait_path).expect("scan_single_file should succeed");
+        let groups =
+            scan_single_photo_file(&portrait_path).expect("scan_single_file should succeed");
 
         assert_eq!(groups.len(), 1, "should return exactly one group");
         let group = &groups[0];
@@ -400,5 +476,54 @@ mod tests {
             0,
             "unsupported file should return empty group"
         );
+    }
+
+    #[test]
+    fn test_scan_photos_empty_input() {
+        let input = ScannerInput {
+            paths: vec![],
+            xmp_filter: None,
+            source_filter: None,
+        };
+
+        let output = scan_photos(input).expect("scan_photos should handle empty paths");
+        assert_eq!(output.groups.len(), 0);
+        assert_eq!(output.stats.xmp_filtered, 0);
+        assert_eq!(output.stats.source_filtered, 0);
+    }
+
+    #[test]
+    fn test_scan_photos_source_filter() {
+        let portrait_path = PathBuf::from("tests/fixtures/rotated/portrait.jpg");
+
+        if !portrait_path.exists() {
+            eprintln!("Test fixture not found: {:?}", portrait_path);
+            return;
+        }
+
+        // Filter that matches the path
+        let matching_filter = Regex::new("portrait").unwrap();
+        let input = ScannerInput {
+            paths: vec![portrait_path.clone()],
+            xmp_filter: None,
+            source_filter: Some(matching_filter),
+        };
+
+        let output = scan_photos(input).expect("scan_photos should succeed");
+        assert_eq!(output.groups.len(), 1);
+        assert_eq!(output.groups[0].files.len(), 1);
+        assert_eq!(output.stats.source_filtered, 0);
+
+        // Filter that doesn't match
+        let non_matching_filter = Regex::new("landscape").unwrap();
+        let input = ScannerInput {
+            paths: vec![portrait_path],
+            xmp_filter: None,
+            source_filter: Some(non_matching_filter),
+        };
+
+        let output = scan_photos(input).expect("scan_photos should succeed");
+        assert_eq!(output.groups.len(), 0);
+        assert_eq!(output.stats.source_filtered, 1);
     }
 }
