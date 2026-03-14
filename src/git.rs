@@ -117,19 +117,6 @@ fn build_signature(repo: &Repository) -> Signature<'static> {
     })
 }
 
-/// Legacy helper: stage `{name}.yaml` and commit.  Used by the `add` command.
-pub fn commit(project_dir: &Path, message: &str) -> Result<()> {
-    let repo = open_repo(project_dir)?;
-    // Determine project name from current branch (fotobuch/<name>)
-    let branch = current_branch(&repo)?;
-    let yaml_name = if let Some(name) = branch.strip_prefix("fotobuch/") {
-        format!("{name}.yaml")
-    } else {
-        "fotobuch.yaml".to_owned()
-    };
-    stage_and_commit(&repo, &[&yaml_name], message)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
