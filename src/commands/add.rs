@@ -16,8 +16,7 @@ use regex::Regex;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
-use crate::input::scanner;
-use crate::input::xmp;
+use crate::input::scanner::{self, ScannerInput};
 use crate::state_manager::StateManager;
 
 /// Configuration for adding photos
@@ -109,93 +108,71 @@ pub fn add(project_root: &Path, config: &AddConfig) -> Result<AddResult> {
     let mut all_warnings = Vec::new();
     let mut total_skipped = 0;
     let mut total_updated = 0;
-    let mut total_xmp_filtered = 0;
-    let mut total_source_filtered = 0;
     let mut groups_added = Vec::new();
 
-    for path in &config.paths {
-        let scanned_groups = if path.is_file() {
-            scanner::scan_single_photo_file(path)
-                .with_context(|| format!("Failed to scan file {}", path.display()))?
-        } else if path.is_dir() {
-            scanner::scan_photo_group_dirs(path)
-                .with_context(|| format!("Failed to scan directory {}", path.display()))?
-        } else {
-            anyhow::bail!("Path is neither a file nor a directory: {}", path.display());
-        };
+    // Scan photos with filtering
+    let scan_output = scanner::scan_photos(ScannerInput {
+        paths: config.paths.clone(),
+        xmp_filter: config.xmp_filter.clone(),
+        source_filter: config.source_filter.clone(),
+    })?;
 
-        for mut scanned_group in scanned_groups {
-            // Apply XMP filter before dedup (cheap to skip files early)
-            if let Some(pattern) = &config.xmp_filter {
-                let before = scanned_group.files.len();
-                scanned_group
-                    .files
-                    .retain(|f| xmp::xmp_matches(Path::new(&f.source), pattern).unwrap_or(true));
-                total_xmp_filtered += before - scanned_group.files.len();
-            }
+    let total_xmp_filtered = scan_output.stats.xmp_filtered;
+    let total_source_filtered = scan_output.stats.source_filtered;
 
-            // Apply source path filter before dedup
-            if let Some(pattern) = &config.source_filter {
-                let before = scanned_group.files.len();
-                scanned_group
-                    .files
-                    .retain(|f| pattern.is_match(&f.source));
-                total_source_filtered += before - scanned_group.files.len();
-            }
+    for mut scanned_group in scan_output.groups {
+        let (kept_files, updated_files, skipped, warnings) = deduplicate(
+            &mut scanned_group.files,
+            &existing_paths,
+            &existing_hashes,
+            config.allow_duplicates,
+            config.update,
+            &existing_path_hashes,
+        );
 
-            let (kept_files, updated_files, skipped, warnings) = deduplicate(
-                &mut scanned_group.files,
-                &existing_paths,
-                &existing_hashes,
-                config.allow_duplicates,
-                config.update,
-                &existing_path_hashes,
-            );
+        total_skipped += skipped;
+        total_updated += updated_files.len();
+        all_warnings.extend(warnings);
 
-            total_skipped += skipped;
-            total_updated += updated_files.len();
-            all_warnings.extend(warnings);
-
-            if !config.dry_run {
-                // Apply in-place updates to existing photos
-                for updated_file in &updated_files {
-                    let source = &updated_file.source;
-                    for group in &mut mgr.state.photos {
-                        if let Some(existing) = group.files.iter_mut().find(|f| f.source == *source) {
-                            *existing = updated_file.clone();
-                            break;
-                        }
+        if !config.dry_run {
+            // Apply in-place updates to existing photos
+            for updated_file in &updated_files {
+                let source = &updated_file.source;
+                for group in &mut mgr.state.photos {
+                    if let Some(existing) = group.files.iter_mut().find(|f| f.source == *source) {
+                        *existing = updated_file.clone();
+                        break;
                     }
                 }
             }
-
-            if kept_files.is_empty() {
-                continue;
-            }
-
-            // Track newly seen paths/hashes to catch cross-group duplicates
-            for file in &kept_files {
-                existing_paths.insert(PathBuf::from(&file.source));
-                if !file.hash.is_empty() {
-                    existing_hashes.insert(file.hash.clone());
-                }
-            }
-
-            let group_name = scanned_group.group.clone();
-            let photo_count = kept_files.len();
-            let timestamp = scanned_group.sort_key.clone();
-
-            if !config.dry_run {
-                scanned_group.files = kept_files;
-                merge_group(&mut mgr.state.photos, scanned_group);
-            }
-
-            groups_added.push(GroupSummary {
-                name: group_name,
-                photo_count,
-                timestamp,
-            });
         }
+
+        if kept_files.is_empty() {
+            continue;
+        }
+
+        // Track newly seen paths/hashes to catch cross-group duplicates
+        for file in &kept_files {
+            existing_paths.insert(PathBuf::from(&file.source));
+            if !file.hash.is_empty() {
+                existing_hashes.insert(file.hash.clone());
+            }
+        }
+
+        let group_name = scanned_group.group.clone();
+        let photo_count = kept_files.len();
+        let timestamp = scanned_group.sort_key.clone();
+
+        if !config.dry_run {
+            scanned_group.files = kept_files;
+            merge_group(&mut mgr.state.photos, scanned_group);
+        }
+
+        groups_added.push(GroupSummary {
+            name: group_name,
+            photo_count,
+            timestamp,
+        });
     }
 
     if !config.dry_run {
