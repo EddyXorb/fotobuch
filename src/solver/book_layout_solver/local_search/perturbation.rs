@@ -72,7 +72,7 @@ pub fn try_perturbation(
 /// No point trying perturbations larger than that range.
 pub fn max_perturbation_delta(params: &Params) -> usize {
     let range = params.photos_per_page_max - params.photos_per_page_min;
-    range.clamp(0, 2)
+    range.clamp(0, 3)
 }
 
 /// Generates all perturbation deltas for given candidates, ordered by magnitude.
@@ -216,7 +216,10 @@ mod tests {
     fn test_max_perturbation_delta() {
         let params = create_test_params();
         let max_delta = max_perturbation_delta(&params);
-        assert_eq!(max_delta, 2, "Expected max perturbation delta of 2 for range of 6");
+        assert_eq!(
+            max_delta, 3,
+            "Expected max perturbation delta of 2 for range of 6"
+        );
     }
 
     #[test]
