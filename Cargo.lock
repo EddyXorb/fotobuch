@@ -1131,6 +1131,41 @@ dependencies = [
 ]
 
 [[package]]
+name = "fotobuch"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "approx",
+ "blake3",
+ "chrono",
+ "clap",
+ "comemo",
+ "crossbeam",
+ "git2",
+ "good_lp",
+ "image",
+ "kamadak-exif",
+ "lopdf 0.35.0",
+ "proptest",
+ "rand 0.8.5",
+ "rand_chacha 0.3.1",
+ "rayon",
+ "regex",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "tempfile",
+ "thiserror",
+ "tracing",
+ "tracing-appender",
+ "tracing-subscriber",
+ "typst",
+ "typst-kit",
+ "typst-pdf",
+ "xmpkit",
+]
+
+[[package]]
 name = "generic-array"
 version = "0.14.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2545,41 +2580,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e57fef6bc5981e38c2ce2d63bfa546861309f875b8a75f092d1d54ae2d64f266"
 dependencies = [
  "siphasher",
-]
-
-[[package]]
-name = "photobook-solver"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "approx",
- "blake3",
- "chrono",
- "clap",
- "comemo",
- "crossbeam",
- "git2",
- "good_lp",
- "image",
- "kamadak-exif",
- "lopdf 0.35.0",
- "proptest",
- "rand 0.8.5",
- "rand_chacha 0.3.1",
- "rayon",
- "regex",
- "serde",
- "serde_json",
- "serde_yaml",
- "tempfile",
- "thiserror",
- "tracing",
- "tracing-appender",
- "tracing-subscriber",
- "typst",
- "typst-kit",
- "typst-pdf",
- "xmpkit",
 ]
 
 [[package]]

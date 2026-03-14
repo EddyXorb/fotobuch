@@ -2,7 +2,7 @@
 
 use anyhow::Context;
 use anyhow::Result;
-use photobook_solver::commands;
+use fotobuch::commands;
 use tracing::info;
 use tracing::warn;
 

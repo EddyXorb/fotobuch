@@ -1,7 +1,7 @@
 //! Integration tests for `fotobuch project new` command
 
 use anyhow::Result;
-use photobook_solver::commands::project::new::{NewConfig, project_new, validate_project_name};
+use fotobuch::commands::project::new::{NewConfig, project_new, validate_project_name};
 use std::fs;
 use tempfile::TempDir;
 

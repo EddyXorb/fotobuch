@@ -17,8 +17,8 @@
 //! ## Example
 //!
 //! ```rust,no_run
-//! use photobook_solver::solver::{run_solver, Request, RequestType};
-//! use photobook_solver::dto_models::*;
+//! use fotobuch::solver::{run_solver, Request, RequestType};
+//! use fotobuch::dto_models::*;
 //!
 //! // Define book configuration
 //! let book_config = BookConfig {
