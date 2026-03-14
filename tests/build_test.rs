@@ -42,6 +42,7 @@ fn create_test_project_with_photos(temp_dir: &TempDir) -> Result<PathBuf> {
         allow_duplicates: false,
         xmp_filter: None,
         dry_run: false,
+        update: false,
     };
     add(&project_root, &add_config)?;
 
