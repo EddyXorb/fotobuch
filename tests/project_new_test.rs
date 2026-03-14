@@ -37,10 +37,8 @@ fn test_project_new_mode1_creates_complete_structure() -> Result<()> {
     // Check Typst template exists and has placeholders replaced
     assert!(result.typ_path.exists());
     let typ_content = fs::read_to_string(&result.typ_path)?;
-    assert!(typ_content.contains(r#"yaml("vacation2024.yaml")"#));
-    assert!(typ_content.contains(".fotobuch/cache/vacation2024/preview/"));
-    assert!(typ_content.contains(".fotobuch/cache/vacation2024/final/"));
-    assert!(!typ_content.contains("{name}"));
+    assert!(typ_content.contains(r#"project_name = "vacation2024""#));
+    assert!(!typ_content.contains("{project_name}"));
 
     // Check .gitignore exists and has correct entries
     let gitignore_path = result.project_root.join(".gitignore");

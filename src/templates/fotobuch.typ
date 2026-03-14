@@ -19,14 +19,14 @@
   #let show_image_captions_on_preview = false
   #let show_borders_on_preview = false
 ]
-
-#let data = yaml("{name}.yaml")
+#let project_name = "{project_name}"
+#let data = yaml(project_name + ".yaml")
 #set text(font: "Libertinus Serif")
 // Cache-Pfad je nach Modus
 #let cache_prefix = if is_final {
-  ".fotobuch/cache/{name}/final/"
+  ".fotobuch/cache/" + project_name + "/final/"
 } else {
-  ".fotobuch/cache/{name}/preview/"
+  ".fotobuch/cache/" + project_name + "/preview/"
 }
 // Seitengröße aus YAML inkl. Beschnitt / Bleed
 #let bleed = data.config.book.bleed_mm * 1mm
