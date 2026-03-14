@@ -1,6 +1,7 @@
 use crate::dto_models::BookConfig;
 
 /// Canvas dimensions and spacing parameters for the photobook layout.
+/// Equivalent of the TargetBox/ArtBox in PDF, so we ignore margins/bleed here.
 #[derive(Debug, Clone, Copy)]
 pub struct Canvas {
     /// Canvas width in mm.
@@ -47,8 +48,9 @@ impl Canvas {
     /// and do the margin/bleed logic in an outside step.
     ///
     /// Canvas dimensions are calculated as:
-    /// - If margin = 0: canvas = page + 2*bleed (photos can extend into bleed area)
-    /// - If margin > 0: canvas = page - 2*margin (bleed is outside margin, not relevant for layout)
+    /// - canvas = page - 2*margin (bleed is outside margin, not relevant for layout)
+    ///
+    /// Within the solver, we assume that the canvas is the actual area we have for layout.
     ///
     /// # Arguments
     ///
@@ -58,17 +60,8 @@ impl Canvas {
     ///
     /// A new Canvas with dimensions calculated from BookConfig
     pub fn from_book_config(config: &BookConfig) -> Self {
-        let width = if config.margin_mm == 0.0 {
-            config.page_width_mm + 2.0 * config.bleed_mm
-        } else {
-            config.page_width_mm - 2.0 * config.margin_mm
-        };
-
-        let height = if config.margin_mm == 0.0 {
-            config.page_height_mm + 2.0 * config.bleed_mm
-        } else {
-            config.page_height_mm - 2.0 * config.margin_mm
-        };
+        let width = config.page_width_mm - 2.0 * config.margin_mm;
+        let height = config.page_height_mm - 2.0 * config.margin_mm;
 
         Self::new(width, height, config.gap_mm)
     }
