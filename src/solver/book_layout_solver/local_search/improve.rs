@@ -16,8 +16,10 @@ pub struct LocalSearchResult {
     pub assignment: PageAssignment,
     /// Cache of evaluated page layouts
     pub cache: PhotoCombinationCache<GaResult>,
-    /// Worst (maximum) coverage value across all pages
-    pub worst_coverage: f64,
+
+    pub start_fitness: f64,
+
+    pub end_fitness: f64,
     /// Number of iterations performed
     pub iterations: usize,
 }
@@ -27,10 +29,10 @@ pub struct LocalSearchResult {
 /// Algorithm:
 /// 1. Evaluate all pages, populate layout cache
 /// 2. Loop until timeout or convergence:
-///    a. Identify all candidate cuts, sorted by worst adjacent-page coverage
+///    a. Identify all candidate cuts, sorted by worst adjacent-page total cost
 ///    b. For each candidate, try perturbations with increasing |delta|
 ///    c. Accept first improving move and restart
-/// 3. Return best assignment, its layout cache, worst coverage, and iteration count
+/// 3. Return best assignment, its layout cache, worst total cost, and iteration count
 pub fn improve(
     mut assignment: PageAssignment,
     photos: &[Photo],
@@ -43,13 +45,20 @@ pub fn improve(
     let max_delta = max_perturbation_delta(params);
     let mut iterations = 0;
 
-    let mut current_worst = compute_worst_coverage(&assignment, photos, &mut cache, evaluator);
+    let initial_worst_over_all = compute_worst_fitness_across_pages(
+        0..assignment.num_pages(),
+        &assignment,
+        photos,
+        &mut cache,
+        evaluator,
+    );
 
     if max_delta == 0 {
         return LocalSearchResult {
             assignment,
             cache,
-            worst_coverage: current_worst,
+            start_fitness: initial_worst_over_all,
+            end_fitness: initial_worst_over_all,
             iterations,
         };
     }
@@ -73,15 +82,28 @@ pub fn improve(
             if let Some(new_assignment) =
                 try_perturbation(&assignment, cut_index, delta, groups, params)
             {
-                let new_worst =
-                    compute_worst_coverage(&new_assignment, photos, &mut cache, evaluator);
+                let first_page = cut_index - 1;
+                let old_worst = compute_worst_fitness_across_pages(
+                    [first_page, first_page + 1],
+                    &assignment,
+                    photos,
+                    &mut cache,
+                    evaluator,
+                );
 
-                if new_worst < current_worst {
+                let new_worst = compute_worst_fitness_across_pages(
+                    [first_page, first_page + 1],
+                    &new_assignment,
+                    photos,
+                    &mut cache,
+                    evaluator,
+                );
+
+                if new_worst < old_worst {
                     debug!(
-                        "Iteration {iterations}: Improved by perturbing cut {cut_index} by {delta} (worst coverage {current_worst:.4} → {new_worst:.4})"
+                        "Iteration {iterations}: Improved by perturbing cut {cut_index} by {delta} (worst total cost {old_worst:.3} → {new_worst:.3})"
                     );
                     assignment = new_assignment;
-                    current_worst = new_worst;
                     improved = true;
                     break;
                 }
@@ -93,25 +115,37 @@ pub fn improve(
         }
     }
 
+    // This is cheap as we have the cache
+    let final_worst_over_all = compute_worst_fitness_across_pages(
+        0..assignment.num_pages(),
+        &assignment,
+        photos,
+        &mut cache,
+        evaluator,
+    );
+
     LocalSearchResult {
         assignment,
         cache,
-        worst_coverage: current_worst,
+        start_fitness: initial_worst_over_all,
+        end_fitness: final_worst_over_all,
         iterations,
     }
 }
 
-/// Computes the worst coverage value across all pages.
-fn compute_worst_coverage(
+/// Computes the worst fitness value across all pages.
+fn compute_worst_fitness_across_pages(
+    pages_to_check: impl IntoIterator<Item = usize>,
     assignment: &PageAssignment,
     photos: &[Photo],
     cache: &mut PhotoCombinationCache<GaResult>,
     evaluator: &mut impl PageLayoutEvaluator,
 ) -> f64 {
-    (0..assignment.num_pages())
+    pages_to_check
+        .into_iter()
         .map(|page_idx| {
             let range = assignment.page_range(page_idx);
-            evaluate_page(evaluator, cache, &photos[range]).coverage
+            evaluate_page(evaluator, cache, &photos[range]).total
         })
         .max_by(|a, b| a.partial_cmp(b).unwrap())
         .unwrap_or(0.0)
@@ -135,7 +169,7 @@ fn evaluate_page(
     breakdown
 }
 
-/// Returns all movable cut indices, sorted by worst adjacent-page coverage (descending).
+/// Returns all movable cut indices, sorted by worst adjacent-page total cost (descending).
 ///
 /// Cut 0 is always excluded since it is the immutable left boundary.
 fn find_candidate_cuts(
@@ -157,10 +191,10 @@ fn find_candidate_cuts(
         .map(|cut_index| {
             let page_before = cut_index - 1;
             let page_after = cut_index.min(num_pages - 1);
-            let max_coverage = breakdowns[page_before]
-                .coverage
-                .max(breakdowns[page_after].coverage);
-            (cut_index, max_coverage)
+            let max_total = breakdowns[page_before]
+                .total
+                .max(breakdowns[page_after].total);
+            (cut_index, max_total)
         })
         .collect();
 
@@ -185,11 +219,11 @@ mod tests {
         fn evaluate(&mut self, photos: &[Photo]) -> GaResult {
             let count = photos.len();
             let deviation = (count as i32 - self.ideal_count as i32).abs() as f64;
-            let coverage = deviation * 0.2;
+            let total = deviation * 0.2;
             let breakdown = CostBreakdown {
-                total: coverage + 0.03,
+                total: total,
                 size: 0.01,
-                coverage,
+                coverage: 0.1,
                 barycenter: 0.01,
             };
             GaResult {
@@ -254,7 +288,8 @@ mod tests {
 
         info!("Initial: {:?}", initial.cuts());
         info!("Improved: {:?}", result.assignment.cuts());
-        info!("Worst coverage: {}", result.worst_coverage);
+        info!("Start fitness: {}", result.start_fitness);
+        info!("End fitness: {}", result.end_fitness);
         info!("Iterations: {}", result.iterations);
     }
 
@@ -292,7 +327,8 @@ mod tests {
 
         assert_eq!(result.assignment.cuts(), initial.cuts());
         assert!(result.iterations <= 2, "Should stop quickly when optimal");
-        approx::assert_abs_diff_eq!(result.worst_coverage, 0.0, epsilon = 0.01);
+        approx::assert_abs_diff_eq!(result.start_fitness, 0.0, epsilon = 0.01);
+        approx::assert_abs_diff_eq!(result.end_fitness, 0.0, epsilon = 0.01);
     }
 
     #[test]

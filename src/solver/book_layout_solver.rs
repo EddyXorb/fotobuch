@@ -73,9 +73,13 @@ pub fn solve_book_layout(
     let (final_assignment, layout_cache) = if params.enable_local_search {
         info!("Start local search refinement..");
 
-        let result = local_search::improve(initial_assignment, photos, &groups, params, &mut evaluator);
+        let result =
+            local_search::improve(initial_assignment, photos, &groups, params, &mut evaluator);
 
-        info!("Finished local search after {} iterations.", result.iterations);
+        info!(
+            "Finished local search after {} iterations, start fitness: {:.3}, end fitness: {:.3}",
+            result.iterations, result.start_fitness, result.end_fitness
+        );
         (result.assignment, result.cache)
     } else {
         let mut cache = cache::PhotoCombinationCache::new();
@@ -181,7 +185,7 @@ mod tests {
                 search_timeout: Duration::from_millis(100),
                 max_coverage_cost: 0.5,
                 enable_local_search: true,
-            mip_rel_gap: 0.01,
+                mip_rel_gap: 0.01,
             }
         }
 
