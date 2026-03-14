@@ -94,5 +94,4 @@ pub mod state_manager;
 
 // Re-export core API types for convenience
 pub use dto_models::{FitnessWeights, GaConfig};
-pub use input::loader::load_photos_from_dir;
 pub use solver::run_solver;

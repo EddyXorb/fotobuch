@@ -1,6 +1,5 @@
 //! Input modules for loading photo data.
 
-pub mod loader;
 pub mod metadata;
 pub mod scanner;
 pub mod xmp;
