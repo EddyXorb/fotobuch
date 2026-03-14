@@ -46,6 +46,9 @@ pub struct BookLayoutSolverConfig {
     /// Whether to run local search after MIP to improve page assignments.
     #[serde(default = "default_enable_local_search")]
     pub enable_local_search: bool,
+    /// Relative MIP optimality gap (0.0 = exact, 0.01 = 1% tolerance).
+    #[serde(default = "default_mip_rel_gap")]
+    pub mip_rel_gap: f64,
 }
 
 // Default functions for serde
@@ -99,6 +102,10 @@ fn default_max_coverage_cost() -> f64 {
 
 fn default_enable_local_search() -> bool {
     true
+}
+
+fn default_mip_rel_gap() -> f64 {
+    0.01
 }
 
 /// Error type for parameter validation.
@@ -251,6 +258,7 @@ impl Default for BookLayoutSolverConfig {
             search_timeout: default_search_timeout(),
             max_coverage_cost: default_max_coverage_cost(),
             enable_local_search: default_enable_local_search(),
+            mip_rel_gap: default_mip_rel_gap(),
         }
     }
 }
@@ -276,6 +284,7 @@ mod tests {
         assert_eq!(config.search_timeout, Duration::from_secs(30));
         assert_eq!(config.max_coverage_cost, 0.95);
         assert!(config.enable_local_search);
+        assert_eq!(config.mip_rel_gap, 0.01);
     }
 
     #[test]

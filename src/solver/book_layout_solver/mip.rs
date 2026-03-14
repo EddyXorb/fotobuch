@@ -70,12 +70,18 @@ pub fn solve_mip(groups: &GroupInfo, params: &Params) -> Result<PageAssignment, 
     let mut model = problem
         .minimise(objective)
         .using(default_solver)
-        .set_parallel(good_lp::solvers::highs::HighsParallelType::On);
+        .set_parallel(good_lp::solvers::highs::HighsParallelType::On)
+        .set_time_limit(params.search_timeout.as_secs_f64())
+        .set_mip_rel_gap(params.mip_rel_gap as f32)
+        .map_err(|e| MipError::SolverError(format!("invalid mip_rel_gap: {e}")))?;
+    model.set_verbose(true);
 
     info!(
-        "Solving MIP with {} variables and {} constraints...",
+        "Solving MIP: {} vars, {} constraints, timeout={:.1}s, gap={:.1}%",
         vars.len(),
-        all_constraints.len()
+        all_constraints.len(),
+        params.search_timeout.as_secs_f64(),
+        params.mip_rel_gap * 100.0,
     );
 
     for constraint in all_constraints {
@@ -175,6 +181,7 @@ mod tests {
             search_timeout: Duration::from_secs(10),
             max_coverage_cost: 0.1,
             enable_local_search: true,
+            mip_rel_gap: 0.01,
         }
     }
 
@@ -210,6 +217,7 @@ mod tests {
             search_timeout: Duration::from_secs(10),
             max_coverage_cost: 0.1,
             enable_local_search: true,
+            mip_rel_gap: 0.01,
         };
 
         let result = solve_mip(&groups, &params);
@@ -239,6 +247,7 @@ mod tests {
             search_timeout: Duration::from_secs(10),
             max_coverage_cost: 0.1,
             enable_local_search: true,
+            mip_rel_gap: 0.01,
         };
 
         let result = solve_mip(&groups, &params);
@@ -288,6 +297,7 @@ mod tests {
             search_timeout: Duration::from_secs(10),
             max_coverage_cost: 0.1,
             enable_local_search: true,
+            mip_rel_gap: 0.01,
         };
 
         let result = solve_mip(&groups, &params);
@@ -329,6 +339,7 @@ mod tests {
             search_timeout: Duration::from_secs(10),
             max_coverage_cost: 0.1,
             enable_local_search: true,
+            mip_rel_gap: 0.01,
         };
 
         let result = solve_mip(&groups, &params);
@@ -366,6 +377,7 @@ mod tests {
             search_timeout: Duration::from_secs(10),
             max_coverage_cost: 0.1,
             enable_local_search: true,
+            mip_rel_gap: 0.01,
         };
 
         let result = solve_mip(&groups, &params);
@@ -408,6 +420,7 @@ mod tests {
             search_timeout: Duration::from_secs(10),
             max_coverage_cost: 0.1,
             enable_local_search: true,
+            mip_rel_gap: 0.01,
         };
 
         let result = solve_mip(&groups, &params);
@@ -442,6 +455,7 @@ mod tests {
             search_timeout: Duration::from_secs(10),
             max_coverage_cost: 0.1,
             enable_local_search: true,
+            mip_rel_gap: 0.01,
         };
 
         // --- high D_even: prefer equal pages ---

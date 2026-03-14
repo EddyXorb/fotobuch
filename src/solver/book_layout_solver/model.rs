@@ -240,6 +240,7 @@ mod tests {
             search_timeout: Duration::from_secs(10),
             max_coverage_cost: 0.1,
             enable_local_search: true,
+            mip_rel_gap: 0.01,
         };
 
         assert!(params.validate(50).is_ok());
@@ -350,6 +351,7 @@ mod tests {
         let params = Params {
             max_coverage_cost: -0.1,
             enable_local_search: true,
+            mip_rel_gap: 0.01,
             ..default_params()
         };
 
@@ -406,6 +408,7 @@ mod tests {
             search_timeout: Duration::from_secs(10),
             max_coverage_cost: 0.1,
             enable_local_search: true,
+            mip_rel_gap: 0.01,
         }
     }
 
