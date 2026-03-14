@@ -69,10 +69,11 @@ pub fn try_perturbation(
 /// Computes the maximum reasonable perturbation size.
 ///
 /// Based on the difference between max and min photos per page.
-/// No point trying perturbations larger than half that range.
+/// No point trying perturbations larger than half that range, which would otherwise result in 
+/// pages not conformant to the config settings.
 pub fn max_perturbation_delta(params: &Params) -> usize {
     let range = params.photos_per_page_max - params.photos_per_page_min;
-    (range / 2).max(2)
+    range / 2
 }
 
 #[cfg(test)]
