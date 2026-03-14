@@ -11,6 +11,7 @@
 //! - Internal modules for MIP, local search, feasibility checking, and caching
 
 mod cache;
+mod create_start_solution;
 mod feasibility;
 mod local_search;
 mod mip;
@@ -63,8 +64,12 @@ pub fn solve_book_layout(
     // Build group information from photos
     let groups = GroupInfo::from_photos(photos);
 
+    // Phase 0: Construction Heuristic for initial solution as Hint to Mip
+    let hint = create_start_solution::create_start_solution(params, photos);
+    debug!("Hint cuts: {:?}", hint.cuts());
+
     // Phase 1: MIP solver for initial assignment
-    let initial_assignment = mip::solve_mip(&groups, params, None)?;
+    let initial_assignment = mip::solve_mip(&groups, params, Some(&hint))?;
     debug!("Cuts: {:?}", initial_assignment.cuts());
 
     // Phase 2: Evaluate pages (with optional local search refinement)
