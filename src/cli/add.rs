@@ -10,6 +10,7 @@ pub fn handle(
     paths: Vec<PathBuf>,
     allow_duplicates: bool,
     filter_xmp: Option<String>,
+    filter: Option<String>,
     dry: bool,
     update: bool,
 ) -> Result<()> {
@@ -20,10 +21,16 @@ pub fn handle(
         .map(|pat| Regex::new(pat).with_context(|| format!("Invalid --filter-xmp regex: {pat}")))
         .transpose()?;
 
+    let source_filter = filter
+        .as_deref()
+        .map(|pat| Regex::new(pat).with_context(|| format!("Invalid --filter regex: {pat}")))
+        .transpose()?;
+
     let config = commands::AddConfig {
         paths,
         allow_duplicates,
         xmp_filter,
+        source_filter,
         dry_run: dry,
         update,
     };
@@ -94,6 +101,9 @@ fn print_dry_run(result: &commands::AddResult) {
 fn print_shared_stats(result: &commands::AddResult) {
     if result.xmp_filtered > 0 {
         info!("🔎 Filtered {} photos by XMP metadata", result.xmp_filtered);
+    }
+    if result.source_filtered > 0 {
+        info!("🔎 Filtered {} photos by source path pattern", result.source_filtered);
     }
     if result.updated > 0 {
         info!("🔄 Updated {} changed photos", result.updated);

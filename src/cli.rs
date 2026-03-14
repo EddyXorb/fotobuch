@@ -45,6 +45,10 @@ pub enum Commands {
         #[arg(long, value_name = "REGEX")]
         filter_xmp: Option<String>,
 
+        /// Only include photos whose source path matches this regex pattern
+        #[arg(long, value_name = "REGEX")]
+        filter: Option<String>,
+
         /// Preview what would be added without writing anything
         #[arg(long, short = 'd')]
         dry: bool,
@@ -182,9 +186,10 @@ impl Execute for Commands {
                 paths,
                 allow_duplicates,
                 filter_xmp,
+                filter,
                 dry,
                 update,
-            } => add::handle(paths.clone(), *allow_duplicates, filter_xmp.clone(), *dry, *update),
+            } => add::handle(paths.clone(), *allow_duplicates, filter_xmp.clone(), filter.clone(), *dry, *update),
             Commands::Build { release, pages } => build::handle(*release, pages.clone()),
             Commands::Rebuild {
                 page,

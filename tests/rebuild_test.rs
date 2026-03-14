@@ -43,6 +43,7 @@ fn create_test_project_with_build(temp_dir: &TempDir) -> Result<PathBuf> {
         paths: vec![photos_path],
         allow_duplicates: false,
         xmp_filter: None,
+        source_filter: None,
         dry_run: false,
         update: false,
     };
@@ -464,6 +465,7 @@ fn test_rebuild_without_layout_fails_except_all() -> Result<()> {
         paths: vec![photos_path],
         allow_duplicates: false,
         xmp_filter: None,
+        source_filter: None,
         dry_run: false,
         update: false,
     };

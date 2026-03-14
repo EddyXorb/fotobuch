@@ -14,6 +14,7 @@ To be done in this order
 - [x] have a typst template that creates an image appendix with group name, time and date of each photo ( sorted by groups) and referenced either by a small counter subtext for each photo or without the subtext by lexicographic ordering of the upper left edge of each image (configurable in the template)
 - [x] add a --unplaced flag to remove all photos not in the layout
 - [x] it should be possible to enable subtexts for each image during preview that shows the image id, should be disabled if is_final=true
+- [x] add --filter to "add" that works the same as --filter for remove
 - [ ] prüfen ob das generierte pdf wirklich die mediabox/bleedbox/targetbox so gesetzt hat, wie indesign das machen würde entsprechend den anforderungen für saal digital
 
 

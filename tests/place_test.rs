@@ -30,6 +30,7 @@ fn create_test_project_with_layout(temp_dir: &TempDir) -> Result<PathBuf> {
         paths: vec![photos_path],
         allow_duplicates: false,
         xmp_filter: None,
+        source_filter: None,
         dry_run: false,
         update: false,
     };
@@ -88,6 +89,7 @@ fn test_place_requires_layout() -> Result<()> {
         paths: vec![photos_path],
         allow_duplicates: false,
         xmp_filter: None,
+        source_filter: None,
         dry_run: false,
         update: false,
     };
