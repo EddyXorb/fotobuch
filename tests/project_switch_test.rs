@@ -85,7 +85,7 @@ fn test_project_switch_to_existing_project() -> Result<()> {
     let dir = temp_dir.path();
 
     // Switch from project2 to project1
-    photobook_solver::commands::project::project_switch(dir, "project1")?;
+    fotobuch::commands::project::project_switch(dir, "project1")?;
 
     // Verify we're on project1 branch
     let output = Command::new("git")
@@ -110,7 +110,7 @@ fn test_project_switch_to_non_existent() -> Result<()> {
     let dir = temp_dir.path();
 
     // Try to switch to non-existent project
-    let result = photobook_solver::commands::project::project_switch(dir, "nonexistent");
+    let result = fotobuch::commands::project::project_switch(dir, "nonexistent");
 
     // Should be an error
     assert!(result.is_err());
@@ -133,7 +133,7 @@ fn test_project_switch_with_uncommitted_changes() -> Result<()> {
     )?;
 
     // Try to switch with uncommitted changes
-    let result = photobook_solver::commands::project::project_switch(dir, "project1");
+    let result = fotobuch::commands::project::project_switch(dir, "project1");
 
     // Should fail with uncommitted changes error
     assert!(result.is_err());
@@ -165,7 +165,7 @@ fn test_project_switch_to_current_project() -> Result<()> {
     };
 
     // Switch to current project (should be idempotent)
-    let result = photobook_solver::commands::project::project_switch(dir, current_project);
+    let result = fotobuch::commands::project::project_switch(dir, current_project);
 
     // Should succeed without error
     assert!(result.is_ok());
@@ -180,7 +180,7 @@ fn test_project_switch_invalid_name() -> Result<()> {
 
     // Try with invalid project name (contains slash)
     let result =
-        photobook_solver::commands::project::project_switch(temp_dir.path(), "invalid/name");
+        fotobuch::commands::project::project_switch(temp_dir.path(), "invalid/name");
 
     // Should fail validation
     assert!(result.is_err());
@@ -193,7 +193,7 @@ fn test_project_switch_to_non_git_directory() -> Result<()> {
     let temp_dir = TempDir::new()?;
 
     // Don't initialize git
-    let result = photobook_solver::commands::project::project_switch(temp_dir.path(), "project1");
+    let result = fotobuch::commands::project::project_switch(temp_dir.path(), "project1");
 
     // Should fail
     assert!(result.is_err());

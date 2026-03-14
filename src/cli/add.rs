@@ -1,7 +1,7 @@
 //! Handler for `fotobuch add` command
 
 use anyhow::{Context, Result};
-use photobook_solver::commands;
+use fotobuch::commands;
 use regex::Regex;
 use std::path::PathBuf;
 use tracing::{info, warn};

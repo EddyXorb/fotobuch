@@ -14,7 +14,7 @@ use std::path::{Path, PathBuf};
 ///
 /// # Examples
 /// ```
-/// use photobook_solver::cache::common::cache_rel_path;
+/// use fotobuch::cache::common::cache_rel_path;
 /// let path = cache_rel_path("Urlaub/IMG_001.jpg");
 /// assert_eq!(path.to_str().unwrap(), "Urlaub/IMG_001.jpg");
 /// ```

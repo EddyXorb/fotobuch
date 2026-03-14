@@ -1,9 +1,9 @@
 //! Integration tests for `fotobuch status` command
 
 use anyhow::Result;
-use photobook_solver::commands::project::new::{NewConfig, project_new};
-use photobook_solver::commands::{AddConfig, add, build::*, status::*};
-use photobook_solver::dto_models::ProjectState;
+use fotobuch::commands::project::new::{NewConfig, project_new};
+use fotobuch::commands::{AddConfig, add, build::*, status::*};
+use fotobuch::dto_models::ProjectState;
 use std::path::PathBuf;
 use tempfile::TempDir;
 

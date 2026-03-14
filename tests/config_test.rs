@@ -1,13 +1,13 @@
 //! Integration tests for `fotobuch config` command
 
 use anyhow::Result;
-use photobook_solver::commands::{config, render_config};
+use fotobuch::commands::{config, render_config};
 use std::path::PathBuf;
 use tempfile::TempDir;
 
 /// Helper to create a test project
 fn create_test_project(temp_dir: &TempDir) -> Result<PathBuf> {
-    use photobook_solver::commands::project::new::{NewConfig, project_new};
+    use fotobuch::commands::project::new::{NewConfig, project_new};
 
     let config = NewConfig {
         name: "testconfig".to_string(),

@@ -2,11 +2,11 @@
 mod common;
 
 use anyhow::Result;
-use photobook_solver::commands::build::{BuildConfig, build};
-use photobook_solver::commands::project::new::{NewConfig, project_new};
-use photobook_solver::commands::rebuild::{RebuildScope, rebuild};
-use photobook_solver::commands::{AddConfig, add};
-use photobook_solver::dto_models::ProjectState;
+use fotobuch::commands::build::{BuildConfig, build};
+use fotobuch::commands::project::new::{NewConfig, project_new};
+use fotobuch::commands::rebuild::{RebuildScope, rebuild};
+use fotobuch::commands::{AddConfig, add};
+use fotobuch::dto_models::ProjectState;
 use std::path::PathBuf;
 use tempfile::TempDir;
 
