@@ -8,7 +8,7 @@ const TEMPLATE_BASE: &str = include_str!("../../../templates/fotobuch.typ");
 /// Generate a Typst template for a specific project
 pub fn generate_template(project_name: &str) -> Result<String> {
     validate_template_name(project_name)?;
-    Ok(TEMPLATE_BASE.replace("{name}", project_name))
+    Ok(TEMPLATE_BASE.replace("{project_name}", project_name))
 }
 
 /// Validate that a project name is safe for template substitution
@@ -32,10 +32,8 @@ mod tests {
     fn test_generate_template() {
         let template = generate_template("myproject").unwrap();
 
-        assert!(template.contains(r#"yaml("myproject.yaml")"#));
-        assert!(template.contains(".fotobuch/cache/myproject/final/"));
-        assert!(template.contains(".fotobuch/cache/myproject/preview/"));
-        assert!(!template.contains("{name}"));
+        assert!(template.contains(r#"project_name = "myproject""#));
+        assert!(!template.contains("{project_name}"));
     }
 
     #[test]

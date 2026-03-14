@@ -328,9 +328,8 @@ mod tests {
         let result = project_new(temp_dir.path(), &config).unwrap();
 
         let typ_content = fs::read_to_string(&result.typ_path).unwrap();
-        assert!(typ_content.contains(r#"yaml("mybook.yaml")"#));
-        assert!(typ_content.contains(".fotobuch/cache/mybook/"));
-        assert!(!typ_content.contains("{name}"));
+        assert!(typ_content.contains(r#"project_name = "mybook""#));
+        assert!(!typ_content.contains("{project_name}"));
     }
 
     #[test]
