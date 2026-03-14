@@ -13,7 +13,7 @@ pub use merge::merge_group;
 
 use anyhow::{Context, Result};
 use regex::Regex;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 use crate::input::scanner;
@@ -31,6 +31,8 @@ pub struct AddConfig {
     pub xmp_filter: Option<Regex>,
     /// Preview mode: scan and report what would be added without touching the project
     pub dry_run: bool,
+    /// Re-add photos whose path already exists but whose content (hash) has changed
+    pub update: bool,
 }
 
 /// Summary of a single added (or would-be-added) group
@@ -57,6 +59,8 @@ pub struct AddResult {
     pub warnings: Vec<String>,
     /// Whether this was a dry run (no changes written)
     pub dry_run: bool,
+    /// Number of photos whose content changed and were updated
+    pub updated: usize,
 }
 
 /// Add photos to the project (or preview what would be added with `dry_run`).
@@ -73,25 +77,33 @@ pub fn add(project_root: &Path, config: &AddConfig) -> Result<AddResult> {
     let mut mgr =
         StateManager::open(project_root).context("Failed to open project via StateManager")?;
 
-    let mut existing_paths: HashSet<PathBuf> = mgr
+    let all_files: Vec<_> = mgr
         .state
         .photos
         .iter()
         .flat_map(|g| g.files.iter())
+        .collect();
+
+    let mut existing_paths: HashSet<PathBuf> = all_files
+        .iter()
         .map(|f| PathBuf::from(&f.source))
         .collect();
 
-    let mut existing_hashes: HashSet<String> = mgr
-        .state
-        .photos
+    let mut existing_hashes: HashSet<String> = all_files
         .iter()
-        .flat_map(|g| g.files.iter())
         .filter(|f| !f.hash.is_empty())
         .map(|f| f.hash.clone())
         .collect();
 
+    let existing_path_hashes: HashMap<PathBuf, String> = all_files
+        .iter()
+        .filter(|f| !f.hash.is_empty())
+        .map(|f| (PathBuf::from(&f.source), f.hash.clone()))
+        .collect();
+
     let mut all_warnings = Vec::new();
     let mut total_skipped = 0;
+    let mut total_updated = 0;
     let mut total_xmp_filtered = 0;
     let mut groups_added = Vec::new();
 
@@ -116,15 +128,31 @@ pub fn add(project_root: &Path, config: &AddConfig) -> Result<AddResult> {
                 total_xmp_filtered += before - scanned_group.files.len();
             }
 
-            let (kept_files, skipped, warnings) = deduplicate(
+            let (kept_files, updated_files, skipped, warnings) = deduplicate(
                 &mut scanned_group.files,
                 &existing_paths,
                 &existing_hashes,
                 config.allow_duplicates,
+                config.update,
+                &existing_path_hashes,
             );
 
             total_skipped += skipped;
+            total_updated += updated_files.len();
             all_warnings.extend(warnings);
+
+            if !config.dry_run {
+                // Apply in-place updates to existing photos
+                for updated_file in &updated_files {
+                    let source = &updated_file.source;
+                    for group in &mut mgr.state.photos {
+                        if let Some(existing) = group.files.iter_mut().find(|f| f.source == *source) {
+                            *existing = updated_file.clone();
+                            break;
+                        }
+                    }
+                }
+            }
 
             if kept_files.is_empty() {
                 continue;
@@ -172,5 +200,6 @@ pub fn add(project_root: &Path, config: &AddConfig) -> Result<AddResult> {
         xmp_filtered: total_xmp_filtered,
         warnings: all_warnings,
         dry_run: config.dry_run,
+        updated: total_updated,
     })
 }

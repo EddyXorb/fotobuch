@@ -42,6 +42,7 @@ fn test_add_single_directory_creates_groups() -> Result<()> {
         allow_duplicates: false,
         xmp_filter: None,
         dry_run: false,
+        update: false,
     };
 
     let result = add(&project_root, &add_config)?;
@@ -105,6 +106,7 @@ fn test_add_duplicate_path_skips() -> Result<()> {
         allow_duplicates: false,
         xmp_filter: None,
         dry_run: false,
+        update: false,
     };
 
     // First add
@@ -144,6 +146,7 @@ fn test_add_merges_existing_group() -> Result<()> {
         allow_duplicates: false,
         xmp_filter: None,
         dry_run: false,
+        update: false,
     };
     let result1 = add(&project_root, &add_config1)?;
 
@@ -159,6 +162,7 @@ fn test_add_merges_existing_group() -> Result<()> {
         allow_duplicates: false,
         xmp_filter: None,
         dry_run: false,
+        update: false,
     };
     let _result2 = add(&project_root, &add_config2)?;
 
@@ -217,6 +221,7 @@ fn test_add_allow_duplicates_flag() -> Result<()> {
         allow_duplicates: false,
         xmp_filter: None,
         dry_run: false,
+        update: false,
     };
     let result1 = add(&project_root, &add_config1)?;
     assert_eq!(
@@ -234,6 +239,7 @@ fn test_add_allow_duplicates_flag() -> Result<()> {
         allow_duplicates: false,
         xmp_filter: None,
         dry_run: false,
+        update: false,
     };
     let result2 = add(&project_root, &add_config2)?;
 
@@ -253,6 +259,7 @@ fn test_add_allow_duplicates_flag() -> Result<()> {
         allow_duplicates: true,
         xmp_filter: None,
         dry_run: false,
+        update: false,
     };
     let result3 = add(&project_root, &add_config3)?;
     assert_eq!(
@@ -284,6 +291,7 @@ fn test_add_sorts_groups_by_sort_key() -> Result<()> {
         allow_duplicates: false,
         xmp_filter: None,
         dry_run: false,
+        update: false,
     };
     add(&project_root, &add_config)?;
 
@@ -317,6 +325,7 @@ fn test_dry_run_does_not_write_state() -> Result<()> {
         allow_duplicates: false,
         xmp_filter: None,
         dry_run: true,
+        update: false,
     };
     let result = add(&project_root, &add_config)?;
 
@@ -347,6 +356,7 @@ fn test_xmp_filter_with_no_match_excludes_nothing() -> Result<()> {
         allow_duplicates: false,
         xmp_filter: Some(Regex::new(r"THIS_WILL_NEVER_MATCH_ANY_XMP_abc123xyz").unwrap()),
         dry_run: true,
+        update: false,
     };
     let result = add(&project_root, &add_config)?;
 
@@ -403,6 +413,7 @@ fn test_xmp_filter_matches_modified_description() -> Result<()> {
         allow_duplicates: false,
         xmp_filter: Some(Regex::new(r".*STEHT.*")?),
         dry_run: false,
+        update: false,
     };
     let result = add(&project_root, &add_config)?;
 
@@ -480,6 +491,7 @@ fn test_add_handles_missing_directory() -> Result<()> {
         allow_duplicates: false,
         xmp_filter: None,
         dry_run: false,
+        update: false,
     };
 
     // Should return an error for missing directory
@@ -499,6 +511,7 @@ fn test_add_hashes_are_persisted() -> Result<()> {
         allow_duplicates: false,
         xmp_filter: None,
         dry_run: false,
+        update: false,
     };
     let result = add(&project_root, &add_config)?;
 
