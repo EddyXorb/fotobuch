@@ -11,6 +11,7 @@ pub fn handle(
     allow_duplicates: bool,
     filter_xmp: Option<String>,
     dry: bool,
+    update: bool,
 ) -> Result<()> {
     let project_root = std::env::current_dir().context("Failed to determine current directory")?;
 
@@ -24,6 +25,7 @@ pub fn handle(
         allow_duplicates,
         xmp_filter,
         dry_run: dry,
+        update,
     };
 
     let result = commands::add(&project_root, &config)?;
@@ -92,6 +94,9 @@ fn print_dry_run(result: &commands::AddResult) {
 fn print_shared_stats(result: &commands::AddResult) {
     if result.xmp_filtered > 0 {
         info!("🔎 Filtered {} photos by XMP metadata", result.xmp_filtered);
+    }
+    if result.updated > 0 {
+        info!("🔄 Updated {} changed photos", result.updated);
     }
     if result.skipped > 0 {
         info!("⏭️  Skipped {} duplicate photos", result.skipped);

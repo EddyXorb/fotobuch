@@ -48,6 +48,10 @@ pub enum Commands {
         /// Preview what would be added without writing anything
         #[arg(long, short = 'd')]
         dry: bool,
+
+        /// Re-add photos whose path already exists but whose content has changed
+        #[arg(long)]
+        update: bool,
     },
 
     /// Calculate layout and generate preview or final PDF
@@ -115,7 +119,11 @@ pub enum Commands {
     Config,
 
     /// Show project change history
-    History,
+    History {
+        /// Number of entries to show (0 = all)
+        #[arg(short = 'n', default_value_t = 5)]
+        count: usize,
+    },
 
     /// Project management commands
     Project {
@@ -171,7 +179,8 @@ impl Execute for Commands {
                 allow_duplicates,
                 filter_xmp,
                 dry,
-            } => add::handle(paths.clone(), *allow_duplicates, filter_xmp.clone(), *dry),
+                update,
+            } => add::handle(paths.clone(), *allow_duplicates, filter_xmp.clone(), *dry, *update),
             Commands::Build { release, pages } => build::handle(*release, pages.clone()),
             Commands::Rebuild {
                 page,
@@ -187,7 +196,7 @@ impl Execute for Commands {
             } => remove::handle(patterns.clone(), *keep_files),
             Commands::Status { page } => status::handle(*page),
             Commands::Config => config::handle(),
-            Commands::History => history::handle(),
+            Commands::History { count } => history::handle(*count),
             Commands::Project { command } => command.execute(),
         }
     }

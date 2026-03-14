@@ -1,48 +1,41 @@
 //! `fotobuch history` command - Show project change history
 
 use anyhow::Result;
+use chrono::{DateTime, FixedOffset};
+use git2::Repository;
 use std::path::Path;
 
 /// Single history entry
 #[derive(Debug)]
 pub struct HistoryEntry {
-    /// Timestamp (ISO 8601)
-    pub timestamp: String,
-    /// Commit message
+    pub timestamp: DateTime<FixedOffset>,
     pub message: String,
 }
 
-/// Show project change history
+/// Show project change history via libgit2.
 ///
-/// This is a thin wrapper around `git log` in the project directory.
-/// Shows date + commit message without hash.
-///
-/// # Arguments
-/// * `project_root` - Path to the project directory
-///
-/// # Returns
-/// * Vector of `HistoryEntry` with timestamp and message
-/// * Empty vector if no git repo or no commits
-pub fn history(project_root: &Path) -> Result<Vec<HistoryEntry>> {
-    use std::process::Command;
+/// * `count` – max entries to return; 0 means all
+pub fn history(project_root: &Path, count: usize) -> Result<Vec<HistoryEntry>> {
+    let repo = match Repository::open(project_root) {
+        Ok(r) => r,
+        Err(_) => return Ok(Vec::new()),
+    };
 
-    let output = Command::new("git")
-        .args(["log", "--format=%ai\t%s"])
-        .current_dir(project_root)
-        .output()?;
+    let mut revwalk = repo.revwalk()?;
+    revwalk.push_head().unwrap_or(());
+    revwalk.set_sorting(git2::Sort::TIME)?;
 
-    if !output.status.success() {
-        return Ok(Vec::new()); // Kein Git oder keine Commits
-    }
+    let limit = if count == 0 { usize::MAX } else { count };
 
-    let entries = String::from_utf8_lossy(&output.stdout)
-        .lines()
-        .filter_map(|line| {
-            let (ts, msg) = line.split_once('\t')?;
-            Some(HistoryEntry {
-                timestamp: ts.trim().to_string(),
-                message: msg.to_string(),
-            })
+    let entries = revwalk
+        .take(limit)
+        .filter_map(|oid| {
+            let commit = repo.find_commit(oid.ok()?).ok()?;
+            let git_time = commit.time();
+            let offset = FixedOffset::east_opt(git_time.offset_minutes() * 60)?;
+            let timestamp = DateTime::from_timestamp(git_time.seconds(), 0)?.with_timezone(&offset);
+            let message = commit.summary().unwrap_or("").to_string();
+            Some(HistoryEntry { timestamp, message })
         })
         .collect();
 
@@ -54,12 +47,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_history_entry_creation() {
-        let entry = HistoryEntry {
-            timestamp: "2024-03-07 14:22 +0100".to_string(),
-            message: "build: completed layout".to_string(),
-        };
-        assert_eq!(entry.timestamp, "2024-03-07 14:22 +0100");
-        assert_eq!(entry.message, "build: completed layout");
+    fn test_history_returns_vec_for_nonexistent_path() {
+        let result = history(Path::new("/nonexistent/path/xyz"), 5).unwrap();
+        assert!(result.is_empty());
     }
 }
