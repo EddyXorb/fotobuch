@@ -1,69 +1,22 @@
-use anyhow::{Context, Result};
-use chrono::{DateTime, NaiveDateTime, Utc};
-use image::ImageReader;
-use image::metadata::Orientation;
-use regex::Regex;
-use std::path::{Path, PathBuf};
-use tracing::{debug, warn};
+mod helper;
+mod metadata;
+mod scanner;
+mod types;
 
-use crate::dto_models::{PhotoFile, PhotoGroup};
-use crate::input::xmp;
+use anyhow::Result;
+use std::path::Path;
 
-const SUPPORTED_EXTENSIONS: &[&str] = &["jpg", "jpeg", "png", "webp", "tiff", "tif"];
+use crate::dto_models::PhotoGroup;
 
-/// Input parameters for scanning photos.
-#[derive(Debug)]
-pub struct ScannerInput {
-    /// Paths to scan (files or directories)
-    pub paths: Vec<PathBuf>,
-    /// Optional filter for XMP metadata
-    pub xmp_filter: Option<Regex>,
-    /// Optional filter for source file path
-    pub source_filter: Option<Regex>,
-}
+// Re-export public API
+pub use helper::parse_timestamp_from_name;
+pub use metadata::enrich_photo_metadata;
+pub use scanner::Scanner;
+pub use types::{ScanStats, ScannerInput, ScannerOutput};
 
-/// Statistics from photo scanning.
-#[derive(Debug, Default)]
-pub struct ScanStats {
-    /// Number of photos filtered by XMP metadata
-    pub xmp_filtered: usize,
-    /// Number of photos filtered by source path
-    pub source_filtered: usize,
-}
-
-/// Output from scanning photos.
-#[derive(Debug)]
-pub struct ScannerOutput {
-    /// Photo groups discovered during scan
-    pub groups: Vec<PhotoGroup>,
-    /// Filtering statistics
-    pub stats: ScanStats,
-}
-
-/// Internal scanner with filtering logic.
-struct Scanner {
-    filters: ScannerFilters,
-    stats: ScanStats,
-}
-
-/// Filter configuration extracted from ScannerInput.
-#[derive(Debug)]
-struct ScannerFilters {
-    xmp_filter: Option<Regex>,
-    source_filter: Option<Regex>,
-}
-
-impl Scanner {
-    fn new(input: &ScannerInput) -> Self {
-        Self {
-            filters: ScannerFilters {
-                xmp_filter: input.xmp_filter.clone(),
-                source_filter: input.source_filter.clone(),
-            },
-            stats: ScanStats::default(),
-        }
-    }
-}
+// For tests
+#[cfg(test)]
+use {crate::dto_models::PhotoFile, chrono::Utc, regex::Regex, std::path::PathBuf};
 
 /// Scans photos from given paths, applies filters, and returns groups with statistics.
 ///
@@ -73,6 +26,8 @@ impl Scanner {
 /// 3. Filtering happens inside scan methods (early filtering)
 /// 4. Return all groups + stats
 pub fn scan_photos(input: ScannerInput) -> Result<ScannerOutput> {
+    use anyhow::Context;
+
     let mut scanner = Scanner::new(&input);
     let mut groups = Vec::new();
 
@@ -102,22 +57,6 @@ pub fn scan_photos(input: ScannerInput) -> Result<ScannerOutput> {
     })
 }
 
-fn naive_to_utc(naive: NaiveDateTime) -> DateTime<Utc> {
-    DateTime::<Utc>::from_naive_utc_and_offset(naive, Utc)
-}
-/// Returns all direct subdirectories of the given root path.
-fn get_subdirs(root: &Path) -> Result<Vec<PathBuf>> {
-    let entries =
-        std::fs::read_dir(root).with_context(|| format!("Cannot read directory {:?}", root))?;
-
-    let dirs = entries
-        .filter_map(|e| e.ok())
-        .map(|e| e.path())
-        .filter(|p| p.is_dir())
-        .collect();
-
-    Ok(dirs)
-}
 /// Public wrapper for scanning a directory without filters.
 /// Used by the loader module for backwards compatibility.
 pub fn scan_photo_group_dirs(root: &Path) -> Result<Vec<PhotoGroup>> {
@@ -128,314 +67,6 @@ pub fn scan_photo_group_dirs(root: &Path) -> Result<Vec<PhotoGroup>> {
     };
     let output = scan_photos(input)?;
     Ok(output.groups)
-}
-
-fn is_supported_image(path: &Path) -> bool {
-    path.extension()
-        .and_then(|ext| ext.to_str())
-        .map(|ext| SUPPORTED_EXTENSIONS.contains(&ext.to_lowercase().as_str()))
-        .unwrap_or(false)
-}
-
-impl Scanner {
-    /// Scans a single image file and returns it as a photo group.
-    ///
-    /// The group name is derived from the file's parent directory name.
-    /// If the file is unsupported or cannot be read, returns an empty vector.
-    fn scan_single_file_photo_group(&mut self, path: &Path) -> Result<Vec<PhotoGroup>> {
-        if !is_supported_image(path) {
-            return Ok(Vec::new());
-        }
-
-        let parent = path
-            .parent()
-            .and_then(|p| p.file_name())
-            .and_then(|n| n.to_str())
-            .unwrap_or("no_group")
-            .to_string();
-
-        let photo_opt = self.scan_single_photo(path, &parent, None);
-        match photo_opt {
-            Some(photo) => {
-                let sort_key = photo.timestamp.to_rfc3339();
-                Ok(vec![PhotoGroup {
-                    group: parent,
-                    sort_key,
-                    files: vec![photo],
-                }])
-            }
-            None => Ok(Vec::new()),
-        }
-    }
-
-    /// Scans a root directory and returns all photo groups, sorted chronologically.
-    ///
-    /// Each subdirectory becomes one group. If the root directory itself contains photos,
-    /// they are grouped under the root directory's name.
-    fn scan_photo_group_dirs(&mut self, root: &Path) -> Result<Vec<PhotoGroup>> {
-        let mut groups: Vec<PhotoGroup> = get_subdirs(root)?
-            .into_iter()
-            .filter_map(|dir| match self.scan_single_photo_group_dir(&dir) {
-                Ok(group) => {
-                    if !group.files.is_empty() {
-                        Some(group)
-                    } else {
-                        None
-                    }
-                }
-                Err(e) => {
-                    warn!("Skipping {:?}: {}", dir, e);
-                    None
-                }
-            })
-            .collect();
-
-        // Check if the root directory itself contains photos
-        if let Ok(root_group) = self.scan_single_photo_group_dir(root)
-            && !root_group.files.is_empty()
-        {
-            groups.push(root_group);
-        }
-
-        // Sort groups according to sort_key (ISO 8601 timestamp string)
-        groups.sort_by(|a, b| a.sort_key.cmp(&b.sort_key));
-
-        Ok(groups)
-    }
-
-    /// Loads all photos from a directory and attempts to parse the folder timestamp.
-    fn scan_single_photo_group_dir(&mut self, dir: &Path) -> Result<PhotoGroup> {
-        let group_name = dir
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("unknown")
-            .to_string();
-
-        let folder_timestamp = parse_timestamp_from_name(&group_name);
-        debug!(
-            "Group {:?} -> timestamp: {:?}",
-            group_name, folder_timestamp
-        );
-
-        let folder_dt = folder_timestamp.map(naive_to_utc);
-
-        let mut photo_files = self.scan_photos_from_dir(dir, &group_name, folder_dt)?;
-
-        // Sort photos within the group by timestamp.
-        photo_files.sort_by(|a, b| a.timestamp.cmp(&b.timestamp));
-
-        // Determine sort_key from folder timestamp or earliest photo timestamp
-        let sort_key = folder_dt
-            .map(|dt| dt.to_rfc3339())
-            .or_else(|| photo_files.first().map(|p| p.timestamp.to_rfc3339()))
-            .unwrap_or_else(|| "9999-12-31T23:59:59Z".to_string());
-
-        Ok(PhotoGroup {
-            group: group_name,
-            sort_key,
-            files: photo_files,
-        })
-    }
-
-    /// Reads all supported image files from a directory (non-recursive).
-    fn scan_photos_from_dir(
-        &mut self,
-        dir: &Path,
-        group_name: &str,
-        folder_dt: Option<DateTime<Utc>>,
-    ) -> Result<Vec<PhotoFile>> {
-        let entries = std::fs::read_dir(dir).with_context(|| format!("Cannot read {:?}", dir))?;
-
-        let photos = entries
-            .filter_map(|e| e.ok())
-            .map(|e| e.path())
-            .filter(|p| is_supported_image(p))
-            .filter_map(|path| self.scan_single_photo(&path, group_name, folder_dt))
-            .collect();
-
-        Ok(photos)
-    }
-
-    /// Builds a PhotoFile from a path, enriches it with metadata, applies fallback timestamp,
-    /// and applies filters. Returns None if photo is filtered out.
-    fn scan_single_photo(
-        &mut self,
-        path: &Path,
-        group_name: &str,
-        fallback_dt: Option<DateTime<Utc>>,
-    ) -> Option<PhotoFile> {
-        let filename = path
-            .file_name()
-            .and_then(|s| s.to_str())
-            .unwrap_or("unknown.jpg")
-            .to_string();
-
-        let mut photo = PhotoFile {
-            id: format!("{group_name}/{filename}"),
-            source: path.to_str().unwrap_or("").to_string(),
-            width_px: 1,
-            height_px: 1,
-            area_weight: 1.0,
-            timestamp: Utc::now(),
-            hash: String::new(),
-        };
-
-        let found_timestamp = enrich_photo_metadata(&mut photo);
-        if !found_timestamp && let Some(dt) = fallback_dt {
-            photo.timestamp = dt;
-        }
-
-        // Apply source filter
-        if let Some(pattern) = &self.filters.source_filter
-            && !pattern.is_match(&photo.source)
-        {
-            self.stats.source_filtered += 1;
-            return None;
-        }
-
-        // Apply XMP filter
-        if let Some(pattern) = &self.filters.xmp_filter
-            && !xmp::xmp_matches(Path::new(&photo.source), pattern).unwrap_or(true)
-        {
-            self.stats.xmp_filtered += 1;
-            return None;
-        }
-
-        Some(photo)
-    }
-}
-
-/// Tries to read EXIF metadata from a photo to get timestamp and dimensions.
-/// Returns true if a real timestamp was found (EXIF or filename), false if only placeholder.
-fn enrich_photo_metadata(photo: &mut PhotoFile) -> bool {
-    use image::ImageDecoder;
-    let photo_path = PathBuf::from(&photo.source);
-
-    // Try to read dimensions from image header first (fast, works for all formats)
-    if let Ok(dimensions) = image::image_dimensions(&photo_path) {
-        photo.width_px = dimensions.0;
-        photo.height_px = dimensions.1;
-    }
-
-    // Read EXIF orientation using ImageReader API
-    if let Ok(reader) = ImageReader::open(&photo_path)
-        && let Ok(mut decoder) = reader.into_decoder()
-        && let Ok(orientation) = decoder.orientation()
-    {
-        // Swap dimensions if orientation requires 90° or 270° rotation
-        match orientation {
-            Orientation::Rotate90
-            | Orientation::Rotate270
-            | Orientation::Rotate90FlipH
-            | Orientation::Rotate270FlipH => {
-                std::mem::swap(&mut photo.width_px, &mut photo.height_px);
-            }
-            _ => {} // Other orientations don't require dimension swapping
-        }
-    }
-
-    // Read EXIF timestamp using exif crate
-    let file = match std::fs::File::open(&photo_path) {
-        Ok(f) => f,
-        Err(e) => {
-            warn!("Cannot open {:?}: {}", photo_path, e);
-            return false;
-        }
-    };
-
-    let mut bufreader = std::io::BufReader::new(file);
-    let exif_reader = exif::Reader::new();
-
-    let mut found_timestamp = false;
-
-    if let Ok(exif) = exif_reader.read_from_container(&mut bufreader) {
-        // Parse DateTimeOriginal from EXIF.
-        if let Some(field) = exif.get_field(exif::Tag::DateTimeOriginal, exif::In::PRIMARY)
-            && let exif::Value::Ascii(ref vec) = field.value
-            && let Some(bytes) = vec.first()
-        {
-            let s = String::from_utf8_lossy(bytes);
-            // EXIF datetime format: "YYYY:MM:DD HH:MM:SS"
-            if let Ok(dt) = NaiveDateTime::parse_from_str(&s, "%Y:%m:%d %H:%M:%S") {
-                photo.timestamp = naive_to_utc(dt);
-                found_timestamp = true;
-            }
-        }
-
-        // Read pixel dimensions from EXIF if not already read from header.
-        if photo.width_px == 1 && photo.height_px == 1 {
-            let width = exif_u32(&exif, exif::Tag::PixelXDimension);
-            let height = exif_u32(&exif, exif::Tag::PixelYDimension);
-            if let (Some(w), Some(h)) = (width, height) {
-                photo.width_px = w;
-                photo.height_px = h;
-            }
-        }
-    }
-
-    // Fallback: parse timestamp from filename if EXIF had none.
-    if !found_timestamp
-        && let Some(stem) = photo_path.file_stem().and_then(|s| s.to_str())
-        && let Some(dt) = parse_timestamp_from_name(stem)
-    {
-        photo.timestamp = naive_to_utc(dt);
-        found_timestamp = true;
-    }
-
-    found_timestamp
-}
-
-fn exif_u32(exif: &exif::Exif, tag: exif::Tag) -> Option<u32> {
-    exif.get_field(tag, exif::In::PRIMARY)
-        .and_then(|f| match f.value {
-            exif::Value::Long(ref v) => v.first().copied(),
-            exif::Value::Short(ref v) => v.first().map(|&x| x as u32),
-            _ => None,
-        })
-}
-
-/// Tries to parse a timestamp from a folder name.
-///
-/// Supported formats (examples):
-/// - `2024-07-15`
-/// - `2024-07-15_Urlaub`
-/// - `20240715`
-/// - `2024-07-15 18-30`
-/// - `2024-07-15_18-30-00`
-pub fn parse_timestamp_from_name(name: &str) -> Option<NaiveDateTime> {
-    // Extract the leading date-like part (up to the first non-date character after the date).
-    let formats_datetime = [
-        ("%Y-%m-%d_%H-%M-%S", 19),
-        ("%Y-%m-%d %H-%M", 16),
-        ("%Y-%m-%d_%H-%M", 16),
-        ("%Y%m%d_%H%M%S", 15),
-        ("%Y%m%d_%H%M", 13),
-        ("%Y-%m-%d@%H%M%S", 16),
-    ];
-
-    let formats_date = [("%Y-%m-%d", 10), ("%Y%m%d", 8), ("%Y_%m_%d", 10)];
-
-    // Try to match from the start of the string.
-    for (fmt, len) in &formats_datetime {
-        if name.len() >= *len
-            && let Ok(dt) = NaiveDateTime::parse_from_str(&name[..*len], fmt)
-        {
-            return Some(dt);
-        }
-    }
-
-    // Date-only formats: produce midnight timestamp.
-    for (fmt, len) in &formats_date {
-        if name.len() >= *len {
-            let candidate = &name[..*len];
-            if let Ok(date) = chrono::NaiveDate::parse_from_str(candidate, fmt) {
-                // and_hms_opt should always succeed for midnight (0:0:0)
-                return date.and_hms_opt(0, 0, 0);
-            }
-        }
-    }
-
-    None
 }
 
 #[cfg(test)]
