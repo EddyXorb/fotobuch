@@ -17,7 +17,6 @@ pub fn handle(page: Option<usize>) -> Result<()> {
         "{} photos in {} groups ({} unplaced)",
         report.total_photos, report.group_count, report.unplaced
     );
-    info!("");
 
     match report.state {
         commands::ProjectState_::Empty => {
