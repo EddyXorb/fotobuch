@@ -36,3 +36,8 @@ To be done in this order
   - Logik: EXIF `ColorSpace==1` → sRGB ICC einbetten; `ColorSpace==65535` → AdobeRGB ICC einbetten; ICC bereits vorhanden → nichts tun
   - Saal Digital unterstützt sRGB, AdobeRGB, ProPhoto RGB mit ICC-Farbmanagement; sRGB ist der sichere Default
   - Rust: `img_parts` für ICC-Chunks lesen/schreiben, image crate mit decoder und für EXIF-Tag, ICC-Profile als statische Bytes einbetten (~3KB) -> klären
+
+
+## Internal todos
+
+- [ ] clean up the builder-section and have a new wrapper that calls the others, but takes care to build the pdf and get the correct BookLayoutConfig for further processing.

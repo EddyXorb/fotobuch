@@ -143,6 +143,8 @@ fn add_pdf_boxes(pdf_bytes: &[u8], bleed_mm: f64) -> Result<Vec<u8>> {
 
 /// Compiles the preview PDF with bleed and sets TrimBox/BleedBox in the output PDF.
 /// Template: `{project_root}/{name}.typ` → Output: `{project_root}/{name}.pdf`
+/// We *could* generate from string only, but reading it from the file makes it easier to debug and avoids surprises.
+/// This way we know for sure that we use only what was committed by the state manager.
 pub fn compile_preview(project_root: &Path, project_name: &str, bleed_mm: f64) -> Result<PathBuf> {
     let template = project_root.join(format!("{project_name}.typ"));
     let output = project_root.join(format!("{project_name}.pdf"));

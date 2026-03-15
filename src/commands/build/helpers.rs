@@ -1,5 +1,18 @@
+use tracing::info;
+
 use crate::dto_models::{PhotoFile, PhotoGroup, ProjectState};
-use std::collections::HashMap;
+use crate::output::typst;
+use std::{collections::HashMap, path::Path};
+
+pub fn update_preview_pdf(
+    project_root: &Path,
+    bleed_mm: f64,
+    project_name: &str,
+) -> Result<std::path::PathBuf, anyhow::Error> {
+    let pdf_path = typst::compile_preview(project_root, &project_name, bleed_mm)?;
+    info!("PDF updated: {}", pdf_path.display());
+    Ok(pdf_path)
+}
 
 /// Maps photo ID to (PhotoFile, group_name).
 pub fn build_photo_index(photos: &[PhotoGroup]) -> HashMap<String, (PhotoFile, String)> {
