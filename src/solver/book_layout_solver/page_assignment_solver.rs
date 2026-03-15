@@ -10,6 +10,7 @@ use crate::dto_models::BookLayoutSolverConfig as Params;
 use crate::solver::prelude::*;
 use std::time::Duration;
 use tracing::debug;
+use tracing::info;
 
 /// Solver for page assignment, handles splitting for large instances.
 pub struct PageAssignmentSolver {
@@ -81,9 +82,17 @@ impl PageAssignmentSolver {
             let hint = create_start_solution::create_start_solution(&sub_params, sub_photos);
 
             // Solve MIP or fallback to hint
-            let assignment = mip::solve_mip(&sub_groups, &sub_params, Some(&hint)).or(Ok(hint))?;
+            let mut assignment = mip::solve_mip(&sub_groups, &sub_params, Some(&hint));
+            if assignment.is_err() {
+                info!(
+                    "Subproblem {} MIP failed, using heuristic solution ({} photos)",
+                    i,
+                    sub_photos.len()
+                );
+                assignment = Ok(hint);
+            }
 
-            assignments.push(assignment);
+            assignments.push(assignment.unwrap());
         }
 
         // Merge assignments
