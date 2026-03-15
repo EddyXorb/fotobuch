@@ -15,6 +15,7 @@ To be done in this order
 - [x] add a --unplaced flag to remove all photos not in the layout
 - [x] it should be possible to enable subtexts for each image during preview that shows the image id, should be disabled if is_final=true
 - [x] add --filter to "add" that works the same as --filter for remove
+- [ ] Seitenzuteilung für große Instanzen verbessern. Rückfallheuristik verwenden zur Not, aber auch vorher probieren das Problem in x Teilprobleme zu zerlegen, mit je eignenen Parametern die dem Mip dann sequenziell übergeben werden. Ein trigger für die teilung könnte das überschreiten einer maximalzahl an bildern sein (default: mit 100 bildern). Trennung erfolgt nicht zwangsläufig an gruppengrenzen, aber bevorzugt (dafür darf die teilungsgrenze um 5 abweichen. Die Teilproblemparameter bleiben identisch mit dem interschied der max-page und target-page parameter, die sich so aufteilen, dass die summe der teilproblemparameter den ursprünglichen parametern entspricht. der timeout verteilt sich auch gleichmäßig über alle aufrufe. die trennungsparameter sollen in die BookLayojtSolverconfig aufgenommen werden.
 - [ ] prüfen ob das generierte pdf wirklich die mediabox/bleedbox/targetbox so gesetzt hat, wie indesign das machen würde entsprechend den anforderungen für saal digital
 - [ ] make DPI of final configurable in yaml, as well as jpg-quality for both preview and final
 - [ ] try scip as backend for MIP
