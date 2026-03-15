@@ -59,9 +59,9 @@ impl PageAssignmentSolver {
 
         // Solve each subproblem
         let mut assignments = Vec::new();
-        for (i, &split_point) in split_points.iter().enumerate() {
+        for i in 0..k {
             let start = if i == 0 { 0 } else { split_points[i - 1] };
-            let end = if i == k - 1 { n } else { split_point };
+            let end = if i == k - 1 { n } else { split_points[i] };
 
             let sub_photos = &photos[start..end];
             let sub_groups = GroupInfo::from_photos(sub_photos);
@@ -328,5 +328,49 @@ mod tests {
         // Should not panic and should return a valid assignment
         let result = solver.solve(&groups, &photos);
         assert!(result.is_ok() || result.is_err()); // Either OK or MIP error is fine
+    }
+
+    #[test]
+    fn test_integration_large_instance_with_split() {
+        let mut params = create_test_params();
+        params.max_photos_for_split = 100; // Trigger split at ~150 photos
+        let solver = PageAssignmentSolver::new(params.clone());
+
+        // Create 150 photos in 15 groups of 10 each
+        let photos: Vec<Photo> = (0..150)
+            .map(|i| Photo::new(
+                format!("photo_{}", i),
+                1.5,
+                1.0,
+                format!("group_{}", i / 10),
+            ))
+            .collect();
+
+        let groups = GroupInfo::from_photos(&photos);
+
+        let result = solver.solve(&groups, &photos);
+        assert!(result.is_ok(), "Large instance should be solvable with split: {:?}", result);
+
+        let assignment = result.unwrap();
+        assert_eq!(assignment.total_photos(), 150, "All photos should be assigned");
+
+        // Check that all pages have valid sizes
+        for page_idx in 0..assignment.num_pages() {
+            let size = assignment.page_size(page_idx);
+            assert!(
+                size >= params.photos_per_page_min,
+                "Page {} has size {}, min is {}",
+                page_idx,
+                size,
+                params.photos_per_page_min
+            );
+            assert!(
+                size <= params.photos_per_page_max,
+                "Page {} has size {}, max is {}",
+                page_idx,
+                size,
+                params.photos_per_page_max
+            );
+        }
     }
 }
