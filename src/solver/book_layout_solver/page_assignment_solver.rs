@@ -61,8 +61,10 @@ impl PageAssignmentSolver {
         // Compute split points
         let split_points = self.compute_split_points(groups, k);
 
-        // Solve each subproblem
+        // Solve each subproblem with dynamic parameter adjustment
         let mut assignments = Vec::new();
+        let mut pages_created = 0;
+
         for i in 0..k {
             let start = if i == 0 { 0 } else { split_points[i - 1] };
             let end = if i == k - 1 { n } else { split_points[i] };
@@ -70,29 +72,30 @@ impl PageAssignmentSolver {
             let sub_photos = &photos[start..end];
             let sub_groups = GroupInfo::from_photos(sub_photos);
 
-            // Derive parameters for this subproblem
-            let sub_params = self.derive_sub_params(i, k);
+            // Derive parameters for this subproblem, considering pages already created
+            let sub_params = self.derive_sub_params(i, k, pages_created);
 
             debug!(
-                "Subproblem {}: photos [{}..{}], page_target={}, page_max={}",
-                i, start, end, sub_params.page_target, sub_params.page_max
+                "Subproblem {}: photos [{}..{}], page_target={}, page_max={}, pages_created={}",
+                i, start, end, sub_params.page_target, sub_params.page_max, pages_created
             );
 
             // Create hint for warm start
             let hint = create_start_solution::create_start_solution(&sub_params, sub_photos);
 
             // Solve MIP or fallback to hint
-            let mut assignment = mip::solve_mip(&sub_groups, &sub_params, Some(&hint));
-            if assignment.is_err() {
+            let assignment = mip::solve_mip(&sub_groups, &sub_params, Some(&hint)).or_else(|err| {
                 info!(
-                    "Subproblem {} MIP failed, using heuristic solution ({} photos)",
+                    "Subproblem {} MIP failed with error: {}, using heuristic solution ({} photos)",
                     i,
+                    err,
                     sub_photos.len()
                 );
-                assignment = Ok(hint);
-            }
+                Ok(hint)
+            })?;
 
-            assignments.push(assignment.unwrap());
+            pages_created += assignment.num_pages();
+            assignments.push(assignment);
         }
 
         // Merge assignments
@@ -140,36 +143,35 @@ impl PageAssignmentSolver {
 
     /// Derives parameters for a subproblem.
     ///
-    /// Distributes page_target and page_max proportionally, with remainder distributed
-    /// to the first subproblems.
-    fn derive_sub_params(&self, sub_index: usize, k: usize) -> Params {
+    /// Dynamically adjusts `page_target` and `page_max` based on pages already created.
+    /// `pages_created` allows later subproblems to adapt to actual results from earlier ones.
+    fn derive_sub_params(&self, sub_index: usize, k: usize, pages_created: usize) -> Params {
         let mut params = self.params.clone();
 
-        // Distribute page_target: base + 1 for first (page_target % k) subproblems
-        let base_target = self.params.page_target / k;
-        let target_remainder = self.params.page_target % k;
-        params.page_target = base_target + if sub_index < target_remainder { 1 } else { 0 };
-        params.page_target = params.page_target.max(1);
+        // Calculate remaining pages to allocate and remaining subproblems to solve
+        let remaining_subproblems = k - sub_index;
+        let target_remaining = self.params.page_target.saturating_sub(pages_created);
+        let max_remaining = self.params.page_max.saturating_sub(pages_created);
 
-        // Distribute page_max: base + 1 for first (page_max % k) subproblems
-        let base_max = self.params.page_max / k;
-        let max_remainder = self.params.page_max % k;
-        params.page_max = base_max + if sub_index < max_remainder { 1 } else { 0 };
-        params.page_max = params.page_max.max(params.page_target);
+        // Distribute remaining pages evenly across remaining subproblems (ceiling division)
+        params.page_target = target_remaining.div_ceil(remaining_subproblems).max(1);
+        params.page_max = max_remaining.div_ceil(remaining_subproblems).max(params.page_target);
 
         // page_min is always 1
         params.page_min = 1;
 
-        // Distribute timeout
+        // Distribute timeout equally among remaining subproblems
         params.search_timeout =
-            Duration::from_secs_f64(self.params.search_timeout.as_secs_f64() / k as f64);
+            Duration::from_secs_f64(self.params.search_timeout.as_secs_f64() / remaining_subproblems as f64);
 
         debug!(
-            "Subproblem {} params: page_target={}, page_max={}, timeout={:.2}s",
+            "Subproblem {} params: page_target={}, page_max={}, timeout={:.2}s (created={}, remaining={})",
             sub_index,
             params.page_target,
             params.page_max,
-            params.search_timeout.as_secs_f64()
+            params.search_timeout.as_secs_f64(),
+            pages_created,
+            remaining_subproblems
         );
 
         params
@@ -264,43 +266,71 @@ mod tests {
         let params = create_test_params();
         let solver = PageAssignmentSolver::new(params);
 
-        // 4 subproblems, page_target=32
-        let sub_0 = solver.derive_sub_params(0, 4);
-        let sub_1 = solver.derive_sub_params(1, 4);
-        let sub_2 = solver.derive_sub_params(2, 4);
-        let sub_3 = solver.derive_sub_params(3, 4);
+        // 4 subproblems, page_target=32, no pages created yet
+        let sub_0 = solver.derive_sub_params(0, 4, 0);
+        let sub_1 = solver.derive_sub_params(1, 4, 0);
+        let sub_2 = solver.derive_sub_params(2, 4, 0);
+        let sub_3 = solver.derive_sub_params(3, 4, 0);
 
-        // page_target = 32 / 4 = 8, remainder = 0
+        // Dynamic calculation per remaining subproblems:
+        // sub_0: (32 - 0) / 4 = 8
+        // sub_1: (32 - 0) / 3 = 11 ceil
+        // sub_2: (32 - 0) / 2 = 16
+        // sub_3: (32 - 0) / 1 = 32
+        // This is intentional: earlier subproblems can target lower page counts,
+        // but if they exceed expectations, later subproblems adjust downward.
         assert_eq!(sub_0.page_target, 8);
-        assert_eq!(sub_1.page_target, 8);
-        assert_eq!(sub_2.page_target, 8);
-        assert_eq!(sub_3.page_target, 8);
-        assert_eq!(
-            sub_0.page_target + sub_1.page_target + sub_2.page_target + sub_3.page_target,
-            32
-        );
+        assert_eq!(sub_1.page_target, 11);
+        assert_eq!(sub_2.page_target, 16);
+        assert_eq!(sub_3.page_target, 32);
     }
 
     #[test]
-    fn test_derive_sub_params_distribute_remainder() {
-        let mut params = create_test_params();
-        params.page_target = 35; // 35 / 4 = 8 remainder 3
+    fn test_derive_sub_params_dynamic_with_pages_created() {
+        let params = create_test_params();
         let solver = PageAssignmentSolver::new(params);
 
-        let sub_0 = solver.derive_sub_params(0, 4);
-        let sub_1 = solver.derive_sub_params(1, 4);
-        let sub_2 = solver.derive_sub_params(2, 4);
-        let sub_3 = solver.derive_sub_params(3, 4);
+        // If first sub created fewer pages than expected, later ones get more
+        let sub_0_when_0_created = solver.derive_sub_params(0, 4, 0);
+        assert_eq!(sub_0_when_0_created.page_target, 8); // (32 - 0) / 4 = 8
 
-        // First 3 subproblems get +1
-        assert_eq!(sub_0.page_target, 9);
-        assert_eq!(sub_1.page_target, 9);
-        assert_eq!(sub_2.page_target, 9);
-        assert_eq!(sub_3.page_target, 8);
-        assert_eq!(
-            sub_0.page_target + sub_1.page_target + sub_2.page_target + sub_3.page_target,
-            35
-        );
+        // If first sub created only 5 pages (2 less than expected 8)
+        // then 27 pages remain for 3 subproblems
+        let sub_1_when_5_created = solver.derive_sub_params(1, 4, 5);
+        assert_eq!(sub_1_when_5_created.page_target, 9); // ceil(27 / 3) = 9
+
+        // If first two created 15 pages
+        // then 17 pages remain for 2 subproblems
+        let sub_2_when_15_created = solver.derive_sub_params(2, 4, 15);
+        assert_eq!(sub_2_when_15_created.page_target, 9); // ceil(17 / 2) = 9
+
+        // If first three created 23 pages
+        // then 9 pages remain for 1 subproblem
+        let sub_3_when_23_created = solver.derive_sub_params(3, 4, 23);
+        assert_eq!(sub_3_when_23_created.page_target, 9); // 9 / 1 = 9
+    }
+
+    #[test]
+    fn test_derive_sub_params_dynamic_adjustment() {
+        let params = create_test_params();
+        let solver = PageAssignmentSolver::new(params);
+
+        // Scenario: page_target=32, 4 subproblems
+        // If first two subproblems create 20 pages, remaining subproblems should adjust
+        let sub_0 = solver.derive_sub_params(0, 4, 0);
+        assert_eq!(sub_0.page_target, 8); // (32 - 0) / 4 = 8
+
+        // After first subproblem created 10 pages
+        let sub_1 = solver.derive_sub_params(1, 4, 10);
+        assert_eq!(sub_1.page_target, 8); // (32 - 10) / 3 = 7.33... ceil = 8
+
+        // After first two subproblems created 18 pages
+        let sub_2 = solver.derive_sub_params(2, 4, 18);
+        assert_eq!(sub_2.page_target, 7); // (32 - 18) / 2 = 7
+
+        // After first three subproblems created 25 pages
+        let sub_3 = solver.derive_sub_params(3, 4, 25);
+        assert_eq!(sub_3.page_target, 7); // (32 - 25) / 1 = 7
     }
 
     #[test]
