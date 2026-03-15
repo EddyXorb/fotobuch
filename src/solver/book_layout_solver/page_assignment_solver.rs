@@ -42,17 +42,20 @@ impl PageAssignmentSolver {
         // Determine if splitting is needed
         if n <= self.params.max_photos_for_split {
             // No split needed: solve directly
-            debug!("Single problem: {} photos (max_photos_for_split={})",
-                   n, self.params.max_photos_for_split);
+            debug!(
+                "Single problem: {} photos (max_photos_for_split={})",
+                n, self.params.max_photos_for_split
+            );
             let hint = create_start_solution::create_start_solution(&self.params, photos);
-            return mip::solve_mip(groups, &self.params, Some(&hint))
-                .or(Ok(hint));
+            return mip::solve_mip(groups, &self.params, Some(&hint)).or(Ok(hint));
         }
 
         // Split needed
         let k = n.div_ceil(self.params.max_photos_for_split);
-        debug!("Splitting: {} photos into {} subproblems (max_photos_for_split={})",
-               n, k, self.params.max_photos_for_split);
+        debug!(
+            "Splitting: {} photos into {} subproblems (max_photos_for_split={})",
+            n, k, self.params.max_photos_for_split
+        );
 
         // Compute split points
         let split_points = self.compute_split_points(groups, k);
@@ -69,15 +72,16 @@ impl PageAssignmentSolver {
             // Derive parameters for this subproblem
             let sub_params = self.derive_sub_params(i, k);
 
-            debug!("Subproblem {}: photos [{}..{}], page_target={}, page_max={}",
-                   i, start, end, sub_params.page_target, sub_params.page_max);
+            debug!(
+                "Subproblem {}: photos [{}..{}], page_target={}, page_max={}",
+                i, start, end, sub_params.page_target, sub_params.page_max
+            );
 
             // Create hint for warm start
             let hint = create_start_solution::create_start_solution(&sub_params, sub_photos);
 
             // Solve MIP or fallback to hint
-            let assignment = mip::solve_mip(&sub_groups, &sub_params, Some(&hint))
-                .or(Ok(hint))?;
+            let assignment = mip::solve_mip(&sub_groups, &sub_params, Some(&hint)).or(Ok(hint))?;
 
             assignments.push(assignment);
         }
@@ -129,11 +133,7 @@ impl PageAssignmentSolver {
     ///
     /// Distributes page_target and page_max proportionally, with remainder distributed
     /// to the first subproblems.
-    fn derive_sub_params(
-        &self,
-        sub_index: usize,
-        k: usize,
-    ) -> Params {
+    fn derive_sub_params(&self, sub_index: usize, k: usize) -> Params {
         let mut params = self.params.clone();
 
         // Distribute page_target: base + 1 for first (page_target % k) subproblems
@@ -152,11 +152,15 @@ impl PageAssignmentSolver {
         params.page_min = 1;
 
         // Distribute timeout
-        params.search_timeout = Duration::from_secs_f64(self.params.search_timeout.as_secs_f64() / k as f64);
+        params.search_timeout =
+            Duration::from_secs_f64(self.params.search_timeout.as_secs_f64() / k as f64);
 
         debug!(
             "Subproblem {} params: page_target={}, page_max={}, timeout={:.2}s",
-            sub_index, params.page_target, params.page_max, params.search_timeout.as_secs_f64()
+            sub_index,
+            params.page_target,
+            params.page_max,
+            params.search_timeout.as_secs_f64()
         );
 
         params
@@ -223,7 +227,11 @@ mod tests {
 
         // Should split near the middle (at 50)
         assert_eq!(split_points.len(), 1);
-        assert!(split_points[0] >= 45 && split_points[0] <= 55, "Split at {}", split_points[0]);
+        assert!(
+            split_points[0] >= 45 && split_points[0] <= 55,
+            "Split at {}",
+            split_points[0]
+        );
     }
 
     #[test]
@@ -258,7 +266,10 @@ mod tests {
         assert_eq!(sub_1.page_target, 8);
         assert_eq!(sub_2.page_target, 8);
         assert_eq!(sub_3.page_target, 8);
-        assert_eq!(sub_0.page_target + sub_1.page_target + sub_2.page_target + sub_3.page_target, 32);
+        assert_eq!(
+            sub_0.page_target + sub_1.page_target + sub_2.page_target + sub_3.page_target,
+            32
+        );
     }
 
     #[test]
@@ -277,7 +288,10 @@ mod tests {
         assert_eq!(sub_1.page_target, 9);
         assert_eq!(sub_2.page_target, 9);
         assert_eq!(sub_3.page_target, 8);
-        assert_eq!(sub_0.page_target + sub_1.page_target + sub_2.page_target + sub_3.page_target, 35);
+        assert_eq!(
+            sub_0.page_target + sub_1.page_target + sub_2.page_target + sub_3.page_target,
+            35
+        );
     }
 
     #[test]
@@ -315,12 +329,14 @@ mod tests {
 
         // Create 50 photos in 5 groups
         let photos: Vec<Photo> = (0..50)
-            .map(|i| Photo::new(
-                format!("photo_{}", i),
-                1.5,
-                1.0,
-                format!("group_{}", i / 10),
-            ))
+            .map(|i| {
+                Photo::new(
+                    format!("photo_{}", i),
+                    1.5,
+                    1.0,
+                    format!("group_{}", i / 10),
+                )
+            })
             .collect();
 
         let groups = GroupInfo::from_photos(&photos);
@@ -338,21 +354,31 @@ mod tests {
 
         // Create 150 photos in 15 groups of 10 each
         let photos: Vec<Photo> = (0..150)
-            .map(|i| Photo::new(
-                format!("photo_{}", i),
-                1.5,
-                1.0,
-                format!("group_{}", i / 10),
-            ))
+            .map(|i| {
+                Photo::new(
+                    format!("photo_{}", i),
+                    1.5,
+                    1.0,
+                    format!("group_{}", i / 10),
+                )
+            })
             .collect();
 
         let groups = GroupInfo::from_photos(&photos);
 
         let result = solver.solve(&groups, &photos);
-        assert!(result.is_ok(), "Large instance should be solvable with split: {:?}", result);
+        assert!(
+            result.is_ok(),
+            "Large instance should be solvable with split: {:?}",
+            result
+        );
 
         let assignment = result.unwrap();
-        assert_eq!(assignment.total_photos(), 150, "All photos should be assigned");
+        assert_eq!(
+            assignment.total_photos(),
+            150,
+            "All photos should be assigned"
+        );
 
         // Check that all pages have valid sizes
         for page_idx in 0..assignment.num_pages() {

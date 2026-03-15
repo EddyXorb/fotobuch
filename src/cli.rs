@@ -189,7 +189,14 @@ impl Execute for Commands {
                 filter,
                 dry,
                 update,
-            } => add::handle(paths.clone(), *allow_duplicates, filter_xmp.clone(), filter.clone(), *dry, *update),
+            } => add::handle(
+                paths.clone(),
+                *allow_duplicates,
+                filter_xmp.clone(),
+                filter.clone(),
+                *dry,
+                *update,
+            ),
             Commands::Build { release, pages } => build::handle(*release, pages.clone()),
             Commands::Rebuild {
                 page,
