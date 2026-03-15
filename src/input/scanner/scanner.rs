@@ -164,10 +164,15 @@ impl Scanner {
 
         // Apply source filters (all must match)
         if !self.filters.source_filters.is_empty()
-            && !self.filters.source_filters.iter().all(|pattern| pattern.is_match(&full_path)) {
-                self.stats.source_filtered += 1;
-                return None;
-            }
+            && !self
+                .filters
+                .source_filters
+                .iter()
+                .all(|pattern| pattern.is_match(&full_path))
+        {
+            self.stats.source_filtered += 1;
+            return None;
+        }
 
         // Apply XMP filters (all must match)
         if !self.filters.xmp_filters.is_empty() {
