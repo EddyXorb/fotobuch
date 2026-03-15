@@ -159,9 +159,27 @@ impl Scanner {
             .unwrap_or("unknown.jpg")
             .to_string();
 
+        let full_path = path.to_str().unwrap_or("").to_string();
+
+        // Apply source filter
+        if let Some(pattern) = &self.filters.source_filter
+            && !pattern.is_match(&full_path)
+        {
+            self.stats.source_filtered += 1;
+            return None;
+        }
+
+        // Apply XMP filter
+        if let Some(pattern) = &self.filters.xmp_filter
+            && !xmp::xmp_matches(Path::new(&full_path), pattern).unwrap_or(true)
+        {
+            self.stats.xmp_filtered += 1;
+            return None;
+        }
+
         let mut photo = PhotoFile {
             id: format!("{group_name}/{filename}"),
-            source: path.to_str().unwrap_or("").to_string(),
+            source: full_path,
             width_px: 1,
             height_px: 1,
             area_weight: 1.0,
@@ -172,22 +190,6 @@ impl Scanner {
         let found_timestamp = enrich_photo_metadata(&mut photo);
         if !found_timestamp && let Some(dt) = fallback_dt {
             photo.timestamp = dt;
-        }
-
-        // Apply source filter
-        if let Some(pattern) = &self.filters.source_filter
-            && !pattern.is_match(&photo.source)
-        {
-            self.stats.source_filtered += 1;
-            return None;
-        }
-
-        // Apply XMP filter
-        if let Some(pattern) = &self.filters.xmp_filter
-            && !xmp::xmp_matches(Path::new(&photo.source), pattern).unwrap_or(true)
-        {
-            self.stats.xmp_filtered += 1;
-            return None;
         }
 
         Some(photo)
