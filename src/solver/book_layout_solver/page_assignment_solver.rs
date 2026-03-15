@@ -155,14 +155,17 @@ impl PageAssignmentSolver {
 
         // Distribute remaining pages evenly across remaining subproblems (ceiling division)
         params.page_target = target_remaining.div_ceil(remaining_subproblems).max(1);
-        params.page_max = max_remaining.div_ceil(remaining_subproblems).max(params.page_target);
+        params.page_max = max_remaining
+            .div_ceil(remaining_subproblems)
+            .max(params.page_target);
 
         // page_min is always 1
         params.page_min = 1;
 
         // Distribute timeout equally among remaining subproblems
-        params.search_timeout =
-            Duration::from_secs_f64(self.params.search_timeout.as_secs_f64() / remaining_subproblems as f64);
+        params.search_timeout = Duration::from_secs_f64(
+            self.params.search_timeout.as_secs_f64() / remaining_subproblems as f64,
+        );
 
         debug!(
             "Subproblem {} params: page_target={}, page_max={}, timeout={:.2}s (created={}, remaining={})",
