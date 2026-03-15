@@ -67,12 +67,12 @@ Alle Parameter bleiben identisch außer:
 
 | Parameter        | Subproblem i                                        |
 |------------------|-----------------------------------------------------|
-| `page_target`    | `round(page_target * photos_i / n)`, letztes: Rest |
-| `page_max`       | `round(page_max * photos_i / n)`, letztes: Rest    |
+| `page_target`    | `page_target / k` + 1 wenn `i < (page_target % k)` |
+| `page_max`       | `page_max / k` + 1 wenn `i < (page_max % k)`       |
 | `page_min`       | 1                                                   |
 | `search_timeout` | `search_timeout / k`                               |
 
-**Invariante:** `sum(page_target_i) == page_target`, `sum(page_max_i) == page_max` — letzte Partition erhält den Rest.
+**Invariante:** `sum(page_target_i) == page_target`, `sum(page_max_i) == page_max` — Rest gleichmäßig verteilt auf erste Subprobleme.
 
 Mindestsicherheit: `page_target_i >= 1`, `page_max_i >= page_target_i`.
 

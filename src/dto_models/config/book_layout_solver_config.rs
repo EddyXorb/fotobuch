@@ -49,6 +49,12 @@ pub struct BookLayoutSolverConfig {
     /// Relative MIP optimality gap (0.0 = exact, 0.01 = 1% tolerance).
     #[serde(default = "default_mip_rel_gap")]
     pub mip_rel_gap: f64,
+    /// Maximum number of photos before triggering a split for large instances.
+    #[serde(default = "default_max_photos_for_split")]
+    pub max_photos_for_split: usize,
+    /// Allowed deviation from ideal split point to find group boundaries.
+    #[serde(default = "default_split_group_boundary_slack")]
+    pub split_group_boundary_slack: usize,
 }
 
 // Default functions for serde
@@ -106,6 +112,14 @@ fn default_enable_local_search() -> bool {
 
 fn default_mip_rel_gap() -> f64 {
     0.01
+}
+
+fn default_max_photos_for_split() -> usize {
+    100
+}
+
+fn default_split_group_boundary_slack() -> usize {
+    5
 }
 
 /// Error type for parameter validation.
@@ -259,6 +273,8 @@ impl Default for BookLayoutSolverConfig {
             max_coverage_cost: default_max_coverage_cost(),
             enable_local_search: default_enable_local_search(),
             mip_rel_gap: default_mip_rel_gap(),
+            max_photos_for_split: default_max_photos_for_split(),
+            split_group_boundary_slack: default_split_group_boundary_slack(),
         }
     }
 }
@@ -285,6 +301,8 @@ mod tests {
         assert_eq!(config.max_coverage_cost, 0.95);
         assert!(config.enable_local_search);
         assert_eq!(config.mip_rel_gap, 0.01);
+        assert_eq!(config.max_photos_for_split, 100);
+        assert_eq!(config.split_group_boundary_slack, 5);
     }
 
     #[test]
