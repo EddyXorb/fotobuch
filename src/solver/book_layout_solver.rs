@@ -16,6 +16,7 @@ mod feasibility;
 mod local_search;
 mod mip;
 mod model;
+mod page_assignment_solver;
 
 // Re-export public types
 pub use local_search::PageLayoutEvaluator;
@@ -64,12 +65,9 @@ pub fn solve_book_layout(
     // Build group information from photos
     let groups = GroupInfo::from_photos(photos);
 
-    // Phase 0: Construction Heuristic for initial solution as Hint to Mip
-    let hint = create_start_solution::create_start_solution(params, photos);
-    debug!("Hint cuts: {:?}", hint.cuts());
-
-    // Phase 1: MIP solver for initial assignment
-    let initial_assignment = mip::solve_mip(&groups, params, Some(&hint)).unwrap_or(hint);
+    // Phase 1: Page assignment (MIP + optional splitting for large instances)
+    let page_solver = page_assignment_solver::PageAssignmentSolver::new(params.clone());
+    let initial_assignment = page_solver.solve(&groups, photos)?;
     debug!("Cuts: {:?}", initial_assignment.cuts());
 
     // Phase 2: Evaluate pages (with optional local search refinement)
