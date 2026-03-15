@@ -358,7 +358,8 @@ mod tests {
             ),
         ];
         // Both patterns must match
-        let filtered = apply_filters(&photos, &["vacation".to_string(), "2024".to_string()]).unwrap();
+        let filtered =
+            apply_filters(&photos, &["vacation".to_string(), "2024".to_string()]).unwrap();
         assert_eq!(filtered.len(), 1);
         assert_eq!(filtered[0].id, "a.jpg");
     }
