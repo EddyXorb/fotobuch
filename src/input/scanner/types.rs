@@ -8,10 +8,10 @@ use crate::dto_models::PhotoGroup;
 pub struct ScannerInput {
     /// Paths to scan (files or directories)
     pub paths: Vec<PathBuf>,
-    /// Optional filter for XMP metadata
-    pub xmp_filter: Option<Regex>,
-    /// Optional filter for source file path
-    pub source_filter: Option<Regex>,
+    /// Filters for XMP metadata (all must match)
+    pub xmp_filters: Vec<Regex>,
+    /// Filters for source file path (all must match)
+    pub source_filters: Vec<Regex>,
 }
 
 /// Statistics from photo scanning.
@@ -35,6 +35,6 @@ pub struct ScannerOutput {
 /// Filter configuration extracted from ScannerInput.
 #[derive(Debug)]
 pub struct ScannerFilters {
-    pub xmp_filter: Option<Regex>,
-    pub source_filter: Option<Regex>,
+    pub xmp_filters: Vec<Regex>,
+    pub source_filters: Vec<Regex>,
 }

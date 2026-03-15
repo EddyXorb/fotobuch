@@ -5,11 +5,11 @@ use anyhow::Result;
 use fotobuch::commands;
 use tracing::info;
 
-pub fn handle(filter: Option<String>, into: Option<usize>) -> Result<()> {
+pub fn handle(filters: Vec<String>, into: Option<usize>) -> Result<()> {
     let project_root = std::env::current_dir().context("Failed to determine current directory")?;
 
     let config = commands::place::PlaceConfig {
-        filter,
+        filters,
         into_page: into,
     };
 

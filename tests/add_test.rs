@@ -40,8 +40,8 @@ fn test_add_single_directory_creates_groups() -> Result<()> {
     let add_config = AddConfig {
         paths: vec![test_photos_path()],
         allow_duplicates: false,
-        xmp_filter: None,
-        source_filter: None,
+        xmp_filters: vec![],
+        source_filters: vec![],
         dry_run: false,
         update: false,
     };
@@ -105,8 +105,8 @@ fn test_add_duplicate_path_skips() -> Result<()> {
     let add_config = AddConfig {
         paths: vec![test_photos_path()],
         allow_duplicates: false,
-        xmp_filter: None,
-        source_filter: None,
+        xmp_filters: vec![],
+        source_filters: vec![],
         dry_run: false,
         update: false,
     };
@@ -146,8 +146,8 @@ fn test_add_merges_existing_group() -> Result<()> {
     let add_config1 = AddConfig {
         paths: vec![group1_path.clone()],
         allow_duplicates: false,
-        xmp_filter: None,
-        source_filter: None,
+        xmp_filters: vec![],
+        source_filters: vec![],
         dry_run: false,
         update: false,
     };
@@ -163,8 +163,8 @@ fn test_add_merges_existing_group() -> Result<()> {
     let add_config2 = AddConfig {
         paths: vec![group2_path],
         allow_duplicates: false,
-        xmp_filter: None,
-        source_filter: None,
+        xmp_filters: vec![],
+        source_filters: vec![],
         dry_run: false,
         update: false,
     };
@@ -223,8 +223,8 @@ fn test_add_allow_duplicates_flag() -> Result<()> {
     let add_config1 = AddConfig {
         paths: vec![temp_photo_dir1.clone()],
         allow_duplicates: false,
-        xmp_filter: None,
-        source_filter: None,
+        xmp_filters: vec![],
+        source_filters: vec![],
         dry_run: false,
         update: false,
     };
@@ -242,8 +242,8 @@ fn test_add_allow_duplicates_flag() -> Result<()> {
     let add_config2 = AddConfig {
         paths: vec![temp_photo_dir2.clone()],
         allow_duplicates: false,
-        xmp_filter: None,
-        source_filter: None,
+        xmp_filters: vec![],
+        source_filters: vec![],
         dry_run: false,
         update: false,
     };
@@ -263,8 +263,8 @@ fn test_add_allow_duplicates_flag() -> Result<()> {
     let add_config3 = AddConfig {
         paths: vec![temp_photo_dir2],
         allow_duplicates: true,
-        xmp_filter: None,
-        source_filter: None,
+        xmp_filters: vec![],
+        source_filters: vec![],
         dry_run: false,
         update: false,
     };
@@ -296,8 +296,8 @@ fn test_add_sorts_groups_by_sort_key() -> Result<()> {
     let add_config = AddConfig {
         paths: vec![test_photos_path()],
         allow_duplicates: false,
-        xmp_filter: None,
-        source_filter: None,
+        xmp_filters: vec![],
+        source_filters: vec![],
         dry_run: false,
         update: false,
     };
@@ -331,8 +331,8 @@ fn test_dry_run_does_not_write_state() -> Result<()> {
     let add_config = AddConfig {
         paths: vec![test_photos_path()],
         allow_duplicates: false,
-        xmp_filter: None,
-        source_filter: None,
+        xmp_filters: vec![],
+        source_filters: vec![],
         dry_run: true,
         update: false,
     };
@@ -363,8 +363,8 @@ fn test_xmp_filter_with_no_match_excludes_nothing() -> Result<()> {
     let add_config = AddConfig {
         paths: vec![test_photos_path()],
         allow_duplicates: false,
-        xmp_filter: Some(Regex::new(r"THIS_WILL_NEVER_MATCH_ANY_XMP_abc123xyz").unwrap()),
-        source_filter: None,
+        xmp_filters: vec![Regex::new(r"THIS_WILL_NEVER_MATCH_ANY_XMP_abc123xyz").unwrap()],
+        source_filters: vec![],
         dry_run: true,
         update: false,
     };
@@ -421,8 +421,8 @@ fn test_xmp_filter_matches_modified_description() -> Result<()> {
     let add_config = AddConfig {
         paths: vec![temp_photos],
         allow_duplicates: false,
-        xmp_filter: Some(Regex::new(r".*STEHT.*")?),
-        source_filter: None,
+        xmp_filters: vec![Regex::new(r".*STEHT.*")?],
+        source_filters: vec![],
         dry_run: false,
         update: false,
     };
@@ -500,8 +500,8 @@ fn test_add_handles_missing_directory() -> Result<()> {
     let add_config = AddConfig {
         paths: vec![nonexistent_path],
         allow_duplicates: false,
-        xmp_filter: None,
-        source_filter: None,
+        xmp_filters: vec![],
+        source_filters: vec![],
         dry_run: false,
         update: false,
     };
@@ -521,8 +521,8 @@ fn test_add_hashes_are_persisted() -> Result<()> {
     let add_config = AddConfig {
         paths: vec![test_photos_path()],
         allow_duplicates: false,
-        xmp_filter: None,
-        source_filter: None,
+        xmp_filters: vec![],
+        source_filters: vec![],
         dry_run: false,
         update: false,
     };

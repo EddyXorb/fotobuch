@@ -26,10 +26,10 @@ pub struct AddConfig {
     pub paths: Vec<PathBuf>,
     /// Allow adding files with identical content (hash collision)
     pub allow_duplicates: bool,
-    /// When set, only include photos whose XMP metadata matches this regex
-    pub xmp_filter: Option<Regex>,
-    /// When set, only include photos whose source path matches this regex
-    pub source_filter: Option<Regex>,
+    /// When set, only include photos whose XMP metadata matches all these regexes
+    pub xmp_filters: Vec<Regex>,
+    /// When set, only include photos whose source path matches all these regexes
+    pub source_filters: Vec<Regex>,
     /// Preview mode: scan and report what would be added without touching the project
     pub dry_run: bool,
     /// Re-add photos whose path already exists but whose content (hash) has changed
@@ -111,8 +111,8 @@ pub fn add(project_root: &Path, config: &AddConfig) -> Result<AddResult> {
     // Scan photos with filtering
     let scan_output = scanner::scan_photos(ScannerInput {
         paths: config.paths.clone(),
-        xmp_filter: config.xmp_filter.clone(),
-        source_filter: config.source_filter.clone(),
+        xmp_filters: config.xmp_filters.clone(),
+        source_filters: config.source_filters.clone(),
     })?;
 
     let total_xmp_filtered = scan_output.stats.xmp_filtered;

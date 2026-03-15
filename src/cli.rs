@@ -41,13 +41,13 @@ pub enum Commands {
         #[arg(long)]
         allow_duplicates: bool,
 
-        /// Only include photos whose XMP metadata matches this regex
+        /// Only include photos whose XMP metadata matches this regex (can be repeated, all must match)
         #[arg(long, value_name = "REGEX")]
-        filter_xmp: Option<String>,
+        filter_xmp: Vec<String>,
 
-        /// Only include photos whose source path matches this regex pattern
+        /// Only include photos whose source path matches this regex pattern (can be repeated, all must match)
         #[arg(long, value_name = "REGEX")]
-        filter: Option<String>,
+        filter: Vec<String>,
 
         /// Preview what would be added without writing anything
         #[arg(long, short = 'd')]
@@ -94,9 +94,9 @@ pub enum Commands {
 
     /// Place unplaced photos into the book
     Place {
-        /// Only place photos matching this regex pattern
-        #[arg(long)]
-        filter: Option<String>,
+        /// Only place photos matching this regex pattern (can be repeated, all must match)
+        #[arg(long, value_name = "REGEX")]
+        filter: Vec<String>,
 
         /// Place all matching photos onto this specific page (1-based)
         #[arg(long)]
@@ -192,8 +192,8 @@ impl Execute for Commands {
             } => add::handle(
                 paths.clone(),
                 *allow_duplicates,
-                filter_xmp.clone(),
-                filter.clone(),
+                filter_xmp.to_vec(),
+                filter.to_vec(),
                 *dry,
                 *update,
             ),
@@ -205,7 +205,7 @@ impl Execute for Commands {
                 flex,
                 all,
             } => rebuild::handle(*page, *range_start, *range_end, *flex, *all),
-            Commands::Place { filter, into } => place::handle(filter.clone(), *into),
+            Commands::Place { filter, into } => place::handle(filter.to_vec(), *into),
             Commands::Remove {
                 patterns,
                 keep_files,

@@ -20,8 +20,8 @@ impl Scanner {
     pub fn new(input: &ScannerInput) -> Self {
         Self {
             filters: ScannerFilters {
-                xmp_filter: input.xmp_filter.clone(),
-                source_filter: input.source_filter.clone(),
+                xmp_filters: input.xmp_filters.clone(),
+                source_filters: input.source_filters.clone(),
             },
             stats: ScanStats::default(),
         }
@@ -147,6 +147,7 @@ impl Scanner {
 
     /// Builds a PhotoFile from a path, enriches it with metadata, applies fallback timestamp,
     /// and applies filters. Returns None if photo is filtered out.
+    /// All filters must match (AND logic).
     fn scan_single_photo(
         &mut self,
         path: &Path,
@@ -161,20 +162,21 @@ impl Scanner {
 
         let full_path = path.to_str().unwrap_or("").to_string();
 
-        // Apply source filter
-        if let Some(pattern) = &self.filters.source_filter
-            && !pattern.is_match(&full_path)
-        {
-            self.stats.source_filtered += 1;
-            return None;
-        }
+        // Apply source filters (all must match)
+        if !self.filters.source_filters.is_empty()
+            && !self.filters.source_filters.iter().all(|pattern| pattern.is_match(&full_path)) {
+                self.stats.source_filtered += 1;
+                return None;
+            }
 
-        // Apply XMP filter
-        if let Some(pattern) = &self.filters.xmp_filter
-            && !xmp::xmp_matches(Path::new(&full_path), pattern).unwrap_or(true)
-        {
-            self.stats.xmp_filtered += 1;
-            return None;
+        // Apply XMP filters (all must match)
+        if !self.filters.xmp_filters.is_empty() {
+            if !xmp::xmp_matches_all(Path::new(&full_path), &self.filters.xmp_filters)
+                .unwrap_or(true)
+            {
+                self.stats.xmp_filtered += 1;
+                return None;
+            }
         }
 
         let mut photo = PhotoFile {
