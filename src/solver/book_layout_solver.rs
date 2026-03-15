@@ -68,7 +68,7 @@ pub fn solve_book_layout(
     // Phase 1: Page assignment (MIP + optional splitting for large instances)
     let page_solver = page_assignment_solver::PageAssignmentSolver::new(params.clone());
     let initial_assignment = page_solver.solve(&groups, photos)?;
-    debug!("Cuts: {:?}", initial_assignment.cuts());
+    info!("Page cuts: {:?}", initial_assignment.cuts());
 
     // Phase 2: Evaluate pages (with optional local search refinement)
     let mut evaluator = GAPageEvaluator::new(canvas, ga_config);

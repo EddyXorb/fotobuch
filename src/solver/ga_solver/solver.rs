@@ -8,7 +8,7 @@ use super::evolution::{EvolutionDynamic, Island, World};
 use super::individual::Individual;
 use rayon::prelude::*;
 use std::marker::PhantomData;
-use tracing::{debug, info};
+use tracing::debug;
 
 /// Generic genetic algorithm with parallel island model support.
 ///
@@ -59,7 +59,7 @@ where
 
             // Check stopping conditions
             if let Some(reason) = self.should_stop(start_time, generation, last_improvement_gen) {
-                info!("{}", reason);
+                debug!("{}", reason);
                 break;
             }
 
