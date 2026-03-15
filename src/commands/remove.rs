@@ -244,11 +244,7 @@ pub fn remove(project_root: &Path, config: &RemoveConfig) -> Result<RemoveResult
     let photos_removed = if config.keep_files {
         0
     } else {
-        remove_from_photos(
-            &mut mgr.state.photos,
-            &matched_ids,
-            &mut groups_removed,
-        )
+        remove_from_photos(&mut mgr.state.photos, &matched_ids, &mut groups_removed)
     };
 
     // 5. Speichern + Git commit

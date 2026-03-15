@@ -18,7 +18,12 @@ pub struct EvaluationContext<'a> {
 }
 
 impl<'a> EvaluationContext<'a> {
-    pub fn new(photos: &'a [Photo], canvas: &'a Canvas, weights: &'a FitnessWeights, enforce_order: bool) -> Self {
+    pub fn new(
+        photos: &'a [Photo],
+        canvas: &'a Canvas,
+        weights: &'a FitnessWeights,
+        enforce_order: bool,
+    ) -> Self {
         Self {
             photos,
             canvas,

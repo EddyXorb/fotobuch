@@ -179,8 +179,7 @@ fn test_project_switch_invalid_name() -> Result<()> {
     init_git_with_projects(&temp_dir)?;
 
     // Try with invalid project name (contains slash)
-    let result =
-        fotobuch::commands::project::project_switch(temp_dir.path(), "invalid/name");
+    let result = fotobuch::commands::project::project_switch(temp_dir.path(), "invalid/name");
 
     // Should fail validation
     assert!(result.is_err());

@@ -103,7 +103,10 @@ fn print_shared_stats(result: &commands::AddResult) {
         info!("🔎 Filtered {} photos by XMP metadata", result.xmp_filtered);
     }
     if result.source_filtered > 0 {
-        info!("🔎 Filtered {} photos by source path pattern", result.source_filtered);
+        info!(
+            "🔎 Filtered {} photos by source path pattern",
+            result.source_filtered
+        );
     }
     if result.updated > 0 {
         info!("🔄 Updated {} changed photos", result.updated);

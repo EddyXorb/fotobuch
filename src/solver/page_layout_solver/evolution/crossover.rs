@@ -466,7 +466,11 @@ mod tests {
                         photos.push(*photo_idx);
                     }
                 });
-                assert_eq!(photos, vec![0, 1, 2, 3, 4], "Ordering invariant violated in crossover child");
+                assert_eq!(
+                    photos,
+                    vec![0, 1, 2, 3, 4],
+                    "Ordering invariant violated in crossover child"
+                );
             }
         }
     }

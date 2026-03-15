@@ -8,7 +8,10 @@ use tempfile::TempDir;
 fn init_git_repo(temp_dir: &TempDir) -> Result<()> {
     let dir = temp_dir.path();
 
-    Command::new("git").args(["init"]).current_dir(dir).output()?;
+    Command::new("git")
+        .args(["init"])
+        .current_dir(dir)
+        .output()?;
     Command::new("git")
         .args(["config", "user.email", "test@example.com"])
         .current_dir(dir)
@@ -19,7 +22,10 @@ fn init_git_repo(temp_dir: &TempDir) -> Result<()> {
         .output()?;
 
     std::fs::write(dir.join("README.md"), "# Test Project\n")?;
-    Command::new("git").args(["add", "README.md"]).current_dir(dir).output()?;
+    Command::new("git")
+        .args(["add", "README.md"])
+        .current_dir(dir)
+        .output()?;
     Command::new("git")
         .args(["commit", "-m", "initial: setup project"])
         .current_dir(dir)
@@ -35,7 +41,10 @@ fn test_history_with_commits() -> Result<()> {
 
     let dir = temp_dir.path();
     std::fs::write(dir.join("file.txt"), "content\n")?;
-    Command::new("git").args(["add", "file.txt"]).current_dir(dir).output()?;
+    Command::new("git")
+        .args(["add", "file.txt"])
+        .current_dir(dir)
+        .output()?;
     Command::new("git")
         .args(["commit", "-m", "feat: add new file"])
         .current_dir(dir)
@@ -46,7 +55,11 @@ fn test_history_with_commits() -> Result<()> {
     assert!(!entries.is_empty());
     assert!(entries.len() >= 2);
     assert_eq!(entries[0].message, "feat: add new file");
-    assert!(entries.iter().any(|e| e.message == "initial: setup project"));
+    assert!(
+        entries
+            .iter()
+            .any(|e| e.message == "initial: setup project")
+    );
 
     Ok(())
 }
@@ -109,7 +122,15 @@ fn test_history_timestamp_has_valid_datetime() -> Result<()> {
 
     assert!(!entries.is_empty());
     // timestamp is a DateTime<FixedOffset>; year should be >= 2024
-    assert!(entries[0].timestamp.format("%Y").to_string().parse::<i32>().unwrap() >= 2024);
+    assert!(
+        entries[0]
+            .timestamp
+            .format("%Y")
+            .to_string()
+            .parse::<i32>()
+            .unwrap()
+            >= 2024
+    );
 
     Ok(())
 }
