@@ -165,8 +165,8 @@
 ]
 
 // Renders the PREVIEW watermark diagonally across the page
-#let render_preview_watermark() = [
-  #place(center + horizon, rotate(-30deg, text(size: 120pt, fill: rgb("#00000055"), weight: "bold")[PREVIEW]))
+#let render_preview_watermark(page_number) = [
+  #place(center + horizon, rotate(-30deg, text(size: 120pt, fill: rgb("#00000055"), weight: "bold")[PREVIEW #page_number]) )
 ]
 
 // Renders the photo index: page separators, group headers, entries with timestamps
@@ -239,7 +239,7 @@
     #if photo_id != none [#render_photo(slot, photo_id, photo_ref)]
   ]
 
-  #if not is_final [#render_preview_watermark()]
+  #if not is_final [#render_preview_watermark(page_index + 1)]
 
   #if page_index < data.layout.len() - 1 or appendix_show [#pagebreak()]
 ]
