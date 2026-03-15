@@ -69,7 +69,7 @@ pub fn solve_book_layout(
     debug!("Hint cuts: {:?}", hint.cuts());
 
     // Phase 1: MIP solver for initial assignment
-    let initial_assignment = mip::solve_mip(&groups, params, Some(&hint))?;
+    let initial_assignment = mip::solve_mip(&groups, params, Some(&hint)).unwrap_or(hint);
     debug!("Cuts: {:?}", initial_assignment.cuts());
 
     // Phase 2: Evaluate pages (with optional local search refinement)
