@@ -62,8 +62,8 @@ pub fn scan_photos(input: ScannerInput) -> Result<ScannerOutput> {
 pub fn scan_photo_group_dirs(root: &Path) -> Result<Vec<PhotoGroup>> {
     let input = ScannerInput {
         paths: vec![root.to_path_buf()],
-        xmp_filter: None,
-        source_filter: None,
+        xmp_filters: vec![],
+        source_filters: vec![],
     };
     let output = scan_photos(input)?;
     Ok(output.groups)
@@ -140,8 +140,8 @@ mod tests {
 
         let input = ScannerInput {
             paths: vec![portrait_path.clone()],
-            xmp_filter: None,
-            source_filter: None,
+            xmp_filters: vec![],
+            source_filters: vec![],
         };
 
         let output = scan_photos(input).expect("scan_single_file should succeed");
@@ -167,8 +167,8 @@ mod tests {
 
         let input = ScannerInput {
             paths: vec![unsupported_path.clone()],
-            xmp_filter: None,
-            source_filter: None,
+            xmp_filters: vec![],
+            source_filters: vec![],
         };
 
         // This should either skip the path (if no exist check) or bail (if file doesn't exist)
@@ -188,8 +188,8 @@ mod tests {
     fn test_scan_photos_empty_input() {
         let input = ScannerInput {
             paths: vec![],
-            xmp_filter: None,
-            source_filter: None,
+            xmp_filters: vec![],
+            source_filters: vec![],
         };
 
         let output = scan_photos(input).expect("scan_photos should handle empty paths");
@@ -211,8 +211,8 @@ mod tests {
         let matching_filter = Regex::new("portrait").unwrap();
         let input = ScannerInput {
             paths: vec![portrait_path.clone()],
-            xmp_filter: None,
-            source_filter: Some(matching_filter),
+            xmp_filters: vec![],
+            source_filters: vec![matching_filter],
         };
 
         let output = scan_photos(input).expect("scan_photos should succeed");
@@ -224,8 +224,8 @@ mod tests {
         let non_matching_filter = Regex::new("landscape").unwrap();
         let input = ScannerInput {
             paths: vec![portrait_path],
-            xmp_filter: None,
-            source_filter: Some(non_matching_filter),
+            xmp_filters: vec![],
+            source_filters: vec![non_matching_filter],
         };
 
         let output = scan_photos(input).expect("scan_photos should succeed");

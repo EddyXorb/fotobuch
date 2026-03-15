@@ -40,8 +40,8 @@ fn create_test_project_with_photos(temp_dir: &TempDir) -> Result<PathBuf> {
     let add_config = AddConfig {
         paths: vec![photos_path],
         allow_duplicates: false,
-        xmp_filter: None,
-        source_filter: None,
+        xmp_filters: vec![],
+        source_filters: vec![],
         dry_run: false,
         update: false,
     };

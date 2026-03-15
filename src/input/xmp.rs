@@ -1,7 +1,7 @@
 //! XMP metadata reading and filtering.
 //!
 //! Custom parser to extract the serialized XMP packet from image files
-//! and match it against a user-supplied regex pattern.
+//! and match it against user-supplied regex patterns.
 
 use regex::Regex;
 use std::fs::File;
@@ -9,16 +9,21 @@ use std::io::{BufRead, BufReader};
 use std::path::Path;
 use tracing::debug;
 
-/// Returns `true` when the file's XMP packet contains a match for `pattern`.
+/// Returns `true` when the file's XMP packet matches all provided patterns.
 ///
-/// Files without XMP metadata return None
-pub fn xmp_matches(path: &Path, pattern: &Regex) -> Option<bool> {
+/// Files without XMP metadata return None.
+/// All patterns must match (AND logic). If patterns is empty, returns Some(true).
+pub fn xmp_matches_all(path: &Path, patterns: &[Regex]) -> Option<bool> {
+    if patterns.is_empty() {
+        return Some(true);
+    }
+
     let Some(packet) = read_xmp_packet(path) else {
         debug!("No XMP found in {:?}", path);
         return None;
     };
 
-    Some(pattern.is_match(&packet))
+    Some(patterns.iter().all(|p| p.is_match(&packet)))
 }
 
 /// Reads the full XMP packet from a file as an XML string.
@@ -94,11 +99,54 @@ mod tests {
     use tempfile::NamedTempFile;
 
     #[test]
-    fn test_xmp_matches_no_xmp_returns_false() {
+    fn test_xmp_matches_all_no_xmp_returns_none() {
         let mut f = NamedTempFile::new().unwrap();
         f.write_all(b"not an image").unwrap();
         let re = Regex::new(".*").unwrap();
-        assert!(xmp_matches(f.path(), &re).is_none());
+        assert!(xmp_matches_all(f.path(), &[re]).is_none());
+    }
+
+    #[test]
+    fn test_xmp_matches_all_empty_patterns() {
+        let mut f = NamedTempFile::new().unwrap();
+        f.write_all(b"not an image").unwrap();
+        assert_eq!(xmp_matches_all(f.path(), &[]), Some(true));
+    }
+
+    #[test]
+    fn test_xmp_matches_all_single_pattern() {
+        let path = std::path::Path::new("tests/fixtures/test_photo_xmp/quark_with_xmp.jpg");
+        if path.exists() {
+            let re = Regex::new("fotobuch").unwrap();
+            let result = xmp_matches_all(path, &[re]);
+            assert_eq!(result, Some(true));
+        }
+    }
+
+    #[test]
+    fn test_xmp_matches_all_multiple_patterns_all_match() {
+        let path = std::path::Path::new("tests/fixtures/test_photo_xmp/quark_with_xmp.jpg");
+        if path.exists() {
+            let patterns = vec![
+                Regex::new("fotobuch").unwrap(),
+                Regex::new("xmpmeta").unwrap(),
+            ];
+            let result = xmp_matches_all(path, &patterns);
+            assert_eq!(result, Some(true));
+        }
+    }
+
+    #[test]
+    fn test_xmp_matches_all_multiple_patterns_not_all_match() {
+        let path = std::path::Path::new("tests/fixtures/test_photo_xmp/quark_with_xmp.jpg");
+        if path.exists() {
+            let patterns = vec![
+                Regex::new("fotobuch").unwrap(),
+                Regex::new("WILL_NOT_MATCH").unwrap(),
+            ];
+            let result = xmp_matches_all(path, &patterns);
+            assert_eq!(result, Some(false));
+        }
     }
 
     #[test]

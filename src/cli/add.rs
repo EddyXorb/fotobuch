@@ -9,28 +9,30 @@ use tracing::{info, warn};
 pub fn handle(
     paths: Vec<PathBuf>,
     allow_duplicates: bool,
-    filter_xmp: Option<String>,
-    filter: Option<String>,
+    filter_xmp: Vec<String>,
+    filter: Vec<String>,
     dry: bool,
     update: bool,
 ) -> Result<()> {
     let project_root = std::env::current_dir().context("Failed to determine current directory")?;
 
-    let xmp_filter = filter_xmp
-        .as_deref()
+    let xmp_filters: Result<Vec<Regex>> = filter_xmp
+        .iter()
         .map(|pat| Regex::new(pat).with_context(|| format!("Invalid --filter-xmp regex: {pat}")))
-        .transpose()?;
+        .collect();
+    let xmp_filters = xmp_filters?;
 
-    let source_filter = filter
-        .as_deref()
+    let source_filters: Result<Vec<Regex>> = filter
+        .iter()
         .map(|pat| Regex::new(pat).with_context(|| format!("Invalid --filter regex: {pat}")))
-        .transpose()?;
+        .collect();
+    let source_filters = source_filters?;
 
     let config = commands::AddConfig {
         paths,
         allow_duplicates,
-        xmp_filter,
-        source_filter,
+        xmp_filters,
+        source_filters,
         dry_run: dry,
         update,
     };

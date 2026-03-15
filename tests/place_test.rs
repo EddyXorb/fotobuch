@@ -29,8 +29,8 @@ fn create_test_project_with_layout(temp_dir: &TempDir) -> Result<PathBuf> {
     let add_config = AddConfig {
         paths: vec![photos_path],
         allow_duplicates: false,
-        xmp_filter: None,
-        source_filter: None,
+        xmp_filters: vec![],
+        source_filters: vec![],
         dry_run: false,
         update: false,
     };
@@ -53,7 +53,7 @@ fn test_place_no_unplaced_photos_returns_zero() -> Result<()> {
 
     // All photos are placed from build - place should do nothing
     let config = PlaceConfig {
-        filter: None,
+        filters: vec![],
         into_page: None,
     };
     let result = place(&project_root, &config)?;
@@ -88,8 +88,8 @@ fn test_place_requires_layout() -> Result<()> {
     let add_config = AddConfig {
         paths: vec![photos_path],
         allow_duplicates: false,
-        xmp_filter: None,
-        source_filter: None,
+        xmp_filters: vec![],
+        source_filters: vec![],
         dry_run: false,
         update: false,
     };
@@ -97,7 +97,7 @@ fn test_place_requires_layout() -> Result<()> {
 
     // Try to place without build - should fail
     let config = PlaceConfig {
-        filter: None,
+        filters: vec![],
         into_page: None,
     };
     let result = place(&project_root, &config);
@@ -121,7 +121,7 @@ fn test_place_with_invalid_page_number() -> Result<()> {
 
     // Try placing into page 0 (invalid)
     let config = PlaceConfig {
-        filter: None,
+        filters: vec![],
         into_page: Some(0),
     };
     let result = place(&project_root, &config);
@@ -129,7 +129,7 @@ fn test_place_with_invalid_page_number() -> Result<()> {
 
     // Try placing into page beyond layout
     let config = PlaceConfig {
-        filter: None,
+        filters: vec![],
         into_page: Some(page_count + 10),
     };
     let result = place(&project_root, &config);
@@ -162,7 +162,7 @@ fn test_place_into_specific_page() -> Result<()> {
 
     // Now place the unplaced photo into page 1
     let config = PlaceConfig {
-        filter: None,
+        filters: vec![],
         into_page: Some(1),
     };
     let result = place(&project_root, &config)?;
@@ -215,7 +215,7 @@ fn test_place_filter_by_pattern() -> Result<()> {
 
     // Place with a pattern that matches the test fixture path
     let config = PlaceConfig {
-        filter: Some("test_photos".to_string()),
+        filters: vec!["test_photos".to_string()],
         into_page: None,
     };
     let result = place(&project_root, &config)?;
@@ -236,7 +236,7 @@ fn test_place_chronologically_without_unplaced() -> Result<()> {
 
     // All photos already placed from build
     let config = PlaceConfig {
-        filter: None,
+        filters: vec![],
         into_page: None,
     };
     let result = place(&project_root, &config)?;
@@ -267,7 +267,7 @@ fn test_place_invalid_filter_pattern() -> Result<()> {
 
     // Use invalid regex pattern
     let config = PlaceConfig {
-        filter: Some("[invalid".to_string()),
+        filters: vec!["[invalid".to_string()],
         into_page: None,
     };
     let result = place(&project_root, &config);

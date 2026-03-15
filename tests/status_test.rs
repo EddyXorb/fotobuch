@@ -31,10 +31,10 @@ fn create_test_project_with_layout(temp_dir: &TempDir) -> Result<PathBuf> {
         .join("test_photos_unique");
 
     let add_config = AddConfig {
-        source_filter: None,
+        source_filters: vec![],
         paths: vec![photos_path],
         allow_duplicates: false,
-        xmp_filter: None,
+        xmp_filters: vec![],
         dry_run: false,
         update: false,
     };

@@ -13,8 +13,8 @@ use crate::state_manager::StateManager;
 /// Configuration for placing photos
 #[derive(Debug, Clone)]
 pub struct PlaceConfig {
-    /// Only place photos matching this pattern (optional)
-    pub filter: Option<String>,
+    /// Only place photos matching these patterns (all must match)
+    pub filters: Vec<String>,
     /// Place all matching photos onto this page (optional)
     pub into_page: Option<usize>,
 }
@@ -104,8 +104,8 @@ pub fn place(project_root: &Path, config: &PlaceConfig) -> Result<PlaceResult> {
         });
     }
 
-    // 2. Apply filter
-    let filtered = apply_filter(&unplaced, config.filter.as_deref())?;
+    // 2. Apply filters
+    let filtered = apply_filters(&unplaced, &config.filters)?;
     if filtered.is_empty() {
         return Ok(PlaceResult {
             photos_placed: 0,
@@ -132,18 +132,26 @@ pub fn place(project_root: &Path, config: &PlaceConfig) -> Result<PlaceResult> {
     })
 }
 
-/// Applies regex filter to unplaced photos based on their source path
-fn apply_filter<'a>(
+/// Applies regex filters to unplaced photos based on their source path.
+/// All filters must match (AND logic).
+fn apply_filters<'a>(
     photos: &'a [UnplacedPhoto],
-    pattern: Option<&str>,
+    patterns: &[String],
 ) -> Result<Vec<&'a UnplacedPhoto>> {
-    match pattern {
-        None => Ok(photos.iter().collect()),
-        Some(pat) => {
-            let re = Regex::new(pat).context(format!("Invalid filter pattern: {pat}"))?;
-            Ok(photos.iter().filter(|p| re.is_match(&p.source)).collect())
-        }
+    if patterns.is_empty() {
+        return Ok(photos.iter().collect());
     }
+
+    let regexes: Result<Vec<Regex>> = patterns
+        .iter()
+        .map(|pat| Regex::new(pat).context(format!("Invalid filter pattern: {pat}")))
+        .collect();
+    let regexes = regexes?;
+
+    Ok(photos
+        .iter()
+        .filter(|p| regexes.iter().all(|re| re.is_match(&p.source)))
+        .collect())
 }
 
 /// Computes (page_idx, min_timestamp, max_timestamp) for each page with photos
@@ -301,18 +309,18 @@ mod tests {
     }
 
     #[test]
-    fn test_apply_filter_no_pattern() {
+    fn test_apply_filters_no_patterns() {
         let photos = vec![make_unplaced(
             "a.jpg",
             "/path/to/a.jpg",
             Utc.timestamp_opt(1000, 0).unwrap(),
         )];
-        let filtered = apply_filter(&photos, None).unwrap();
+        let filtered = apply_filters(&photos, &[]).unwrap();
         assert_eq!(filtered.len(), 1);
     }
 
     #[test]
-    fn test_apply_filter_with_pattern() {
+    fn test_apply_filters_single_pattern() {
         let photos = vec![
             make_unplaced(
                 "a.jpg",
@@ -325,15 +333,40 @@ mod tests {
                 Utc.timestamp_opt(2000, 0).unwrap(),
             ),
         ];
-        let filtered = apply_filter(&photos, Some("vacation")).unwrap();
+        let filtered = apply_filters(&photos, &["vacation".to_string()]).unwrap();
         assert_eq!(filtered.len(), 1);
         assert_eq!(filtered[0].id, "a.jpg");
     }
 
     #[test]
-    fn test_apply_filter_invalid_regex() {
+    fn test_apply_filters_multiple_patterns_and_logic() {
+        let photos = vec![
+            make_unplaced(
+                "a.jpg",
+                "/path/vacation/2024/a.jpg",
+                Utc.timestamp_opt(1000, 0).unwrap(),
+            ),
+            make_unplaced(
+                "b.jpg",
+                "/path/vacation/2023/b.jpg",
+                Utc.timestamp_opt(2000, 0).unwrap(),
+            ),
+            make_unplaced(
+                "c.jpg",
+                "/path/work/2024/c.jpg",
+                Utc.timestamp_opt(3000, 0).unwrap(),
+            ),
+        ];
+        // Both patterns must match
+        let filtered = apply_filters(&photos, &["vacation".to_string(), "2024".to_string()]).unwrap();
+        assert_eq!(filtered.len(), 1);
+        assert_eq!(filtered[0].id, "a.jpg");
+    }
+
+    #[test]
+    fn test_apply_filters_invalid_regex() {
         let photos = vec![];
-        let result = apply_filter(&photos, Some("[invalid"));
+        let result = apply_filters(&photos, &["[invalid".to_string()]);
         assert!(result.is_err());
     }
 
