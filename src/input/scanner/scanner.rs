@@ -6,9 +6,9 @@ use tracing::{debug, warn};
 use crate::dto_models::{PhotoFile, PhotoGroup};
 use crate::input::xmp;
 
-use super::types::{ScannerFilters, ScannerInput, ScanStats};
-use super::helper::{naive_to_utc, get_subdirs, is_supported_image, parse_timestamp_from_name};
+use super::helper::{get_subdirs, is_supported_image, naive_to_utc, parse_timestamp_from_name};
 use super::metadata::enrich_photo_metadata;
+use super::types::{ScanStats, ScannerFilters, ScannerInput};
 
 /// Internal scanner with filtering logic.
 pub struct Scanner {

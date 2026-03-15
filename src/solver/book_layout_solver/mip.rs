@@ -268,6 +268,8 @@ mod tests {
             max_coverage_cost: 0.1,
             enable_local_search: true,
             mip_rel_gap: 0.01,
+            max_photos_for_split: 100,
+            split_group_boundary_slack: 5,
         }
     }
 
@@ -304,6 +306,8 @@ mod tests {
             max_coverage_cost: 0.1,
             enable_local_search: true,
             mip_rel_gap: 0.01,
+            max_photos_for_split: 100,
+            split_group_boundary_slack: 5,
         };
 
         let result = solve_mip(&groups, &params, None);
@@ -334,6 +338,8 @@ mod tests {
             max_coverage_cost: 0.1,
             enable_local_search: true,
             mip_rel_gap: 0.01,
+            max_photos_for_split: 100,
+            split_group_boundary_slack: 5,
         };
 
         let result = solve_mip(&groups, &params, None);
@@ -384,6 +390,8 @@ mod tests {
             max_coverage_cost: 0.1,
             enable_local_search: true,
             mip_rel_gap: 0.01,
+            max_photos_for_split: 100,
+            split_group_boundary_slack: 5,
         };
 
         let result = solve_mip(&groups, &params, None);
@@ -426,6 +434,8 @@ mod tests {
             max_coverage_cost: 0.1,
             enable_local_search: true,
             mip_rel_gap: 0.01,
+            max_photos_for_split: 100,
+            split_group_boundary_slack: 5,
         };
 
         let result = solve_mip(&groups, &params, None);
@@ -464,6 +474,8 @@ mod tests {
             max_coverage_cost: 0.1,
             enable_local_search: true,
             mip_rel_gap: 0.01,
+            max_photos_for_split: 100,
+            split_group_boundary_slack: 5,
         };
 
         let result = solve_mip(&groups, &params, None);
@@ -507,6 +519,8 @@ mod tests {
             max_coverage_cost: 0.1,
             enable_local_search: true,
             mip_rel_gap: 0.01,
+            max_photos_for_split: 100,
+            split_group_boundary_slack: 5,
         };
 
         let result = solve_mip(&groups, &params, None);
@@ -542,6 +556,8 @@ mod tests {
             max_coverage_cost: 0.1,
             enable_local_search: true,
             mip_rel_gap: 0.01,
+            max_photos_for_split: 100,
+            split_group_boundary_slack: 5,
         };
 
         // --- high D_even: prefer equal pages ---

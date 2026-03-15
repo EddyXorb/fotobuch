@@ -38,7 +38,10 @@ pub fn deduplicate(
                 // Re-hash and compare to decide if content changed
                 match compute_partial_hash(&path) {
                     Ok(hash) => {
-                        let old_hash = existing_path_hashes.get(&path).map(String::as_str).unwrap_or("");
+                        let old_hash = existing_path_hashes
+                            .get(&path)
+                            .map(String::as_str)
+                            .unwrap_or("");
                         if hash == old_hash {
                             skipped += 1;
                         } else {
@@ -105,7 +108,14 @@ mod tests {
         existing_hashes: &HashSet<String>,
         allow_duplicates: bool,
     ) -> (Vec<PhotoFile>, Vec<PhotoFile>, usize, Vec<String>) {
-        deduplicate(files, existing_paths, existing_hashes, allow_duplicates, false, &HashMap::new())
+        deduplicate(
+            files,
+            existing_paths,
+            existing_hashes,
+            allow_duplicates,
+            false,
+            &HashMap::new(),
+        )
     }
 
     #[test]
@@ -273,8 +283,14 @@ mod tests {
         let mut existing_path_hashes = HashMap::new();
         existing_path_hashes.insert(path, hash);
 
-        let (kept, updated, skipped, warnings) =
-            deduplicate(&mut files, &existing_paths, &existing_hashes, false, true, &existing_path_hashes);
+        let (kept, updated, skipped, warnings) = deduplicate(
+            &mut files,
+            &existing_paths,
+            &existing_hashes,
+            false,
+            true,
+            &existing_path_hashes,
+        );
 
         assert_eq!(kept.len(), 0);
         assert_eq!(updated.len(), 0); // same hash → still skipped
@@ -298,8 +314,14 @@ mod tests {
         let mut existing_path_hashes = HashMap::new();
         existing_path_hashes.insert(path, "old_hash_that_does_not_match".to_string());
 
-        let (kept, updated, skipped, warnings) =
-            deduplicate(&mut files, &existing_paths, &existing_hashes, false, true, &existing_path_hashes);
+        let (kept, updated, skipped, warnings) = deduplicate(
+            &mut files,
+            &existing_paths,
+            &existing_hashes,
+            false,
+            true,
+            &existing_path_hashes,
+        );
 
         assert_eq!(kept.len(), 0);
         assert_eq!(updated.len(), 1); // hash changed → updated
