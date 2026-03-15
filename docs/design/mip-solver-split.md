@@ -38,10 +38,11 @@ split_points = compute_split_points(groups, params, k)  // k-1 Punkte
 sub_ranges   = split_points → k Foto-Ranges
 
 for each sub_range:
-    sub_groups = groups.slice(sub_range)
+    sub_photos = &photos[sub_range]
     sub_params = derive_sub_params(params, sub_range.len(), n, k, remaining)
-    hint       = greedy_assignment(sub_groups, sub_params)
-    assignment = solve_mip(sub_groups, sub_params, Some(&hint))
+    hint       = create_start_solution(&sub_params, sub_photos)  // bereits in create_start_solution.rs
+    sub_groups = GroupInfo::from_photos(sub_photos)
+    assignment = solve_mip(&sub_groups, &sub_params, Some(&hint))
                  .unwrap_or(hint)
     collect assignment
 
@@ -79,9 +80,14 @@ Mindestsicherheit: `page_target_i >= 1`, `page_max_i >= page_target_i`.
 
 ## Hint / Fallback
 
-`greedy_assignment` teilt Fotos des Teilproblems gleichmäßig auf `page_target_i` Seiten auf, bevorzugt Schnitte an Gruppengrenzen. Dient als:
-- **Warm-Start** für den MIP-Solver
-- **Fallback** bei `MipError` (`.unwrap_or(hint)`)
+`create_start_solution` (bereits in `create_start_solution.rs` implementiert und auf `main` gepusht) wird pro Teilproblem aufgerufen. Algorithmus:
+- Sortiert Fotos nach Gruppe
+- Füllt Seiten greedy mit `p_avg = photos_left.div_ceil(pages_left)`, geklemmt auf `[p_min, p_max]`
+- Passt Schnitte an Gruppengrenzen an: vermeidet Fragmente kleiner `group_min_photos`
+
+Dient als:
+- **Warm-Start** für den MIP-Solver (`Some(&hint)`)
+- **Fallback** bei `MipError` (`.unwrap_or(hint)`) — bereits in `book_layout_solver.rs` umgesetzt
 
 ---
 
@@ -97,13 +103,14 @@ Mindestsicherheit: `page_target_i >= 1`, `page_max_i >= page_target_i`.
 | Datei | Änderung |
 |-------|----------|
 | `dto_models/config/book_layout_solver_config.rs` | 2 neue Felder + Defaults |
-| `solver/book_layout_solver/page_assignment_solver.rs` (neu) | `PageAssignmentSolver`, `compute_split_points()`, `derive_sub_params()`, `greedy_assignment()`, `merge()` |
-| `solver/book_layout_solver.rs` | Aufruf auf eine Zeile reduziert |
+| `solver/book_layout_solver/page_assignment_solver.rs` (neu) | `PageAssignmentSolver`, `compute_split_points()`, `derive_sub_params()`, `merge()` |
+| `solver/book_layout_solver/create_start_solution.rs` | bereits auf `main` — unverändert wiederverwenden |
+| `solver/book_layout_solver.rs` | Aufruf auf eine Zeile reduziert; Hint/Fallback-Logik zieht in `PageAssignmentSolver` |
 
 ---
 
 ## Tests
 
 - **`compute_split_points`**: Snap an Gruppengrenze wenn innerhalb slack; exakt bei Idealteilpunkt sonst; Invariante `sum(page_target_i) == page_target`
-- **`greedy_assignment`**: Ergebnis immer feasible; Seitengrößen in `[p_min, p_max]`
+- **`create_start_solution`**: bereits getestet in `create_start_solution.rs` — keine neuen Tests nötig
 - **Integration**: 150 Fotos → Split findet statt, Gesamtseitenzahl ≈ `page_target`, alle Fotos im Ergebnis
