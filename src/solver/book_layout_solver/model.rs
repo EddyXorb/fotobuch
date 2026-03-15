@@ -241,6 +241,8 @@ mod tests {
             max_coverage_cost: 0.1,
             enable_local_search: true,
             mip_rel_gap: 0.01,
+            max_photos_for_split: 100,
+            split_group_boundary_slack: 5,
         };
 
         assert!(params.validate(50).is_ok());
@@ -409,6 +411,8 @@ mod tests {
             max_coverage_cost: 0.1,
             enable_local_search: true,
             mip_rel_gap: 0.01,
+            max_photos_for_split: 100,
+            split_group_boundary_slack: 5,
         }
     }
 

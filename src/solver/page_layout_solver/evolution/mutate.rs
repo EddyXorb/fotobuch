@@ -50,7 +50,13 @@ pub(crate) fn mutate<R: Rng>(tree: &mut SlicingTree, rng: &mut R, enforce_order:
             .nodes()
             .iter()
             .enumerate()
-            .filter_map(|(i, n)| if n.is_internal() { Some(i as u16) } else { None })
+            .filter_map(|(i, n)| {
+                if n.is_internal() {
+                    Some(i as u16)
+                } else {
+                    None
+                }
+            })
             .collect();
 
         if !internal_indices.is_empty() {
@@ -277,7 +283,11 @@ mod tests {
                     photos.push(*photo_idx);
                 }
             });
-            assert_eq!(photos, vec![0, 1, 2, 3, 4], "Ordering invariant violated after cut-flip");
+            assert_eq!(
+                photos,
+                vec![0, 1, 2, 3, 4],
+                "Ordering invariant violated after cut-flip"
+            );
         }
     }
 }

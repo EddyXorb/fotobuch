@@ -88,10 +88,8 @@ pub fn add(project_root: &Path, config: &AddConfig) -> Result<AddResult> {
         .flat_map(|g| g.files.iter())
         .collect();
 
-    let mut existing_paths: HashSet<PathBuf> = all_files
-        .iter()
-        .map(|f| PathBuf::from(&f.source))
-        .collect();
+    let mut existing_paths: HashSet<PathBuf> =
+        all_files.iter().map(|f| PathBuf::from(&f.source)).collect();
 
     let mut existing_hashes: HashSet<String> = all_files
         .iter()
@@ -224,7 +222,10 @@ mod tests {
             make_photo("c.jpg", "/vacation/c.jpg"),
         ];
 
-        let matched: Vec<_> = files.iter().filter(|f| filter.is_match(&f.source)).collect();
+        let matched: Vec<_> = files
+            .iter()
+            .filter(|f| filter.is_match(&f.source))
+            .collect();
         assert_eq!(matched.len(), 2);
         assert_eq!(matched[0].id, "a.jpg");
         assert_eq!(matched[1].id, "c.jpg");
@@ -239,7 +240,10 @@ mod tests {
             make_photo("c.jpg", "/photos/c.jpg"),
         ];
 
-        let matched: Vec<_> = files.iter().filter(|f| filter.is_match(&f.source)).collect();
+        let matched: Vec<_> = files
+            .iter()
+            .filter(|f| filter.is_match(&f.source))
+            .collect();
         assert_eq!(matched.len(), 2);
     }
 
@@ -252,7 +256,10 @@ mod tests {
             make_photo("c.jpg", "/photos/work/c.jpg"),
         ];
 
-        let matched: Vec<_> = files.iter().filter(|f| filter.is_match(&f.source)).collect();
+        let matched: Vec<_> = files
+            .iter()
+            .filter(|f| filter.is_match(&f.source))
+            .collect();
         assert_eq!(matched.len(), 2);
     }
 }
