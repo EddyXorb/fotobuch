@@ -60,12 +60,10 @@ pub fn release_build(mgr: StateManager, project_root: &Path) -> Result<super::Bu
         info!("");
     }
 
-    // 3. Compile final.typ -> final.pdf (with bleed boxes)
-    let bleed_mm = mgr.state.config.book.bleed_mm;
-    let pdf_path = typst::compile_final(project_root, mgr.project_name(), bleed_mm)?;
-    info!("Final PDF generated: {}", pdf_path.display());
-
     // 4. Save state and commit
+    let bleed_mm = mgr.state.config.book.bleed_mm; // need to backup these before mgr gets consumed
+    let project_name = mgr.project_name().to_string();
+
     let page_count = mgr.state.layout.len();
     let total_photos: usize = mgr.state.layout.iter().map(|p| p.photos.len()).sum();
 
@@ -73,6 +71,10 @@ pub fn release_build(mgr: StateManager, project_root: &Path) -> Result<super::Bu
         "release: {} pages, {} photos",
         page_count, total_photos
     ))?;
+
+    // 3. Compile final.typ -> final.pdf (with bleed boxes)
+    let pdf_path = typst::compile_final(project_root, &project_name, bleed_mm)?;
+    info!("Final PDF generated: {}", pdf_path.display());
 
     Ok(BuildResult {
         pdf_path,

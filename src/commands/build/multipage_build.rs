@@ -1,7 +1,7 @@
 use super::BuildResult;
+use super::helpers::update_preview_pdf;
 use crate::cache::preview;
 use crate::dto_models::{BookLayoutSolverConfig, LayoutPage, PhotoGroup};
-use crate::output::typst;
 use crate::solver::{Request, RequestType, run_solver};
 use crate::state_manager::StateManager;
 use anyhow::Result;
@@ -75,16 +75,18 @@ pub fn multipage_build(
         pages_rebuilt
     };
 
-    // 5. Compile Typst
-    let bleed_mm = mgr.state.config.book.bleed_mm;
-    let pdf_path = typst::compile_preview(project_root, mgr.project_name(), bleed_mm)?;
+    let bleed_mm = mgr.state.config.book.bleed_mm; // need to backup these before mgr gets consumed
+    let project_name = mgr.project_name().to_string();
 
-    // 6. Save and commit
+    // 5. Save and commit
     if params.always_commit {
         mgr.finish_always(&params.commit_message)?;
     } else {
         mgr.finish(&params.commit_message)?;
     }
+
+    // 6. Compile Typst to PDF - do this after commit to ensure yaml is up to date for typst
+    let pdf_path = update_preview_pdf(project_root, bleed_mm, &project_name)?;
 
     Ok(BuildResult {
         pdf_path,

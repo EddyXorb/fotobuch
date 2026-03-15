@@ -1,8 +1,7 @@
 use super::super::BuildResult;
-use super::helpers::build_photo_index;
+use super::helpers::{build_photo_index, update_preview_pdf};
 use super::rebuild_single_page::rebuild_single_page;
 use crate::cache::preview;
-use crate::output::typst;
 use crate::state_manager::StateManager;
 use anyhow::Result;
 use std::path::Path;
@@ -37,7 +36,11 @@ pub fn incremental_build(
 
     if pages_needing_rebuild.is_empty() {
         info!("No changes detected. Nothing to do. Build only pdf.");
-        let pdf_path = update_pdf(&mgr, project_root)?;
+        let pdf_path = update_preview_pdf(
+            project_root,
+            mgr.state.config.book.bleed_mm,
+            mgr.project_name(),
+        )?;
 
         return Ok(BuildResult {
             pdf_path,
@@ -64,15 +67,17 @@ pub fn incremental_build(
         rebuild_single_page(&mut mgr.state, page_num, &photo_index)?;
     }
 
-    // 6. Compile Typst template to PDF
-    let pdf_path = update_pdf(&mgr, project_root)?;
-
     // 7. Save state and commit
+    let project_name = mgr.project_name().to_string(); // need to backup these before mgr gets consumed
+    let bleed_mm = mgr.state.config.book.bleed_mm;
     let total_cost = 0.0; //TODO: calculate actual cost from modified pages when available
     mgr.finish(&format!(
         "build: {} page(s) rebuilt",
         pages_needing_rebuild.len()
     ))?;
+
+    // 6. Compile Typst template to PDF
+    let pdf_path = update_preview_pdf(project_root, bleed_mm, &project_name)?;
 
     Ok(BuildResult {
         pdf_path,
@@ -83,19 +88,6 @@ pub fn incremental_build(
         dpi_warnings: vec![],
         nothing_to_do: false,
     })
-}
-
-fn update_pdf(
-    mgr: &StateManager,
-    project_root: &Path,
-) -> Result<std::path::PathBuf, anyhow::Error> {
-    let pdf_path = typst::compile_preview(
-        project_root,
-        mgr.project_name(),
-        mgr.state.config.book.bleed_mm,
-    )?;
-    info!("PDF updated: {}", pdf_path.display());
-    Ok(pdf_path)
 }
 
 /// Applies page filter to the list of pages needing rebuild.
