@@ -53,17 +53,13 @@ Mindestsicherheit: `page_target_i >= 1`, `page_max_i >= page_target_i` — klemm
 
 ---
 
-## Fallback-Heuristik
+## Fallback
 
-Falls `solve_mip` für ein Teilproblem `MipError::Infeasible` oder `MipError::Timeout` liefert:
+Falls `solve_mip` für ein Teilproblem fehlschlägt (`Infeasible` oder `Timeout`): der Solver-Hint wird direkt als Ergebnis verwendet.
 
-Greedy-Aufteilung der Fotos dieses Teilproblems:
-- Zielseitengröße: `target_size = photos_i / page_target_i` (ganzzahlig)
-- Laufe durch die Fotos, akkumuliere eine Seite bis `target_size` erreicht
-- Gruppenwechsel wirkt als weicher Schnittanreiz: bei Gruppengrenze und `page_size >= photos_per_page_min` → Seitengrenze setzen
-- Prüfe Feasibility (`check_feasibility`); bei Verletzung: erzwinge Schnitt bei `photos_per_page_max`
+Der Hint-`PageAssignment` wird vor dem MIP-Aufruf aus der greedy Split-Logik generiert (Splitpunkte an Gruppengrenzen) und bereits an `solve_mip(..., Some(&hint))` übergeben. Bei Fehler: `hint` direkt weiter an Local Search übergeben.
 
-Die Heuristik erzeugt immer ein `PageAssignment` und schlägt nie fehl.
+Kein separates Fallback-Modul nötig — der Hint dient als Warm-Start *und* als Fallback.
 
 ---
 
@@ -87,10 +83,11 @@ else:
     2. for each sub_range:
        a. sub_params = derive_sub_params(params, sub_range, n, k)
        b. sub_groups = GroupInfo::from_photos(&photos[sub_range])
-       c. assignment = solve_mip(sub_groups, sub_params)
-                       .or_else(|_| fallback_heuristic(sub_groups, sub_params))
-       d. if enable_local_search: improve(assignment, ...)
-       e. collect sub-result
+       c. hint = greedy_assignment(sub_groups, sub_params)
+       d. assignment = solve_mip(sub_groups, sub_params, Some(&hint))
+                       .unwrap_or(hint)
+       e. if enable_local_search: improve(assignment, ...)
+       f. collect sub-result
     3. merge all sub-results → BookLayout
 ```
 
@@ -102,13 +99,12 @@ else:
 |-------|----------|
 | `dto_models/config/book_layout_solver_config.rs` | 2 neue Felder + Defaults |
 | `solver/book_layout_solver.rs` | Split-Logik + Merge, neuer Pfad in `solve_book_layout` |
-| `solver/book_layout_solver/split.rs` (neu) | `split_photos()`, `derive_sub_params()` |
-| `solver/book_layout_solver/fallback.rs` (neu) | `fallback_heuristic()` |
+| `solver/book_layout_solver/split.rs` (neu) | `split_photos()`, `derive_sub_params()`, `greedy_assignment()` |
 
 ---
 
 ## Tests
 
 - **`split.rs` unit**: Splitpunkte landen an Gruppengrenzen wenn innerhalb slack; ohne Gruppengrenze exakt bei Idealteilpunkt; Invariante `sum(page_target_i) == page_target`
-- **`fallback.rs` unit**: Ergebnis ist immer feasible; Seitengrößen in `[p_min, p_max]`
+- **`split.rs` unit `greedy_assignment`**: Ergebnis ist immer feasible; Seitengrößen in `[p_min, p_max]`
 - **Integration**: 150 Fotos → Split findet statt, Gesamtseitenzahl ≈ `page_target`, alle Fotos im Ergebnis
