@@ -77,11 +77,11 @@ fn default_seed() -> u64 {
 }
 
 fn default_population_size() -> usize {
-    200
+    750
 }
 
 fn default_max_generations() -> usize {
-    1000
+    100
 }
 
 fn default_mutation_rate() -> f64 {
@@ -111,8 +111,8 @@ mod tests {
     #[test]
     fn test_ga_config_default() {
         let config = GaConfig::default();
-        assert_eq!(config.population_size, 200);
-        assert_eq!(config.max_generations, 1000);
+        assert_eq!(config.population_size, 750);
+        assert_eq!(config.max_generations, 100);
         assert!(config.islands_nr >= 1);
         assert!(config.islands_nr >= 1);
         assert_eq!(config.islands_migration_interval, 5);

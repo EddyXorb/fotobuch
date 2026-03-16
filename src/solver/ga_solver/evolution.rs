@@ -2,6 +2,10 @@
 //!
 //! Provides the core genetic operators and population structures for parallel island-based GA.
 
+use std::collections::HashSet;
+
+use tracing::info;
+
 use super::config::Config;
 use super::individual::Individual;
 
@@ -10,6 +14,8 @@ use super::individual::Individual;
 /// Implementations define how populations evolve through genetic operations.
 /// The trait takes immutable references to enable parallel execution.
 pub trait EvolutionDynamic<I: Individual> {
+    fn are_identical(&self, left: &I, right: &I) -> bool;
+
     /// Creates new individuals out of nothting; nr is the nr to create
     fn create(&self, nr: usize) -> Vec<I>;
 
@@ -93,6 +99,32 @@ fn build_next_population<I: Individual, E: EvolutionDynamic<I>>(
     next_population.extend(evolutor.create(target_size.saturating_sub(next_population.len())));
 
     next_population.sort_by(|a, b| a.fitness().total_cmp(&b.fitness()));
+
+    // Very costly deduplication with little benefit in tests
+    // let mut indices_to_delete = HashSet::new();
+    // for i in (0..next_population.len()).rev() {
+    //     if indices_to_delete.contains(&i) {
+    //         continue;
+    //     }
+    //     for j in (i + 1)..next_population.len() {
+    //         if indices_to_delete.contains(&j) {
+    //             continue;
+    //         }
+    //         if evolutor.are_identical(&next_population[i], &next_population[j]) {
+    //             indices_to_delete.insert(j);
+    //         }
+    //     }
+    // }
+    // info!(
+    //     "Found {} identical individuals, removing them.",
+    //     indices_to_delete.len()
+    // );
+    // next_population = next_population
+    //     .into_iter()
+    //     .enumerate()
+    //     .filter(|(index, _)| !indices_to_delete.contains(index))
+    //     .map(|(_, i)| i)
+    //     .collect();
 
     next_population.truncate(target_size);
     next_population
