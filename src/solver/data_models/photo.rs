@@ -76,7 +76,11 @@ impl Photo {
     ///
     /// A vector of Photos with proper group assignments
     pub fn from_photo_groups(groups: &[PhotoGroup]) -> Vec<Self> {
-        groups
+        let mut groups_copy = groups.to_vec();
+        for group in &mut groups_copy {
+            group.files.sort_by(|a, b| a.timestamp.cmp(&b.timestamp));
+        }
+        groups_copy
             .iter()
             .flat_map(|group| {
                 group
