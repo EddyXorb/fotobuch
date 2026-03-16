@@ -2,10 +2,6 @@
 //!
 //! Provides the core genetic operators and population structures for parallel island-based GA.
 
-use std::collections::HashSet;
-
-use tracing::info;
-
 use super::config::Config;
 use super::individual::Individual;
 
@@ -14,6 +10,7 @@ use super::individual::Individual;
 /// Implementations define how populations evolve through genetic operations.
 /// The trait takes immutable references to enable parallel execution.
 pub trait EvolutionDynamic<I: Individual> {
+    #[allow(dead_code)]
     fn are_identical(&self, left: &I, right: &I) -> bool;
 
     /// Creates new individuals out of nothting; nr is the nr to create

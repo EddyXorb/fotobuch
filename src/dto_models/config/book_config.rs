@@ -15,6 +15,9 @@ pub struct BookConfig {
     /// Min distance to page edge to consider a photo "touching" the edge and thus needing bleed. Only active if margin_mm = 0.
     #[serde(default = "default_bleed_threshold_mm")]
     pub bleed_threshold_mm: f64,
+    /// DPI for final image generation (default: 300)
+    #[serde(default = "default_dpi")]
+    pub dpi: f64,
 }
 
 fn default_margin_mm() -> f64 {
@@ -29,6 +32,10 @@ fn default_bleed_threshold_mm() -> f64 {
     3.0
 }
 
+fn default_dpi() -> f64 {
+    300.0
+}
+
 impl Default for BookConfig {
     fn default() -> Self {
         Self {
@@ -39,6 +46,7 @@ impl Default for BookConfig {
             margin_mm: default_margin_mm(),
             gap_mm: default_gap_mm(),
             bleed_threshold_mm: default_bleed_threshold_mm(),
+            dpi: default_dpi(),
         }
     }
 }

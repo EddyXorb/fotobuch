@@ -75,7 +75,7 @@ impl<'a> EvolutionDynamic<LayoutIndividual> for LayoutEvolution<'a> {
         if nr == 0 {
             return vec![];
         }
-        info!("Create {} individuals!", nr);
+
         create_initial_population(&self.context, nr)
     }
 

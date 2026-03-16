@@ -149,6 +149,7 @@ mod tests {
                 margin_mm: margin,
                 gap_mm: gap,
                 bleed_threshold_mm: 3.0,
+                dpi: 300.0,
             }
         }
 

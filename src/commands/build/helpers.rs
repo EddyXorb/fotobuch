@@ -9,7 +9,7 @@ pub fn update_preview_pdf(
     bleed_mm: f64,
     project_name: &str,
 ) -> Result<std::path::PathBuf, anyhow::Error> {
-    let pdf_path = typst::compile_preview(project_root, &project_name, bleed_mm)?;
+    let pdf_path = typst::compile_preview(project_root, project_name, bleed_mm)?;
     info!("PDF updated: {}", pdf_path.display());
     Ok(pdf_path)
 }

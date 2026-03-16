@@ -29,6 +29,7 @@
 //!     margin_mm: 10.0,
 //!     gap_mm: 5.0,
 //!     bleed_threshold_mm: 3.0,
+//!     dpi: 300.0,
 //! };
 //!
 //! // Define solver parameters (use defaults for simplicity)
