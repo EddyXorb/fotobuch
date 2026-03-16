@@ -15,19 +15,19 @@ To be done in this order
 - [x] add a --unplaced flag to remove all photos not in the layout
 - [x] it should be possible to enable subtexts for each image during preview that shows the image id, should be disabled if is_final=true
 - [x] add --filter to "add" that works the same as --filter for remove
-- [ ] Seitenzuteilung für große Instanzen verbessern. Rückfallheuristik verwenden zur Not, aber auch vorher probieren das Problem in x Teilprobleme zu zerlegen, mit je eignenen Parametern die dem Mip dann sequenziell übergeben werden. Ein trigger für die teilung könnte das überschreiten einer maximalzahl an bildern sein (default: mit 100 bildern). Trennung erfolgt nicht zwangsläufig an gruppengrenzen, aber bevorzugt (dafür darf die teilungsgrenze um 5 abweichen. Die Teilproblemparameter bleiben identisch mit dem interschied der max-page und target-page parameter, die sich so aufteilen, dass die summe der teilproblemparameter den ursprünglichen parametern entspricht. der timeout verteilt sich auch gleichmäßig über alle aufrufe. die trennungsparameter sollen in die BookLayojtSolverconfig aufgenommen werden.
+- [x] Seitenzuteilung für große Instanzen verbessern. Rückfallheuristik verwenden zur Not, aber auch vorher probieren das Problem in x Teilprobleme zu zerlegen, mit je eignenen Parametern die dem Mip dann sequenziell übergeben werden. Ein trigger für die teilung könnte das überschreiten einer maximalzahl an bildern sein (default: mit 100 bildern). Trennung erfolgt nicht zwangsläufig an gruppengrenzen, aber bevorzugt (dafür darf die teilungsgrenze um 5 abweichen. Die Teilproblemparameter bleiben identisch mit dem interschied der max-page und target-page parameter, die sich so aufteilen, dass die summe der teilproblemparameter den ursprünglichen parametern entspricht. der timeout verteilt sich auch gleichmäßig über alle aufrufe. die trennungsparameter sollen in die BookLayojtSolverconfig aufgenommen werden.
 - [ ] prüfen ob das generierte pdf wirklich die mediabox/bleedbox/targetbox so gesetzt hat, wie indesign das machen würde entsprechend den anforderungen für saal digital
 - [ ] make DPI of final configurable in yaml, as well as jpg-quality for both preview and final
-- [ ] try scip as backend for MIP
 - [ ] order the slots/photos in layout according to reading order (to make the appendix work later)
 
 ## to improve it further
 
+- [ ] try scip as backend for MIP
 - [ ] remove max_coverage_cost parameter, as it is not used anymore
 - [ ] new should be clearer where it creates the folder (and that its created at all). The --parent-dir option is not explained clearly enough. It should be clear that its not necessary to create a new folder for a new project, but that it can be done within an exisitng fotobuch-repo
 - [ ] automatically increase image weight according to xmp-rating. Low rating = smaller
 - [ ] make sure rebuild --page [nr] creates always a new layout that is different from the ones before (check git history) and make a configurable lookback with default 5. In case the solver does not generate a new layout restart it up to 10 times (unless it takes more than 200 ms to build the page) until a new layout is created. if not, ignore the lookbackrule
-- [ ] make the genetic algorithm prune equal individuals to keep the genpool diverse; once done, output not only one layout but the best x layouts; this comes in handy when rebuilding a single page and we want a new layout than before. → [Design: Population Diversity](docs/design/page_layout_solver_genetic_algorithm/population_diversity.md)
+- [ ] make the genetic algorithm prune equal individuals to keep the genpool diverse; once done, output not only one layout but the best x layouts; this comes in handy when rebuilding a single page and we want a new layout than before. → [Design: Population Diversity](docs/design/page_layout_solver_genetic_algorithm/population_diversity.md) -> tried simple deduplicatation, no change in quality
 - [ ] improve mutator of pagelayoutsolver: it should switch only leafes with different aspect ratios
 - [ ] log* zu gitignore hinzufügen
 - [ ] sort_key in groups should be checked to be unique to avoid randomness; to obtain a better key go into the folder of the group and take the first timestamp of all photos (as is done when no timestamp is in the group-name)
