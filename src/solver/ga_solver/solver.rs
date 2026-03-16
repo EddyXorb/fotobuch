@@ -168,6 +168,10 @@ mod tests {
     }
 
     impl EvolutionDynamic<NumberIndividual> for SimpleEvolution {
+        fn create(&self, nr: usize) -> Vec<NumberIndividual> {
+            vec![NumberIndividual::new(0.0); nr]
+        }
+
         fn select(&self, population: &[NumberIndividual]) -> Vec<NumberIndividual> {
             let count = population.len() / 2;
             population.iter().take(count.max(2)).cloned().collect()

@@ -4,9 +4,12 @@ pub(in crate::solver) mod crossover;
 pub(in crate::solver) mod mutate;
 mod selection;
 
+use tracing::info;
+
 use super::individual::LayoutIndividual;
 use crate::dto_models::FitnessWeights;
 use crate::solver::ga_solver::EvolutionDynamic;
+use crate::solver::page_layout_solver::create_initial_population;
 use crate::solver::prelude::*;
 
 /// Context for evaluating slicing trees into individuals.
@@ -15,6 +18,7 @@ pub struct EvaluationContext<'a> {
     pub canvas: &'a Canvas,
     pub weights: &'a FitnessWeights,
     pub enforce_order: bool,
+    pub seed: u64,
 }
 
 impl<'a> EvaluationContext<'a> {
@@ -23,12 +27,14 @@ impl<'a> EvaluationContext<'a> {
         canvas: &'a Canvas,
         weights: &'a FitnessWeights,
         enforce_order: bool,
+        seed: u64,
     ) -> Self {
         Self {
             photos,
             canvas,
             weights,
             enforce_order,
+            seed,
         }
     }
 }
@@ -59,6 +65,14 @@ impl<'a> LayoutEvolution<'a> {
 }
 
 impl<'a> EvolutionDynamic<LayoutIndividual> for LayoutEvolution<'a> {
+    fn create(&self, nr: usize) -> Vec<LayoutIndividual> {
+        if nr == 0 {
+            return vec![];
+        }
+        info!("Create {} individuals!", nr);
+        create_initial_population(&self.context, nr)
+    }
+
     fn select(&self, population: &[LayoutIndividual]) -> Vec<LayoutIndividual> {
         selection::tournament_select(
             population,

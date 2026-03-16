@@ -40,15 +40,11 @@ pub fn run_ga(photos: &[Photo], canvas: &Canvas, ga_config: &GaConfig) -> GaResu
         canvas,
         &ga_config.weights,
         ga_config.enforce_order,
+        42,
     );
 
     // Create initial population
-    let initial_pop = create_initial_population(
-        &context,
-        ga_config.population_size,
-        ga_config.seed,
-        ga_config.enforce_order,
-    );
+    let initial_pop = create_initial_population(&context, ga_config.population_size);
 
     // Create GA configuration
     let config = Config {
@@ -101,17 +97,16 @@ pub fn run_ga(photos: &[Photo], canvas: &Canvas, ga_config: &GaConfig) -> GaResu
 fn create_initial_population(
     context: &evolution::EvaluationContext,
     population_size: usize,
-    seed: u64,
-    enforce_order: bool,
 ) -> Vec<LayoutIndividual> {
     use rand::SeedableRng;
     use rand::rngs::StdRng;
 
-    let mut rng = StdRng::seed_from_u64(seed);
+    let mut rng = StdRng::seed_from_u64(context.seed);
 
     (0..population_size)
         .map(|_| {
-            let tree = tree::create::random_tree(context.photos.len(), &mut rng, enforce_order);
+            let tree =
+                tree::create::random_tree(context.photos.len(), &mut rng, context.enforce_order);
             LayoutIndividual::from_tree(tree, context)
         })
         .collect()
