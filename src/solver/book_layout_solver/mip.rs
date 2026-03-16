@@ -136,6 +136,7 @@ fn build_initial_hint(
 
     let mut hint = Vec::new();
 
+    #[allow(clippy::needless_range_loop)] // We know the group sizes won't exceed usize limits
     for l in 0..num_groups {
         let start_l = group_starts[l];
         let size_l = groups.group_size(l);

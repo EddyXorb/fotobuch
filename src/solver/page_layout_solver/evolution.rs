@@ -6,8 +6,6 @@ mod selection;
 
 use std::sync::atomic::AtomicU64;
 
-use tracing::info;
-
 use super::individual::LayoutIndividual;
 use crate::dto_models::FitnessWeights;
 use crate::solver::ga_solver::EvolutionDynamic;
