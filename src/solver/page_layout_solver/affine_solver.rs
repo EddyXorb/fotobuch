@@ -58,13 +58,13 @@ pub fn solve_layout(tree: &SlicingTree, photos: &[Photo], canvas: &Canvas) -> So
 
     // Extract placements for leaf nodes
     let mut placements = Vec::new();
-    for (idx, node) in tree.nodes().iter().enumerate() {
+    tree.visit(|index, node| {
         if let Node::Leaf { photo_idx, .. } = node {
-            let dim = dims[idx];
-            let pos = positions[idx];
+            let dim = dims[index as usize];
+            let pos = positions[index as usize];
             placements.push(PhotoPlacement::new(*photo_idx, pos.x, pos.y, dim.w, dim.h));
         }
-    }
+    });
 
     SolverPageLayout::new(placements, *canvas)
 }
