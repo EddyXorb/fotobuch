@@ -25,7 +25,7 @@ pub enum Cut {
 }
 
 /// Node in the slicing tree arena.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Node {
     /// Leaf node representing a photo.
     Leaf {
@@ -149,6 +149,46 @@ impl SlicingTree {
         if let Node::Internal { left, right, .. } = node {
             self.visit_recursive(*left, visitor);
             self.visit_recursive(*right, visitor);
+        }
+    }
+
+    pub fn has_same_internal_nodes_as(&self, other: &SlicingTree) -> bool {
+        self.has_same_internal_nodes_as_recursive(other, 0, 0)
+    }
+
+    fn has_same_internal_nodes_as_recursive(
+        &self,
+        other: &SlicingTree,
+        start_idx_left: u16,
+        start_index_right: u16,
+    ) -> bool {
+        if self.nodes.len() != other.nodes.len() {
+            return false;
+        }
+
+        if let Node::Internal {
+            cut, left, right, ..
+        } = self.node(start_idx_left)
+        {
+            let cut_self = cut;
+            let left_self = *left;
+            let right_self = *right;
+
+            if let Node::Internal {
+                cut, left, right, ..
+            } = other.node(start_index_right)
+            {
+                if *cut_self != *cut {
+                    return false;
+                }
+
+                self.has_same_internal_nodes_as_recursive(other, left_self, *left)
+                    && self.has_same_internal_nodes_as_recursive(other, right_self, *right)
+            } else {
+                false
+            }
+        } else {
+            !other.node(start_index_right).is_internal()
         }
     }
 
