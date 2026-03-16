@@ -4,6 +4,8 @@ pub(in crate::solver) mod crossover;
 pub(in crate::solver) mod mutate;
 mod selection;
 
+use std::sync::atomic::AtomicU64;
+
 use tracing::info;
 
 use super::individual::LayoutIndividual;
@@ -18,7 +20,7 @@ pub struct EvaluationContext<'a> {
     pub canvas: &'a Canvas,
     pub weights: &'a FitnessWeights,
     pub enforce_order: bool,
-    pub seed: u64,
+    pub seed: AtomicU64,
 }
 
 impl<'a> EvaluationContext<'a> {
@@ -34,7 +36,7 @@ impl<'a> EvaluationContext<'a> {
             canvas,
             weights,
             enforce_order,
-            seed,
+            seed: AtomicU64::new(seed),
         }
     }
 }
@@ -65,6 +67,10 @@ impl<'a> LayoutEvolution<'a> {
 }
 
 impl<'a> EvolutionDynamic<LayoutIndividual> for LayoutEvolution<'a> {
+    fn are_identical(&self, left: &LayoutIndividual, right: &LayoutIndividual) -> bool {
+        left.tree().has_same_internal_nodes_as(right.tree())
+    }
+
     fn create(&self, nr: usize) -> Vec<LayoutIndividual> {
         if nr == 0 {
             return vec![];

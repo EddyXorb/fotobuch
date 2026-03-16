@@ -152,6 +152,7 @@ impl SlicingTree {
         }
     }
 
+    #[allow(dead_code)]
     pub fn has_same_internal_nodes_as(&self, other: &SlicingTree) -> bool {
         self.has_same_internal_nodes_as_recursive(other, 0, 0)
     }
@@ -318,5 +319,336 @@ mod tests {
         tree.visit(|idx, _| visited.push(idx));
 
         assert_eq!(visited, vec![0, 1, 2]);
+    }
+
+    // ============ has_same_internal_nodes_as tests ============
+
+    #[test]
+    fn test_has_same_internal_nodes_as_single_leaf() {
+        let tree1 = SlicingTree::new(vec![Node::Leaf {
+            photo_idx: 0,
+            parent: None,
+        }]);
+        let tree2 = SlicingTree::new(vec![Node::Leaf {
+            photo_idx: 0,
+            parent: None,
+        }]);
+        assert!(tree1.has_same_internal_nodes_as(&tree2));
+    }
+
+    #[test]
+    fn test_has_same_internal_nodes_as_single_leaf_different_photo_idx() {
+        let tree1 = SlicingTree::new(vec![Node::Leaf {
+            photo_idx: 0,
+            parent: None,
+        }]);
+        let tree2 = SlicingTree::new(vec![Node::Leaf {
+            photo_idx: 99,
+            parent: None,
+        }]);
+        assert!(tree1.has_same_internal_nodes_as(&tree2));
+    }
+
+    #[test]
+    fn test_has_same_internal_nodes_as_two_leaves_identical() {
+        let tree1 = SlicingTree::new(vec![
+            Node::Internal {
+                cut: Cut::V,
+                left: 1,
+                right: 2,
+                parent: None,
+            },
+            Node::Leaf {
+                photo_idx: 0,
+                parent: Some(0),
+            },
+            Node::Leaf {
+                photo_idx: 1,
+                parent: Some(0),
+            },
+        ]);
+
+        let tree2 = SlicingTree::new(vec![
+            Node::Internal {
+                cut: Cut::V,
+                left: 1,
+                right: 2,
+                parent: None,
+            },
+            Node::Leaf {
+                photo_idx: 0,
+                parent: Some(0),
+            },
+            Node::Leaf {
+                photo_idx: 1,
+                parent: Some(0),
+            },
+        ]);
+
+        assert!(tree1.has_same_internal_nodes_as(&tree2));
+    }
+
+    #[test]
+    fn test_has_same_internal_nodes_as_two_leaves_different_cut() {
+        let tree1 = SlicingTree::new(vec![
+            Node::Internal {
+                cut: Cut::V,
+                left: 1,
+                right: 2,
+                parent: None,
+            },
+            Node::Leaf {
+                photo_idx: 0,
+                parent: Some(0),
+            },
+            Node::Leaf {
+                photo_idx: 1,
+                parent: Some(0),
+            },
+        ]);
+
+        let tree2 = SlicingTree::new(vec![
+            Node::Internal {
+                cut: Cut::H,
+                left: 1,
+                right: 2,
+                parent: None,
+            },
+            Node::Leaf {
+                photo_idx: 0,
+                parent: Some(0),
+            },
+            Node::Leaf {
+                photo_idx: 1,
+                parent: Some(0),
+            },
+        ]);
+
+        assert!(!tree1.has_same_internal_nodes_as(&tree2));
+    }
+
+    #[test]
+    fn test_has_same_internal_nodes_as_different_arena_order() {
+        let tree1 = SlicingTree::new(vec![
+            Node::Internal {
+                cut: Cut::V,
+                left: 1,
+                right: 3,
+                parent: None,
+            },
+            Node::Internal {
+                cut: Cut::H,
+                left: 2,
+                right: 4,
+                parent: Some(0),
+            },
+            Node::Leaf {
+                photo_idx: 0,
+                parent: Some(1),
+            },
+            Node::Leaf {
+                photo_idx: 2,
+                parent: Some(0),
+            },
+            Node::Leaf {
+                photo_idx: 1,
+                parent: Some(1),
+            },
+        ]);
+
+        let tree2 = SlicingTree::new(vec![
+            Node::Internal {
+                cut: Cut::V,
+                left: 3,
+                right: 2,
+                parent: None,
+            },
+            Node::Leaf {
+                photo_idx: 0,
+                parent: Some(3),
+            },
+            Node::Leaf {
+                photo_idx: 2,
+                parent: Some(0),
+            },
+            Node::Internal {
+                cut: Cut::H,
+                left: 1,
+                right: 4,
+                parent: Some(0),
+            },
+            Node::Leaf {
+                photo_idx: 1,
+                parent: Some(3),
+            },
+        ]);
+
+        assert!(tree1.has_same_internal_nodes_as(&tree2));
+    }
+
+    #[test]
+    fn test_has_same_internal_nodes_as_large_tree_identical() {
+        // Tree with 4 photos (7 nodes: 4 leaves + 3 internal)
+        //     Root(V)
+        //    /       \
+        //  Left(H)   Right(H)
+        //  /   \     /   \
+        // L0   L1   L2   L3
+
+        let tree1 = SlicingTree::new(vec![
+            Node::Internal {
+                cut: Cut::V,
+                left: 1,
+                right: 4,
+                parent: None,
+            },
+            Node::Internal {
+                cut: Cut::H,
+                left: 2,
+                right: 3,
+                parent: Some(0),
+            },
+            Node::Leaf {
+                photo_idx: 0,
+                parent: Some(1),
+            },
+            Node::Leaf {
+                photo_idx: 1,
+                parent: Some(1),
+            },
+            Node::Internal {
+                cut: Cut::H,
+                left: 5,
+                right: 6,
+                parent: Some(0),
+            },
+            Node::Leaf {
+                photo_idx: 2,
+                parent: Some(4),
+            },
+            Node::Leaf {
+                photo_idx: 3,
+                parent: Some(4),
+            },
+        ]);
+
+        let tree2 = SlicingTree::new(vec![
+            Node::Internal {
+                cut: Cut::V,
+                left: 1,
+                right: 4,
+                parent: None,
+            },
+            Node::Internal {
+                cut: Cut::H,
+                left: 2,
+                right: 3,
+                parent: Some(0),
+            },
+            Node::Leaf {
+                photo_idx: 0,
+                parent: Some(1),
+            },
+            Node::Leaf {
+                photo_idx: 1,
+                parent: Some(1),
+            },
+            Node::Internal {
+                cut: Cut::H,
+                left: 5,
+                right: 6,
+                parent: Some(0),
+            },
+            Node::Leaf {
+                photo_idx: 2,
+                parent: Some(4),
+            },
+            Node::Leaf {
+                photo_idx: 3,
+                parent: Some(4),
+            },
+        ]);
+
+        assert!(tree1.has_same_internal_nodes_as(&tree2));
+    }
+
+    #[test]
+    fn test_has_same_internal_nodes_as_large_tree_one_cut_differs() {
+        // Same structure as above but right H-node changes to V
+        let tree1 = SlicingTree::new(vec![
+            Node::Internal {
+                cut: Cut::V,
+                left: 1,
+                right: 4,
+                parent: None,
+            },
+            Node::Internal {
+                cut: Cut::H,
+                left: 2,
+                right: 3,
+                parent: Some(0),
+            },
+            Node::Leaf {
+                photo_idx: 0,
+                parent: Some(1),
+            },
+            Node::Leaf {
+                photo_idx: 1,
+                parent: Some(1),
+            },
+            Node::Internal {
+                cut: Cut::H,
+                left: 5,
+                right: 6,
+                parent: Some(0),
+            },
+            Node::Leaf {
+                photo_idx: 2,
+                parent: Some(4),
+            },
+            Node::Leaf {
+                photo_idx: 3,
+                parent: Some(4),
+            },
+        ]);
+
+        let tree2 = SlicingTree::new(vec![
+            Node::Internal {
+                cut: Cut::V,
+                left: 1,
+                right: 4,
+                parent: None,
+            },
+            Node::Internal {
+                cut: Cut::H,
+                left: 2,
+                right: 3,
+                parent: Some(0),
+            },
+            Node::Leaf {
+                photo_idx: 0,
+                parent: Some(1),
+            },
+            Node::Leaf {
+                photo_idx: 1,
+                parent: Some(1),
+            },
+            Node::Internal {
+                cut: Cut::V, // Changed from H to V
+                left: 5,
+                right: 6,
+                parent: Some(0),
+            },
+            Node::Leaf {
+                photo_idx: 2,
+                parent: Some(4),
+            },
+            Node::Leaf {
+                photo_idx: 3,
+                parent: Some(4),
+            },
+        ]);
+
+        assert!(!tree1.has_same_internal_nodes_as(&tree2));
     }
 }

@@ -34,6 +34,8 @@ pub struct GaResult {
 pub fn run_ga(photos: &[Photo], canvas: &Canvas, ga_config: &GaConfig) -> GaResult {
     use crate::solver::ga_solver::{Config, GeneticAlgorithm, Individual};
 
+    let start_time = std::time::Instant::now();
+
     // Create evaluation context
     let context = evolution::EvaluationContext::new(
         photos,
@@ -79,7 +81,8 @@ pub fn run_ga(photos: &[Photo], canvas: &Canvas, ga_config: &GaConfig) -> GaResu
     // Log cost breakdown
     let cost_breakdown = fitness::cost_breakdown(&layout, photos, canvas, &ga_config.weights);
     debug!(
-        "Finished layout for one page. Fitness: total={:.4}  size={:.4}  coverage={:.4}  bary={:.4}",
+        "Finished layout for one page after {}ms. Fitness: total={:.4}  size={:.4}  coverage={:.4}  bary={:.4}",
+        start_time.elapsed().as_millis(),
         cost_breakdown.total,
         cost_breakdown.size,
         cost_breakdown.coverage,
@@ -101,7 +104,10 @@ fn create_initial_population(
     use rand::SeedableRng;
     use rand::rngs::StdRng;
 
-    let mut rng = StdRng::seed_from_u64(context.seed);
+    let next_seed = context
+        .seed
+        .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    let mut rng = StdRng::seed_from_u64(next_seed);
 
     (0..population_size)
         .map(|_| {

@@ -3,6 +3,8 @@
 //! Provides the main GeneticAlgorithm struct that orchestrates evolution
 //! across multiple islands in parallel using the Rayon library.
 
+use crate::solver::ga_solver::evolution;
+
 use super::config::Config;
 use super::evolution::{EvolutionDynamic, Island, World};
 use super::individual::Individual;
@@ -75,7 +77,7 @@ where
     /// Initializes the world with islands.
     fn init_world(&mut self, initial_population: Vec<I>) -> World<I> {
         let mut islands: Vec<_> = (0..self.config.islands.saturating_sub(1))
-            .map(|_| Island::new(initial_population.clone()))
+            .map(|_| Island::new(self.evolutor.create(self.config.population)))
             .collect();
         islands.push(Island::new(initial_population));
         World::new(islands)
@@ -168,6 +170,10 @@ mod tests {
     }
 
     impl EvolutionDynamic<NumberIndividual> for SimpleEvolution {
+        fn are_identical(&self, left: &NumberIndividual, right: &NumberIndividual) -> bool {
+            left.value == right.value
+        }
+
         fn create(&self, nr: usize) -> Vec<NumberIndividual> {
             vec![NumberIndividual::new(0.0); nr]
         }
