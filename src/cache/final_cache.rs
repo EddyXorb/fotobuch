@@ -19,16 +19,16 @@ pub struct FinalCacheResult {
     pub dpi_warnings: Vec<DpiWarning>,
 }
 
-/// Builds final cache from original images at 300 DPI.
+/// Builds final cache from original images at the configured DPI.
 ///
-/// Processes all photos in the layout, generating cached images at 300 DPI
-/// for each slot. Collects warnings for photos that will be displayed below 300 DPI.
+/// Processes all photos in the layout, generating cached images at the specified DPI
+/// for each slot. Collects warnings for photos that will be displayed below the target DPI.
 pub fn build_final_cache(
     state: &ProjectState,
     final_cache_dir: &Path,
     progress: &AtomicUsize,
 ) -> Result<FinalCacheResult> {
-    const TARGET_DPI: f64 = 300.0;
+    let target_dpi = state.config.book.dpi;
 
     // Build photo lookup map: photo_id -> PhotoFile
     let photo_map: HashMap<&str, &crate::dto_models::PhotoFile> = state
@@ -60,12 +60,12 @@ pub fn build_final_cache(
             let source = Path::new(&photo.source);
             let cached = final_cache_dir.join(cache_rel_path(photo_id));
 
-            // Calculate target dimensions at 300 DPI
-            let (target_w, target_h) = target_pixels(slot, TARGET_DPI);
+            // Calculate target dimensions at configured DPI
+            let (target_w, target_h) = target_pixels(slot, target_dpi);
 
             // Check if photo meets DPI requirements
             let photo_dpi = actual_dpi(photo.width_px, photo.height_px, slot);
-            if photo_dpi < TARGET_DPI {
+            if photo_dpi < target_dpi {
                 warnings.lock().unwrap().push(DpiWarning {
                     page: *page_num,
                     photo_id: photo_id.clone(),

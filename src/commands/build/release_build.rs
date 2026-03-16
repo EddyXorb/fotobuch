@@ -6,7 +6,7 @@ use crate::{cache::final_cache, state_manager::StateManager};
 use crate::output::typst;
 use anyhow::Result;
 use tracing::{info, warn};
-/// Performs release build: generates final high-quality PDF at 300 DPI.
+/// Performs release build: generates final high-quality PDF at the configured DPI.
 ///
 /// # Requirements
 /// - Layout must be clean (no uncommitted changes)
@@ -14,11 +14,12 @@ use tracing::{info, warn};
 ///
 /// # Steps
 /// 1. Verify layout is clean
-/// 2. Generate final cache (300 DPI) and collect DPI warnings
+/// 2. Generate final cache and collect DPI warnings
 /// 3. Compile final.typ -> final.pdf
 /// 4. Save and commit
 pub fn release_build(mgr: StateManager, project_root: &Path) -> Result<super::BuildResult> {
-    info!("Release build: generating final PDF at 300 DPI...");
+    let dpi = mgr.state.config.book.dpi;
+    info!("Release build: generating final PDF at {:.0} DPI...", dpi);
 
     // 1. Check that layout is clean (no changes since last build)
     if mgr.has_changes_since_last_build() {
@@ -44,7 +45,7 @@ pub fn release_build(mgr: StateManager, project_root: &Path) -> Result<super::Bu
 
     // Print DPI warnings
     if !final_result.dpi_warnings.is_empty() {
-        warn!("\nWARNING: Some photos will be displayed below 300 DPI:");
+        warn!("\nWARNING: Some photos will be displayed below {:.0} DPI:", dpi);
         for warning in &final_result.dpi_warnings {
             warn!(
                 "  Page {}: {} - {:.1} DPI ({}x{} px in {:.1}x{:.1} mm slot)",

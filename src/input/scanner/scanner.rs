@@ -175,14 +175,13 @@ impl Scanner {
         }
 
         // Apply XMP filters (all must match)
-        if !self.filters.xmp_filters.is_empty() {
-            if !xmp::xmp_matches_all(Path::new(&full_path), &self.filters.xmp_filters)
+        if !self.filters.xmp_filters.is_empty()
+            && !xmp::xmp_matches_all(Path::new(&full_path), &self.filters.xmp_filters)
                 .unwrap_or(true)
             {
                 self.stats.xmp_filtered += 1;
                 return None;
             }
-        }
 
         let mut photo = PhotoFile {
             id: format!("{group_name}/{filename}"),

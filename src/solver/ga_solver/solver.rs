@@ -3,7 +3,6 @@
 //! Provides the main GeneticAlgorithm struct that orchestrates evolution
 //! across multiple islands in parallel using the Rayon library.
 
-use crate::solver::ga_solver::evolution;
 
 use super::config::Config;
 use super::evolution::{EvolutionDynamic, Island, World};
