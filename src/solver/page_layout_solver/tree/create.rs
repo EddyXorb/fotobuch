@@ -14,12 +14,12 @@ pub(crate) fn assign_photos_by_dfs(tree: &mut SlicingTree) {
 
 /// Recursively assigns photo indices during DFS traversal.
 fn assign_recursive(tree: &mut SlicingTree, idx: u16, counter: &mut u16) {
-    match *tree.node(idx) {
-        Node::Leaf { .. } => {
-            if let Node::Leaf { photo_idx, .. } = tree.node_mut(idx) {
-                *photo_idx = *counter;
-                *counter += 1;
-            }
+    match *tree.node_mut(idx) {
+        Node::Leaf {
+            ref mut photo_idx, ..
+        } => {
+            *photo_idx = *counter;
+            *counter += 1;
         }
         Node::Internal { left, right, .. } => {
             assign_recursive(tree, left, counter);

@@ -10,6 +10,9 @@ use super::individual::Individual;
 /// Implementations define how populations evolve through genetic operations.
 /// The trait takes immutable references to enable parallel execution.
 pub trait EvolutionDynamic<I: Individual> {
+    /// Creates new individuals out of nothting; nr is the nr to create
+    fn create(&self, nr: usize) -> Vec<I>;
+
     /// Selects individuals from the population for reproduction.
     ///
     /// Typically implements tournament selection, roulette wheel, or rank-based selection.
@@ -53,15 +56,16 @@ where
         E: EvolutionDynamic<I>,
     {
         let elite_count = calc_elite_count(self.population.len(), config.elitism_ratio);
+
         let elite = self.population[..elite_count].to_vec();
 
         let selected = evolutor.select(&self.population);
+
         let mut offspring = evolutor.crossover(&selected);
+
         evolutor.mutate(&mut offspring);
 
-        self.population = build_next_population(elite, offspring, config.population);
-        self.population
-            .sort_by(|a, b| a.fitness().total_cmp(&b.fitness()));
+        self.population = build_next_population(elite, offspring, config.population, evolutor);
     }
 
     /// Returns the best individual in the island.
@@ -78,13 +82,18 @@ fn calc_elite_count(population_size: usize, elitism_ratio: f64) -> usize {
 }
 
 /// Builds the next generation population from elite and offspring.
-fn build_next_population<I: Individual>(
+fn build_next_population<I: Individual, E: EvolutionDynamic<I>>(
     elite: Vec<I>,
     offspring: Vec<I>,
     target_size: usize,
+    evolutor: &E,
 ) -> Vec<I> {
     let mut next_population = elite;
     next_population.extend(offspring);
+    next_population.extend(evolutor.create(target_size.saturating_sub(next_population.len())));
+
+    next_population.sort_by(|a, b| a.fitness().total_cmp(&b.fitness()));
+
     next_population.truncate(target_size);
     next_population
 }
