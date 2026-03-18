@@ -20,7 +20,7 @@ pub fn compute_outdated_pages(reference: &ProjectState, new: &ProjectState) -> V
     // Phase 1: Build reference maps
 
     // Map photo IDs to (aspect_ratio, area_weight)
-    let ref_photo_metadata = build_photo_metadata_map(reference);
+    let ref_photo_metadata = build_photo_metadata(&reference.photos);
 
     // Build page_hashes: BTreeSet of photo IDs -> Vec of indices in reference.layout
     let page_hashes = build_page_hashes(&reference.layout);
@@ -69,29 +69,29 @@ pub fn compute_outdated_pages(reference: &ProjectState, new: &ProjectState) -> V
         }
 
         // 4. Validate each slot's aspect ratio matches its photo's aspect ratio
-        let mut ar_mismatch = false;
+        let mut page_valid = true;
         for (i, photo_id) in new_page.photos.iter().enumerate() {
             let slot_ar = new_page.slots[i].width_mm / new_page.slots[i].height_mm;
 
             // Get photo's aspect ratio from metadata map
-            let photo_ar = if let Some((ar, _weight)) = ref_photo_metadata.get(photo_id.as_str()) {
-                *ar
-            } else {
-                // Photo not in reference metadata - conservative: mark as outdated
-                outdated.push(new_page.page);
-                ar_mismatch = true;
-                break;
+            let photo_ar = match ref_photo_metadata.get(photo_id.as_str()) {
+                Some((ar, _weight)) => *ar,
+                None => {
+                    // Photo not in reference metadata - conservative: mark as outdated
+                    page_valid = false;
+                    break;
+                }
             };
 
             if (slot_ar - photo_ar).abs() > ASPECT_RATIO_THRESHOLD {
-                outdated.push(new_page.page);
-                ar_mismatch = true;
+                page_valid = false;
                 break;
             }
         }
 
-        // If AR mismatch detected, already added to outdated above
-        if ar_mismatch {
+        // If any AR validation failed, mark page as outdated
+        if !page_valid {
+            outdated.push(new_page.page);
             continue;
         }
 
@@ -101,16 +101,19 @@ pub fn compute_outdated_pages(reference: &ProjectState, new: &ProjectState) -> V
     outdated
 }
 
-/// Build a map of photo ID -> (aspect_ratio, area_weight) from reference state.
-fn build_photo_metadata_map(reference: &ProjectState) -> HashMap<String, (f64, f64)> {
-    let mut map = HashMap::new();
-    for group in &reference.photos {
-        for file in &group.files {
-            let ar = file.width_px as f64 / file.height_px as f64;
-            map.insert(file.id.clone(), (ar, file.area_weight));
-        }
-    }
-    map
+/// Build a map of photo ID -> (aspect_ratio, area_weight) from a photo collection.
+fn build_photo_metadata(photos: &[crate::dto_models::PhotoGroup]) -> HashMap<String, (f64, f64)> {
+    photos
+        .iter()
+        .flat_map(|group| {
+            group.files.iter().map(|file| {
+                (
+                    file.id.clone(),
+                    (file.aspect_ratio(), file.area_weight),
+                )
+            })
+        })
+        .collect()
 }
 
 /// Build page_hashes: BTreeSet of photo IDs -> Vec of indices in layout where this set appears.
@@ -126,40 +129,40 @@ fn build_page_hashes(
 }
 
 /// Find photo IDs whose metadata changed between reference and new state.
+/// Includes newly added photos and removed photos.
 fn find_changed_photos(
     _reference: &ProjectState,
     new: &ProjectState,
     ref_metadata: &HashMap<String, (f64, f64)>,
 ) -> HashSet<String> {
-    let mut changed = HashSet::new();
+    let new_metadata = build_photo_metadata(&new.photos);
 
-    // Build metadata map for new state
-    let mut new_metadata = HashMap::new();
-    for group in &new.photos {
-        for file in &group.files {
-            let ar = file.width_px as f64 / file.height_px as f64;
-            new_metadata.insert(file.id.clone(), (ar, file.area_weight));
-        }
-    }
-
-    // Compare each photo's metadata
-    for (photo_id, (new_ar, new_weight)) in &new_metadata {
-        if let Some((ref_ar, ref_weight)) = ref_metadata.get(photo_id) {
-            // Check if aspect ratio or weight changed
-            if (new_ar - ref_ar).abs() > ASPECT_RATIO_THRESHOLD
-                || (new_weight - ref_weight).abs() > 1e-9
-            {
-                changed.insert(photo_id.clone());
+    // Check for photos with changed metadata or new photos
+    let mut changed = new_metadata
+        .iter()
+        .filter_map(|(photo_id, (new_ar, new_weight))| {
+            if let Some((ref_ar, ref_weight)) = ref_metadata.get(photo_id) {
+                // Check if aspect ratio or weight changed
+                if (new_ar - ref_ar).abs() > ASPECT_RATIO_THRESHOLD
+                    || (new_weight - ref_weight).abs() > ASPECT_RATIO_THRESHOLD
+                {
+                    Some(photo_id.clone())
+                } else {
+                    None
+                }
+            } else {
+                // Photo exists in new but not in reference (new photo)
+                Some(photo_id.clone())
             }
-        } else {
-            // Photo exists in new but not in reference (new photo)
+        })
+        .collect::<HashSet<_>>();
+
+    // Check for removed photos (exist in reference but not in new)
+    for photo_id in ref_metadata.keys() {
+        if !new_metadata.contains_key(photo_id) {
             changed.insert(photo_id.clone());
         }
     }
-
-    // Check for removed photos (exist in reference but not in new)
-    // These don't cause a photo itself to be marked as changed, but pages with
-    // these photos will naturally be marked as outdated by the BTreeSet mismatch.
 
     changed
 }
