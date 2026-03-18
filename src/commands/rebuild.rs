@@ -6,7 +6,6 @@ use crate::output::typst;
 use crate::state_manager::StateManager;
 use anyhow::Result;
 use std::path::Path;
-use std::sync::atomic::AtomicUsize;
 
 use super::build::{
     BuildResult, MultiPageParams, build_photo_index, collect_photos_as_groups, multipage_build,
@@ -124,9 +123,8 @@ fn validate_scope(scope: &RebuildScope, mgr: &StateManager) -> Result<()> {
 /// Rebuild a single page using the SinglePage solver.
 fn rebuild_single(mut mgr: StateManager, project_root: &Path, page: usize) -> Result<BuildResult> {
     // 1. Preview-Cache
-    let progress = AtomicUsize::new(0);
     let preview_cache_dir = mgr.preview_cache_dir();
-    preview::ensure_previews(&mgr.state, &preview_cache_dir, &progress)?;
+    preview::ensure_previews(&mgr.state, &preview_cache_dir)?;
 
     // 2. Solver — reuse rebuild_single_page from build module
     let photo_index = build_photo_index(&mgr.state.photos);

@@ -6,7 +6,6 @@ use crate::solver::{Request, RequestType, run_solver};
 use crate::state_manager::{StateManager, renumber_pages};
 use anyhow::Result;
 use std::path::Path;
-use std::sync::atomic::AtomicUsize;
 
 /// Parameters for multipage build/rebuild operations
 pub struct MultiPageParams<'a> {
@@ -41,9 +40,8 @@ pub fn multipage_build(
     params: MultiPageParams,
 ) -> Result<BuildResult> {
     // 1. Preview-Cache
-    let progress = AtomicUsize::new(0);
     let preview_cache_dir = mgr.preview_cache_dir();
-    let cache_result = preview::ensure_previews(&mgr.state, &preview_cache_dir, &progress)?;
+    let cache_result = preview::ensure_previews(&mgr.state, &preview_cache_dir)?;
 
     // 2. Determine solver config
     let config = if let Some(custom) = params.custom_config {
