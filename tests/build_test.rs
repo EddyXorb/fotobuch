@@ -28,7 +28,7 @@ fn create_test_project_with_photos(temp_dir: &TempDir) -> Result<PathBuf> {
     mgr.state.config.book_layout_solver.page_max = 5; // Limit pages to speed up tests
     mgr.state.config.book_layout_solver.page_target = 3;
     //mgr.state.config.book_layout_solver.photos_per_page_min = 1; // Allow single-photo pages for testing
-    mgr.state.config.book_layout_solver.group_min_photos = 1; // Allow single-photo groups for testing  
+    mgr.state.config.book_layout_solver.group_min_photos = 1; // Allow single-photo groups for testing
     mgr.finish("test: set page_max to 5 for faster tests")?;
 
     // Add test photos
@@ -36,6 +36,48 @@ fn create_test_project_with_photos(temp_dir: &TempDir) -> Result<PathBuf> {
         .join("tests")
         .join("fixtures")
         .join("test_photos_unique");
+
+    let add_config = AddConfig {
+        paths: vec![photos_path],
+        allow_duplicates: false,
+        xmp_filters: vec![],
+        source_filters: vec![],
+        dry_run: false,
+        update: false,
+    };
+    add(&project_root, &add_config)?;
+
+    Ok(project_root)
+}
+
+/// Helper to create a test project with artificial photos (3 different aspect ratios)
+fn create_test_project_with_artificial_photos_3(temp_dir: &TempDir) -> Result<PathBuf> {
+    // Create project
+    let config = NewConfig {
+        name: "testbuild".to_string(),
+        width_mm: 200.0,
+        height_mm: 250.0,
+        bleed_mm: 3.0,
+        quiet: true,
+    };
+    let result = project_new(temp_dir.path(), &config)?;
+    let project_root = result.project_root;
+
+    let mut mgr = StateManager::open(&project_root)?;
+    // Force at least 2 pages: min 1 photo per page, max 2 per page
+    mgr.state.config.book_layout_solver.page_max = 2;
+    mgr.state.config.book_layout_solver.page_target = 2;
+    mgr.state.config.book_layout_solver.group_min_photos = 1;
+    mgr.state.config.book_layout_solver.photos_per_page_min = 1;
+    mgr.state.config.book_layout_solver.photos_per_page_max = 2;
+    mgr.state.config.book_layout_solver.enable_local_search = false;
+    mgr.finish("test: configure for artificial photos test")?;
+
+    // Add artificial photos with different aspect ratios
+    let photos_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join("fixtures")
+        .join("test_artificial_photos_3");
 
     let add_config = AddConfig {
         paths: vec![photos_path],
@@ -548,6 +590,143 @@ fn test_build_from_scratch_with_max_groups_per_page_one() -> Result<()> {
         state_after.layout[0].page,
         state_after.layout[1].page,
         intersection
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_incremental_build_detects_no_changes_when_swapping_page_order() -> Result<()> {
+    let temp_dir = TempDir::new()?;
+    let project_root = create_test_project_with_artificial_photos_3(&temp_dir)?;
+
+    // First build to create layout
+    let build_config = BuildConfig {
+        release: false,
+        pages: None,
+    };
+    let result1 = build(&project_root, &build_config)?;
+    assert!(!result1.nothing_to_do, "First build should do something");
+    assert!(
+        result1.pages_rebuilt.len() >= 2,
+        "Should have at least 2 pages for swap test, got {}",
+        result1.pages_rebuilt.len()
+    );
+
+    // Load state and capture layout before swap
+    let yaml_path = project_root.join("testbuild.yaml");
+    let mut state = ProjectState::load(&yaml_path)?;
+
+    // Verify we have at least 2 pages
+    assert!(
+        state.layout.len() >= 2,
+        "Need at least 2 pages to test swap"
+    );
+
+    // Swap entire page objects (swap page 0 and page 1)
+    // This means both photos, slots, and everything swaps, preserving internal consistency
+    let page_a = state.layout[0].clone();
+    let page_b = state.layout[1].clone();
+    state.layout[0] = page_b;
+    state.layout[1] = page_a;
+
+    state.save(&yaml_path)?;
+
+    // Second build after page swap
+    let result2 = build(&project_root, &build_config)?;
+
+    // Should report nothing to do because the pages themselves are identical,
+    // just swapped in order. The page change detection should recognize that
+    // the photo sets and slot structures still exist and haven't changed.
+    assert!(
+        result2.nothing_to_do,
+        "After swapping page order without changing internal content, should report nothing to do. Got pages_rebuilt={:?}, pages_swapped={:?}",
+        result2.pages_rebuilt, result2.pages_swapped
+    );
+    assert!(
+        result2.pages_rebuilt.is_empty(),
+        "No pages should be rebuilt after page order swap"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_incremental_rebuild_after_swapping_photos_on_same_page() -> Result<()> {
+    common::init_tests();
+    let temp_dir = TempDir::new()?;
+    let project_root = create_test_project_with_artificial_photos_3(&temp_dir)?;
+
+    // First build to create layout
+    let build_config = BuildConfig {
+        release: false,
+        pages: None,
+    };
+    let result1 = build(&project_root, &build_config)?;
+    assert!(!result1.nothing_to_do, "First build should do something");
+
+    // Load state and find a page with 2+ photos
+    let yaml_path = project_root.join("testbuild.yaml");
+    let mut state = ProjectState::load(&yaml_path)?;
+
+    // Find a page with at least 2 photos
+    let page_with_multiple_photos = state.layout.iter().position(|page| page.photos.len() >= 2);
+
+    if page_with_multiple_photos.is_none() {
+        eprintln!(
+            "Test skipped: need a page with 2+ photos, layout has {} pages with photo counts: {:?}",
+            state.layout.len(),
+            state
+                .layout
+                .iter()
+                .map(|p| p.photos.len())
+                .collect::<Vec<_>>()
+        );
+        return Ok(());
+    }
+
+    let page_idx = page_with_multiple_photos.unwrap();
+    println!("Page index with multiple photos: {}", page_idx);
+    let page = &mut state.layout[page_idx];
+
+    println!(
+        "Before photo swap on page {}: photos={:?}",
+        page.page, page.photos
+    );
+
+    // Swap two photos on this page (they have different aspect ratios)
+    if page.photos.len() >= 2 {
+        page.photos.swap(0, 1);
+    }
+
+    println!(
+        "After photo swap on page {}: photos={:?}",
+        page.page, page.photos
+    );
+
+    state.save(&yaml_path)?;
+
+    // Second build after photo swap on the same page
+    let result2 = build(&project_root, &build_config)?;
+
+    println!("Result2: {:#?}", result2);
+    // Should rebuild the affected page
+    assert!(
+        result2.pages_rebuilt.contains(&(page_idx + 1)),
+        "Page with swapped photos should be rebuilt"
+    );
+
+    // Verify no DPI warnings in the rebuild
+    assert!(
+        result2.dpi_warnings.is_empty(),
+        "Rebuild after photo swap should not produce DPI warnings"
+    );
+
+    // Verify the layout is consistent after rebuild
+    let state_after = ProjectState::load(&yaml_path)?;
+    assert!(
+        !state_after.layout.is_empty(),
+        "Layout should still exist after rebuild"
     );
 
     Ok(())

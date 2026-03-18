@@ -16,7 +16,7 @@ use serde_yaml::Value;
 use std::cell::RefCell;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
-use tracing::error;
+use tracing::{error, warn};
 
 use crate::dto_models::{LayoutPage, PhotoGroup, ProjectState};
 use crate::git;
@@ -241,7 +241,7 @@ impl StateManager {
             .with_context(|| format!("Failed to load {}", yaml_path.display()))?;
 
         if let Err(e) = state.check_validity() {
-            error!("State is invalid after open! Reason(s): {e}");
+            warn!("State is invalid after open! Reason(s): {e}");
         }
 
         // Store raw config value for the config command
@@ -327,7 +327,7 @@ impl StateManager {
     /// Returns the 1-based page numbers that were outdated since the last build commit.
     ///
     /// Falls back to comparing against `baseline` when no build commit exists.
-    pub fn outdated_pages(&self) -> Vec<usize> {
+    pub fn outdated_pages_indices(&self) -> Vec<usize> {
         self.ensure_build_baseline();
         let baseline_ref = self.build_baseline.borrow();
         let reference = match &*baseline_ref {

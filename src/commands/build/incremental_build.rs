@@ -29,10 +29,10 @@ pub fn incremental_build(
     }
 
     // 2. Detect which pages need rebuilding
-    let pages_needing_rebuild = mgr.outdated_pages();
+    let page_indices_needing_rebuild = mgr.outdated_pages_indices();
 
     // 3. Apply page filter if specified
-    let pages_needing_rebuild = apply_page_filter(pages_needing_rebuild, page_filter);
+    let pages_needing_rebuild = apply_page_filter(page_indices_needing_rebuild, page_filter);
 
     if pages_needing_rebuild.is_empty() {
         info!("No changes detected. Nothing to do. Build only pdf.");
@@ -57,6 +57,9 @@ pub fn incremental_build(
         "Rebuilding {} page(s): {:?}",
         pages_needing_rebuild.len(),
         pages_needing_rebuild
+            .iter()
+            .map(|i| i + 1)
+            .collect::<Vec<_>>()
     );
 
     // 4. Build photo index for fast lookup
@@ -81,7 +84,7 @@ pub fn incremental_build(
 
     Ok(BuildResult {
         pdf_path,
-        pages_rebuilt: pages_needing_rebuild,
+        pages_rebuilt: pages_needing_rebuild.iter().map(|i| i + 1).collect(), // convert to 1-based page numbers for reporting
         pages_swapped: vec![],
         images_processed: cache_result.created,
         total_cost,
