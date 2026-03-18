@@ -727,7 +727,7 @@ mod tests {
         // Write .gitignore + initial yaml
         std::fs::write(
             tmp.path().join(".gitignore"),
-            ".fotobuch/\n*.pdf\nfinal.typ\n",
+            ".fotobuch/\n*.pdf\nfinal.typ\nlog*\n",
         )
         .unwrap();
         let state = make_state("Urlaub");
