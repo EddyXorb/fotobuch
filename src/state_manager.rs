@@ -241,7 +241,7 @@ impl StateManager {
             .with_context(|| format!("Failed to load {}", yaml_path.display()))?;
 
         if let Err(e) = state.check_validity() {
-            error!("State is invalid! Reason(s): {e}");
+            error!("State is invalid after open! Reason(s): {e}");
         }
 
         // Store raw config value for the config command
@@ -357,7 +357,7 @@ impl StateManager {
 
     fn finish_internal(mut self, message: &str, always_commit: bool) -> Result<()> {
         if let Err(e) = self.state.check_validity() {
-            error!("State is invalid! Reason(s): {e}");
+            error!("State is invalid before commit! Reason(s): {e}");
         }
         let diff = StateDiff::compute(&self.baseline, &self.state);
 

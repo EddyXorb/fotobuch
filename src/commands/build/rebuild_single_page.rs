@@ -7,18 +7,16 @@ use anyhow::Result;
 use std::collections::HashMap;
 
 /// Rebuilds a single page using the SinglePage solver.
-/// Page number is 1-based, converted to 0-based index internally.
+/// Page index is 0-based and does not consider the page_nr in the layout.
 pub fn rebuild_single_page(
     state: &mut crate::dto_models::ProjectState,
-    page_num: usize,
+    page_idx: usize,
     photo_index: &HashMap<String, (PhotoFile, String)>,
 ) -> Result<()> {
-    let page_idx = page_num - 1;
-
     if page_idx >= state.layout.len() {
         anyhow::bail!(
             "Page {} does not exist (layout has {} pages)",
-            page_num,
+            page_idx,
             state.layout.len()
         );
     }
@@ -33,11 +31,11 @@ pub fn rebuild_single_page(
         .collect();
 
     if files.is_empty() {
-        anyhow::bail!("Page {} has no valid photos", page_num);
+        anyhow::bail!("Page {} has no valid photos", page_idx);
     }
 
     let group = PhotoGroup {
-        group: format!("page_{}", page_num),
+        group: format!("page_{}", page_idx),
         sort_key: String::new(),
         files,
     };
@@ -54,7 +52,7 @@ pub fn rebuild_single_page(
     let result = run_solver(&request)?;
 
     if result.is_empty() {
-        anyhow::bail!("Solver returned no result for page {}", page_num);
+        anyhow::bail!("Solver returned no result for page {}", page_idx);
     }
 
     state.layout[page_idx].slots = result[0].slots.clone();
