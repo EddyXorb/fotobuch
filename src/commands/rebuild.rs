@@ -125,7 +125,7 @@ fn rebuild_single(mut mgr: StateManager, project_root: &Path, page: usize) -> Re
 
     // 2. Solver — reuse rebuild_single_page from build module
     let photo_index = build_photo_index(&mgr.state.photos);
-    rebuild_single_page(&mut mgr.state, page, &photo_index)?;
+    rebuild_single_page(&mut mgr.state, page - 1, &photo_index)?;
 
     // 3. Typst kompilieren
     let bleed_mm = mgr.state.config.book.bleed_mm;
