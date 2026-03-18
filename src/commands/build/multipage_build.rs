@@ -3,7 +3,7 @@ use super::helpers::update_preview_pdf;
 use crate::cache::preview;
 use crate::dto_models::{BookLayoutSolverConfig, LayoutPage, PhotoGroup};
 use crate::solver::{Request, RequestType, run_solver};
-use crate::state_manager::StateManager;
+use crate::state_manager::{StateManager, renumber_pages};
 use anyhow::Result;
 use std::path::Path;
 use std::sync::atomic::AtomicUsize;
@@ -97,11 +97,4 @@ pub fn multipage_build(
         dpi_warnings: Vec::new(),
         nothing_to_do: false,
     })
-}
-
-/// Nummeriert alle LayoutPage.page Felder sequenziell (1-basiert).
-fn renumber_pages(layout: &mut [LayoutPage]) {
-    for (i, page) in layout.iter_mut().enumerate() {
-        page.page = i + 1;
-    }
 }

@@ -244,7 +244,7 @@ pub fn status(project_root: &Path, config: &StatusConfig) -> Result<StatusReport
     } else if !mgr.has_changes_since_last_build() {
         (ProjectState_::Clean, vec![])
     } else {
-        let modified = mgr.modified_pages();
+        let modified = mgr.outdated_pages();
         if modified.is_empty() {
             (ProjectState_::Clean, vec![])
         } else {
@@ -259,7 +259,7 @@ pub fn status(project_root: &Path, config: &StatusConfig) -> Result<StatusReport
     let modified_pages = if mgr.state.layout.is_empty() {
         vec![]
     } else {
-        mgr.modified_pages()
+        mgr.outdated_pages()
     };
 
     let detail = config

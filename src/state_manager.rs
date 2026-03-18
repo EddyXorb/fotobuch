@@ -19,6 +19,13 @@ use tracing::error;
 use crate::dto_models::{LayoutPage, PhotoGroup, ProjectState};
 use crate::git;
 
+/// Nummeriert alle LayoutPage.page Felder sequenziell (1-basiert).
+pub fn renumber_pages(layout: &mut [LayoutPage]) {
+    for (i, page) in layout.iter_mut().enumerate() {
+        page.page = i + 1;
+    }
+}
+
 // ── StateDiff ────────────────────────────────────────────────────────────────
 
 /// Summary of differences between two [`ProjectState`] snapshots.
@@ -315,22 +322,17 @@ impl StateManager {
         }
     }
 
-    /// Returns the 1-based page numbers that were modified since the last build commit.
+    /// Returns the 1-based page numbers that were outdated since the last build commit.
     ///
     /// Falls back to comparing against `baseline` when no build commit exists.
-    ///
-    /// A page is considered modified if:
-    /// - The list of photos changed
-    /// - Any photo's aspect ratio changed (width/height)
-    /// - Any photo's area_weight changed
-    pub fn modified_pages(&self) -> Vec<usize> {
+    pub fn outdated_pages(&self) -> Vec<usize> {
         self.ensure_build_baseline();
         let baseline_ref = self.build_baseline.borrow();
         let reference = match &*baseline_ref {
             LazyLoad::Loaded(s) => s,
             _ => &self.baseline,
         };
-        compute_modified_pages(reference, &self.state)
+        compute_outdated_pages(reference, &self.state)
     }
 
     /// Save YAML and commit if `state` changed since `open()`. Consumes the manager.
@@ -514,9 +516,13 @@ fn load_raw_config(yaml_path: &Path) -> Result<Value> {
 
 /// Computes which 1-based page numbers in `new` differ from `reference`.
 ///
-/// A page is considered modified if its photo list changed, any photo's
-/// aspect ratio changed, or any photo's `area_weight` changed.
-fn compute_modified_pages(reference: &ProjectState, new: &ProjectState) -> Vec<usize> {
+/// A page is considered outdated if
+/// - its photo list contains more or less photos than before
+/// - any photo in the page has changed metadata (same ID but different aspect ratio or area_weight)
+/// - any photo in the page is assigned to a slot whose aspect ratio does not respect the photos aspect ratio
+/// 
+/// It does not matter if the pages are swapped/reordered somehow, as long as the above constraints are met.
+fn compute_outdated_pages(reference: &ProjectState, new: &ProjectState) -> Vec<usize> {
     let mut modified = Vec::new();
 
     let ref_photo_map: std::collections::HashMap<&str, &crate::dto_models::PhotoFile> = reference
@@ -531,10 +537,8 @@ fn compute_modified_pages(reference: &ProjectState, new: &ProjectState) -> Vec<u
         .flat_map(|g| g.files.iter().map(|f| (f.id.as_str(), f)))
         .collect();
 
-    for (idx, new_page) in new.layout.iter().enumerate() {
-        let page_num = idx + 1;
-
-        if let Some(ref_page) = reference.layout.get(idx) {
+    for (page_num, new_page) in new.layout.iter().map(|page| (page.page, page)) {
+        if let Some(ref_page) = reference.layout.get(page_num - 1) {
             if ref_page.photos != new_page.photos {
                 modified.push(page_num);
                 continue;
