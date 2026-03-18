@@ -45,7 +45,10 @@ pub fn release_build(mgr: StateManager, project_root: &Path) -> Result<super::Bu
 
     // Print DPI warnings
     if !final_result.dpi_warnings.is_empty() {
-        warn!("\nWARNING: Some photos will be displayed below {:.0} DPI:", dpi);
+        warn!(
+            "\nWARNING: Some photos will be displayed below {:.0} DPI:",
+            dpi
+        );
         for warning in &final_result.dpi_warnings {
             warn!(
                 "  Page {}: {} - {:.1} DPI ({}x{} px in {:.1}x{:.1} mm slot)",

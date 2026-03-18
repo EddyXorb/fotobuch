@@ -9,6 +9,8 @@
 //! - Saving + committing on `finish()` / `finish_always()`
 //! - Warning in `Drop` when programmatic changes were never committed
 
+mod page_change_detection;
+
 use anyhow::{Context, Result, bail};
 use serde_yaml::Value;
 use std::cell::RefCell;
@@ -332,7 +334,7 @@ impl StateManager {
             LazyLoad::Loaded(s) => s,
             _ => &self.baseline,
         };
-        compute_outdated_pages(reference, &self.state)
+        page_change_detection::compute_outdated_pages(reference, &self.state)
     }
 
     /// Save YAML and commit if `state` changed since `open()`. Consumes the manager.
@@ -512,61 +514,6 @@ fn load_raw_config(yaml_path: &Path) -> Result<Value> {
             .unwrap_or(Value::Null),
         _ => bail!("YAML root is not a mapping"),
     })
-}
-
-/// Computes which 1-based page numbers in `new` differ from `reference`.
-///
-/// A page is considered outdated if
-/// - its photo list contains more or less photos than before
-/// - any photo in the page has changed metadata (same ID but different aspect ratio or area_weight)
-/// - any photo in the page is assigned to a slot whose aspect ratio does not respect the photos aspect ratio
-/// 
-/// It does not matter if the pages are swapped/reordered somehow, as long as the above constraints are met.
-fn compute_outdated_pages(reference: &ProjectState, new: &ProjectState) -> Vec<usize> {
-    let mut modified = Vec::new();
-
-    let ref_photo_map: std::collections::HashMap<&str, &crate::dto_models::PhotoFile> = reference
-        .photos
-        .iter()
-        .flat_map(|g| g.files.iter().map(|f| (f.id.as_str(), f)))
-        .collect();
-
-    let new_photo_map: std::collections::HashMap<&str, &crate::dto_models::PhotoFile> = new
-        .photos
-        .iter()
-        .flat_map(|g| g.files.iter().map(|f| (f.id.as_str(), f)))
-        .collect();
-
-    for (page_num, new_page) in new.layout.iter().map(|page| (page.page, page)) {
-        if let Some(ref_page) = reference.layout.get(page_num - 1) {
-            if ref_page.photos != new_page.photos {
-                modified.push(page_num);
-                continue;
-            }
-
-            let metadata_changed = new_page.photos.iter().any(|photo_id| {
-                let new_photo = new_photo_map.get(photo_id.as_str());
-                let ref_photo = ref_photo_map.get(photo_id.as_str());
-
-                match (ref_photo, new_photo) {
-                    (Some(old), Some(new)) => {
-                        let old_ratio = old.width_px as f64 / old.height_px as f64;
-                        let new_ratio = new.width_px as f64 / new.height_px as f64;
-                        (old_ratio - new_ratio).abs() > 0.001 || old.area_weight != new.area_weight
-                    }
-                    _ => true,
-                }
-            });
-
-            if metadata_changed {
-                modified.push(page_num);
-            }
-        } else {
-            modified.push(page_num);
-        }
-    }
-
-    modified
 }
 
 // ── tests ─────────────────────────────────────────────────────────────────────
