@@ -29,7 +29,7 @@ pub fn incremental_build(
     }
 
     // 2. Detect which pages need rebuilding
-    let pages_needing_rebuild = mgr.modified_pages();
+    let pages_needing_rebuild = mgr.outdated_pages();
 
     // 3. Apply page filter if specified
     let pages_needing_rebuild = apply_page_filter(pages_needing_rebuild, page_filter);
