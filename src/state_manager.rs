@@ -366,6 +366,8 @@ impl StateManager {
             return Ok(());
         }
 
+        renumber_pages(&mut self.state.layout);
+
         let yaml_name = format!("{}.yaml", self.project_name);
         self.state
             .save(&self.project_root.join(&yaml_name))
