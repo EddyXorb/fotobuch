@@ -4,6 +4,7 @@ use anyhow::{Context, Result};
 use lopdf::{Document, Object};
 use std::fs;
 use std::path::{Path, PathBuf};
+use tracing::info;
 use typst::diag::{FileError, FileResult};
 use typst::foundations::{Bytes, Datetime};
 use typst::syntax::{FileId, Source, VirtualPath};
@@ -138,6 +139,12 @@ fn add_pdf_boxes(pdf_bytes: &[u8], bleed_mm: f64) -> Result<Vec<u8>> {
     let mut output = Vec::new();
     doc.save_to(&mut output)
         .map_err(|e| anyhow::anyhow!("Failed to write PDF with boxes: {e}"))?;
+
+    info!(
+        "Added TrimBox and BleedBox with bleed of {:.1} mm ({:.2} pt)",
+        bleed_mm, bleed_pt
+    );
+
     Ok(output)
 }
 
