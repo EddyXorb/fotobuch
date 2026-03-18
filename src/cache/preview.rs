@@ -48,7 +48,7 @@ pub fn ensure_previews(
         let source = Path::new(&photo.source);
         let cached = preview_path(preview_cache_dir, &photo.id);
 
-        if is_cache_fresh(source, &cached) {
+        if is_cache_fresh(source, &cached, None) {
             skipped.fetch_add(1, Ordering::Relaxed);
         } else {
             let (target_width, target_height) =

@@ -75,8 +75,8 @@ pub fn build_final_cache(
                 });
             }
 
-            // Generate final image if missing or stale
-            if !is_cache_fresh(source, &cached) {
+            // Generate final image if missing, stale, or dimensions don't match
+            if !is_cache_fresh(source, &cached, Some((target_w, target_h))) {
                 resize_and_save(source, &cached, target_w, target_h, 95)?;
                 created.fetch_add(1, Ordering::Relaxed);
             }
