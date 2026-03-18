@@ -35,14 +35,24 @@ pub fn final_path(cache_base: &Path, photo_id: &str) -> PathBuf {
 }
 
 /// Checks if cached image is fresh (exists and newer than source).
-/// Returns true if cached exists and has mtime >= source mtime.
-pub fn is_cache_fresh(source: &Path, cached: &Path) -> bool {
+/// Optionally validates that cached dimensions match expected dimensions.
+///
+/// # Arguments
+/// * `source` - Path to source image
+/// * `cached` - Path to cached image
+/// * `target_dim` - Optional expected dimensions (width, height). If provided, verifies
+///   the cached image has matching dimensions. Use `None` to skip dimension check.
+///
+/// Returns true if:
+/// - Cached exists and has mtime >= source mtime
+/// - If target_dim is Some: cached dimensions must also match exactly
+pub fn is_cache_fresh(source: &Path, cached: &Path, target_dim: Option<(u32, u32)>) -> bool {
     if !cached.exists() {
         return false;
     }
 
     // Compare modification times
-    match (fs::metadata(source), fs::metadata(cached)) {
+    let mtime_ok = match (fs::metadata(source), fs::metadata(cached)) {
         (Ok(src_meta), Ok(cache_meta)) => {
             if let (Ok(src_time), Ok(cache_time)) = (src_meta.modified(), cache_meta.modified()) {
                 cache_time >= src_time
@@ -51,6 +61,24 @@ pub fn is_cache_fresh(source: &Path, cached: &Path) -> bool {
             }
         }
         _ => false,
+    };
+
+    if !mtime_ok {
+        return false;
+    }
+
+    // Check dimensions if target_dim provided
+    if let Some((target_w, target_h)) = target_dim {
+        match ImageReader::open(cached)
+            .ok()
+            .and_then(|reader| reader.into_decoder().ok())
+            .map(|decoder| decoder.dimensions())
+        {
+            Some((cached_w, cached_h)) => cached_w == target_w && cached_h == target_h,
+            None => false,
+        }
+    } else {
+        true
     }
 }
 
@@ -177,7 +205,7 @@ mod tests {
 
         fs::write(&source, b"test").unwrap();
 
-        assert!(!is_cache_fresh(&source, &cached));
+        assert!(!is_cache_fresh(&source, &cached, None));
     }
 
     #[test]
@@ -190,7 +218,7 @@ mod tests {
         thread::sleep(Duration::from_millis(10));
         fs::write(&cached, b"cached").unwrap();
 
-        assert!(is_cache_fresh(&source, &cached));
+        assert!(is_cache_fresh(&source, &cached, None));
     }
 
     #[test]
@@ -203,7 +231,7 @@ mod tests {
         thread::sleep(Duration::from_millis(10));
         fs::write(&source, b"test").unwrap();
 
-        assert!(!is_cache_fresh(&source, &cached));
+        assert!(!is_cache_fresh(&source, &cached, None));
     }
 
     #[test]
@@ -224,5 +252,65 @@ mod tests {
         let resized = image::open(&target).unwrap();
         assert_eq!(resized.width(), 50);
         assert_eq!(resized.height(), 50);
+    }
+
+    #[test]
+    fn test_is_cache_fresh_dimension_mismatch() {
+        let temp = TempDir::new().unwrap();
+        let source = temp.path().join("source.jpg");
+        let cached = temp.path().join("cached.jpg");
+
+        // Create source image
+        let img = image::RgbImage::from_fn(100, 100, |_, _| image::Rgb([255, 0, 0]));
+        img.save_with_format(&source, ImageFormat::Jpeg).unwrap();
+
+        thread::sleep(Duration::from_millis(10));
+
+        // Create cached image with different dimensions (50x50)
+        let img = image::RgbImage::from_fn(50, 50, |_, _| image::Rgb([0, 255, 0]));
+        img.save_with_format(&cached, ImageFormat::Jpeg).unwrap();
+
+        // Should be false because dimensions don't match (100, 100) != (50, 50)
+        assert!(!is_cache_fresh(&source, &cached, Some((100, 100))));
+    }
+
+    #[test]
+    fn test_is_cache_fresh_dimension_match() {
+        let temp = TempDir::new().unwrap();
+        let source = temp.path().join("source.jpg");
+        let cached = temp.path().join("cached.jpg");
+
+        // Create source image
+        let img = image::RgbImage::from_fn(100, 100, |_, _| image::Rgb([255, 0, 0]));
+        img.save_with_format(&source, ImageFormat::Jpeg).unwrap();
+
+        thread::sleep(Duration::from_millis(10));
+
+        // Create cached image with matching dimensions (100, 100)
+        let img = image::RgbImage::from_fn(100, 100, |_, _| image::Rgb([0, 255, 0]));
+        img.save_with_format(&cached, ImageFormat::Jpeg).unwrap();
+
+        // Should be true: mtime ok and dimensions match
+        assert!(is_cache_fresh(&source, &cached, Some((100, 100))));
+    }
+
+    #[test]
+    fn test_is_cache_fresh_skip_dimension_check() {
+        let temp = TempDir::new().unwrap();
+        let source = temp.path().join("source.jpg");
+        let cached = temp.path().join("cached.jpg");
+
+        // Create source image
+        let img = image::RgbImage::from_fn(100, 100, |_, _| image::Rgb([255, 0, 0]));
+        img.save_with_format(&source, ImageFormat::Jpeg).unwrap();
+
+        thread::sleep(Duration::from_millis(10));
+
+        // Create cached image with different dimensions
+        let img = image::RgbImage::from_fn(50, 50, |_, _| image::Rgb([0, 255, 0]));
+        img.save_with_format(&cached, ImageFormat::Jpeg).unwrap();
+
+        // Should be true because target_dim is None (skip dimension check)
+        assert!(is_cache_fresh(&source, &cached, None));
     }
 }
