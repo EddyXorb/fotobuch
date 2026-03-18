@@ -221,7 +221,7 @@ mod tests {
             let deviation = (count as i32 - self.ideal_count as i32).abs() as f64;
             let total = deviation * 0.2;
             let breakdown = CostBreakdown {
-                total: total,
+                total,
                 size: 0.01,
                 coverage: 0.1,
                 barycenter: 0.01,
