@@ -7,7 +7,10 @@ use anyhow::Result;
 use std::collections::HashMap;
 
 /// Rebuilds a single page using the SinglePage solver.
-/// Page index is 0-based and does not consider the page_nr in the layout.
+///
+/// # Arguments
+/// * `page_idx` - **0-based** index into `state.layout` (e.g., 0 = first page, 1 = second page).
+///   This does NOT consider the `page_nr` field in the layout.
 pub fn rebuild_single_page(
     state: &mut crate::dto_models::ProjectState,
     page_idx: usize,
