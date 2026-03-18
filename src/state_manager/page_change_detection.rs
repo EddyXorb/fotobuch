@@ -5,13 +5,14 @@ use std::collections::{BTreeSet, HashMap, HashSet};
 
 const ASPECT_RATIO_THRESHOLD: f64 = 0.001;
 
-/// Computes which 1-based page numbers in `new` differ from `reference`.
+/// Computes which pages (by array index in `new.layout`) differ from `reference`.
 ///
 /// A page is considered unchanged only if:
 /// - No photo metadata changes (aspect ratio or area_weight)
 /// - Page slot structure matches previous state exactly (position & dimensions)
 /// - Each slot's aspect ratio matches its corresponding photo's aspect ratio
 ///
+/// Returns 0-based indices of pages in the `new.layout` array that are outdated.
 /// It does not matter if pages are reordered in position, as long as the above
 /// constraints are met.
 pub fn compute_outdated_pages(reference: &ProjectState, new: &ProjectState) -> Vec<usize> {
@@ -29,10 +30,10 @@ pub fn compute_outdated_pages(reference: &ProjectState, new: &ProjectState) -> V
     let changed_photos = find_changed_photos(reference, new, &ref_photo_metadata);
 
     // Phase 2: Evaluate each new page
-    for new_page in &new.layout {
+    for (page_index, new_page) in new.layout.iter().enumerate() {
         // 1. Check if any photo is in changed_photos
         if new_page.photos.iter().any(|id| changed_photos.contains(id)) {
-            outdated.push(new_page.page);
+            outdated.push(page_index);
             continue;
         }
 
@@ -42,7 +43,7 @@ pub fn compute_outdated_pages(reference: &ProjectState, new: &ProjectState) -> V
             Some(indices) => indices,
             None => {
                 // Page's photo set doesn't exist in reference
-                outdated.push(new_page.page);
+                outdated.push(page_index);
                 continue;
             }
         };
@@ -58,13 +59,13 @@ pub fn compute_outdated_pages(reference: &ProjectState, new: &ProjectState) -> V
         });
 
         if matching_ref_page.is_none() {
-            outdated.push(new_page.page);
+            outdated.push(page_index);
             continue;
         }
 
         // 3. Validate slot count matches photo count
         if new_page.slots.len() != new_page.photos.len() {
-            outdated.push(new_page.page);
+            outdated.push(page_index);
             continue;
         }
 
@@ -91,7 +92,7 @@ pub fn compute_outdated_pages(reference: &ProjectState, new: &ProjectState) -> V
 
         // If any AR validation failed, mark page as outdated
         if !page_valid {
-            outdated.push(new_page.page);
+            outdated.push(page_index);
             continue;
         }
 
@@ -289,7 +290,7 @@ mod tests {
         }];
 
         let outdated = compute_outdated_pages(&reference, &new);
-        assert_eq!(outdated, vec![1]);
+        assert_eq!(outdated, vec![0]); // Index 0 in new.layout
     }
 
     #[test]
@@ -320,7 +321,7 @@ mod tests {
         }];
 
         let outdated = compute_outdated_pages(&reference, &new);
-        assert_eq!(outdated, vec![1]);
+        assert_eq!(outdated, vec![0]); // Index 0 in new.layout
     }
 
     #[test]
@@ -340,7 +341,7 @@ mod tests {
         let new = make_state("new", vec![page_new]);
 
         let outdated = compute_outdated_pages(&reference, &new);
-        assert_eq!(outdated, vec![1]);
+        assert_eq!(outdated, vec![0]); // Index 0 in new.layout
     }
 
     #[test]
@@ -360,7 +361,7 @@ mod tests {
         let new = make_state("new", vec![page_new]);
 
         let outdated = compute_outdated_pages(&reference, &new);
-        assert_eq!(outdated, vec![1]);
+        assert_eq!(outdated, vec![0]); // Index 0 in new.layout
     }
 
     #[test]
@@ -383,7 +384,7 @@ mod tests {
         let new = make_state("new", vec![page_new]);
 
         let outdated = compute_outdated_pages(&reference, &new);
-        assert_eq!(outdated, vec![1]);
+        assert_eq!(outdated, vec![0]); // Index 0 in new.layout
     }
 
     #[test]
@@ -513,7 +514,7 @@ mod tests {
         }];
 
         let outdated = compute_outdated_pages(&reference, &new);
-        assert_eq!(outdated, vec![2]); // Page 1 matches page1_ref (same slots), page 2 has different photos
+        assert_eq!(outdated, vec![1]); // Index 1 (second page) has different photos
     }
 
     #[test]
@@ -536,7 +537,7 @@ mod tests {
         let new = make_state("new", vec![page_new]);
 
         let outdated = compute_outdated_pages(&reference, &new);
-        assert_eq!(outdated, vec![1]);
+        assert_eq!(outdated, vec![0]); // Index 0 in new.layout
     }
 
     #[test]
@@ -567,7 +568,7 @@ mod tests {
         }];
 
         let outdated = compute_outdated_pages(&reference, &new);
-        assert_eq!(outdated, vec![1]); // Slot AR (1.5) != photo AR (1.0)
+        assert_eq!(outdated, vec![0]); // Index 0 - Slot AR (1.5) != photo AR (1.0)
     }
 
     #[test]
@@ -599,7 +600,7 @@ mod tests {
 
         let outdated = compute_outdated_pages(&reference, &new);
         // Slot AR differs, should be outdated (slots don't match exactly)
-        assert_eq!(outdated, vec![1]);
+        assert_eq!(outdated, vec![0]); // Index 0
     }
 
     #[test]
@@ -614,7 +615,7 @@ mod tests {
         let new = make_state("new", vec![page]);
 
         let outdated = compute_outdated_pages(&reference, &new);
-        assert_eq!(outdated, vec![1]); // No pages in reference
+        assert_eq!(outdated, vec![0]); // Index 0 - No pages in reference
     }
 
     #[test]

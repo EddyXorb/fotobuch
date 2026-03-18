@@ -63,8 +63,8 @@ pub fn incremental_build(
     let photo_index = build_photo_index(&mgr.state.photos);
 
     // 5. Rebuild each modified page
-    for &page_num in &pages_needing_rebuild {
-        rebuild_single_page(&mut mgr.state, page_num, &photo_index)?;
+    for &page_idx in &pages_needing_rebuild {
+        rebuild_single_page(&mut mgr.state, page_idx, &photo_index)?;
     }
 
     // 7. Save state and commit
