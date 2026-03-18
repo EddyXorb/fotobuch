@@ -3,7 +3,6 @@
 //! Provides the main GeneticAlgorithm struct that orchestrates evolution
 //! across multiple islands in parallel using the Rayon library.
 
-
 use super::config::Config;
 use super::evolution::{EvolutionDynamic, Island, World};
 use super::individual::Individual;

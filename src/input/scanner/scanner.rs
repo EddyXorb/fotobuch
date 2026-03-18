@@ -178,10 +178,10 @@ impl Scanner {
         if !self.filters.xmp_filters.is_empty()
             && !xmp::xmp_matches_all(Path::new(&full_path), &self.filters.xmp_filters)
                 .unwrap_or(true)
-            {
-                self.stats.xmp_filtered += 1;
-                return None;
-            }
+        {
+            self.stats.xmp_filtered += 1;
+            return None;
+        }
 
         let mut photo = PhotoFile {
             id: format!("{group_name}/{filename}"),

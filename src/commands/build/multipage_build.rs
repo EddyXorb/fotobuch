@@ -1,7 +1,7 @@
 use super::BuildResult;
 use super::helpers::update_preview_pdf;
 use crate::cache::preview;
-use crate::dto_models::{BookLayoutSolverConfig, LayoutPage, PhotoGroup};
+use crate::dto_models::{BookLayoutSolverConfig, PhotoGroup};
 use crate::solver::{Request, RequestType, run_solver};
 use crate::state_manager::{StateManager, renumber_pages};
 use anyhow::Result;
