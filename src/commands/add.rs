@@ -216,11 +216,9 @@ mod tests {
     #[test]
     fn test_source_filter_matches() {
         let filter = Regex::new("vacation").unwrap();
-        let files = vec![
-            make_photo("a.jpg", "/photos/vacation/a.jpg"),
+        let files = [make_photo("a.jpg", "/photos/vacation/a.jpg"),
             make_photo("b.jpg", "/photos/work/b.jpg"),
-            make_photo("c.jpg", "/vacation/c.jpg"),
-        ];
+            make_photo("c.jpg", "/vacation/c.jpg")];
 
         let matched: Vec<_> = files
             .iter()
@@ -234,11 +232,9 @@ mod tests {
     #[test]
     fn test_source_filter_with_complex_pattern() {
         let filter = Regex::new(r"\.jpg$").unwrap();
-        let files = vec![
-            make_photo("a.jpg", "/photos/a.jpg"),
+        let files = [make_photo("a.jpg", "/photos/a.jpg"),
             make_photo("b.png", "/photos/b.png"),
-            make_photo("c.jpg", "/photos/c.jpg"),
-        ];
+            make_photo("c.jpg", "/photos/c.jpg")];
 
         let matched: Vec<_> = files
             .iter()
@@ -250,11 +246,9 @@ mod tests {
     #[test]
     fn test_source_filter_case_insensitive() {
         let filter = Regex::new("(?i)vacation").unwrap();
-        let files = vec![
-            make_photo("a.jpg", "/photos/Vacation/a.jpg"),
+        let files = [make_photo("a.jpg", "/photos/Vacation/a.jpg"),
             make_photo("b.jpg", "/photos/VACATION/b.jpg"),
-            make_photo("c.jpg", "/photos/work/c.jpg"),
-        ];
+            make_photo("c.jpg", "/photos/work/c.jpg")];
 
         let matched: Vec<_> = files
             .iter()
