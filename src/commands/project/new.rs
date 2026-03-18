@@ -124,7 +124,7 @@ fn create_first_project(parent_dir: &Path, config: &NewConfig) -> Result<NewResu
 
     // 3. Write .gitignore
     let gitignore_path = project_root.join(".gitignore");
-    let gitignore_content = ".fotobuch/\n*.pdf\nfinal.typ\n";
+    let gitignore_content = ".fotobuch/\n*.pdf\nfinal.typ\nlog*\n";
     fs::write(&gitignore_path, gitignore_content)
         .with_context(|| format!("Failed to write .gitignore to {:?}", gitignore_path))?;
 
@@ -293,6 +293,7 @@ mod tests {
         assert!(content.contains(".fotobuch/"));
         assert!(content.contains("*.pdf"));
         assert!(content.contains("final.typ"));
+        assert!(content.contains("log*"));
     }
 
     #[test]
