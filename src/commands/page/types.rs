@@ -97,6 +97,7 @@ pub enum ValidationError {
     SwapNonContiguous,
     CombineSinglePage(u32),
     SplitAtFirstSlot(u32),
+    WeightOutOfRange(f64),
 }
 
 impl std::fmt::Display for ValidationError {
@@ -116,6 +117,7 @@ impl std::fmt::Display for ValidationError {
             Self::SplitAtFirstSlot(p) => {
                 write!(f, "cannot split at first slot (would leave page {p} empty)")
             }
+            Self::WeightOutOfRange(w) => write!(f, "weight {w} is out of range (must be > 0)"),
         }
     }
 }
@@ -159,6 +161,54 @@ pub struct PageMoveResult {
     pub pages_inserted: Vec<u32>,
     /// Pages that were deleted, 1-based (original numbers before deletion).
     pub pages_deleted: Vec<u32>,
+}
+
+// ── Info/Weight address types ─────────────────────────────────────────────────
+
+/// Address for `page weight`: either all slots on a page or specific slots.
+#[derive(Debug, Clone, PartialEq)]
+pub enum WeightAddress {
+    Page(u32),
+    Slots { page: u32, slots: SlotExpr },
+}
+
+/// Filter flags for `page info` output.
+#[derive(Debug, Clone, Default)]
+pub struct InfoFilter {
+    pub weights: bool,
+    pub ids: bool,
+    pub pixels: bool,
+}
+
+impl InfoFilter {
+    /// Returns true when no specific flag is set (show all fields).
+    pub fn is_all(&self) -> bool {
+        !self.weights && !self.ids && !self.pixels
+    }
+}
+
+/// Per-slot info record returned by `execute_info`.
+#[derive(Debug, Clone)]
+pub struct SlotInfo {
+    /// 1-based page number.
+    pub page: u32,
+    /// 1-based slot number.
+    pub slot: u32,
+    pub id: String,
+    pub source: String,
+    pub width_px: u32,
+    pub height_px: u32,
+    pub area_weight: f64,
+    /// Placement box; `None` when the page has not been built yet.
+    pub placement: Option<crate::dto_models::Slot>,
+    /// Total number of slots on this page (for `N/total` header).
+    pub total_page_slots: usize,
+}
+
+/// Result of `execute_info`.
+#[derive(Debug)]
+pub struct PageInfoResult {
+    pub slots: Vec<SlotInfo>,
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────

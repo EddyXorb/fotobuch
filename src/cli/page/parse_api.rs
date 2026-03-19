@@ -1,6 +1,6 @@
 //! Public parsing functions — the API surface of the page CLI parser.
 
-use fotobuch::commands::page::{DstSwap, PageMoveCmd, PagesExpr, SlotExpr, Src};
+use fotobuch::commands::page::{DstSwap, PageMoveCmd, PagesExpr, SlotExpr, Src, WeightAddress};
 
 use super::lexer::tokenize;
 use super::parser::Parser;
@@ -72,6 +72,35 @@ pub fn parse_unplace_addr(raw: &str) -> Result<(u32, SlotExpr), ParseError> {
     }
     let slots = parser.parse_slot_expr()?;
     Ok((page, slots))
+}
+
+/// Parse a `page info` address — same grammar as `src`.
+pub fn parse_info_address(raw: &str) -> Result<Src, ParseError> {
+    let tokens = tokenize(raw)?;
+    let mut parser = Parser::new(tokens);
+    parser.parse_src()
+}
+
+/// Parse a `page weight` address: `"PAGE"` or `"PAGE:SLOT_EXPR"`.
+pub fn parse_weight_address(raw: &str) -> Result<WeightAddress, ParseError> {
+    let tokens = tokenize(raw)?;
+    let mut parser = Parser::new(tokens);
+    let page = parser.expect_number("page number")?;
+    if parser.is_at_end() {
+        return Ok(WeightAddress::Page(page));
+    }
+    match parser.advance() {
+        Some(super::tokens::Token::Colon) => {}
+        Some(t) => {
+            return Err(ParseError::UnexpectedToken {
+                got: format!("{t:?}"),
+                expected: "':'",
+            })
+        }
+        None => return Err(ParseError::UnexpectedEnd { expected: "':'" }),
+    }
+    let slots = parser.parse_slot_expr()?;
+    Ok(WeightAddress::Slots { page, slots })
 }
 
 /// Parse a `page swap` pair: two address strings each being `src` / `dst_swap`.

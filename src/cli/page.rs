@@ -16,4 +16,7 @@ mod tokens;
 #[cfg(test)]
 mod tests;
 
-pub use handlers::{handle_combine, handle_move, handle_split, handle_swap, handle_unplace};
+pub use handlers::{
+    handle_combine, handle_info, handle_move, handle_split, handle_swap, handle_unplace,
+    handle_weight,
+};
