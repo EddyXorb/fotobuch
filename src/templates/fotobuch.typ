@@ -129,17 +129,17 @@
 
 // ── Page rendering blocks ────────────────────────────────────────────
 
-// Draws red bleed border and blue margin border as overlays
-#let draw_borders() = [
+// Draws red bleed border and blue margin border as overlays (w_mm/h_mm = content size without bleed)
+#let draw_borders(w_mm, h_mm) = [
   #place(top + left, dx: -(bleed / 2 + margin), dy: -(bleed / 2 + margin), rect(
-    width: data.config.book.page_width_mm * 1mm + bleed,
-    height: data.config.book.page_height_mm * 1mm + bleed,
+    width: w_mm * 1mm + bleed,
+    height: h_mm * 1mm + bleed,
     stroke: red + bleed,
     fill: none,
   ))
   #place(top + left, dx: -margin / 2, dy: -margin / 2, rect(
-    width: data.config.book.page_width_mm * 1mm - margin,
-    height: data.config.book.page_height_mm * 1mm - margin,
+    width: w_mm * 1mm - margin,
+    height: h_mm * 1mm - margin,
     stroke: (paint: blue, thickness: margin),
     fill: none,
   ))
@@ -261,15 +261,56 @@
 
 #let photo_ref = calc_photo_ref()
 
-#for (page_index, page_data) in data.layout.enumerate() [
-  #if show_borders_on_preview [#draw_borders()]
+// ── Cover page ───────────────────────────────────────────────────────
+#let cover_or_none = data.config.book.at("cover", default: none)
+#let has_cover = cover_or_none != none and cover_or_none.at("active", default: false)
+#let inner_page_count = if has_cover { data.layout.len() - 1 } else { data.layout.len() }
+#let cover_page_w = if has_cover { cover_or_none.at("page_width_mm", default: data.config.book.page_width_mm) } else { 0.0 }
+#let cover_page_h = if has_cover { cover_or_none.at("page_height_mm", default: data.config.book.page_height_mm) } else { 0.0 }
+#let spine_w = if has_cover { float(inner_page_count) / 10.0 * cover_or_none.spine_mm_per_10_pages } else { 0.0 }
+#let cover_total_w = if has_cover { 2.0 * cover_page_w + spine_w } else { 0.0 }
+#let spine_text_content = if has_cover { cover_or_none.at("spine_text", default: data.config.book.title) } else { "" }
+
+#if has_cover [
+  #[
+    #set page(
+      width: cover_total_w * 1mm + 2 * bleed,
+      height: cover_page_h * 1mm + 2 * bleed,
+      margin: bleed + margin,
+    )
+    #let cover_data = data.layout.at(0)
+    #if show_borders_on_preview [#draw_borders(cover_total_w, cover_page_h)]
+    #for (i, slot) in cover_data.slots.enumerate() [
+      #let photo_id = cover_data.photos.at(i, default: none)
+      #if photo_id != none [#render_photo(slot, i + 1, photo_id, photo_ref, photo_weight)]
+    ]
+    // Spine text — reads bottom-to-top
+    #place(top + left, dx: cover_page_w * 1mm, dy: 0mm,
+      box(width: spine_w * 1mm, height: cover_page_h * 1mm,
+        align(center + horizon,
+          rotate(-90deg, text(size: 12pt, spine_text_content))
+        )
+      )
+    )
+    #if not is_final [#render_preview_watermark("Cover")]
+    #pagebreak()
+  ]
+]
+
+// ── Inner pages ──────────────────────────────────────────────────────
+#let layout_start = if has_cover { 1 } else { 0 }
+
+#for page_index in range(layout_start, data.layout.len()) [
+  #let page_data = data.layout.at(page_index)
+  #if show_borders_on_preview [#draw_borders(data.config.book.page_width_mm, data.config.book.page_height_mm)]
 
   #for (i, slot) in page_data.slots.enumerate() [
     #let photo_id = page_data.photos.at(i, default: none)
     #if photo_id != none [#render_photo(slot, i + 1, photo_id, photo_ref, photo_weight)]
   ]
 
-  #if not is_final [#render_preview_watermark(page_index + 1)]
+  #let display_nr = page_index - layout_start + 1
+  #if not is_final [#render_preview_watermark(display_nr)]
 
   #if page_index < data.layout.len() - 1 or appendix_show [#pagebreak()]
 ]

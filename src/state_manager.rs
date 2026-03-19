@@ -21,10 +21,20 @@ use tracing::{error, warn};
 use crate::dto_models::{LayoutPage, PhotoGroup, ProjectState};
 use crate::git;
 
-/// Nummeriert alle LayoutPage.page Felder sequenziell (1-basiert).
-pub fn renumber_pages(layout: &mut [LayoutPage]) {
-    for (i, page) in layout.iter_mut().enumerate() {
-        page.page = i + 1;
+/// Nummeriert alle LayoutPage.page Felder.
+///
+/// Ohne Cover: 1-basiert (page = index + 1).
+/// Mit Cover: Cover bekommt page = 0, Innenseiten bleiben 1-basiert (page = index).
+/// Dadurch ändert das Hinzufügen eines Covers die Seitennummern der Innenseiten nicht.
+pub fn renumber_pages(layout: &mut [LayoutPage], has_cover: bool) {
+    if has_cover {
+        for (i, page) in layout.iter_mut().enumerate() {
+            page.page = i; // cover → 0, first inner page → 1, etc.
+        }
+    } else {
+        for (i, page) in layout.iter_mut().enumerate() {
+            page.page = i + 1;
+        }
     }
 }
 
@@ -359,7 +369,8 @@ impl StateManager {
         if let Err(e) = self.state.check_validity() {
             error!("State is invalid before commit! Reason(s): {e}");
         }
-        renumber_pages(&mut self.state.layout);
+        let has_cover = self.state.config.book.cover.as_ref().is_some_and(|c| c.active);
+        renumber_pages(&mut self.state.layout, has_cover);
         let diff = StateDiff::compute(&self.baseline, &self.state);
 
         if diff.is_empty() && !always_commit {
@@ -540,6 +551,7 @@ mod tests {
                     gap_mm: 5.0,
                     bleed_threshold_mm: 3.0,
                     dpi: 300.0,
+                    cover: None,
                 },
                 page_layout_solver: Default::default(),
                 preview: Default::default(),
