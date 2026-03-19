@@ -93,7 +93,11 @@ layout:
 - **Tausch innerhalb einer Seite:** Zwei Zeilen in `photos` tauschen, `slots` nicht anfassen. Fotos mit aehnlichem Ratio (Kommentar pruefen) sind problemlos tauschbar.
 - **Tausch ueber Seitengrenzen:** Zeile aus `photos` der einen Seite in die andere verschieben (gleicher Index im Ziel). Aehnliches Ratio = kein Rebuild noetig.
 - Bei Re-Optimierung einer Seite: Solver liest `layout[i].photos` -> findet Metadaten in `photos` (Top-Level) -> laesst GA laufen -> schreibt `layout[i].slots` neu. Die `photos`-Liste bleibt unangetastet.
-- `layout[].page`: ein counter, der nur für den benutzer da ist und dem index +1 in der liste entsprechend sollte; wird nicht fürs rendering verwendet und dient nur als info; d.h. änderungen daran durch benutzer ändern das fotobuch nicht. Wird nach jedem build/rebuild neu gesetzt
+- `layout[].page`: ein counter, der nur für den benutzer da ist; wird nicht fürs rendering verwendet. Wird nach jedem build/rebuild neu gesetzt. Nummerierungsregel:
+  - **Ohne Cover:** `page_nr = index + 1` (1-based)
+  - **Mit Cover:** Cover bekommt `page_nr = 0`, Innenseiten bleiben 1-based (`page_nr = index`)
+  - Invariante: das Hinzufügen eines Covers verschiebt die Seitennummern der Innenseiten **nicht**
+  - Konvertierung `page_nr → index`: wenn Cover existiert `index = page_nr`, sonst `index = page_nr - 1`
 - `hash`: wird bei jedem add für jedes photo berechnet und gesetzt. Der hash entsteht durch hashen der ersten und letzten 64 kb jeder datei mit blake3 (zur zeit)
 
 ## Cover
