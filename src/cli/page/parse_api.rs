@@ -9,11 +9,12 @@ use super::tokens::ParseError;
 /// Parse a `page move` raw argument string (joined from CLI args).
 ///
 /// Examples:
-/// - `"3:2 -> 5"`
-/// - `"3,4 -> 5"`
-/// - `"3:1..3,7 -> 4+"`
-/// - `"3:2 <> 5:6"`
-/// - `"3 <> 5"`
+/// - `"3:2 to 5"`
+/// - `"3,4 to 5"`
+/// - `"3:1..3,7 to 4+"`
+/// - `"3:2 ~ 5:6"`
+/// - `"3 ~ 5"`
+/// - `"3 out"`
 pub fn parse_move_cmd(raw: &str) -> Result<PageMoveCmd, ParseError> {
     let tokens = tokenize(raw)?;
     let mut parser = Parser::new(tokens);

@@ -8,8 +8,8 @@ pub enum Token {
     Comma,
     Range, // ".."
     Colon, // ":"
-    Arrow, // "->"
-    Swap,  // "<>"
+    To,    // "to"
+    Out,   // "out"
     Plus,  // "+"
 }
 
@@ -19,10 +19,10 @@ pub enum Token {
 pub enum ParseError {
     UnexpectedToken { got: String, expected: &'static str },
     MissingOperator,
-    MissingDestination,
     InvalidNumber(String),
     UnexpectedEnd { expected: &'static str },
     UnexpectedChar(char),
+    UnknownKeyword(String),
 }
 
 impl std::fmt::Display for ParseError {
@@ -31,13 +31,13 @@ impl std::fmt::Display for ParseError {
             Self::UnexpectedToken { got, expected } => {
                 write!(f, "unexpected '{got}', expected {expected}")
             }
-            Self::MissingOperator => write!(f, "missing operator ('->' or '<>')"),
-            Self::MissingDestination => write!(f, "missing destination after operator"),
+            Self::MissingOperator => write!(f, "missing operator ('to' or 'out')"),
             Self::InvalidNumber(s) => write!(f, "invalid number: '{s}'"),
             Self::UnexpectedEnd { expected } => {
                 write!(f, "unexpected end of input, expected {expected}")
             }
             Self::UnexpectedChar(c) => write!(f, "unexpected character '{c}'"),
+            Self::UnknownKeyword(w) => write!(f, "unknown keyword '{w}' (expected 'to' or 'out')"),
         }
     }
 }
