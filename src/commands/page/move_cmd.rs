@@ -166,6 +166,70 @@ fn execute_swap(
 ) -> Result<PageMoveResult, PageMoveError> {
     let mut mgr = StateManager::open(project_root)?;
 
+    // Multi-page swap: Pages × Pages — pairwise swap, equal counts, no overlap.
+    if let (Src::Pages(lpe), DstSwap::Pages(rpe)) = (&left, &right) {
+        let left_pages = &lpe.pages;
+        let right_pages = &rpe.pages;
+
+        if left_pages.len() != right_pages.len() {
+            return Err(ValidationError::SwapCountMismatch {
+                left: left_pages.len(),
+                right: right_pages.len(),
+            }
+            .into());
+        }
+
+        let left_set: std::collections::HashSet<u32> = left_pages.iter().copied().collect();
+        if right_pages.iter().any(|p| left_set.contains(p)) {
+            return Err(ValidationError::SwapRangesOverlap.into());
+        }
+
+        // Validate all page numbers exist.
+        for &p in left_pages.iter().chain(right_pages.iter()) {
+            page_idx(p, &mgr.state.layout)?;
+        }
+
+        // Snapshot (idx, photos) before mutating.
+        let left_pairs: Vec<(usize, Vec<String>)> = left_pages
+            .iter()
+            .map(|&p| {
+                let idx = page_idx(p, &mgr.state.layout).unwrap();
+                (idx, mgr.state.layout[idx].photos.clone())
+            })
+            .collect();
+        let right_pairs: Vec<(usize, Vec<String>)> = right_pages
+            .iter()
+            .map(|&p| {
+                let idx = page_idx(p, &mgr.state.layout).unwrap();
+                (idx, mgr.state.layout[idx].photos.clone())
+            })
+            .collect();
+
+        // Pairwise swap: left[i] ↔ right[i], clear slots on both sides.
+        for ((l_idx, l_photos), (r_idx, r_photos)) in left_pairs.iter().zip(right_pairs.iter()) {
+            mgr.state.layout[*l_idx].photos = r_photos.clone();
+            mgr.state.layout[*l_idx].slots.clear();
+            mgr.state.layout[*r_idx].photos = l_photos.clone();
+            mgr.state.layout[*r_idx].slots.clear();
+        }
+
+        let mut modified_pages: Vec<u32> = left_pairs
+            .iter()
+            .chain(right_pairs.iter())
+            .map(|(idx, _)| mgr.state.layout[*idx].page as u32)
+            .collect();
+        modified_pages.sort();
+        modified_pages.dedup();
+
+        mgr.finish("page swap")?;
+        return Ok(PageMoveResult {
+            pages_modified: modified_pages,
+            pages_inserted: vec![],
+            pages_deleted: vec![],
+        });
+    }
+
+    // Single-page / slot swap.
     let (left_photos, left_page_idx, left_slot_indices) =
         collect_src_photos_with_indices(&left, &mgr.state.layout)?;
     let (right_photos, right_page_idx, right_slot_indices) =
@@ -344,5 +408,76 @@ mod tests {
         let mgr = StateManager::open(tmp.path()).unwrap();
         assert_eq!(mgr.state.layout.len(), 3);
         mgr.finish("test: noop").unwrap();
+    }
+
+    #[test]
+    fn test_execute_swap_page_range_pairwise() {
+        let state = make_state_with_layout(vec![
+            vec!["a1.jpg", "a2.jpg"], // page 1
+            vec!["b1.jpg"],           // page 2
+            vec!["c1.jpg", "c2.jpg", "c3.jpg"], // page 3
+            vec!["d1.jpg"],           // page 4
+        ]);
+        let tmp = TempDir::new().unwrap();
+        setup_repo(&tmp, &state);
+
+        // Swap pages 1..2 with pages 3..4 → page 1 gets c*, page 2 gets d*, page 3 gets a*, page 4 gets b*
+        let cmd = PageMoveCmd::Swap {
+            left: Src::Pages(PagesExpr::from_range(1, 2)),
+            right: super::super::types::DstSwap::Pages(PagesExpr::from_range(3, 4)),
+        };
+        let result = execute_move(tmp.path(), cmd).unwrap();
+        assert_eq!(result.pages_modified, vec![1, 2, 3, 4]);
+
+        let mgr = StateManager::open(tmp.path()).unwrap();
+        assert_eq!(mgr.state.layout[0].photos, vec!["c1.jpg", "c2.jpg", "c3.jpg"]);
+        assert_eq!(mgr.state.layout[1].photos, vec!["d1.jpg"]);
+        assert_eq!(mgr.state.layout[2].photos, vec!["a1.jpg", "a2.jpg"]);
+        assert_eq!(mgr.state.layout[3].photos, vec!["b1.jpg"]);
+        // Slots should be cleared
+        assert!(mgr.state.layout[0].slots.is_empty());
+        mgr.finish("test: noop").unwrap();
+    }
+
+    #[test]
+    fn test_execute_swap_page_range_count_mismatch() {
+        let state = make_state_with_layout(vec![
+            vec!["a.jpg"],
+            vec!["b.jpg"],
+            vec!["c.jpg"],
+        ]);
+        let tmp = TempDir::new().unwrap();
+        setup_repo(&tmp, &state);
+
+        let cmd = PageMoveCmd::Swap {
+            left: Src::Pages(PagesExpr::from_range(1, 2)),
+            right: super::super::types::DstSwap::Pages(PagesExpr::single(3)),
+        };
+        let err = execute_move(tmp.path(), cmd).unwrap_err();
+        assert!(matches!(
+            err,
+            PageMoveError::Validation(ValidationError::SwapCountMismatch { left: 2, right: 1 })
+        ));
+    }
+
+    #[test]
+    fn test_execute_swap_page_range_overlap() {
+        let state = make_state_with_layout(vec![
+            vec!["a.jpg"],
+            vec!["b.jpg"],
+            vec!["c.jpg"],
+        ]);
+        let tmp = TempDir::new().unwrap();
+        setup_repo(&tmp, &state);
+
+        let cmd = PageMoveCmd::Swap {
+            left: Src::Pages(PagesExpr::from_range(1, 2)),
+            right: super::super::types::DstSwap::Pages(PagesExpr::from_range(2, 3)),
+        };
+        let err = execute_move(tmp.path(), cmd).unwrap_err();
+        assert!(matches!(
+            err,
+            PageMoveError::Validation(ValidationError::SwapRangesOverlap)
+        ));
     }
 }
