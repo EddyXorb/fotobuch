@@ -11,6 +11,7 @@ pub mod add;
 pub mod build;
 pub mod config;
 pub mod history;
+pub mod page;
 pub mod place;
 pub mod project;
 pub mod rebuild;
