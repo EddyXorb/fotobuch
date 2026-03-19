@@ -110,21 +110,27 @@ Unterschied je nach Quelle:
 - `Src::Pages` (`3`, `3,4`, `3..5`): Die gesamten Seiten werden **gelöscht**
 - `Src::Slots` (`3:2`, `3:1..3`): Nur die Slots werden entfernt, **Seite bleibt** (ggf. leer)
 
-#### Variante 2: Swap (`<>`)
+#### Variante 3: Swap (`<>`)
 
-Tauscht Fotos zwischen zwei Adressen. Beide Seiten werden bei Bedarf neu gelayoutet
-(nur wenn Slot-Anzahl oder Seitenverhältnisse nicht übereinstimmen).
+Tauscht Fotos zwischen zwei Adressen.
 
 ```
 fotobuch page move 3:2 <> 5:6          # swap einzelner slots
-fotobuch page move 3:1..3 <> 5:2..4    # swap von slot-ranges
-fotobuch page move 3:1,4 <> 5:2..5     # swap mit unterschiedlicher anzahl
-fotobuch page move 3 <> 5              # swap ganzer seiten
-fotobuch page move 3,4 <> 7,8          # swap von seitengruppen
+fotobuch page move 3:1..3 <> 5:2..4    # swap von slot-ranges (gleiche anzahl)
+fotobuch page move 3:1,4 <> 5:2..5     # swap von slots mit unterschiedlicher anzahl
+fotobuch page move 3 <> 5              # swap ganzer seiten (1:1)
+fotobuch page move 3..6 <> 8..11       # swap von seitenbereichen (paarweise: 3↔8, 4↔9, ...)
+fotobuch page move 3,5 <> 7,9          # swap von seitenlisten (3↔7, 5↔9)
 ```
 
-Bei einem Swap mit übereinstimmenden Slot-Anzahlen und kompatiblen Seitenverhältnissen
-(Abweichung < 5%) entfällt der Rebuild — nur der Bildinhalt ändert sich.
+Slot-Swaps (`Src::Slots × DstSwap::Slots`) erlauben unterschiedliche Anzahlen — die Fotos
+werden einfach gegenseitig ausgetauscht, die Seiten werden neu gelayoutet.
+
+Bei einem Seitenbereich-Swap (`Src::Pages × DstSwap::Pages`):
+
+- Anzahl der Seiten auf beiden Seiten muss übereinstimmen (`SwapCountMismatch`)
+- Keine Überschneidung zwischen den beiden Seitenmengen (`SwapRangesOverlap`)
+- Paarweiser Tausch: linke Seite i ↔ rechte Seite i (Fotos werden ausgetauscht, Slots verworfen)
 
 -----
 
@@ -153,14 +159,15 @@ fotobuch page combine 3..5      # fotos von 4 und 5 auf seite 3, seiten 4 und 5 
 
 ### `page swap`
 
-Shortcut für `page move A <> B`. Tauscht Slot-Gruppen zwischen zwei Adressen.
-Im Gegensatz zu `page move` sind hier keine `PAGES_EXPR` ohne Slot-Angabe erlaubt —
-für den Tausch ganzer Seiten ist `page move 3 - 5` zu verwenden.
+Shortcut für `page move A <> B`. Unterstützt dieselbe Adressierung wie `page move <>`:
+Slots, einzelne Seiten und Seitenbereiche/-listen.
 
 ```
 fotobuch page swap 3:2 5:6          # einzelslot-swap
-fotobuch page swap 3:1..3 5:2..4    # range-swap
-fotobuch page swap 3:1,4 5:2..5     # anzahlen müssen nicht übereinstimmen
+fotobuch page swap 3:1..3 5:2..4    # slot-range-swap
+fotobuch page swap 3 5              # ganze seiten
+fotobuch page swap 3..6 8..11       # seitenbereich-swap (paarweise, gleiche anzahl)
+fotobuch page swap 3,5 7,9          # seitenlisten-swap
 ```
 
 -----
@@ -249,7 +256,7 @@ Prüft semantische Constraints die der Parser nicht ausdrücken kann:
 
 - Seitennummern existieren im aktuellen Projekt
 - Slot-Nummern existieren auf den angegebenen Seiten
-- Bei `page swap`: beide Seiten sind verschieden
+- Bei `page swap` (Seiten): beide Seitenmengen sind verschieden und überschneidungsfrei, gleiche Anzahl
 - Bei `page combine`: mindestens zwei Seiten angegeben
 - Bei `page split`: Slot ist nicht der erste (wäre ein No-Op)
 
@@ -260,6 +267,8 @@ enum ValidationError {
     PageNotFound(u32),
     SlotNotFound { page: u32, slot: u32 },
     SwapSamePage(u32),
+    SwapCountMismatch { left: usize, right: usize },
+    SwapRangesOverlap,
     CombineSinglePage(u32),
     SplitAtFirstSlot(u32),
 }

@@ -180,7 +180,9 @@ pub enum PageCommands {
     ///
     /// Swap:
     ///   3:2 <> 5:6    Swap single slots
-    ///   3 <> 5        Swap entire pages (no rebuild if slot counts match)
+    ///   3:1,4 <> 5:2..5  Slot swap with differing counts
+    ///   3 <> 5        Swap entire pages
+    ///   3..6 <> 8..11 Swap page ranges (pairwise, equal count, no overlap)
     ///
     /// Unplace:
     ///   3 ->          Delete page 3, photos become unplaced
@@ -206,15 +208,21 @@ pub enum PageCommands {
         /// Pages expression: "3,5" (page 5 onto 3) or "3..5" (pages 4-5 onto 3)
         pages: String,
     },
-    /// Swap slot groups (=list of images) between two page:slot addresses
+    /// Swap photos between two addresses (shortcut for: page move A <> B)
     ///
-    /// Shortcut for: page move A <> B
-    /// Unlike "page move", whole-page swaps without slot notation are not allowed here —
-    /// use "page move 3 <> 5" for that.
+    /// Supports the same addressing as "page move <>":
+    ///   3:2   5:6          Single slot swap
+    ///   3:1..3  5:2..4     Slot range swap
+    ///   3  5               Whole page swap
+    ///   3..6  8..11        Page range swap (pairwise: 3↔8, 4↔9, …)
+    ///   3,5  7,9           Page list swap (3↔7, 5↔9)
+    ///
+    /// Page range/list swaps require equal counts and no overlap between sides.
+    #[command(verbatim_doc_comment)]
     Swap {
-        /// Left address: "3:2" or "3:1..3"
+        /// Left address: "3:2", "3:1..3", "3", "3..6", "3,5"
         left: String,
-        /// Right address: "5:6" or "5:2..4"
+        /// Right address: "5:6", "5:2..4", "5", "8..11", "7,9"
         right: String,
     },
 }

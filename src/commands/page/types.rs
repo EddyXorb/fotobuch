@@ -94,6 +94,8 @@ pub enum ValidationError {
     PageNotFound(u32),
     SlotNotFound { page: u32, slot: u32 },
     SwapSamePage(u32),
+    SwapCountMismatch { left: usize, right: usize },
+    SwapRangesOverlap,
     CombineSinglePage(u32),
     SplitAtFirstSlot(u32),
 }
@@ -106,6 +108,10 @@ impl std::fmt::Display for ValidationError {
                 write!(f, "slot {slot} does not exist on page {page}")
             }
             Self::SwapSamePage(p) => write!(f, "cannot swap page {p} with itself"),
+            Self::SwapCountMismatch { left, right } => {
+                write!(f, "swap requires equal page counts, got {left} vs {right}")
+            }
+            Self::SwapRangesOverlap => write!(f, "swap ranges must not overlap"),
             Self::CombineSinglePage(p) => {
                 write!(f, "combine requires at least two pages, got only page {p}")
             }
