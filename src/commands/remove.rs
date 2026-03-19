@@ -6,7 +6,7 @@ use std::collections::HashSet;
 use std::path::Path;
 
 use crate::dto_models::{LayoutPage, PhotoGroup, ProjectState};
-use crate::state_manager::StateManager;
+use crate::state_manager::{StateManager, renumber_pages};
 
 /// Configuration for removing photos
 #[derive(Debug, Clone)]
@@ -138,12 +138,6 @@ fn remove_empty_pages(layout: &mut Vec<LayoutPage>) {
     layout.retain(|p| !p.photos.is_empty());
 }
 
-/// Nummeriert alle LayoutPage.page Felder sequenziell (1-basiert).
-fn renumber_pages(layout: &mut [LayoutPage]) {
-    for (i, page) in layout.iter_mut().enumerate() {
-        page.page = i + 1;
-    }
-}
 
 /// Entfernt gematchte Fotos aus state.photos.
 /// Leere Gruppen werden komplett entfernt.
@@ -237,7 +231,8 @@ pub fn remove(project_root: &Path, config: &RemoveConfig) -> Result<RemoveResult
 
     // 3. Leere Seiten entfernen + renumbern
     remove_empty_pages(&mut mgr.state.layout);
-    renumber_pages(&mut mgr.state.layout);
+    let has_cover = mgr.state.config.book.cover.as_ref().is_some_and(|c| c.active);
+    renumber_pages(&mut mgr.state.layout, has_cover);
 
     // 4. Aus Photos entfernen (nur ohne --keep-files)
     let mut groups_removed = matched_groups;
@@ -395,21 +390,27 @@ mod tests {
     #[test]
     fn test_renumber_pages() {
         let mut layout = vec![
-            LayoutPage {
-                page: 5,
-                photos: vec!["a.jpg".to_string()],
-                slots: vec![],
-            },
-            LayoutPage {
-                page: 7,
-                photos: vec!["b.jpg".to_string()],
-                slots: vec![],
-            },
+            LayoutPage { page: 5, photos: vec!["a.jpg".to_string()], slots: vec![] },
+            LayoutPage { page: 7, photos: vec!["b.jpg".to_string()], slots: vec![] },
         ];
 
-        renumber_pages(&mut layout);
+        renumber_pages(&mut layout, false);
         assert_eq!(layout[0].page, 1);
         assert_eq!(layout[1].page, 2);
+    }
+
+    #[test]
+    fn test_renumber_pages_with_cover() {
+        let mut layout = vec![
+            LayoutPage { page: 99, photos: vec!["cover.jpg".to_string()], slots: vec![] },
+            LayoutPage { page: 99, photos: vec!["a.jpg".to_string()], slots: vec![] },
+            LayoutPage { page: 99, photos: vec!["b.jpg".to_string()], slots: vec![] },
+        ];
+
+        renumber_pages(&mut layout, true);
+        assert_eq!(layout[0].page, 0); // cover
+        assert_eq!(layout[1].page, 1);
+        assert_eq!(layout[2].page, 2);
     }
 
     #[test]

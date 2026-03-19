@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use super::CoverConfig;
+
 /// Book-specific configuration (page dimensions, bleed, margins, gaps)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BookConfig {
@@ -18,6 +20,9 @@ pub struct BookConfig {
     /// DPI for final image generation (default: 300)
     #[serde(default = "default_dpi")]
     pub dpi: f64,
+    /// Cover configuration. Absent means no cover.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cover: Option<CoverConfig>,
 }
 
 fn default_margin_mm() -> f64 {
@@ -47,6 +52,7 @@ impl Default for BookConfig {
             gap_mm: default_gap_mm(),
             bleed_threshold_mm: default_bleed_threshold_mm(),
             dpi: default_dpi(),
+            cover: None,
         }
     }
 }

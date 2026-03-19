@@ -9,7 +9,8 @@ use super::Slot;
 /// (bleed+margin,bleed+margin,page_width-bleed-margin,page_height-bleed-margin).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LayoutPage {
-    /// Page number (1-based, for user reference only)
+    /// Page number. Without cover: 1-based (= index + 1).
+    /// With cover: cover page = 0, inner pages 1-based (= index).
     pub page: usize,
     /// Photo IDs on this page (sorted by ratio)
     pub photos: Vec<String>,

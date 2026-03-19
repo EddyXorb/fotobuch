@@ -5,6 +5,7 @@
 
 mod book_config;
 mod book_layout_solver_config;
+mod cover_config;
 mod fitness_weights;
 mod ga_config;
 mod preview_config;
@@ -12,6 +13,7 @@ mod project_config;
 
 pub use book_config::BookConfig;
 pub use book_layout_solver_config::{BookLayoutSolverConfig, ValidationError};
+pub use cover_config::CoverConfig;
 pub use fitness_weights::FitnessWeights;
 pub use ga_config::GaConfig;
 pub use preview_config::PreviewConfig;
