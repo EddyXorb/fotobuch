@@ -6,12 +6,13 @@ use super::types::{DstSwap, SlotExpr, SlotItem, Src, ValidationError};
 
 // ── Index resolution ──────────────────────────────────────────────────────────
 
-/// Resolve a 1-based page number to a 0-based index, or return ValidationError.
+/// Resolve a page number to a 0-based layout index, or return ValidationError.
+/// Page 0 is valid when a cover page exists as the first layout entry.
 pub(crate) fn page_idx(page: u32, layout: &[LayoutPage]) -> Result<usize, ValidationError> {
-    if page == 0 || page as usize > layout.len() {
-        return Err(ValidationError::PageNotFound(page));
-    }
-    Ok(page as usize - 1)
+    layout
+        .iter()
+        .position(|p| p.page == page as usize)
+        .ok_or(ValidationError::PageNotFound(page))
 }
 
 /// Resolve slot numbers on a page to 0-based indices and validate they exist.
