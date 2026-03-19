@@ -20,19 +20,12 @@ pub struct PreviewCacheResult {
 
 /// Ensures all preview images are present and up-to-date.
 /// Generates missing or stale previews in parallel using rayon.
-/// Updates progress counter atomically as each image is processed.
-///
-/// # Arguments
-/// * `state` - Current project state with photo groups
-/// * `preview_cache_dir` - Base directory for preview cache (from StateManager)
-/// * `progress` - Atomic counter incremented for each processed image
 ///
 /// # Returns
 /// Statistics about created/skipped images
 pub fn ensure_previews(
     state: &ProjectState,
     preview_cache_dir: &Path,
-    progress: &AtomicUsize,
 ) -> Result<PreviewCacheResult> {
     let max_px = state.config.preview.max_preview_px;
 
@@ -53,11 +46,10 @@ pub fn ensure_previews(
         } else {
             let (target_width, target_height) =
                 fit_dimensions(photo.width_px, photo.height_px, max_px);
-            resize_and_save(source, &cached, target_width, target_height, 85)?;
+            resize_and_save(source, &cached, target_width, target_height, 50)?;
             created.fetch_add(1, Ordering::Relaxed);
         }
 
-        progress.fetch_add(1, Ordering::Relaxed);
         Ok::<(), anyhow::Error>(())
     })?;
 
@@ -185,13 +177,11 @@ mod tests {
             layout: vec![],
         };
 
-        let progress = AtomicUsize::new(0);
-        let result = ensure_previews(&state, &cache_dir, &progress).unwrap();
+        let result = ensure_previews(&state, &cache_dir).unwrap();
 
         assert_eq!(result.total, 1);
         assert_eq!(result.created, 1);
         assert_eq!(result.skipped, 0);
-        assert_eq!(progress.load(Ordering::Relaxed), 1);
 
         // Verify cached image exists and has correct dimensions
         let cached_path = cache_dir.join("TestGroup/test.jpg");
@@ -236,8 +226,7 @@ mod tests {
             layout: vec![],
         };
 
-        let progress = AtomicUsize::new(0);
-        let result = ensure_previews(&state, &cache_dir, &progress).unwrap();
+        let result = ensure_previews(&state, &cache_dir).unwrap();
 
         assert_eq!(result.total, 1);
         assert_eq!(result.created, 0);
@@ -279,8 +268,7 @@ mod tests {
             layout: vec![],
         };
 
-        let progress = AtomicUsize::new(0);
-        let result = ensure_previews(&state, &cache_dir, &progress).unwrap();
+        let result = ensure_previews(&state, &cache_dir).unwrap();
 
         assert_eq!(result.total, 1);
         assert_eq!(result.created, 1);
