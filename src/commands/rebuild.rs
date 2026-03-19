@@ -6,7 +6,6 @@ use crate::output::typst;
 use crate::state_manager::StateManager;
 use anyhow::Result;
 use std::path::Path;
-use std::sync::atomic::AtomicUsize;
 
 use super::build::{
     BuildResult, MultiPageParams, build_photo_index, collect_photos_as_groups, multipage_build,
@@ -14,17 +13,22 @@ use super::build::{
 };
 
 /// Scope of rebuild operation
+///
+/// All page numbers in this enum are **1-based** (as displayed to users).
+/// Internal functions that need 0-based indices must convert via `page - 1`.
 #[derive(Debug, Clone)]
 pub enum RebuildScope {
     /// Rebuild all pages (like first build)
     All,
     /// Rebuild single page (forced, even if clean)
+    /// Page number is 1-based (e.g., `SinglePage(5)` means page 5)
     SinglePage(usize),
     /// Rebuild page range with optional flexibility
+    /// Start and end are both 1-based and inclusive (e.g., `Range { start: 2, end: 4, .. }` means pages 2, 3, 4)
     Range {
-        /// Start page (inclusive)
+        /// Start page (inclusive, 1-based)
         start: usize,
-        /// End page (inclusive)
+        /// End page (inclusive, 1-based)
         end: usize,
         /// Allow page count to vary by +/- N (default: 0)
         flex: usize,
@@ -119,13 +123,12 @@ fn validate_scope(scope: &RebuildScope, mgr: &StateManager) -> Result<()> {
 /// Rebuild a single page using the SinglePage solver.
 fn rebuild_single(mut mgr: StateManager, project_root: &Path, page: usize) -> Result<BuildResult> {
     // 1. Preview-Cache
-    let progress = AtomicUsize::new(0);
     let preview_cache_dir = mgr.preview_cache_dir();
-    preview::ensure_previews(&mgr.state, &preview_cache_dir, &progress)?;
+    preview::ensure_previews(&mgr.state, &preview_cache_dir)?;
 
     // 2. Solver — reuse rebuild_single_page from build module
     let photo_index = build_photo_index(&mgr.state.photos);
-    rebuild_single_page(&mut mgr.state, page, &photo_index)?;
+    rebuild_single_page(&mut mgr.state, page - 1, &photo_index)?;
 
     // 3. Typst kompilieren
     let bleed_mm = mgr.state.config.book.bleed_mm;

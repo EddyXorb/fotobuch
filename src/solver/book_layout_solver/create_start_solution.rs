@@ -171,7 +171,7 @@ mod tests {
         for page_idx in 0..assignment.num_pages() {
             let size = assignment.page_size(page_idx);
             assert!(
-                size >= 2 && size <= 4,
+                (2..=4).contains(&size),
                 "Page {} size {} violates constraints",
                 page_idx,
                 size

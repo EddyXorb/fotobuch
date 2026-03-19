@@ -9,6 +9,7 @@ pub mod add;
 pub mod build;
 pub mod config;
 pub mod history;
+pub mod page;
 pub mod place;
 pub mod project;
 pub mod rebuild;
@@ -103,6 +104,21 @@ pub enum Commands {
         into: Option<usize>,
     },
 
+    /// Remove photos from the layout at a page:slot address (they stay in the project)
+    ///
+    /// The page is NOT deleted automatically, even if it becomes empty.
+    /// To delete a whole page and unplace its photos, use: page move PAGE out
+    Unplace {
+        /// Slot address: "3:2" (slot 2 on page 3), "3:2,7", "3:2..5", "3:2..5,7"
+        address: String,
+    },
+
+    /// Page manipulation commands (move, split, combine, swap)
+    Page {
+        #[command(subcommand)]
+        command: PageCommands,
+    },
+
     /// Remove photos or groups from the book
     Remove {
         /// Photos, group names, or regex patterns to remove (can be repeated)
@@ -137,6 +153,74 @@ pub enum Commands {
     Project {
         #[command(subcommand)]
         command: ProjectCommands,
+    },
+}
+
+/// Page subcommands
+#[derive(Subcommand, Debug)]
+pub enum PageCommands {
+    /// Move or unplace photos between pages
+    ///
+    /// Two forms:
+    ///   SRC to DST    Move to another page (source page stays, even if empty)
+    ///   SRC out       Unplace: pages deleted, slots emptied
+    ///
+    /// Addressing:
+    ///   3             Whole page
+    ///   3,5  3..5     Multiple pages
+    ///   3:2           Single slot on page 3
+    ///   3:1..3,7      Slots 1-3 and 7 on page 3
+    ///   4+            New page after page 4 (move destination only)
+    ///
+    /// Move:
+    ///   3:2 to 5      Slot 2 from page 3 to page 5
+    ///   3,4 to 5      Merge pages 3 and 4 into page 5
+    ///   3:2 to 4+     Slot 2 onto a new page inserted after page 4
+    ///
+    /// Unplace:
+    ///   3 out         Delete page 3, photos become unplaced
+    ///   3:2 out       Unplace slot 2, page 3 stays (possibly empty)
+    #[command(verbatim_doc_comment)]
+    Move {
+        /// Expression passed as space-separated tokens, e.g.: 3:2 -> 5
+        #[arg(num_args = 1..)]
+        args: Vec<String>,
+    },
+    /// Split a page at a slot: photos from that slot onwards move to a new page inserted after
+    ///
+    /// Shortcut for: page move PAGE:SLOT.. to PAGE+
+    /// Error if SLOT is the first slot (would leave the original page empty).
+    Split {
+        /// Address "PAGE:SLOT", e.g. "3:4" splits page 3 at slot 4
+        address: String,
+    },
+    /// Merge pages onto the first one, then delete the now-empty source pages
+    ///
+    /// All following page numbers shift down accordingly.
+    Combine {
+        /// Pages expression: "3,5" (page 5 onto 3) or "3..5" (pages 4-5 onto 3)
+        pages: String,
+    },
+    /// Swap photos between two addresses (only single numbers or ranges, no comma lists)
+    ///
+    /// Page swap — block transposition, pages between the blocks keep their relative order:
+    ///   3  5               Pages 3 and 5 swap positions
+    ///   1..2  5..9         Block [1,2] and block [5..9] swap; pages 3,4 stay between them
+    ///                      before: [1,2,3,4,5,6,7,8,9]  after: [5,6,7,8,9,3,4,1,2]
+    ///
+    /// Slot swap — each block is inserted at the position of the swapped counterpart:
+    ///   3:2  5:6           Slot 2 on page 3 ↔ slot 6 on page 5
+    ///   3:2..4  5:6..9     Block [slots 2-4] ↔ block [slots 6-9], different sizes ok
+    ///   3:2..10  5         Slots 2-10 on page 3 ↔ all photos on page 5
+    ///   1:3..5  1:7..9     Swap within the same page (non-overlapping ranges)
+    ///
+    /// Errors: overlapping ranges, comma-separated list as operand.
+    #[command(verbatim_doc_comment)]
+    Swap {
+        /// Left address: "3:2", "3:1..3", "3", "3..6"
+        left: String,
+        /// Right address: "5:6", "5:2..4", "5", "8..11"
+        right: String,
     },
 }
 
@@ -206,6 +290,8 @@ impl Execute for Commands {
                 all,
             } => rebuild::handle(*page, *range_start, *range_end, *flex, *all),
             Commands::Place { filter, into } => place::handle(filter.to_vec(), *into),
+            Commands::Unplace { address } => page::handle_unplace(address),
+            Commands::Page { command } => command.execute(),
             Commands::Remove {
                 patterns,
                 keep_files,
@@ -215,6 +301,17 @@ impl Execute for Commands {
             Commands::Config => config::handle(),
             Commands::History { count } => history::handle(*count),
             Commands::Project { command } => command.execute(),
+        }
+    }
+}
+
+impl Execute for PageCommands {
+    fn execute(&self) -> Result<()> {
+        match self {
+            PageCommands::Move { args } => page::handle_move(args),
+            PageCommands::Split { address } => page::handle_split(address),
+            PageCommands::Combine { pages } => page::handle_combine(pages),
+            PageCommands::Swap { left, right } => page::handle_swap(left, right),
         }
     }
 }
