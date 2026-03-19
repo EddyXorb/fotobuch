@@ -280,7 +280,16 @@
       margin: bleed + margin,
     )
     #let cover_data = data.layout.at(0)
-    #if show_borders_on_preview [#draw_borders(cover_total_w, cover_page_h)]
+    #if show_borders_on_preview [
+      #draw_borders(cover_total_w, cover_page_h)
+      // Spine area markers: two vertical green lines bounding the spine
+      #place(top + left, dx: (cover_front_back_w / 2) * 1mm, dy: -bleed,
+        rect(width: spine_w * 1mm, height: cover_page_h * 1mm + 2 * bleed,
+          stroke: (left: green + 0.5pt, right: green + 0.5pt, top: none, bottom: none),
+          fill: rgb(0, 200, 0, 20),
+        )
+      )
+    ]
     #for (i, slot) in cover_data.slots.enumerate() [
       #let photo_id = cover_data.photos.at(i, default: none)
       #if photo_id != none [#render_photo(slot, i + 1, photo_id, photo_ref, photo_weight)]
