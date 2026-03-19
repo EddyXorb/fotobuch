@@ -120,7 +120,7 @@ Wenn `cover.active = true`: der **erste** `layout`-Eintrag ist das Cover. Kein e
 
 ### Dimensionen
 
-`cover.page_width_mm` und `cover.page_height_mm` sind die Seitenmaße für die Cover-Seite im Template. Fehlen sie, gelten die Werte aus `book.page_width_mm` / `book.page_height_mm`.
+`cover.page_width_mm` und `cover.page_height_mm` sind die rohenSeitenmaße für die Cover-Seite im Template, ohne die Buchrückendicke einzuberechnen. Fehlen sie, gelten die Werte aus `book.page_width_mm` / `book.page_height_mm`.
 
 ### Bunddicke
 
