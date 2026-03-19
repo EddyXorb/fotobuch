@@ -21,20 +21,13 @@ use tracing::{error, warn};
 use crate::dto_models::{LayoutPage, PhotoGroup, ProjectState};
 use crate::git;
 
-/// Nummeriert alle LayoutPage.page Felder.
+/// Nummeriert alle LayoutPage.page Felder auf den Array-Index (0-basiert).
 ///
-/// Ohne Cover: 1-basiert (page = index + 1).
-/// Mit Cover: Cover bekommt page = 0, Innenseiten bleiben 1-basiert (page = index).
-/// Dadurch ändert das Hinzufügen eines Covers die Seitennummern der Innenseiten nicht.
-pub fn renumber_pages(layout: &mut [LayoutPage], has_cover: bool) {
-    if has_cover {
-        for (i, page) in layout.iter_mut().enumerate() {
-            page.page = i; // cover → 0, first inner page → 1, etc.
-        }
-    } else {
-        for (i, page) in layout.iter_mut().enumerate() {
-            page.page = i + 1;
-        }
+/// `layout[i].page = i` — immer, unabhängig davon ob ein Cover vorhanden ist.
+/// Der Parameter `_has_cover` ist für zukünftige Erweiterungen reserviert.
+pub fn renumber_pages(layout: &mut [LayoutPage], _has_cover: bool) {
+    for (i, page) in layout.iter_mut().enumerate() {
+        page.page = i;
     }
 }
 
@@ -334,7 +327,7 @@ impl StateManager {
         }
     }
 
-    /// Returns the 1-based page numbers that were outdated since the last build commit.
+    /// Returns 0-based layout array indices of pages that were outdated since the last build commit.
     ///
     /// Falls back to comparing against `baseline` when no build commit exists.
     pub fn outdated_pages_indices(&self) -> Vec<usize> {
