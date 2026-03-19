@@ -41,6 +41,11 @@ impl ProjectState {
         Ok(())
     }
 
+    /// Returns true if the cover page is configured and active.
+    pub fn has_cover(&self) -> bool {
+        self.config.book.cover.as_ref().is_some_and(|c| c.active)
+    }
+
     pub fn check_validity(&self) -> Result<()> {
         let id_to_photo = self
             .photos
