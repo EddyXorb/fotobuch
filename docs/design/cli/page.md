@@ -134,15 +134,58 @@ fotobuch page combine 3..5      # fotos von 4 und 5 auf seite 3, seiten 4 und 5 
 
 ### `page swap`
 
-Tauscht Fotos zwischen zwei Adressen. Unterstützt Slots, einzelne Seiten und Seitenbereiche/-listen.
+Tauscht Inhalte zwischen zwei Adressen. Es gibt zwei Varianten mit unterschiedlicher Semantik:
+
+#### Variante 1: Seiten-Swap (Pages × Pages) — Block-Transposition
+
+Zwei nicht überlappende Seitenblöcke tauschen ihre Position in der Seitenfolge.
+Seiten zwischen den Blöcken bleiben in ihrer relativen Reihenfolge erhalten.
+Nur einzelne Seiten oder Ranges erlaubt (keine Komma-Listen).
 
 ```
-fotobuch page swap 3:2 5:6          # einzelslot-swap
-fotobuch page swap 3:1..3 5:2..4    # slot-range-swap
-fotobuch page swap 3 5              # ganze seiten
-fotobuch page swap 3..6 8..11       # seitenbereich-swap (paarweise, gleiche anzahl)
-fotobuch page swap 3,5 7,9          # seitenlisten-swap
+fotobuch page swap 3 5              # seiten 3 und 5 tauschen position
+fotobuch page swap 1..2 5..9        # block [1,2] und block [5..9] tauschen position
 ```
+
+Beispiel: `swap 1..2 5..9` bei 10 seiten:
+
+```
+vorher:  [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+nachher: [5, 6, 7, 8, 9, 3, 4, 1, 2, 10]
+```
+
+Fehler: Überlappende Seitennummern, Komma-Liste als Operand.
+
+#### Variante 2: Slot-Swap — Blockweise Ersetzung an derselben Position
+
+Die foto-blöcke werden gegenseitig an der position des jeweils anderen eingefügt.
+Nicht betroffene fotos beider seiten bleiben unverändert. Unterschiedliche blockgrößen erlaubt.
+Nur einzelne Slots oder Ranges erlaubt (keine Komma-Listen).
+
+```
+fotobuch page swap 3:2 5:6          # foto in slot 2 (seite 3) ↔ foto in slot 6 (seite 5)
+fotobuch page swap 3:2..4 5:6..9    # block [slots 2-4] ↔ block [slots 6-9]
+fotobuch page swap 3:2..10 5        # slots 2-10 von seite 3 ↔ alle fotos von seite 5
+fotobuch page swap 1:3..5 1:7..9    # innerhalb derselben seite: slots 3-5 ↔ slots 7-9
+```
+
+Algorithmus:
+
+1. Beide foto-blöcke werden vorab gespeichert (snapshot).
+2. Linker block wird aus Seite L entfernt; rechter block wird an position `min(L-indices)` eingefügt.
+3. Rechter block wird aus Seite R entfernt; linker block wird an position `min(R-indices)` eingefügt.
+
+Beispiel `swap 3:2..3 5:4..6` (seite 3: [a,b,c,d], seite 5: [p,q,r,s,t,u]):
+
+```
+links  = slots 2..3 von seite 3 = [b, c]          einfügepos: 1 (0-basiert)
+rechts = slots 4..6 von seite 5 = [s, t, u]       einfügepos: 3 (0-basiert)
+
+seite 3 nachher: [a, s, t, u, d]    # [b,c] entfernt, [s,t,u] bei index 1 eingefügt
+seite 5 nachher: [p, q, r, b, c]    # [s,t,u] entfernt, [b,c] bei index 3 eingefügt
+```
+
+Erlaubt: Swap innerhalb derselben Seite (`swap 1:3 1:7`). Fehler: Überlappende Slot-Nummern, Komma-Liste als Operand.
 
 -----
 
@@ -234,7 +277,9 @@ Prüft semantische Constraints die der Parser nicht ausdrücken kann:
 
 - Seitennummern existieren im aktuellen Projekt
 - Slot-Nummern existieren auf den angegebenen Seiten
-- Bei `page swap` (Seiten): beide Seitenmengen sind verschieden und überschneidungsfrei, gleiche Anzahl
+- Bei `page swap` (Seiten): beide Blöcke sind überschneidungsfrei
+- Bei `page swap`: kein Operand ist eine Komma-Liste
+- Bei `page swap` (Slots, gleiche Seite): Slot-Ranges überlappen nicht
 - Bei `page combine`: mindestens zwei Seiten angegeben
 - Bei `page split`: Slot ist nicht der erste (wäre ein No-Op)
 
@@ -244,9 +289,8 @@ Der Validator arbeitet gegen den geladenen `ProjectState` und gibt strukturierte
 enum ValidationError {
     PageNotFound(u32),
     SlotNotFound { page: u32, slot: u32 },
-    SwapSamePage(u32),
-    SwapCountMismatch { left: usize, right: usize },
     SwapRangesOverlap,
+    SwapNonContiguous,
     CombineSinglePage(u32),
     SplitAtFirstSlot(u32),
 }
