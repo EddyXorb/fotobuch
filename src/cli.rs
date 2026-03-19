@@ -105,8 +105,11 @@ pub enum Commands {
     },
 
     /// Remove photos from the layout at a page:slot address (they stay in the project)
+    ///
+    /// The page is NOT deleted automatically, even if it becomes empty.
+    /// To delete a whole page and unplace its photos, use: page move PAGE ->
     Unplace {
-        /// Address like "3:2", "3:2,7", "3:2..5", "3:2..5,7"
+        /// Slot address: "3:2" (slot 2 on page 3), "3:2,7", "3:2..5", "3:2..5,7"
         address: String,
     },
 
@@ -156,27 +159,62 @@ pub enum Commands {
 /// Page subcommands
 #[derive(Subcommand, Debug)]
 pub enum PageCommands {
-    /// Move or swap photos between pages. Syntax: "SRC -> DST" or "SRC <> DST"
+    /// Move, swap, or unplace photos between pages
+    ///
+    /// Three forms:
+    ///   SRC -> DST    Move to another page (source page stays, even if empty)
+    ///   SRC <> DST    Swap between two addresses
+    ///   SRC ->        Unplace (no destination): pages deleted, slots emptied
+    ///
+    /// Addressing:
+    ///   3             Whole page
+    ///   3,5  3..5     Multiple pages
+    ///   3:2           Single slot on page 3
+    ///   3:1..3,7      Slots 1-3 and 7 on page 3
+    ///   4+            New page after page 4 (move destination only)
+    ///
+    /// Move:
+    ///   3:2 -> 5      Slot 2 from page 3 to page 5
+    ///   3,4 -> 5      Merge pages 3 and 4 into page 5
+    ///   3:2 -> 4+     Slot 2 onto a new page inserted after page 4
+    ///
+    /// Swap:
+    ///   3:2 <> 5:6    Swap single slots
+    ///   3 <> 5        Swap entire pages (no rebuild if slot counts match)
+    ///
+    /// Unplace:
+    ///   3 ->          Delete page 3, photos become unplaced
+    ///   3:2 ->        Unplace slot 2, page 3 stays (possibly empty)
+    #[command(verbatim_doc_comment)]
     Move {
-        /// Expression like "3:2 -> 5", "3,4 -> 5", "3:1..3,7 -> 4+", "3:2 <> 5:6"
+        /// Expression passed as space-separated tokens, e.g.: 3:2 -> 5
         #[arg(num_args = 1..)]
         args: Vec<String>,
     },
-    /// Split a page at a slot: photos from that slot onwards move to a new page after it
+    /// Split a page at a slot: photos from that slot onwards move to a new page inserted after
+    ///
+    /// Shortcut for: page move PAGE:SLOT.. -> PAGE+
+    /// Error if SLOT is the first slot (would leave the original page empty).
     Split {
-        /// Address like "3:4" (page 3, split at slot 4)
+        /// Address "PAGE:SLOT", e.g. "3:4" splits page 3 at slot 4
         address: String,
     },
-    /// Combine pages onto the first one and delete the rest
+    /// Merge pages onto the first one, then delete the now-empty source pages
+    ///
+    /// All following page numbers shift down accordingly.
     Combine {
-        /// Pages expression like "3,5" or "3..5"
+        /// Pages expression: "3,5" (page 5 onto 3) or "3..5" (pages 4-5 onto 3)
         pages: String,
     },
-    /// Swap slot groups between two addresses
+    /// Swap slot groups (=list of images) between two page:slot addresses
+    ///
+    /// Shortcut for: page move A <> B
+    /// Unlike "page move", whole-page swaps without slot notation are not allowed here —
+    /// use "page move 3 <> 5" for that.
     Swap {
-        /// Left address like "3:2" or "3:1..3"
+        /// Left address: "3:2" or "3:1..3"
         left: String,
-        /// Right address like "5:6" or "5:2..4"
+        /// Right address: "5:6" or "5:2..4"
         right: String,
     },
 }
