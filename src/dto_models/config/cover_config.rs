@@ -12,7 +12,8 @@ pub struct CoverConfig {
     /// For double-page spreads use the value per 10 spreads;
     /// for single pages halve accordingly.
     pub spine_mm_per_10_pages: f64,
-    /// Cover page width in mm. Defaults to `book.page_width_mm` if absent.
+    /// Total cover width in mm (front + back, without spine).
+    /// Defaults to `2 × book.page_width_mm` if absent.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub page_width_mm: Option<f64>,
     /// Cover page height in mm. Defaults to `book.page_height_mm` if absent.
@@ -24,9 +25,11 @@ pub struct CoverConfig {
 }
 
 impl CoverConfig {
-    /// Resolved cover width: explicit value or fallback to inner page width.
-    pub fn resolved_width_mm(&self, book_page_width_mm: f64) -> f64 {
-        self.page_width_mm.unwrap_or(book_page_width_mm)
+    /// Total cover spread width: page_width_mm (front+back) + spine.
+    /// `page_width_mm` defaults to `2 × book_page_width_mm` when absent.
+    pub fn resolved_width_mm(&self, book_page_width_mm: f64, inner_page_count: usize) -> f64 {
+        let front_back = self.page_width_mm.unwrap_or(2.0 * book_page_width_mm);
+        front_back + self.spine_width_mm(inner_page_count)
     }
 
     /// Resolved cover height: explicit value or fallback to inner page height.
@@ -69,14 +72,23 @@ mod tests {
 
     #[test]
     fn resolved_width_fallback() {
+        // default front+back = 2*210 = 420, spine(0) = 0 → 420
         let c = cfg(1.0);
-        assert!((c.resolved_width_mm(210.0) - 210.0).abs() < 1e-9);
+        assert!((c.resolved_width_mm(210.0, 0) - 420.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn resolved_width_includes_spine() {
+        // default front+back = 2*210 = 420, spine(10, 1.4) = 1.4 → 421.4
+        let c = cfg(1.4);
+        assert!((c.resolved_width_mm(210.0, 10) - 421.4).abs() < 1e-9);
     }
 
     #[test]
     fn resolved_width_explicit() {
-        let c = CoverConfig { active: true, spine_mm_per_10_pages: 1.0, page_width_mm: Some(420.0), page_height_mm: None, spine_text: None };
-        assert!((c.resolved_width_mm(210.0) - 420.0).abs() < 1e-9);
+        // explicit front+back = 400, spine(0) = 0 → 400
+        let c = CoverConfig { active: true, spine_mm_per_10_pages: 1.0, page_width_mm: Some(400.0), page_height_mm: None, spine_text: None };
+        assert!((c.resolved_width_mm(210.0, 0) - 400.0).abs() < 1e-9);
     }
 
     #[test]

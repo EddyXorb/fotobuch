@@ -265,10 +265,11 @@
 #let cover_or_none = data.config.book.at("cover", default: none)
 #let has_cover = cover_or_none != none and cover_or_none.at("active", default: false)
 #let inner_page_count = if has_cover { data.layout.len() - 1 } else { data.layout.len() }
-#let cover_page_w = if has_cover { cover_or_none.at("page_width_mm", default: data.config.book.page_width_mm) } else { 0.0 }
+// cover_front_back_w = page_width_mm (front+back without spine), default = 2 * book width
+#let cover_front_back_w = if has_cover { cover_or_none.at("page_width_mm", default: 2.0 * data.config.book.page_width_mm) } else { 0.0 }
 #let cover_page_h = if has_cover { cover_or_none.at("page_height_mm", default: data.config.book.page_height_mm) } else { 0.0 }
 #let spine_w = if has_cover { float(inner_page_count) / 10.0 * cover_or_none.spine_mm_per_10_pages } else { 0.0 }
-#let cover_total_w = if has_cover { 2.0 * cover_page_w + spine_w } else { 0.0 }
+#let cover_total_w = if has_cover { cover_front_back_w + spine_w } else { 0.0 }
 #let spine_text_content = if has_cover { cover_or_none.at("spine_text", default: data.config.book.title) } else { "" }
 
 #if has_cover [
@@ -284,8 +285,8 @@
       #let photo_id = cover_data.photos.at(i, default: none)
       #if photo_id != none [#render_photo(slot, i + 1, photo_id, photo_ref, photo_weight)]
     ]
-    // Spine text — reads bottom-to-top
-    #place(top + left, dx: cover_page_w * 1mm, dy: 0mm,
+    // Spine text — reads bottom-to-top; dx = half of front+back = single page width
+    #place(top + left, dx: (cover_front_back_w / 2) * 1mm, dy: 0mm,
       box(width: spine_w * 1mm, height: cover_page_h * 1mm,
         align(center + horizon,
           rotate(-90deg, text(size: 12pt, spine_text_content))
