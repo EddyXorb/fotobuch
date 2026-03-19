@@ -9,6 +9,7 @@ pub mod add;
 pub mod build;
 pub mod config;
 pub mod history;
+pub mod page;
 pub mod place;
 pub mod project;
 pub mod rebuild;
@@ -103,6 +104,18 @@ pub enum Commands {
         into: Option<usize>,
     },
 
+    /// Remove photos from the layout at a page:slot address (they stay in the project)
+    Unplace {
+        /// Address like "3:2", "3:2,7", "3:2..5", "3:2..5,7"
+        address: String,
+    },
+
+    /// Page manipulation commands (move, split, combine, swap)
+    Page {
+        #[command(subcommand)]
+        command: PageCommands,
+    },
+
     /// Remove photos or groups from the book
     Remove {
         /// Photos, group names, or regex patterns to remove (can be repeated)
@@ -137,6 +150,34 @@ pub enum Commands {
     Project {
         #[command(subcommand)]
         command: ProjectCommands,
+    },
+}
+
+/// Page subcommands
+#[derive(Subcommand, Debug)]
+pub enum PageCommands {
+    /// Move or swap photos between pages. Syntax: "SRC -> DST" or "SRC <> DST"
+    Move {
+        /// Expression like "3:2 -> 5", "3,4 -> 5", "3:1..3,7 -> 4+", "3:2 <> 5:6"
+        #[arg(num_args = 1..)]
+        args: Vec<String>,
+    },
+    /// Split a page at a slot: photos from that slot onwards move to a new page after it
+    Split {
+        /// Address like "3:4" (page 3, split at slot 4)
+        address: String,
+    },
+    /// Combine pages onto the first one and delete the rest
+    Combine {
+        /// Pages expression like "3,5" or "3..5"
+        pages: String,
+    },
+    /// Swap slot groups between two addresses
+    Swap {
+        /// Left address like "3:2" or "3:1..3"
+        left: String,
+        /// Right address like "5:6" or "5:2..4"
+        right: String,
     },
 }
 
@@ -206,6 +247,8 @@ impl Execute for Commands {
                 all,
             } => rebuild::handle(*page, *range_start, *range_end, *flex, *all),
             Commands::Place { filter, into } => place::handle(filter.to_vec(), *into),
+            Commands::Unplace { address } => page::handle_unplace(address),
+            Commands::Page { command } => command.execute(),
             Commands::Remove {
                 patterns,
                 keep_files,
@@ -215,6 +258,17 @@ impl Execute for Commands {
             Commands::Config => config::handle(),
             Commands::History { count } => history::handle(*count),
             Commands::Project { command } => command.execute(),
+        }
+    }
+}
+
+impl Execute for PageCommands {
+    fn execute(&self) -> Result<()> {
+        match self {
+            PageCommands::Move { args } => page::handle_move(args),
+            PageCommands::Split { address } => page::handle_split(address),
+            PageCommands::Combine { pages } => page::handle_combine(pages),
+            PageCommands::Swap { left, right } => page::handle_swap(left, right),
         }
     }
 }

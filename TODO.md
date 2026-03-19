@@ -42,18 +42,18 @@ To be done in this order
 
 > Design: [docs/design/cli/page.md](docs/design/cli/page.md)
 
-- [ ] Implement lib types: `PagesExpr`, `SlotExpr`, `Src`, `DstMove`, `DstSwap`, `PageMoveCmd` in `src/commands/page.rs`
-- [ ] Implement `ValidationError`, `PageMoveError`, `PageMoveResult` types
-- [ ] Implement `execute_unplace` (removes photos by slot from layout)
-- [ ] Implement `execute_move` — Move variant (`->`)
-- [ ] Implement `execute_move` — Swap variant (`<>`)
-- [ ] Implement `execute_split` (shortcut: move PAGE:SLOT.. -> PAGE+)
-- [ ] Implement `execute_combine` (shortcut: merge pages, delete empties)
-- [ ] Implement Lexer in `src/cli/page.rs` (Token enum + tokenize fn)
-- [ ] Implement Parser in `src/cli/page.rs` (builds AST from tokens)
-- [ ] Wire up CLI: add `Unplace` and `Page` subcommands to `src/cli.rs`
-- [ ] Tests for all lib execute_* functions
-- [ ] Tests for lexer and parser
+- [x] Implement lib types: `PagesExpr`, `SlotExpr`, `Src`, `DstMove`, `DstSwap`, `PageMoveCmd` in `src/commands/page.rs`
+- [x] Implement `ValidationError`, `PageMoveError`, `PageMoveResult` types
+- [x] Implement `execute_unplace` (removes photos by slot from layout)
+- [x] Implement `execute_move` — Move variant (`->`)
+- [x] Implement `execute_move` — Swap variant (`<>`)
+- [x] Implement `execute_split` (shortcut: move PAGE:SLOT.. -> PAGE+)
+- [x] Implement `execute_combine` (shortcut: merge pages, delete empties)
+- [x] Implement Lexer in `src/cli/page.rs` (Token enum + tokenize fn)
+- [x] Implement Parser in `src/cli/page.rs` (builds AST from tokens)
+- [x] Wire up CLI: add `Unplace` and `Page` subcommands to `src/cli.rs`
+- [x] Tests for all lib execute_* functions
+- [x] Tests for lexer and parser
 
 ## Internal todos
 
