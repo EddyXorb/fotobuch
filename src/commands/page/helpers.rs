@@ -146,24 +146,6 @@ pub(super) fn collect_dst_swap_photos_with_indices(
     }
 }
 
-// ── Single-page helpers ───────────────────────────────────────────────────────
-
-pub(super) fn single_page_of_src(src: &Src) -> Option<u32> {
-    match src {
-        Src::Pages(pe) if pe.pages.len() == 1 => Some(pe.pages[0]),
-        Src::Slots { page, .. } => Some(*page),
-        _ => None,
-    }
-}
-
-pub(super) fn single_page_of_dst_swap(dst: &DstSwap) -> Option<u32> {
-    match dst {
-        DstSwap::Pages(pe) if pe.pages.len() == 1 => Some(pe.pages[0]),
-        DstSwap::Slots { page, .. } => Some(*page),
-        _ => None,
-    }
-}
-
 // ── Formatting helpers ────────────────────────────────────────────────────────
 
 pub(super) fn format_src_desc(src: &Src) -> String {

@@ -201,21 +201,25 @@ pub enum PageCommands {
         /// Pages expression: "3,5" (page 5 onto 3) or "3..5" (pages 4-5 onto 3)
         pages: String,
     },
-    /// Swap photos between two addresses
+    /// Swap photos between two addresses (only single numbers or ranges, no comma lists)
     ///
-    /// Addressing:
-    ///   3:2   5:6          Single slot swap
-    ///   3:1..3  5:2..4     Slot range swap
-    ///   3  5               Whole page swap
-    ///   3..6  8..11        Page range swap (pairwise: 3↔8, 4↔9, …)
-    ///   3,5  7,9           Page list swap (3↔7, 5↔9)
+    /// Page swap — block transposition, pages between the blocks keep their relative order:
+    ///   3  5               Pages 3 and 5 swap positions
+    ///   1..2  5..9         Block [1,2] and block [5..9] swap; pages 3,4 stay between them
+    ///                      before: [1,2,3,4,5,6,7,8,9]  after: [5,6,7,8,9,3,4,1,2]
     ///
-    /// Page range/list swaps require equal counts and no overlap between sides.
+    /// Slot swap — each block is inserted at the position of the swapped counterpart:
+    ///   3:2  5:6           Slot 2 on page 3 ↔ slot 6 on page 5
+    ///   3:2..4  5:6..9     Block [slots 2-4] ↔ block [slots 6-9], different sizes ok
+    ///   3:2..10  5         Slots 2-10 on page 3 ↔ all photos on page 5
+    ///   1:3..5  1:7..9     Swap within the same page (non-overlapping ranges)
+    ///
+    /// Errors: overlapping ranges, comma-separated list as operand.
     #[command(verbatim_doc_comment)]
     Swap {
-        /// Left address: "3:2", "3:1..3", "3", "3..6", "3,5"
+        /// Left address: "3:2", "3:1..3", "3", "3..6"
         left: String,
-        /// Right address: "5:6", "5:2..4", "5", "8..11", "7,9"
+        /// Right address: "5:6", "5:2..4", "5", "8..11"
         right: String,
     },
 }
