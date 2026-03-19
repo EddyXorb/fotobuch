@@ -163,8 +163,7 @@ fn rebuild_range(
     end: usize,
     flex: usize,
 ) -> Result<BuildResult> {
-    let has_cover = mgr.state.config.book.cover.as_ref().is_some_and(|c| c.active);
-    let effective_start = skip_cover_if_needed(has_cover, start, end)?;
+    let effective_start = skip_cover_if_needed(mgr.state.has_cover(), start, end)?;
 
     let groups = collect_photos_as_groups(&mgr.state, effective_start, end + 1);
     let n = end - effective_start + 1;
@@ -193,15 +192,16 @@ fn rebuild_range(
 /// Rebuild all pages from scratch.
 /// Cover page (index 0) is always skipped — use `rebuild --page 0` to rebuild it explicitly.
 fn rebuild_all(mgr: StateManager, project_root: &Path) -> Result<BuildResult> {
-    let has_cover = mgr.state.config.book.cover.as_ref().is_some_and(|c| c.active);
     let layout_len = mgr.state.layout.len();
 
-    let (groups, range) = if has_cover && layout_len > 0 {
-        warn!(
-            "Cover page (index 0) is excluded from full rebuild. \
-             Use `rebuild --page 0` to rebuild it explicitly."
-        );
-        (collect_photos_as_groups(&mgr.state, 1, layout_len), Some((1usize, layout_len)))
+    let effective_start = if layout_len > 0 {
+        skip_cover_if_needed(mgr.state.has_cover(), 0, layout_len - 1)?
+    } else {
+        0
+    };
+
+    let (groups, range) = if effective_start > 0 {
+        (collect_photos_as_groups(&mgr.state, effective_start, layout_len), Some((effective_start, layout_len)))
     } else {
         (mgr.state.photos.clone(), None)
     };
