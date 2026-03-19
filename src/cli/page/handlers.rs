@@ -3,11 +3,12 @@
 use anyhow::{Context, Result};
 use std::path::PathBuf;
 
-use fotobuch::commands::page::{self as page_cmd, PageMoveCmd};
+use fotobuch::commands::page::{self as page_cmd, InfoFilter, PageMoveCmd, SlotInfo};
 use fotobuch::commands::unplace::execute_unplace;
 
 use super::parse_api::{
-    parse_move_cmd, parse_pages_expr, parse_split_addr, parse_swap_addrs, parse_unplace_addr,
+    parse_info_address, parse_move_cmd, parse_pages_expr, parse_split_addr, parse_swap_addrs,
+    parse_unplace_addr, parse_weight_address,
 };
 
 fn project_root() -> Result<PathBuf> {
@@ -110,4 +111,95 @@ pub fn handle_swap(left: &str, right: &str) -> Result<()> {
 pub fn format_page_list(pages: &[u32]) -> String {
     let list: Vec<String> = pages.iter().map(|p| p.to_string()).collect();
     list.join(", ")
+}
+
+/// Handler for `fotobuch page info <address> [--weights|--ids|--pixels]`.
+pub fn handle_info(address: &str, filter: InfoFilter) -> Result<()> {
+    let addr = parse_info_address(address)
+        .map_err(|e| anyhow::anyhow!("Invalid address '{}': {}", address, e))?;
+    let result = page_cmd::execute_info(&project_root()?, addr, filter.clone())
+        .map_err(|e| anyhow::anyhow!("{}", e))?;
+
+    if result.slots.is_empty() {
+        println!("No slots found.");
+        return Ok(());
+    }
+
+    if filter.weights {
+        for s in &result.slots {
+            println!("{}:{}={}", s.page, s.slot, s.area_weight);
+        }
+    } else if filter.ids {
+        for s in &result.slots {
+            println!("{}", s.id);
+        }
+    } else if filter.pixels {
+        for s in &result.slots {
+            println!("{}x{}", s.width_px, s.height_px);
+        }
+    } else if result.slots.len() == 1 {
+        print_vertical(&result.slots[0]);
+    } else {
+        print_table(&result.slots);
+    }
+    Ok(())
+}
+
+fn print_vertical(s: &SlotInfo) {
+    let ratio = s.width_px as f64 / s.height_px as f64;
+    println!("page {}, slot {}", s.page, s.slot);
+    println!("  id:      {}", s.id);
+    println!("  source:  {}", s.source);
+    println!("  pixels:  {}x{}", s.width_px, s.height_px);
+    println!("  ratio:   {ratio:.2}");
+    println!("  weight:  {}", s.area_weight);
+    if let Some(sl) = &s.placement {
+        println!(
+            "  placed:  x={:.1}mm y={:.1}mm w={:.1}mm h={:.1}mm",
+            sl.x_mm, sl.y_mm, sl.width_mm, sl.height_mm
+        );
+    } else {
+        println!("  placed:  (not yet placed)");
+    }
+}
+
+fn print_table(slots: &[SlotInfo]) {
+    let mut current_page: Option<u32> = None;
+    for s in slots {
+        if current_page != Some(s.page) {
+            let shown = slots.iter().filter(|x| x.page == s.page).count();
+            if shown == s.total_page_slots {
+                println!("page {}", s.page);
+            } else {
+                println!("page {}  ({}/{} slots shown)", s.page, shown, s.total_page_slots);
+            }
+            println!(
+                "  {:<5} {:<46} {:<10} {:<6} {:<7} placed",
+                "slot", "id", "pixels", "ratio", "weight"
+            );
+            current_page = Some(s.page);
+        }
+        let ratio = s.width_px as f64 / s.height_px as f64;
+        let pixels = format!("{}x{}", s.width_px, s.height_px);
+        let placed = s.placement.as_ref().map_or(String::new(), |sl| {
+            format!(
+                "{:.1}, {:.1}, {:.1}x{:.1}",
+                sl.x_mm, sl.y_mm, sl.width_mm, sl.height_mm
+            )
+        });
+        println!(
+            "  {:<5} {:<46} {:<10} {:<6.2} {:<7} {}",
+            s.slot, s.id, pixels, ratio, s.area_weight, placed
+        );
+    }
+}
+
+/// Handler for `fotobuch page weight <address> <weight>`.
+pub fn handle_weight(address: &str, weight: f64) -> Result<()> {
+    let addr = parse_weight_address(address)
+        .map_err(|e| anyhow::anyhow!("Invalid address '{}': {}", address, e))?;
+    page_cmd::execute_weight(&project_root()?, addr, weight)
+        .map_err(|e| anyhow::anyhow!("{}", e))?;
+    println!("Weight set to {weight}.");
+    Ok(())
 }

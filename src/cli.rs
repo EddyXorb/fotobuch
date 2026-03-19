@@ -222,6 +222,40 @@ pub enum PageCommands {
         /// Right address: "5:6", "5:2..4", "5", "8..11"
         right: String,
     },
+    /// Show photo metadata for slots on a page
+    ///
+    /// Address forms:
+    ///   3           All slots on page 3
+    ///   3:2         Single slot
+    ///   3:1..3,7    Slots 1-3 and 7
+    ///
+    /// Without flags: full table (or vertical view for a single slot).
+    /// With a flag: machine-readable single-field output.
+    #[command(verbatim_doc_comment)]
+    Info {
+        /// Address: "3", "3:2", "3:1..3,7"
+        address: String,
+        /// Output only area weights (format: page:slot=weight)
+        #[arg(long)]
+        weights: bool,
+        /// Output only photo IDs
+        #[arg(long)]
+        ids: bool,
+        /// Output only pixel dimensions
+        #[arg(long)]
+        pixels: bool,
+    },
+    /// Set area_weight for one or more slots
+    ///
+    ///   3:2 2.0        Single slot
+    ///   3:1..3,7 2.0   Multiple slots, same weight
+    ///   3 2.0          All slots on page 3
+    Weight {
+        /// Address: "3", "3:2", "3:1..3,7"
+        address: String,
+        /// Weight value (must be > 0)
+        weight: f64,
+    },
 }
 
 /// Project subcommands
@@ -312,6 +346,11 @@ impl Execute for PageCommands {
             PageCommands::Split { address } => page::handle_split(address),
             PageCommands::Combine { pages } => page::handle_combine(pages),
             PageCommands::Swap { left, right } => page::handle_swap(left, right),
+            PageCommands::Info { address, weights, ids, pixels } => {
+                use fotobuch::commands::page::InfoFilter;
+                page::handle_info(address, InfoFilter { weights: *weights, ids: *ids, pixels: *pixels })
+            }
+            PageCommands::Weight { address, weight } => page::handle_weight(address, *weight),
         }
     }
 }
