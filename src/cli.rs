@@ -107,7 +107,7 @@ pub enum Commands {
     /// Remove photos from the layout at a page:slot address (they stay in the project)
     ///
     /// The page is NOT deleted automatically, even if it becomes empty.
-    /// To delete a whole page and unplace its photos, use: page move PAGE ->
+    /// To delete a whole page and unplace its photos, use: page move PAGE out
     Unplace {
         /// Slot address: "3:2" (slot 2 on page 3), "3:2,7", "3:2..5", "3:2..5,7"
         address: String,
@@ -159,12 +159,11 @@ pub enum Commands {
 /// Page subcommands
 #[derive(Subcommand, Debug)]
 pub enum PageCommands {
-    /// Move, swap, or unplace photos between pages
+    /// Move or unplace photos between pages
     ///
-    /// Three forms:
-    ///   SRC -> DST    Move to another page (source page stays, even if empty)
-    ///   SRC <> DST    Swap between two addresses
-    ///   SRC ->        Unplace (no destination): pages deleted, slots emptied
+    /// Two forms:
+    ///   SRC to DST    Move to another page (source page stays, even if empty)
+    ///   SRC out       Unplace: pages deleted, slots emptied
     ///
     /// Addressing:
     ///   3             Whole page
@@ -174,19 +173,13 @@ pub enum PageCommands {
     ///   4+            New page after page 4 (move destination only)
     ///
     /// Move:
-    ///   3:2 -> 5      Slot 2 from page 3 to page 5
-    ///   3,4 -> 5      Merge pages 3 and 4 into page 5
-    ///   3:2 -> 4+     Slot 2 onto a new page inserted after page 4
-    ///
-    /// Swap:
-    ///   3:2 <> 5:6    Swap single slots
-    ///   3:1,4 <> 5:2..5  Slot swap with differing counts
-    ///   3 <> 5        Swap entire pages
-    ///   3..6 <> 8..11 Swap page ranges (pairwise, equal count, no overlap)
+    ///   3:2 to 5      Slot 2 from page 3 to page 5
+    ///   3,4 to 5      Merge pages 3 and 4 into page 5
+    ///   3:2 to 4+     Slot 2 onto a new page inserted after page 4
     ///
     /// Unplace:
-    ///   3 ->          Delete page 3, photos become unplaced
-    ///   3:2 ->        Unplace slot 2, page 3 stays (possibly empty)
+    ///   3 out         Delete page 3, photos become unplaced
+    ///   3:2 out       Unplace slot 2, page 3 stays (possibly empty)
     #[command(verbatim_doc_comment)]
     Move {
         /// Expression passed as space-separated tokens, e.g.: 3:2 -> 5
@@ -195,7 +188,7 @@ pub enum PageCommands {
     },
     /// Split a page at a slot: photos from that slot onwards move to a new page inserted after
     ///
-    /// Shortcut for: page move PAGE:SLOT.. -> PAGE+
+    /// Shortcut for: page move PAGE:SLOT.. to PAGE+
     /// Error if SLOT is the first slot (would leave the original page empty).
     Split {
         /// Address "PAGE:SLOT", e.g. "3:4" splits page 3 at slot 4
@@ -208,9 +201,9 @@ pub enum PageCommands {
         /// Pages expression: "3,5" (page 5 onto 3) or "3..5" (pages 4-5 onto 3)
         pages: String,
     },
-    /// Swap photos between two addresses (shortcut for: page move A <> B)
+    /// Swap photos between two addresses
     ///
-    /// Supports the same addressing as "page move <>":
+    /// Addressing:
     ///   3:2   5:6          Single slot swap
     ///   3:1..3  5:2..4     Slot range swap
     ///   3  5               Whole page swap

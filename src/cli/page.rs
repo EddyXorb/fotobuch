@@ -17,7 +17,3 @@ mod tokens;
 mod tests;
 
 pub use handlers::{handle_combine, handle_move, handle_split, handle_swap, handle_unplace};
-pub use parse_api::{
-    parse_move_cmd, parse_pages_expr, parse_split_addr, parse_swap_addrs, parse_unplace_addr,
-};
-pub use tokens::{ParseError, Token};

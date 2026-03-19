@@ -9,50 +9,29 @@ use fotobuch::commands::page::*;
 
 #[test]
 fn test_tokenize_basic() {
-    let tokens = tokenize("3:2 -> 5").unwrap();
+    let tokens = tokenize("3:2 to 5").unwrap();
     assert_eq!(
         tokens,
         vec![
             Token::Number(3),
             Token::Colon,
             Token::Number(2),
-            Token::Arrow,
+            Token::To,
             Token::Number(5),
-        ]
-    );
-}
-
-#[test]
-fn test_tokenize_swap() {
-    let tokens = tokenize("3:1..3 <> 5:2..4").unwrap();
-    assert_eq!(
-        tokens,
-        vec![
-            Token::Number(3),
-            Token::Colon,
-            Token::Number(1),
-            Token::Range,
-            Token::Number(3),
-            Token::Swap,
-            Token::Number(5),
-            Token::Colon,
-            Token::Number(2),
-            Token::Range,
-            Token::Number(4),
         ]
     );
 }
 
 #[test]
 fn test_tokenize_new_page() {
-    let tokens = tokenize("3:2 -> 4+").unwrap();
+    let tokens = tokenize("3:2 to 4+").unwrap();
     assert_eq!(
         tokens,
         vec![
             Token::Number(3),
             Token::Colon,
             Token::Number(2),
-            Token::Arrow,
+            Token::To,
             Token::Number(4),
             Token::Plus,
         ]
@@ -61,17 +40,23 @@ fn test_tokenize_new_page() {
 
 #[test]
 fn test_tokenize_comma_list() {
-    let tokens = tokenize("3,4 -> 5").unwrap();
+    let tokens = tokenize("3,4 to 5").unwrap();
     assert_eq!(
         tokens,
         vec![
             Token::Number(3),
             Token::Comma,
             Token::Number(4),
-            Token::Arrow,
+            Token::To,
             Token::Number(5),
         ]
     );
+}
+
+#[test]
+fn test_tokenize_out() {
+    let tokens = tokenize("3 out").unwrap();
+    assert_eq!(tokens, vec![Token::Number(3), Token::Out,]);
 }
 
 #[test]
@@ -94,11 +79,16 @@ fn test_tokenize_single_lt_is_error() {
     assert!(tokenize("3<2").is_err());
 }
 
+#[test]
+fn test_tokenize_unknown_keyword_is_error() {
+    assert!(tokenize("3 onto 5").is_err());
+}
+
 // ── parse_move_cmd ────────────────────────────────────────────────────────────
 
 #[test]
 fn test_parse_slot_to_page() {
-    let cmd = parse_move_cmd("3:2 -> 5").unwrap();
+    let cmd = parse_move_cmd("3:2 to 5").unwrap();
     assert_eq!(
         cmd,
         PageMoveCmd::Move {
@@ -113,7 +103,7 @@ fn test_parse_slot_to_page() {
 
 #[test]
 fn test_parse_range_slots_to_page() {
-    let cmd = parse_move_cmd("3:1..3,7 -> 5").unwrap();
+    let cmd = parse_move_cmd("3:1..3,7 to 5").unwrap();
     assert_eq!(
         cmd,
         PageMoveCmd::Move {
@@ -128,7 +118,7 @@ fn test_parse_range_slots_to_page() {
 
 #[test]
 fn test_parse_page_to_page() {
-    let cmd = parse_move_cmd("3 -> 5").unwrap();
+    let cmd = parse_move_cmd("3 to 5").unwrap();
     assert_eq!(
         cmd,
         PageMoveCmd::Move {
@@ -140,7 +130,7 @@ fn test_parse_page_to_page() {
 
 #[test]
 fn test_parse_pages_to_page() {
-    let cmd = parse_move_cmd("3,4 -> 5").unwrap();
+    let cmd = parse_move_cmd("3,4 to 5").unwrap();
     assert_eq!(
         cmd,
         PageMoveCmd::Move {
@@ -152,7 +142,7 @@ fn test_parse_pages_to_page() {
 
 #[test]
 fn test_parse_page_range_to_page() {
-    let cmd = parse_move_cmd("3..5 -> 2").unwrap();
+    let cmd = parse_move_cmd("3..5 to 2").unwrap();
     assert_eq!(
         cmd,
         PageMoveCmd::Move {
@@ -164,7 +154,7 @@ fn test_parse_page_range_to_page() {
 
 #[test]
 fn test_parse_slot_to_new_page() {
-    let cmd = parse_move_cmd("3:2 -> 4+").unwrap();
+    let cmd = parse_move_cmd("3:2 to 4+").unwrap();
     assert_eq!(
         cmd,
         PageMoveCmd::Move {
@@ -178,54 +168,6 @@ fn test_parse_slot_to_new_page() {
 }
 
 #[test]
-fn test_parse_swap_slots() {
-    let cmd = parse_move_cmd("3:2 <> 5:6").unwrap();
-    assert_eq!(
-        cmd,
-        PageMoveCmd::Swap {
-            left: Src::Slots {
-                page: 3,
-                slots: SlotExpr::single(2),
-            },
-            right: DstSwap::Slots {
-                page: 5,
-                slots: SlotExpr::single(6),
-            },
-        }
-    );
-}
-
-#[test]
-fn test_parse_swap_pages() {
-    let cmd = parse_move_cmd("3 <> 5").unwrap();
-    assert_eq!(
-        cmd,
-        PageMoveCmd::Swap {
-            left: Src::Pages(PagesExpr::single(3)),
-            right: DstSwap::Pages(PagesExpr::single(5)),
-        }
-    );
-}
-
-#[test]
-fn test_parse_swap_ranges() {
-    let cmd = parse_move_cmd("3:1..3 <> 5:2..4").unwrap();
-    assert_eq!(
-        cmd,
-        PageMoveCmd::Swap {
-            left: Src::Slots {
-                page: 3,
-                slots: SlotExpr::from_range(1, 3),
-            },
-            right: DstSwap::Slots {
-                page: 5,
-                slots: SlotExpr::from_range(2, 4),
-            },
-        }
-    );
-}
-
-#[test]
 fn test_parse_missing_operator() {
     let err = parse_move_cmd("3").unwrap_err();
     assert_eq!(err, ParseError::MissingOperator);
@@ -233,7 +175,7 @@ fn test_parse_missing_operator() {
 
 #[test]
 fn test_parse_page_unplace() {
-    let cmd = parse_move_cmd("3 ->").unwrap();
+    let cmd = parse_move_cmd("3 out").unwrap();
     assert_eq!(
         cmd,
         PageMoveCmd::Move {
@@ -245,7 +187,7 @@ fn test_parse_page_unplace() {
 
 #[test]
 fn test_parse_slots_unplace() {
-    let cmd = parse_move_cmd("3:4..6 ->").unwrap();
+    let cmd = parse_move_cmd("3:4..6 out").unwrap();
     assert_eq!(
         cmd,
         PageMoveCmd::Move {
@@ -256,12 +198,6 @@ fn test_parse_slots_unplace() {
             dst: DstMove::Unplace,
         }
     );
-}
-
-#[test]
-fn test_parse_missing_destination_swap() {
-    let err = parse_move_cmd("3 <>").unwrap_err();
-    assert_eq!(err, ParseError::MissingDestination);
 }
 
 // ── parse_split_addr ──────────────────────────────────────────────────────────

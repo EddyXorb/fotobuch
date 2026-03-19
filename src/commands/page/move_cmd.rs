@@ -235,11 +235,10 @@ fn execute_swap(
     let (right_photos, right_page_idx, right_slot_indices) =
         collect_dst_swap_photos_with_indices(&right, &mgr.state.layout)?;
 
-    if let (Some(lp), Some(rp)) = (single_page_of_src(&left), single_page_of_dst_swap(&right)) {
-        if lp == rp {
+    if let (Some(lp), Some(rp)) = (single_page_of_src(&left), single_page_of_dst_swap(&right))
+        && lp == rp {
             return Err(ValidationError::SwapSamePage(lp).into());
         }
-    }
 
     swap_photos_in_layout(
         &mut mgr.state.layout,

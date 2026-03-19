@@ -4,7 +4,7 @@ use super::tokens::{ParseError, Token};
 
 /// Tokenize a raw string into a list of [`Token`]s.
 ///
-/// Whitespace is ignored. `->` and `<>` are recognised as two-character tokens.
+/// Whitespace is ignored. `~` is the swap operator. `to` and `out` are keywords.
 pub fn tokenize(input: &str) -> Result<Vec<Token>, ParseError> {
     let mut tokens = Vec::new();
     let chars: Vec<char> = input.chars().collect();
@@ -35,22 +35,6 @@ pub fn tokenize(input: &str) -> Result<Vec<Token>, ParseError> {
                     return Err(ParseError::UnexpectedChar('.'));
                 }
             }
-            '-' => {
-                if i + 1 < chars.len() && chars[i + 1] == '>' {
-                    tokens.push(Token::Arrow);
-                    i += 2;
-                } else {
-                    return Err(ParseError::UnexpectedChar('-'));
-                }
-            }
-            '<' => {
-                if i + 1 < chars.len() && chars[i + 1] == '>' {
-                    tokens.push(Token::Swap);
-                    i += 2;
-                } else {
-                    return Err(ParseError::UnexpectedChar('<'));
-                }
-            }
             c if c.is_ascii_digit() => {
                 let start = i;
                 while i < chars.len() && chars[i].is_ascii_digit() {
@@ -61,6 +45,18 @@ pub fn tokenize(input: &str) -> Result<Vec<Token>, ParseError> {
                     .parse()
                     .map_err(|_| ParseError::InvalidNumber(s.clone()))?;
                 tokens.push(Token::Number(n));
+            }
+            c if c.is_ascii_alphabetic() => {
+                let start = i;
+                while i < chars.len() && chars[i].is_ascii_alphabetic() {
+                    i += 1;
+                }
+                let word: String = chars[start..i].iter().collect();
+                match word.as_str() {
+                    "to" => tokens.push(Token::To),
+                    "out" => tokens.push(Token::Out),
+                    _ => return Err(ParseError::UnknownKeyword(word)),
+                }
             }
             c => {
                 return Err(ParseError::UnexpectedChar(c));

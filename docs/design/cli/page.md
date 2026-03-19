@@ -8,8 +8,8 @@ fotobuch place    <PATTERN>...  [--filter <PATTERN>]  [--into <PAGE>]
 fotobuch unplace  <PAGE:SLOT_EXPR>
 
 # Seiten-Operationen
-fotobuch page move    <SRC=PAGES_EXPR|PAGE:SLOT_EXPR>  ->  <DST=PAGE|PAGE+>
-fotobuch page move    <SRC=PAGES_EXPR|PAGE:SLOT_EXPR>  <>  <DST=PAGES_EXPR|PAGE:SLOT_EXPR>
+fotobuch page move    <SRC=PAGES_EXPR|PAGE:SLOT_EXPR>  to   <DST=PAGE|PAGE+>
+fotobuch page move    <SRC=PAGES_EXPR|PAGE:SLOT_EXPR>  out
 fotobuch page split   <PAGE:SLOT>
 fotobuch page combine <PAGES_EXPR>
 fotobuch page swap    <PAGE:SLOT_EXPR>  <PAGE:SLOT_EXPR>
@@ -27,7 +27,7 @@ SLOT_EXPR:
   2..5       # slot-range
   2..5,7     # kombiniert
 
-Spezial-Ziele (nur bei page move ->):
+Spezial-Ziele (nur bei page move to):
   4+         # neue seite nach 4
 ```
 
@@ -66,43 +66,43 @@ fotobuch unplace 3:2..5,7     # kombiniert
 ```
 
 Seiten ohne verbleibende Fotos werden nicht automatisch gelöscht — dafür `page combine`
-oder manuelles Löschen via `page move SRC ->`.
+oder manuelles Löschen via `page move SRC out`.
 
-Alternativ: `page move 3:2 ->` ist äquivalent zu `unplace 3:2`. Für ganze Seiten
-(`page move 3 ->`) wird die Seite direkt gelöscht — das geht mit `unplace` nicht.
+Alternativ: `page move 3:2 out` ist äquivalent zu `unplace 3:2`. Für ganze Seiten
+(`page move 3 out`) wird die Seite direkt gelöscht — das geht mit `unplace` nicht.
 
 -----
 
 ### `page move`
 
-Universeller Operator für alle Umstrukturierungen. Drei Varianten:
+Zwei Varianten: Verschieben (`to`) und Unplatzieren (`out`).
 
-#### Variante 1: Verschieben (`->`)
+#### Variante 1: Verschieben (`to`)
 
 Verschiebt Fotos von der Quelle auf eine Zielseite. Der Solver verteilt die Fotos
 auf der Zielseite neu (impliziter Rebuild der Zielseite).
 
 ```
-fotobuch page move 3:2 -> 5           # slot 2 von seite 3 auf seite 5
-fotobuch page move 3:1..3,7 -> 5      # slots 1-3 und 7 von seite 3 auf seite 5
-fotobuch page move 3 -> 5             # alle fotos von seite 3 auf seite 5
-fotobuch page move 3,4 -> 5           # alle fotos von seiten 3 und 4 auf seite 5
-fotobuch page move 3..5 -> 2          # alle fotos von seiten 3-5 auf seite 2
-fotobuch page move 3:2 -> 4+          # slot 2 von seite 3 auf neue seite nach 4
+fotobuch page move 3:2 to 5           # slot 2 von seite 3 auf seite 5
+fotobuch page move 3:1..3,7 to 5      # slots 1-3 und 7 von seite 3 auf seite 5
+fotobuch page move 3 to 5             # alle fotos von seite 3 auf seite 5
+fotobuch page move 3,4 to 5           # alle fotos von seiten 3 und 4 auf seite 5
+fotobuch page move 3..5 to 2          # alle fotos von seiten 3-5 auf seite 2
+fotobuch page move 3:2 to 4+          # slot 2 von seite 3 auf neue seite nach 4
 ```
 
 Die Quellseite wird nach dem Verschieben nicht automatisch gelöscht, auch wenn sie leer ist.
 
-#### Variante 2: Unplace (`->` ohne Ziel)
+#### Variante 2: Unplace (`out`)
 
-Kein Ziel nach `->` bedeutet: Fotos werden aus dem Layout entfernt (unplaced), aber nicht
+`out` bedeutet: Fotos werden aus dem Layout entfernt (unplaced), aber nicht
 aus dem Projekt gelöscht.
 
 ```
-fotobuch page move 3 ->               # seite 3 wird gelöscht, fotos werden unplaced
-fotobuch page move 3,4 ->             # seiten 3 und 4 werden gelöscht
-fotobuch page move 3:2 ->             # nur slot 2 auf seite 3 wird unplaced, seite bleibt
-fotobuch page move 3:1..3 ->          # slots 1-3 werden unplaced, seite bleibt
+fotobuch page move 3 out              # seite 3 wird gelöscht, fotos werden unplaced
+fotobuch page move 3,4 out            # seiten 3 und 4 werden gelöscht
+fotobuch page move 3:2 out            # nur slot 2 auf seite 3 wird unplaced, seite bleibt
+fotobuch page move 3:1..3 out         # slots 1-3 werden unplaced, seite bleibt
 ```
 
 Unterschied je nach Quelle:
@@ -110,33 +110,11 @@ Unterschied je nach Quelle:
 - `Src::Pages` (`3`, `3,4`, `3..5`): Die gesamten Seiten werden **gelöscht**
 - `Src::Slots` (`3:2`, `3:1..3`): Nur die Slots werden entfernt, **Seite bleibt** (ggf. leer)
 
-#### Variante 3: Swap (`<>`)
-
-Tauscht Fotos zwischen zwei Adressen.
-
-```
-fotobuch page move 3:2 <> 5:6          # swap einzelner slots
-fotobuch page move 3:1..3 <> 5:2..4    # swap von slot-ranges (gleiche anzahl)
-fotobuch page move 3:1,4 <> 5:2..5     # swap von slots mit unterschiedlicher anzahl
-fotobuch page move 3 <> 5              # swap ganzer seiten (1:1)
-fotobuch page move 3..6 <> 8..11       # swap von seitenbereichen (paarweise: 3↔8, 4↔9, ...)
-fotobuch page move 3,5 <> 7,9          # swap von seitenlisten (3↔7, 5↔9)
-```
-
-Slot-Swaps (`Src::Slots × DstSwap::Slots`) erlauben unterschiedliche Anzahlen — die Fotos
-werden einfach gegenseitig ausgetauscht, die Seiten werden neu gelayoutet.
-
-Bei einem Seitenbereich-Swap (`Src::Pages × DstSwap::Pages`):
-
-- Anzahl der Seiten auf beiden Seiten muss übereinstimmen (`SwapCountMismatch`)
-- Keine Überschneidung zwischen den beiden Seitenmengen (`SwapRangesOverlap`)
-- Paarweiser Tausch: linke Seite i ↔ rechte Seite i (Fotos werden ausgetauscht, Slots verworfen)
-
 -----
 
 ### `page split`
 
-Shortcut für `page move PAGE:SLOT.. -> PAGE+`. Teilt eine Seite an einem gegebenen Slot:
+Shortcut für `page move PAGE:SLOT.. to PAGE+`. Teilt eine Seite an einem gegebenen Slot:
 alle Fotos ab diesem Slot (inklusive) wandern auf eine neu eingefügte Seite direkt danach.
 
 ```
@@ -159,8 +137,7 @@ fotobuch page combine 3..5      # fotos von 4 und 5 auf seite 3, seiten 4 und 5 
 
 ### `page swap`
 
-Shortcut für `page move A <> B`. Unterstützt dieselbe Adressierung wie `page move <>`:
-Slots, einzelne Seiten und Seitenbereiche/-listen.
+Tauscht Fotos zwischen zwei Adressen. Unterstützt Slots, einzelne Seiten und Seitenbereiche/-listen.
 
 ```
 fotobuch page swap 3:2 5:6          # einzelslot-swap
@@ -191,13 +168,15 @@ enum Token {
     Comma,         // ","
     Range,         // ".."
     Colon,         // ":"
-    Arrow,         // "->"
-    Swap,          // "<>"
+    To,            // "to"
+    Out,           // "out"
     Plus,          // "+"
 }
 ```
 
 Der Lexer ist eine einfache Zustandsmaschine über `chars()`. Whitespace wird ignoriert.
+Alphabetische Sequenzen werden als Keywords erkannt (`to`, `out`); unbekannte Keywords
+sind ein Fehler.
 
 ### Schicht 2: Parser
 
@@ -219,10 +198,12 @@ src         = pages_expr
 
 dst_move    = page
             | page "+"
-            | ε          (kein Ziel → Unplace)
 
 dst_swap    = pages_expr
             | page ":" slot_expr
+
+move_cmd    = src "to" dst_move
+            | src "out"
 ```
 
 Daraus entstehen typisierte Structs:
@@ -279,10 +260,10 @@ enum ValidationError {
 Fehler werden mit Kontext ausgegeben, nicht nur mit einer Fehlernummer:
 
 ```
-$ fotobuch page move 3:2 -> 99
+$ fotobuch page move 3:2 to 99
 error: page 99 does not exist (project has 12 pages)
 
-$ fotobuch page move 3:15 -> 5
+$ fotobuch page move 3:15 to 5
 error: slot 15 does not exist on page 3 (page has 7 slots)
 
 $ fotobuch page split 3:1
@@ -291,15 +272,15 @@ error: cannot split at first slot (would leave page 3 empty)
 
 ### Clap-Integration
 
-Die `page`-Subkommandos werden in Clap als Subcommand mit Raw-String-Argument definiert.
-Da `<>` und `->` keine Bash-Sonderzeichen sind, sind keine speziellen Clap-Flags nötig:
+Die `page`-Subkommandos werden in Clap als Subcommand definiert. `page move` nimmt alle
+Tokens als `Vec<String>` entgegen und der CLI-Parser fügt sie zu einem String zusammen:
 
 ```rust
 // cli.rs
 #[derive(Subcommand)]
 enum PageCommand {
     Move {
-        /// e.g. "3:1..3,7 -> 5" or "3:2 <> 5:6"
+        /// e.g. "3:1..3,7 to 5" or "3:2 ~ 5:6" or "3 out"
         #[arg(num_args = 1..)]
         args: Vec<String>,
     },
@@ -411,6 +392,7 @@ enum ParseError {
     MissingOperator,
     MissingDestination,
     InvalidNumber(String),
+    UnknownKeyword(String),
 }
 ```
 

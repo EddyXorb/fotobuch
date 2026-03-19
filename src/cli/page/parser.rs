@@ -160,23 +160,14 @@ impl Parser {
         let src = self.parse_src()?;
 
         match self.advance() {
-            Some(Token::Arrow) => {
-                if self.is_at_end() {
-                    return Ok(PageMoveCmd::Move { src, dst: DstMove::Unplace });
-                }
+            Some(Token::To) => {
                 let dst = self.parse_dst_move()?;
                 Ok(PageMoveCmd::Move { src, dst })
             }
-            Some(Token::Swap) => {
-                if self.is_at_end() {
-                    return Err(ParseError::MissingDestination);
-                }
-                let right = self.parse_dst_swap()?;
-                Ok(PageMoveCmd::Swap { left: src, right })
-            }
+            Some(Token::Out) => Ok(PageMoveCmd::Move { src, dst: DstMove::Unplace }),
             Some(t) => Err(ParseError::UnexpectedToken {
                 got: format!("{t:?}"),
-                expected: "'->' or '<>'",
+                expected: "'to' or 'out'",
             }),
             None => Err(ParseError::MissingOperator),
         }

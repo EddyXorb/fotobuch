@@ -2,7 +2,7 @@
 
 use crate::dto_models::LayoutPage;
 
-use super::types::{DstSwap, PagesExpr, SlotExpr, Src, ValidationError};
+use super::types::{DstSwap, SlotExpr, Src, ValidationError};
 
 // ── Index resolution ──────────────────────────────────────────────────────────
 
