@@ -62,14 +62,14 @@ pub fn multipage_build(
     // 4. Update layout
     let pages_rebuilt = if let Some((start, end)) = params.range {
         // Range rebuild: splice new pages into existing layout
-        let pages_rebuilt: Vec<usize> = (start + 1..=start + new_pages.len()).collect();
+        let pages_rebuilt: Vec<usize> = (start..start + new_pages.len()).collect();
         mgr.state.layout.splice(start..end, new_pages);
         let has_cover = mgr.state.config.book.cover.as_ref().is_some_and(|c| c.active);
         renumber_pages(&mut mgr.state.layout, has_cover);
         pages_rebuilt
     } else {
         // Full rebuild: replace entire layout
-        let pages_rebuilt: Vec<usize> = (1..=new_pages.len()).collect();
+        let pages_rebuilt: Vec<usize> = (0..new_pages.len()).collect();
         mgr.state.layout = new_pages;
         pages_rebuilt
     };

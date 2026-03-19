@@ -11,24 +11,25 @@ use super::build::{
     BuildResult, MultiPageParams, build_photo_index, collect_photos_as_groups, multipage_build,
     rebuild_single_page,
 };
+use tracing::warn;
 
-/// Scope of rebuild operation
+/// Scope of rebuild operation.
 ///
-/// All page numbers in this enum are **1-based** (as displayed to users).
-/// Internal functions that need 0-based indices must convert via `page - 1`.
+/// All page references use **0-based array indices** (position in `layout[]`).
+/// Cover page (when active) is always at index 0.
 #[derive(Debug, Clone)]
 pub enum RebuildScope {
     /// Rebuild all pages (like first build)
     All,
-    /// Rebuild single page (forced, even if clean)
-    /// Page number is 1-based (e.g., `SinglePage(5)` means page 5)
+    /// Rebuild single page (forced, even if clean).
+    /// `page_idx` is a 0-based index into `layout[]` (e.g., `SinglePage(0)` = cover/first page).
     SinglePage(usize),
-    /// Rebuild page range with optional flexibility
-    /// Start and end are both 1-based and inclusive (e.g., `Range { start: 2, end: 4, .. }` means pages 2, 3, 4)
+    /// Rebuild page range with optional flexibility.
+    /// `start` and `end` are both 0-based inclusive indices into `layout[]`.
     Range {
-        /// Start page (inclusive, 1-based)
+        /// Start page index (inclusive, 0-based)
         start: usize,
-        /// End page (inclusive, 1-based)
+        /// End page index (inclusive, 0-based)
         end: usize,
         /// Allow page count to vary by +/- N (default: 0)
         flex: usize,
@@ -39,47 +40,29 @@ pub enum RebuildScope {
 ///
 /// # Behavior by scope:
 ///
-/// ## Single page: `rebuild 5`
-/// - Page-Layout-Solver on page 5, forced even if clean
-/// - Photo assignment stays the same, only layout[5].slots is rewritten
+/// ## Single page: `rebuild --page 0`
+/// - Page-Layout-Solver on the given page, forced even if clean
+/// - Photo assignment stays the same, only layout[idx].slots is rewritten
 /// - Does not trigger Book-Layout-Solver
+/// - **Cover page (index 0) can only be rebuilt via this form.**
 ///
-/// ## Page range: `rebuild 3-7`
-/// - Book-Layout-Solver on subset: redistribute photos from pages 3-7
-/// - Then Page-Layout-Solver for each page in that range
+/// ## Page range: `rebuild --range 3-7`
+/// - Book-Layout-Solver on subset, then Page-Layout-Solver for each page
 /// - Surrounding pages unchanged
-/// - Page count stays the same (5 pages in, 5 pages out) unless --flex is used
-///
-/// ## With flex: `rebuild 3-7 --flex 2`
-/// - Same as range, but solver may use 3-9 pages instead of exactly 5
-/// - Useful after `place` when photos are unevenly distributed
+/// - Page count stays the same (unless --flex is used)
+/// - If range starts at 0 (cover active): cover is skipped with a warning; range becomes 1..end
 ///
 /// ## All: `rebuild` (no arguments)
-/// - Like first build: all photos from photos (top-level), fresh distribution
-/// - Book-Layout-Solver + Page-Layout-Solver for all pages
+/// - All inner photos redistributed fresh via Book-Layout-Solver + Page-Layout-Solver
+/// - If cover is active: cover is skipped with a warning (use `rebuild --page 0` explicitly)
 /// - Manual changes in layout are lost (but git-recoverable)
-///
-/// # Steps
-/// 1. StateManager::open() - loads state, commits user edits automatically
-/// 2. Preview cache check
-/// 3. Run appropriate solver(s)
-/// 4. Write fotobuch.yaml
-/// 5. Compile Typst -> PDF
-/// 6. StateManager::finish() - saves YAML and commits with message
-///
-/// # Arguments
-/// * `project_root` - Path to the project directory
-/// * `scope` - Rebuild scope (all, single page, or range)
-///
-/// # Returns
-/// * `BuildResult` with PDF path and statistics
 pub fn rebuild(project_root: &Path, scope: RebuildScope) -> Result<BuildResult> {
     let mgr = StateManager::open(project_root)?;
 
     validate_scope(&scope, &mgr)?;
 
     match scope {
-        RebuildScope::SinglePage(n) => rebuild_single(mgr, project_root, n),
+        RebuildScope::SinglePage(idx) => rebuild_single(mgr, project_root, idx),
         RebuildScope::Range { start, end, flex } => {
             rebuild_range(mgr, project_root, start, end, flex)
         }
@@ -88,7 +71,7 @@ pub fn rebuild(project_root: &Path, scope: RebuildScope) -> Result<BuildResult> 
 }
 
 fn validate_scope(scope: &RebuildScope, mgr: &StateManager) -> Result<()> {
-    // Validierung: Layout muss existieren (außer bei All)
+    // Layout must exist (except for All)
     if !matches!(scope, RebuildScope::All) && mgr.state.layout.is_empty() {
         anyhow::bail!(
             "No layout exists. Run `fotobuch build` first, \
@@ -96,24 +79,25 @@ fn validate_scope(scope: &RebuildScope, mgr: &StateManager) -> Result<()> {
         );
     }
 
-    // Scope-Validierung
     if let RebuildScope::Range { start, end, .. } = scope
-        && (*start == 0 || *end == 0 || *start > *end || *end > mgr.state.layout.len())
+        && (*start > *end || *end >= mgr.state.layout.len())
     {
         anyhow::bail!(
-            "Invalid page range {}-{} (layout has {} pages)",
+            "Invalid page range {}-{} (layout has {} pages, indices 0..{})",
             start,
             end,
-            mgr.state.layout.len()
+            mgr.state.layout.len(),
+            mgr.state.layout.len().saturating_sub(1),
         );
     }
-    if let RebuildScope::SinglePage(n) = scope
-        && (*n == 0 || *n > mgr.state.layout.len())
+    if let RebuildScope::SinglePage(idx) = scope
+        && *idx >= mgr.state.layout.len()
     {
         anyhow::bail!(
-            "Invalid page {} (layout has {} pages)",
-            n,
-            mgr.state.layout.len()
+            "Invalid page index {} (layout has {} pages, indices 0..{})",
+            idx,
+            mgr.state.layout.len(),
+            mgr.state.layout.len().saturating_sub(1),
         );
     }
 
@@ -121,31 +105,54 @@ fn validate_scope(scope: &RebuildScope, mgr: &StateManager) -> Result<()> {
 }
 
 /// Rebuild a single page using the SinglePage solver.
-fn rebuild_single(mut mgr: StateManager, project_root: &Path, page: usize) -> Result<BuildResult> {
+fn rebuild_single(mut mgr: StateManager, project_root: &Path, idx: usize) -> Result<BuildResult> {
     // 1. Preview-Cache
     let preview_cache_dir = mgr.preview_cache_dir();
     preview::ensure_previews(&mgr.state, &preview_cache_dir)?;
 
     // 2. Solver — reuse rebuild_single_page from build module
     let photo_index = build_photo_index(&mgr.state.photos);
-    rebuild_single_page(&mut mgr.state, page - 1, &photo_index)?;
+    rebuild_single_page(&mut mgr.state, idx, &photo_index)?;
 
-    // 3. Typst kompilieren
+    // 3. Compile Typst
     let bleed_mm = mgr.state.config.book.bleed_mm;
     let pdf_path = typst::compile_preview(project_root, mgr.project_name(), bleed_mm)?;
 
-    // 4. Fertigstellen — speichert YAML und committed (always, even if slots don't change)
-    mgr.finish_always(&format!("rebuild: page {}", page))?;
+    // 4. Save — always commit (even if slots don't change)
+    mgr.finish_always(&format!("rebuild: page {}", idx))?;
 
     Ok(BuildResult {
         pdf_path,
-        pages_rebuilt: vec![page],
+        pages_rebuilt: vec![idx],
         pages_swapped: vec![],
         images_processed: 0,
         total_cost: 0.0,
         dpi_warnings: Vec::new(),
         nothing_to_do: false,
     })
+}
+
+/// If cover is active and `start` is 0, skip the cover and return effective start = 1.
+/// Emits a warning in that case. Returns `Err` if the resulting range would be empty.
+fn skip_cover_if_needed(
+    has_cover: bool,
+    start: usize,
+    end: usize,
+) -> Result<usize> {
+    if !has_cover || start != 0 {
+        return Ok(start);
+    }
+    warn!(
+        "Cover page (index 0) is excluded from this rebuild. \
+         Use `rebuild --page 0` to rebuild it explicitly."
+    );
+    if end == 0 {
+        anyhow::bail!(
+            "Range 0-0 contains only the cover page. \
+             Use `rebuild --page 0` to rebuild it explicitly."
+        );
+    }
+    Ok(1)
 }
 
 /// Rebuild a page range with optional flexibility.
@@ -156,11 +163,10 @@ fn rebuild_range(
     end: usize,
     flex: usize,
 ) -> Result<BuildResult> {
-    // Collect photos from the range
-    let groups = collect_photos_as_groups(&mgr.state, start - 1, end);
+    let effective_start = skip_cover_if_needed(mgr.state.has_cover(), start, end)?;
 
-    // Build custom config with flex
-    let n = end - start + 1;
+    let groups = collect_photos_as_groups(&mgr.state, effective_start, end + 1);
+    let n = end - effective_start + 1;
     let custom_config = BookLayoutSolverConfig {
         page_min: n.saturating_sub(flex).max(1),
         page_max: n + flex,
@@ -173,10 +179,10 @@ fn rebuild_range(
         project_root,
         MultiPageParams {
             groups: &groups,
-            range: Some((start - 1, end)),
+            range: Some((effective_start, end + 1)),
             flex,
             custom_config: Some(custom_config),
-            commit_message: format!("rebuild: pages {}-{}", start, end),
+            commit_message: format!("rebuild: pages {}-{}", effective_start, end),
             images_processed: 0,
             always_commit: true,
         },
@@ -184,19 +190,33 @@ fn rebuild_range(
 }
 
 /// Rebuild all pages from scratch.
+/// Cover page (index 0) is always skipped — use `rebuild --page 0` to rebuild it explicitly.
 fn rebuild_all(mgr: StateManager, project_root: &Path) -> Result<BuildResult> {
-    let groups = mgr.state.photos.clone();
-    let page_count = groups.iter().map(|g| g.files.len()).sum::<usize>();
+    let layout_len = mgr.state.layout.len();
+
+    let effective_start = if layout_len > 0 {
+        skip_cover_if_needed(mgr.state.has_cover(), 0, layout_len - 1)?
+    } else {
+        0
+    };
+
+    let (groups, range) = if effective_start > 0 {
+        (collect_photos_as_groups(&mgr.state, effective_start, layout_len), Some((effective_start, layout_len)))
+    } else {
+        (mgr.state.photos.clone(), None)
+    };
+
+    let photo_count: usize = groups.iter().map(|g| g.files.len()).sum();
 
     multipage_build(
         mgr,
         project_root,
         MultiPageParams {
             groups: &groups,
-            range: None,
+            range,
             flex: 0,
             custom_config: None,
-            commit_message: format!("rebuild: {} photos redistributed", page_count),
+            commit_message: format!("rebuild: {} photos redistributed", photo_count),
             images_processed: 0,
             always_commit: true,
         },

@@ -73,8 +73,8 @@ fn test_rebuild_single_page_only_changes_slots() -> Result<()> {
         "Need at least 2 pages for test"
     );
 
-    // Store state of all pages
-    let page_to_rebuild = 1;
+    // Rebuild page at index 1 (second page, 0-based)
+    let page_idx_to_rebuild = 1usize;
     let photos_before: Vec<_> = state_before
         .layout
         .iter()
@@ -86,12 +86,12 @@ fn test_rebuild_single_page_only_changes_slots() -> Result<()> {
         .map(|p| p.slots.clone())
         .collect();
 
-    // Rebuild single page
-    let result = rebuild(&project_root, RebuildScope::SinglePage(page_to_rebuild))?;
+    // Rebuild single page by 0-based index
+    let result = rebuild(&project_root, RebuildScope::SinglePage(page_idx_to_rebuild))?;
 
     // Verify result
     assert_eq!(result.pages_rebuilt.len(), 1);
-    assert_eq!(result.pages_rebuilt[0], page_to_rebuild);
+    assert_eq!(result.pages_rebuilt[0], page_idx_to_rebuild);
     assert!(result.pdf_path.exists());
 
     // Load state after rebuild
@@ -102,25 +102,22 @@ fn test_rebuild_single_page_only_changes_slots() -> Result<()> {
 
     // Verify only the rebuilt page's slots changed, photos stay the same
     for (i, page) in state_after.layout.iter().enumerate() {
-        let page_num = i + 1;
-
         // Photos should be identical for all pages
         assert_eq!(
             page.photos, photos_before[i],
-            "Photos on page {} should not change",
-            page_num
+            "Photos on page index {} should not change",
+            i
         );
 
-        if page_num == page_to_rebuild {
+        if i == page_idx_to_rebuild {
             // Slots on rebuilt page may have changed (deterministic solver might give same result)
-            // Just verify they exist
             assert!(!page.slots.is_empty(), "Rebuilt page should have slots");
         } else {
             // Other pages should be completely unchanged
             assert_eq!(
                 page.slots, slots_before[i],
-                "Slots on page {} should not change",
-                page_num
+                "Slots on page index {} should not change",
+                i
             );
         }
     }
@@ -135,15 +132,15 @@ fn test_rebuild_single_page_only_changes_slots() -> Result<()> {
         "Commit should mention 'rebuild'"
     );
     assert!(
-        message.contains(&format!("page {}", page_to_rebuild)),
-        "Commit should mention page number"
+        message.contains(&format!("page {}", page_idx_to_rebuild)),
+        "Commit should mention page index"
     );
 
     Ok(())
 }
 
 #[test]
-fn test_rebuild_single_page_invalid_page_number() -> Result<()> {
+fn test_rebuild_single_page_invalid_page_index() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let project_root = create_test_project_with_build(&temp_dir)?;
 
@@ -151,23 +148,18 @@ fn test_rebuild_single_page_invalid_page_number() -> Result<()> {
     let state = ProjectState::load(&yaml_path)?;
     let page_count = state.layout.len();
 
-    // Test page 0 (invalid)
-    let result = rebuild(&project_root, RebuildScope::SinglePage(0));
-    assert!(result.is_err(), "Page 0 should be invalid");
+    // Test index >= len (invalid — 0-based, so len is out of bounds)
+    let result = rebuild(&project_root, RebuildScope::SinglePage(page_count));
+    assert!(result.is_err(), "Page index {} should be invalid (len={})", page_count, page_count);
     let err = result.unwrap_err();
     assert!(
         err.to_string().contains("Invalid page"),
         "Error should mention invalid page"
     );
 
-    // Test page > len (invalid)
-    let result = rebuild(&project_root, RebuildScope::SinglePage(page_count + 1));
-    assert!(result.is_err(), "Page beyond count should be invalid");
-    let err = result.unwrap_err();
-    assert!(
-        err.to_string().contains("Invalid page"),
-        "Error should mention invalid page"
-    );
+    // Test index well beyond count
+    let result = rebuild(&project_root, RebuildScope::SinglePage(page_count + 5));
+    assert!(result.is_err(), "Page index beyond count should be invalid");
 
     Ok(())
 }
@@ -186,8 +178,9 @@ fn test_rebuild_range_replaces_pages() -> Result<()> {
         "Need at least 3 pages for test"
     );
 
-    let start = 2;
-    let end = 2; // Single page range
+    // Range: index 1 only (0-based inclusive)
+    let start = 1usize;
+    let end = 1usize;
 
     // Store state of surrounding pages
     let page_before_range = state_before.layout[0].clone();
@@ -216,11 +209,11 @@ fn test_rebuild_range_replaces_pages() -> Result<()> {
     // Verify surrounding pages unchanged
     assert_eq!(
         state_after.layout[0].photos, page_before_range.photos,
-        "Page 1 (before range) should not change"
+        "Page at index 0 (before range) should not change"
     );
     assert_eq!(
         state_after.layout[2].photos, page_after_range.photos,
-        "Page 3 (after range) should not change"
+        "Page at index 2 (after range) should not change"
     );
 
     // Verify git commit message
@@ -254,12 +247,13 @@ fn test_rebuild_range_flex_allows_page_variation() -> Result<()> {
         "Need at least 3 pages for test"
     );
 
-    let start = 1;
-    let end = 2;
+    // Range: 0-based indices 0..=1
+    let start = 0usize;
+    let end = 1usize;
     let flex = 1;
     let original_range_size = end - start + 1;
 
-    // Rebuild range with flex=2
+    // Rebuild range with flex=1
     let result = rebuild(&project_root, RebuildScope::Range { start, end, flex })?;
 
     assert!(result.pdf_path.exists());
@@ -267,26 +261,21 @@ fn test_rebuild_range_flex_allows_page_variation() -> Result<()> {
     // Load state after rebuild
     let state_after = ProjectState::load(&yaml_path)?;
 
-    // Page count may vary
     let new_range_size = result.pages_rebuilt.len();
     assert!(
         new_range_size >= original_range_size.saturating_sub(flex),
-        "New range size should be at least {} (original {} - flex {})",
-        original_range_size.saturating_sub(flex),
-        original_range_size,
-        flex
+        "New range size should be at least {}",
+        original_range_size.saturating_sub(flex)
     );
     assert!(
         new_range_size <= original_range_size + flex,
-        "New range size should be at most {} (original {} + flex {})",
-        original_range_size + flex,
-        original_range_size,
-        flex
+        "New range size should be at most {}",
+        original_range_size + flex
     );
 
-    // Verify pages are correctly renumbered (1-based, sequential)
+    // Verify pages are correctly renumbered (0-based, sequential = index)
     for (i, page) in state_after.layout.iter().enumerate() {
-        assert_eq!(page.page, i + 1, "Page numbers should be sequential");
+        assert_eq!(page.page, i, "page.page should equal array index");
     }
 
     Ok(())
@@ -306,22 +295,15 @@ fn test_rebuild_range_preserves_groups() -> Result<()> {
         "Need at least 3 pages for test"
     );
 
-    let start = 1;
-    let end = 2;
+    // 0-based indices
+    let start = 0usize;
+    let end = 1usize;
 
     // Collect photos that are in the range
-    let photos_in_range: Vec<String> = state_before.layout[start - 1..end]
+    let photos_in_range: Vec<String> = state_before.layout[start..=end]
         .iter()
         .flat_map(|p| p.photos.iter().cloned())
         .collect();
-
-    // For each photo, find its group
-    let mut photo_to_group = std::collections::HashMap::new();
-    for group in &state_before.photos {
-        for file in &group.files {
-            photo_to_group.insert(file.id.clone(), group.group.clone());
-        }
-    }
 
     // Rebuild range
     let result = rebuild(
@@ -336,7 +318,6 @@ fn test_rebuild_range_preserves_groups() -> Result<()> {
     // Load state after rebuild
     let state_after = ProjectState::load(&yaml_path)?;
 
-    // With flex=0, the number of pages in the range should be the same
     let result_pages_len = result.pages_rebuilt.len();
     assert_eq!(
         result_pages_len,
@@ -346,7 +327,7 @@ fn test_rebuild_range_preserves_groups() -> Result<()> {
 
     // Verify the same photos are still in the new pages (possibly redistributed)
     let photos_after_rebuild: Vec<String> = state_after.layout
-        [start - 1..start - 1 + result_pages_len]
+        [start..start + result_pages_len]
         .iter()
         .flat_map(|p| p.photos.iter().cloned())
         .collect();
@@ -399,16 +380,14 @@ fn test_rebuild_all_redistributes_everything() -> Result<()> {
         "All photos should be distributed in layout"
     );
 
-    // Page count may differ from before
-    // (depends on solver's decision)
     assert!(
         !state_after.layout.is_empty(),
         "Should have at least one page"
     );
 
-    // Verify pages are numbered correctly
+    // Verify pages are numbered correctly (0-based = index)
     for (i, page) in state_after.layout.iter().enumerate() {
-        assert_eq!(page.page, i + 1);
+        assert_eq!(page.page, i, "page.page should equal array index");
     }
 
     // Verify git commit message
@@ -418,10 +397,7 @@ fn test_rebuild_all_redistributes_everything() -> Result<()> {
     let message = commit.message().unwrap_or("");
     eprintln!("Latest commit message: '{}'", message);
 
-    // The rebuild should have created a new commit after the initial build
-    // Check if this is a rebuild commit (not the initial build commit)
     if message.contains("build: initial layout") {
-        // If HEAD is still the initial build, check the previous commit
         let parent = commit.parent(0)?;
         let parent_msg = parent.message().unwrap_or("");
         eprintln!("Parent commit message: '{}'", parent_msg);
@@ -476,8 +452,8 @@ fn test_rebuild_without_layout_fails_except_all() -> Result<()> {
     let state = ProjectState::load(&yaml_path)?;
     assert!(state.layout.is_empty(), "Layout should be empty");
 
-    // SinglePage should fail
-    let result = rebuild(&project_root, RebuildScope::SinglePage(1));
+    // SinglePage should fail (no layout)
+    let result = rebuild(&project_root, RebuildScope::SinglePage(0));
     assert!(
         result.is_err(),
         "SinglePage rebuild without layout should fail"
@@ -488,12 +464,12 @@ fn test_rebuild_without_layout_fails_except_all() -> Result<()> {
         "Error should mention missing layout"
     );
 
-    // Range should fail
+    // Range should fail (no layout)
     let result = rebuild(
         &project_root,
         RebuildScope::Range {
-            start: 1,
-            end: 1,
+            start: 0,
+            end: 0,
             flex: 0,
         },
     );
@@ -528,49 +504,27 @@ fn test_rebuild_range_invalid_range() -> Result<()> {
     let state = ProjectState::load(&yaml_path)?;
     let page_count = state.layout.len();
 
-    // Test start=0
+    // Test start > end (invalid)
     let result = rebuild(
         &project_root,
         RebuildScope::Range {
-            start: 0,
-            end: 2,
-            flex: 0,
-        },
-    );
-    assert!(result.is_err(), "start=0 should be invalid");
-
-    // Test end=0
-    let result = rebuild(
-        &project_root,
-        RebuildScope::Range {
-            start: 1,
-            end: 0,
-            flex: 0,
-        },
-    );
-    assert!(result.is_err(), "end=0 should be invalid");
-
-    // Test start > end
-    let result = rebuild(
-        &project_root,
-        RebuildScope::Range {
-            start: 3,
-            end: 2,
+            start: 2,
+            end: 1,
             flex: 0,
         },
     );
     assert!(result.is_err(), "start > end should be invalid");
 
-    // Test end > page_count
+    // Test end >= page_count (out of bounds, 0-based)
     let result = rebuild(
         &project_root,
         RebuildScope::Range {
-            start: 1,
-            end: page_count + 1,
+            start: 0,
+            end: page_count, // page_count is out of bounds (valid: 0..page_count-1)
             flex: 0,
         },
     );
-    assert!(result.is_err(), "end beyond page count should be invalid");
+    assert!(result.is_err(), "end >= page_count should be invalid");
 
     Ok(())
 }
