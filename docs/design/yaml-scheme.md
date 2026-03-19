@@ -9,6 +9,7 @@ config:
     bleed_mm: 3.0
     # margin_mm, gap_mm, bleed_threshold_mm: defaulted
     cover:                          # optional — fehlt dieser Block, gibt es kein Cover
+      active: true                  # false = Cover-Block vorhanden aber deaktiviert
       spine_mm_per_10_pages: 1.4   # Pflichtfeld wenn cover vorhanden
       page_width_mm: ~             # optional, default = book.page_width_mm
       page_height_mm: ~            # optional, default = book.page_height_mm
@@ -26,14 +27,14 @@ photos:
         width_px: 6000
         height_px: 4000
         area_weight: 1.0
-        timestamp: "2024-01-15T09:23:00" 
+        timestamp: "2024-01-15T09:23:00"
         hash: 324345a4643a54v3...
       - id: "2024-01-15_Urlaub/IMG_002.jpg"
         file: "IMG_002.jpg"
         width_px: 4000
         height_px: 6000
         area_weight: 2.0
-        timestamp: "2024-01-15T09:23:00" 
+        timestamp: "2024-01-15T09:23:00"
         hash: av465a4645234234v3...
   - group: "2024-02-20_Geburtstag"
     sort_key: "2024-02-20T14:00:00"
@@ -43,12 +44,11 @@ photos:
         width_px: 5000
         height_px: 3333
         area_weight: 1.0
-        timestamp: "2024-01-15T09:23:00" 
+        timestamp: "2024-01-15T09:23:00"
         hash: a2345234244643a54v3...
 
 layout:
-  - page: 0
-    cover: true                                      # optional — macht diese Seite zum Cover; nur die erste solche Seite wird gerendert
+  - page: 0                                            # Cover: immer erster Eintrag wenn cover.active = true
     photos:
       - "2024-01-15_Urlaub/IMG_001.jpg"              # 1.50
     slots:
@@ -95,32 +95,32 @@ layout:
 - Bei Re-Optimierung einer Seite: Solver liest `layout[i].photos` -> findet Metadaten in `photos` (Top-Level) -> laesst GA laufen -> schreibt `layout[i].slots` neu. Die `photos`-Liste bleibt unangetastet.
 - `layout[].page`: ein counter, der nur für den benutzer da ist; wird nicht fürs rendering verwendet. Wird nach jedem build/rebuild neu gesetzt. Nummerierungsregel:
   - **Ohne Cover:** `page_nr = index + 1` (1-based)
-  - **Mit Cover:** Cover bekommt `page_nr = 0`, Innenseiten bleiben 1-based (`page_nr = index`)
+  - **Mit Cover** (`cover.active = true`): erster Eintrag bekommt `page_nr = 0`, Innenseiten bleiben 1-based (`page_nr = index`)
   - Invariante: das Hinzufügen eines Covers verschiebt die Seitennummern der Innenseiten **nicht**
-  - Konvertierung `page_nr → index`: wenn Cover existiert `index = page_nr`, sonst `index = page_nr - 1`
+  - Konvertierung `page_nr → index`: wenn Cover aktiv `index = page_nr`, sonst `index = page_nr - 1`
 - `hash`: wird bei jedem add für jedes photo berechnet und gesetzt. Der hash entsteht durch hashen der ersten und letzten 64 kb jeder datei mit blake3 (zur zeit)
 
 ## Cover
 
 ### Aktivierung
 
-`config.book.cover` muss vorhanden sein — fehlt der Block, gibt es kein Cover. `fotobuch project new` legt keinen Cover-Block an. Nachträgliches Hinzufügen:
+Cover ist aktiv wenn `config.book.cover` vorhanden **und** `cover.active = true`. `fotobuch project new` legt keinen Cover-Block an. Nachträgliches Hinzufügen:
 
 ```
 fotobuch add cover --spine_mm_per_10_pages <N> [--width_mm <W>] [--height_mm <H>]
 ```
 
-Dieser Befehl setzt `config.book.cover` in der YAML und markiert automatisch die erste Seite mit `cover: true`.
+Dieser Befehl setzt `config.book.cover` mit `active: true` in der YAML. Der erste `layout`-Eintrag wird automatisch zur Coverseite — kein Flag auf dem `layout`-Eintrag nötig.
+
+`active: false` erlaubt es, Cover-Konfiguration temporär zu deaktivieren ohne den Block zu löschen.
 
 ### Cover-Seite im Layout
 
-`cover: true` ist ein optionales Flag auf einem `layout`-Eintrag. Nur der erste solche Eintrag wird als Cover behandelt — spätere werden stillschweigend ignoriert. `page` wird nach jedem Build neu gesetzt (wie bei anderen Seiten), hat also keine Sonderbedeutung für das Cover.
+Wenn `cover.active = true`: der **erste** `layout`-Eintrag ist das Cover. Kein explizites Flag auf dem Eintrag. Das Template und `renumber_pages` leiten die Cover-Existenz allein aus `config.book.cover.active` ab.
 
 ### Dimensionen
 
-Die Cover-Breite wird **nicht automatisch** aus `2 × page_width + Bunddicke` berechnet — Slots werden komplett dem Nutzer/Solver überlassen. `cover.page_width_mm` und `cover.page_height_mm` sind die Seitenmaße für die Cover-Seite im Template.
-
-Fehlt `cover.page_width_mm` oder `cover.page_height_mm`, gelten die Werte aus `book.page_width_mm` / `book.page_height_mm`.
+`cover.page_width_mm` und `cover.page_height_mm` sind die Seitenmaße für die Cover-Seite im Template. Fehlen sie, gelten die Werte aus `book.page_width_mm` / `book.page_height_mm`.
 
 ### Bunddicke
 
@@ -128,7 +128,7 @@ Fehlt `cover.page_width_mm` oder `cover.page_height_mm`, gelten die Werte aus `b
 spine_width_mm = (inner_page_count / 10.0) * spine_mm_per_10_pages
 ```
 
-`inner_page_count` = Anzahl aller Layout-Einträge ohne Cover. Wer Doppelseiten verwendet, gibt die Bunddicke pro 10 Doppelseiten an; wer Einzelseiten nutzt, halbiert den Wert entsprechend.
+`inner_page_count` = `layout.len() - 1` (alle Einträge außer dem ersten, wenn Cover aktiv). Wer Doppelseiten verwendet, gibt die Bunddicke pro 10 Doppelseiten an; wer Einzelseiten nutzt, halbiert den Wert entsprechend.
 
 ### Buchrücken-Text
 
@@ -144,11 +144,11 @@ Der Solver darf eine Cover-Seite **nur als Einzelseite** berechnen (`page_layout
 
 ### Template-Verhalten
 
-1. Template prüft ob `data.layout` einen Eintrag mit `cover == true` enthält
-2. Wenn ja: Cover-Seite wird **zuerst** gerendert mit `(cover.spine_mm_per_10_pages * ((layout.pages.len() - 1)/10 + cover.page_width_mm) × cover.page_height_mm`
-3. Danach folgen alle anderen Seiten in Listenreihenfolge
+1. Template prüft `data.config.book.cover` und `cover.active`
+2. Wenn aktiv: erster `layout`-Eintrag wird mit Cover-Dimensionen gerendert (als eigene Seite vor allen anderen)
+3. Danach folgen `layout[1..]` als normale Innenseiten
 4. Im Preview wird das Cover als erste Seite angezeigt
-5. bleed bleibt gleich für cover, keine margins
+5. Bleed gilt auch für das Cover, keine Margins
 
 ### Geplant (noch nicht implementiert)
 
