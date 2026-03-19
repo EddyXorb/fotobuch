@@ -5,7 +5,6 @@ use crate::cache::preview;
 use crate::state_manager::StateManager;
 use anyhow::Result;
 use std::path::Path;
-use std::sync::atomic::AtomicUsize;
 use tracing::info;
 
 /// Performs incremental build: updates only modified pages.
@@ -17,9 +16,8 @@ pub fn incremental_build(
     info!("Incremental build: checking for changes...");
 
     // 1. Generate/update preview cache
-    let progress = AtomicUsize::new(0);
     let preview_cache_dir = mgr.preview_cache_dir();
-    let cache_result = preview::ensure_previews(&mgr.state, &preview_cache_dir, &progress)?;
+    let cache_result = preview::ensure_previews(&mgr.state, &preview_cache_dir)?;
 
     if cache_result.created > 0 {
         info!(
