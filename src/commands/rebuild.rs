@@ -11,6 +11,7 @@ use super::build::{
     BuildResult, MultiPageParams, build_photo_index, collect_photos_as_groups, multipage_build,
     rebuild_single_page,
 };
+use tracing::warn;
 
 /// Scope of rebuild operation.
 ///
@@ -43,18 +44,17 @@ pub enum RebuildScope {
 /// - Page-Layout-Solver on the given page, forced even if clean
 /// - Photo assignment stays the same, only layout[idx].slots is rewritten
 /// - Does not trigger Book-Layout-Solver
+/// - **Cover page (index 0) can only be rebuilt via this form.**
 ///
 /// ## Page range: `rebuild --range 3-7`
-/// - If range includes cover (index 0, active): cover is solved first with SinglePage solver,
-///   remaining pages in range with Book-Layout-Solver + Page-Layout-Solver
-/// - Otherwise: Book-Layout-Solver on subset, then Page-Layout-Solver for each page
+/// - Book-Layout-Solver on subset, then Page-Layout-Solver for each page
 /// - Surrounding pages unchanged
 /// - Page count stays the same (unless --flex is used)
+/// - If range starts at 0 (cover active): cover is skipped with a warning; range becomes 1..end
 ///
 /// ## All: `rebuild` (no arguments)
-/// - If cover is active: cover solved with SinglePage, all inner pages redistributed fresh
-/// - Otherwise: all photos from photos (top-level), fresh distribution
-/// - Book-Layout-Solver + Page-Layout-Solver for all inner pages
+/// - All inner photos redistributed fresh via Book-Layout-Solver + Page-Layout-Solver
+/// - If cover is active: cover is skipped with a warning (use `rebuild --page 0` explicitly)
 /// - Manual changes in layout are lost (but git-recoverable)
 pub fn rebuild(project_root: &Path, scope: RebuildScope) -> Result<BuildResult> {
     let mgr = StateManager::open(project_root)?;
@@ -132,179 +132,93 @@ fn rebuild_single(mut mgr: StateManager, project_root: &Path, idx: usize) -> Res
     })
 }
 
+/// If cover is active and `start` is 0, skip the cover and return effective start = 1.
+/// Emits a warning in that case. Returns `Err` if the resulting range would be empty.
+fn skip_cover_if_needed(
+    has_cover: bool,
+    start: usize,
+    end: usize,
+) -> Result<usize> {
+    if !has_cover || start != 0 {
+        return Ok(start);
+    }
+    warn!(
+        "Cover page (index 0) is excluded from this rebuild. \
+         Use `rebuild --page 0` to rebuild it explicitly."
+    );
+    if end == 0 {
+        anyhow::bail!(
+            "Range 0-0 contains only the cover page. \
+             Use `rebuild --page 0` to rebuild it explicitly."
+        );
+    }
+    Ok(1)
+}
+
 /// Rebuild a page range with optional flexibility.
-/// If the range includes the cover page (index 0, active), it is solved first with
-/// SinglePage solver; the rest of the range uses MultiPage solver.
 fn rebuild_range(
-    mut mgr: StateManager,
+    mgr: StateManager,
     project_root: &Path,
     start: usize,
     end: usize,
     flex: usize,
 ) -> Result<BuildResult> {
     let has_cover = mgr.state.config.book.cover.as_ref().is_some_and(|c| c.active);
-    let range_includes_cover = has_cover && start == 0;
+    let effective_start = skip_cover_if_needed(has_cover, start, end)?;
 
-    if range_includes_cover {
-        // 1. Rebuild cover (index 0) with SinglePage solver
-        let preview_cache_dir = mgr.preview_cache_dir();
-        preview::ensure_previews(&mgr.state, &preview_cache_dir)?;
-        let photo_index = build_photo_index(&mgr.state.photos);
-        rebuild_single_page(&mut mgr.state, 0, &photo_index)?;
+    let groups = collect_photos_as_groups(&mgr.state, effective_start, end + 1);
+    let n = end - effective_start + 1;
+    let custom_config = BookLayoutSolverConfig {
+        page_min: n.saturating_sub(flex).max(1),
+        page_max: n + flex,
+        page_target: n,
+        ..mgr.state.config.book_layout_solver.clone()
+    };
 
-        // 2. If range is only the cover, we're done
-        if end == 0 {
-            let bleed_mm = mgr.state.config.book.bleed_mm;
-            let pdf_path = typst::compile_preview(project_root, mgr.project_name(), bleed_mm)?;
-            mgr.finish_always("rebuild: page 0 (cover)")?;
-            return Ok(BuildResult {
-                pdf_path,
-                pages_rebuilt: vec![0],
-                pages_swapped: vec![],
-                images_processed: 0,
-                total_cost: 0.0,
-                dpi_warnings: Vec::new(),
-                nothing_to_do: false,
-            });
-        }
-
-        // 3. Rebuild remaining range (1..=end) with MultiPage
-        let inner_start = 1usize;
-        let inner_end = end;
-        let groups = collect_photos_as_groups(&mgr.state, inner_start, inner_end + 1);
-        let n = inner_end - inner_start + 1;
-        let custom_config = BookLayoutSolverConfig {
-            page_min: n.saturating_sub(flex).max(1),
-            page_max: n + flex,
-            page_target: n,
-            ..mgr.state.config.book_layout_solver.clone()
-        };
-
-        let mut result = multipage_build(
-            mgr,
-            project_root,
-            MultiPageParams {
-                groups: &groups,
-                range: Some((inner_start, inner_end + 1)),
-                flex,
-                custom_config: Some(custom_config),
-                commit_message: format!("rebuild: pages {}-{} (cover via singlesolver)", start, end),
-                images_processed: 0,
-                always_commit: true,
-            },
-        )?;
-
-        // Prepend cover (index 0) to pages_rebuilt
-        result.pages_rebuilt.insert(0, 0);
-        Ok(result)
-    } else {
-        // No cover in range — standard MultiPage rebuild
-        let groups = collect_photos_as_groups(&mgr.state, start, end + 1);
-        let n = end - start + 1;
-        let custom_config = BookLayoutSolverConfig {
-            page_min: n.saturating_sub(flex).max(1),
-            page_max: n + flex,
-            page_target: n,
-            ..mgr.state.config.book_layout_solver.clone()
-        };
-
-        multipage_build(
-            mgr,
-            project_root,
-            MultiPageParams {
-                groups: &groups,
-                range: Some((start, end + 1)),
-                flex,
-                custom_config: Some(custom_config),
-                commit_message: format!("rebuild: pages {}-{}", start, end),
-                images_processed: 0,
-                always_commit: true,
-            },
-        )
-    }
+    multipage_build(
+        mgr,
+        project_root,
+        MultiPageParams {
+            groups: &groups,
+            range: Some((effective_start, end + 1)),
+            flex,
+            custom_config: Some(custom_config),
+            commit_message: format!("rebuild: pages {}-{}", effective_start, end),
+            images_processed: 0,
+            always_commit: true,
+        },
+    )
 }
 
 /// Rebuild all pages from scratch.
-/// If cover is active: cover is solved with SinglePage, inner pages redistributed fresh.
-fn rebuild_all(mut mgr: StateManager, project_root: &Path) -> Result<BuildResult> {
+/// Cover page (index 0) is always skipped — use `rebuild --page 0` to rebuild it explicitly.
+fn rebuild_all(mgr: StateManager, project_root: &Path) -> Result<BuildResult> {
     let has_cover = mgr.state.config.book.cover.as_ref().is_some_and(|c| c.active);
-    let cover_exists = has_cover && !mgr.state.layout.is_empty();
+    let layout_len = mgr.state.layout.len();
 
-    if cover_exists {
-        // 1. Rebuild cover (index 0) with SinglePage solver
-        let preview_cache_dir = mgr.preview_cache_dir();
-        preview::ensure_previews(&mgr.state, &preview_cache_dir)?;
-        let photo_index = build_photo_index(&mgr.state.photos);
-        rebuild_single_page(&mut mgr.state, 0, &photo_index)?;
-
-        // 2. Rebuild all inner pages (index 1..) with MultiPage
-        //    Collect all photos that are NOT on the cover
-        let cover_photos: std::collections::HashSet<String> =
-            mgr.state.layout[0].photos.iter().cloned().collect();
-
-        let inner_groups: Vec<_> = mgr
-            .state
-            .photos
-            .iter()
-            .filter_map(|g| {
-                let files: Vec<_> = g
-                    .files
-                    .iter()
-                    .filter(|f| !cover_photos.contains(&f.id))
-                    .cloned()
-                    .collect();
-                if files.is_empty() {
-                    None
-                } else {
-                    Some(crate::dto_models::PhotoGroup {
-                        group: g.group.clone(),
-                        sort_key: g.sort_key.clone(),
-                        files,
-                    })
-                }
-            })
-            .collect();
-
-        let inner_page_count: usize = inner_groups.iter().map(|g| g.files.len()).sum();
-        let layout_len = mgr.state.layout.len(); // capture before mgr is consumed
-
-        let mut result = multipage_build(
-            mgr,
-            project_root,
-            MultiPageParams {
-                groups: &inner_groups,
-                range: Some((1, layout_len)), // replace layout[1..layout_len]
-                flex: 0,
-                custom_config: None,
-                commit_message: format!(
-                    "rebuild: {} inner photos redistributed (cover via singlesolver)",
-                    inner_page_count
-                ),
-                images_processed: 0,
-                always_commit: true,
-            },
-        )?;
-
-        // Prepend cover index
-        result.pages_rebuilt.insert(0, 0);
-        Ok(result)
+    let (groups, range) = if has_cover && layout_len > 0 {
+        warn!(
+            "Cover page (index 0) is excluded from full rebuild. \
+             Use `rebuild --page 0` to rebuild it explicitly."
+        );
+        (collect_photos_as_groups(&mgr.state, 1, layout_len), Some((1usize, layout_len)))
     } else {
-        // No cover — standard full rebuild
-        let groups = mgr.state.photos.clone();
-        let page_count = groups.iter().map(|g| g.files.len()).sum::<usize>();
+        (mgr.state.photos.clone(), None)
+    };
 
-        multipage_build(
-            mgr,
-            project_root,
-            MultiPageParams {
-                groups: &groups,
-                range: None,
-                flex: 0,
-                custom_config: None,
-                commit_message: format!("rebuild: {} photos redistributed", page_count),
-                images_processed: 0,
-                always_commit: true,
-            },
-        )
-    }
+    let photo_count: usize = groups.iter().map(|g| g.files.len()).sum();
+
+    multipage_build(
+        mgr,
+        project_root,
+        MultiPageParams {
+            groups: &groups,
+            range,
+            flex: 0,
+            custom_config: None,
+            commit_message: format!("rebuild: {} photos redistributed", photo_count),
+            images_processed: 0,
+            always_commit: true,
+        },
+    )
 }
