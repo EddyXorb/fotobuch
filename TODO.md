@@ -38,6 +38,23 @@ To be done in this order
   - Rust: `img_parts` für ICC-Chunks lesen/schreiben, image crate mit decoder und für EXIF-Tag, ICC-Profile als statische Bytes einbetten (~3KB) -> klären
 
 
+## `page` / `unplace` commands
+
+> Design: [docs/design/cli/page.md](docs/design/cli/page.md)
+
+- [ ] Implement lib types: `PagesExpr`, `SlotExpr`, `Src`, `DstMove`, `DstSwap`, `PageMoveCmd` in `src/commands/page.rs`
+- [ ] Implement `ValidationError`, `PageMoveError`, `PageMoveResult` types
+- [ ] Implement `execute_unplace` (removes photos by slot from layout)
+- [ ] Implement `execute_move` — Move variant (`->`)
+- [ ] Implement `execute_move` — Swap variant (`<>`)
+- [ ] Implement `execute_split` (shortcut: move PAGE:SLOT.. -> PAGE+)
+- [ ] Implement `execute_combine` (shortcut: merge pages, delete empties)
+- [ ] Implement Lexer in `src/cli/page.rs` (Token enum + tokenize fn)
+- [ ] Implement Parser in `src/cli/page.rs` (builds AST from tokens)
+- [ ] Wire up CLI: add `Unplace` and `Page` subcommands to `src/cli.rs`
+- [ ] Tests for all lib execute_* functions
+- [ ] Tests for lexer and parser
+
 ## Internal todos
 
 - [ ] clean up the builder-section and have a new wrapper that calls the others, but takes care to build the pdf and get the correct BookLayoutConfig for further processing.
