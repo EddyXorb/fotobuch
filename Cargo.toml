@@ -5,7 +5,7 @@ edition = "2024"
 
 [[bin]]
 name = "fotobuch"
-path = "src/main.rs"
+path = "cli/main.rs"
 
 [lib]
 name = "fotobuch"
