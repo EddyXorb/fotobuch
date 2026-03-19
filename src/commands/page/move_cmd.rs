@@ -79,6 +79,16 @@ fn execute_move_to(
         });
     }
 
+    // For Slots: resolve src index and slot indices BEFORE any insertion so that
+    // a NewPageAfter insert cannot shift the src page out of position.
+    let pre_insert_src = if let Src::Slots { page, slots } = &src {
+        let idx = page_idx(*page, &mgr.state.layout)?;
+        let slot_indices = resolve_slots(*page, slots, &mgr.state.layout)?;
+        Some((idx, slot_indices))
+    } else {
+        None
+    };
+
     let (dst_page_idx, inserted_page) = match &dst {
         DstMove::Page(p) => {
             let idx = page_idx(*p, &mgr.state.layout)?;
@@ -102,10 +112,18 @@ fn execute_move_to(
     };
 
     // For Slots variant: remove the slots and add to dst, then return early.
-    if let Src::Slots { page, slots } = &src {
+    if let Src::Slots { page, .. } = &src {
         let src_page = *page;
-        let idx = page_idx(src_page, &mgr.state.layout)?;
-        let slot_indices = resolve_slots(src_page, slots, &mgr.state.layout)?;
+        // Adjust src index if the new-page insert shifted it.
+        let (idx, slot_indices) = {
+            let (pre_idx, slot_indices) = pre_insert_src.expect("Slots arm has pre_insert_src");
+            let idx = if inserted_page.is_some() && dst_page_idx <= pre_idx {
+                pre_idx + 1
+            } else {
+                pre_idx
+            };
+            (idx, slot_indices)
+        };
         let dst_page_num = mgr.state.layout[dst_page_idx].page as u32;
         remove_slots(&mut mgr.state.layout, idx, slot_indices);
         for photo in &photos {
@@ -409,6 +427,37 @@ mod tests {
 
         let mgr = StateManager::open(tmp.path()).unwrap();
         assert_eq!(mgr.state.layout.len(), 3);
+        mgr.finish("test: noop").unwrap();
+    }
+
+    #[test]
+    fn test_execute_move_slots_to_new_page_after() {
+        // Regression: "page move 2:1 to 1+" must not fail with SlotNotFound.
+        // Inserting the new page after page 1 shifts page 2 from index 1 to index 2;
+        // slot resolution must happen before the insert.
+        let state = make_state_with_layout(vec![
+            vec!["p0.jpg"],
+            vec!["p1.jpg", "p2.jpg"],
+        ]);
+        let tmp = TempDir::new().unwrap();
+        setup_repo(&tmp, &state);
+
+        let cmd = PageMoveCmd::Move {
+            src: Src::Slots {
+                page: 2,
+                slots: SlotExpr::single(1),
+            },
+            dst: DstMove::NewPageAfter(1),
+        };
+        let result = execute_move(tmp.path(), cmd).unwrap();
+        assert!(!result.pages_inserted.is_empty());
+
+        let mgr = StateManager::open(tmp.path()).unwrap();
+        // Original page 1, new page (with p1.jpg), original page 2 (with p2.jpg)
+        assert_eq!(mgr.state.layout.len(), 3);
+        assert_eq!(mgr.state.layout[0].photos, vec!["p0.jpg"]);
+        assert!(mgr.state.layout[1].photos.contains(&"p1.jpg".to_owned()));
+        assert!(mgr.state.layout[2].photos.contains(&"p2.jpg".to_owned()));
         mgr.finish("test: noop").unwrap();
     }
 
