@@ -92,6 +92,7 @@ pub mod input;
 pub mod output;
 pub mod solver;
 pub mod state_manager;
+pub mod undo_stack;
 
 // Re-export core API types for convenience
 pub use dto_models::{FitnessWeights, GaConfig};

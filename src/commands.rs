@@ -17,6 +17,7 @@ pub mod project;
 pub mod rebuild;
 pub mod remove;
 pub mod status;
+pub mod undo;
 pub mod unplace;
 
 pub use add::{AddConfig, AddResult, GroupSummary, add};
@@ -28,3 +29,4 @@ pub use project::new::{project_new, validate_project_name};
 pub use rebuild::{RebuildScope, rebuild};
 pub use remove::{RemoveConfig, RemoveResult, remove};
 pub use status::{PageDetail, ProjectState_, SlotInfo, StatusConfig, StatusReport, status};
+pub use undo::{UndoResult, redo, undo};
