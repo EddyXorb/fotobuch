@@ -164,8 +164,45 @@ fn print_vertical(s: &SlotInfo) {
 }
 
 fn print_table(slots: &[SlotInfo]) {
+    struct Row {
+        slot: String,
+        ratio: String,
+        weight: String,
+        pixels: String,
+        placed: String,
+        id: String,
+    }
+
+    let rows: Vec<Row> = slots
+        .iter()
+        .map(|s| {
+            let ratio = s.width_px as f64 / s.height_px as f64;
+            let placed = s.placement.as_ref().map_or(String::new(), |sl| {
+                format!(
+                    "{:.1}, {:.1}, {:.1}x{:.1}",
+                    sl.x_mm, sl.y_mm, sl.width_mm, sl.height_mm
+                )
+            });
+            Row {
+                slot: s.slot.to_string(),
+                ratio: format!("{ratio:.2}"),
+                weight: format!("{:.1}", s.area_weight),
+                pixels: format!("{}x{}", s.width_px, s.height_px),
+                placed,
+                id: s.id.clone(),
+            }
+        })
+        .collect();
+
+    // Column widths: max of header and all row values.
+    let w_slot = rows.iter().map(|r| r.slot.len()).max().unwrap_or(0).max(4);
+    let w_ratio = rows.iter().map(|r| r.ratio.len()).max().unwrap_or(0).max(5);
+    let w_weight = rows.iter().map(|r| r.weight.len()).max().unwrap_or(0).max(6);
+    let w_pixels = rows.iter().map(|r| r.pixels.len()).max().unwrap_or(0).max(6);
+    let w_placed = rows.iter().map(|r| r.placed.len()).max().unwrap_or(0).max(6);
+
     let mut current_page: Option<u32> = None;
-    for s in slots {
+    for (s, row) in slots.iter().zip(rows.iter()) {
         if current_page != Some(s.page) {
             let shown = slots.iter().filter(|x| x.page == s.page).count();
             if shown == s.total_page_slots {
@@ -174,22 +211,14 @@ fn print_table(slots: &[SlotInfo]) {
                 println!("page {}  ({}/{} slots shown)", s.page, shown, s.total_page_slots);
             }
             println!(
-                "  {:<5} {:<46} {:<10} {:<6} {:<7} placed",
-                "slot", "id", "pixels", "ratio", "weight"
+                "  {:<w_slot$}  {:<w_ratio$}  {:<w_weight$}  {:<w_pixels$}  {:<w_placed$}  id",
+                "slot", "ratio", "weight", "pixels", "placed",
             );
             current_page = Some(s.page);
         }
-        let ratio = s.width_px as f64 / s.height_px as f64;
-        let pixels = format!("{}x{}", s.width_px, s.height_px);
-        let placed = s.placement.as_ref().map_or(String::new(), |sl| {
-            format!(
-                "{:.1}, {:.1}, {:.1}x{:.1}",
-                sl.x_mm, sl.y_mm, sl.width_mm, sl.height_mm
-            )
-        });
         println!(
-            "  {:<5} {:<46} {:<10} {:<6.2} {:<7} {}",
-            s.slot, s.id, pixels, ratio, s.area_weight, placed
+            "  {:<w_slot$}  {:<w_ratio$}  {:<w_weight$}  {:<w_pixels$}  {:<w_placed$}  {}",
+            row.slot, row.ratio, row.weight, row.pixels, row.placed, row.id,
         );
     }
 }
