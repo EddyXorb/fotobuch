@@ -45,6 +45,22 @@ pub(super) fn photos_at_slots(
         .collect()
 }
 
+/// Remove all pages with no photos from the layout.
+/// Returns the 1-based page numbers that were deleted.
+pub(crate) fn delete_empty_pages(layout: &mut Vec<LayoutPage>) -> Vec<u32> {
+    let mut deleted = Vec::new();
+    let mut i = 0;
+    while i < layout.len() {
+        if layout[i].photos.is_empty() {
+            deleted.push(layout[i].page as u32);
+            layout.remove(i);
+        } else {
+            i += 1;
+        }
+    }
+    deleted
+}
+
 /// Remove photos at given 0-based slot indices from a page (descending order to keep indices stable).
 pub(crate) fn remove_slots(
     layout: &mut [LayoutPage],
