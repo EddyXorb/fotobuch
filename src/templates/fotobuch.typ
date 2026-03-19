@@ -6,6 +6,8 @@
 #let show_image_captions_on_preview = true
 // Show bleed (red) and margin (blue) border overlays (preview only)
 #let show_borders_on_preview = true
+// Show slot number and area weight centered on each photo, e.g. "3:1.5" (preview only)
+#let show_slot_info_on_preview = false
 
 // Append a photo index at the end of the document
 #let appendix_show = true
@@ -32,6 +34,7 @@
 // Override preview flags when rendering the final version
 #let show_image_captions_on_preview = show_image_captions_on_preview and not is_final
 #let show_borders_on_preview = show_borders_on_preview and not is_final
+#let show_slot_info_on_preview = show_slot_info_on_preview and not is_final
 
 #let project_name = "{project_name}"
 #let data = yaml(project_name + ".yaml")
@@ -113,6 +116,17 @@
   m
 }
 
+// Map photo_id → area_weight, sourced from YAML
+#let photo_weight = {
+  let m = (:)
+  for group in data.photos {
+    for file in group.files {
+      m.insert(file.id, file.area_weight)
+    }
+  }
+  m
+}
+
 // ── Page rendering blocks ────────────────────────────────────────────
 
 // Draws red bleed border and blue margin border as overlays
@@ -132,7 +146,7 @@
 ]
 
 // Places a single photo in its slot — with optional filename label and reference badge
-#let render_photo(slot, photo_id, photo_ref) = [
+#let render_photo(slot, slot_nr, photo_id, photo_ref, photo_weight) = [
   #place(top + left, dx: slot.x_mm * 1mm, dy: slot.y_mm * 1mm, image(
     cache_prefix + photo_id,
     width: slot.width_mm * 1mm,
@@ -145,6 +159,22 @@
       dx: slot.x_mm * 1mm,
       dy: (slot.y_mm + slot.height_mm / 2) * 1mm,
       text(size: 8pt, photo_id.split("/").last(), white),
+    )
+  ]
+  #if show_slot_info_on_preview [
+    #place(
+      top + left,
+      dx: slot.x_mm * 1mm,
+      dy: slot.y_mm * 1mm,
+      box(
+        width: slot.width_mm * 1mm,
+        height: slot.height_mm * 1mm,
+        align(center + horizon,
+          text(size: 20pt, weight: "bold", fill: white)[
+            #slot_nr \(#str(calc.round(photo_weight.at(photo_id, default: 1.0), digits: 1))\)
+          ],
+        ),
+      ),
     )
   ]
   #if appendix_show and appendix_ref_mode == "counter" [
@@ -236,7 +266,7 @@
 
   #for (i, slot) in page_data.slots.enumerate() [
     #let photo_id = page_data.photos.at(i, default: none)
-    #if photo_id != none [#render_photo(slot, photo_id, photo_ref)]
+    #if photo_id != none [#render_photo(slot, i + 1, photo_id, photo_ref, photo_weight)]
   ]
 
   #if not is_final [#render_preview_watermark(page_index + 1)]
