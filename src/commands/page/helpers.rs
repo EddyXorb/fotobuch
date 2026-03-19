@@ -7,7 +7,7 @@ use super::types::{DstSwap, PagesExpr, SlotExpr, Src, ValidationError};
 // ── Index resolution ──────────────────────────────────────────────────────────
 
 /// Resolve a 1-based page number to a 0-based index, or return ValidationError.
-pub(super) fn page_idx(page: u32, layout: &[LayoutPage]) -> Result<usize, ValidationError> {
+pub(crate) fn page_idx(page: u32, layout: &[LayoutPage]) -> Result<usize, ValidationError> {
     if page == 0 || page as usize > layout.len() {
         return Err(ValidationError::PageNotFound(page));
     }
@@ -16,7 +16,7 @@ pub(super) fn page_idx(page: u32, layout: &[LayoutPage]) -> Result<usize, Valida
 
 /// Resolve slot numbers on a page to 0-based indices and validate they exist.
 /// `slots` are 1-based slot numbers.
-pub(super) fn resolve_slots(
+pub(crate) fn resolve_slots(
     page: u32,
     slot_expr: &SlotExpr,
     layout: &[LayoutPage],
@@ -46,7 +46,7 @@ pub(super) fn photos_at_slots(
 }
 
 /// Remove photos at given 0-based slot indices from a page (descending order to keep indices stable).
-pub(super) fn remove_slots(
+pub(crate) fn remove_slots(
     layout: &mut [LayoutPage],
     page_idx: usize,
     mut slot_indices: Vec<usize>,

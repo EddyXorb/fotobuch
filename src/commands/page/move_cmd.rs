@@ -7,8 +7,8 @@ use crate::state_manager::StateManager;
 
 use super::helpers::{
     collect_dst_swap_photos_with_indices, collect_src_photos, collect_src_photos_with_indices,
-    format_src_desc, page_idx, remove_slots, resolve_slots, single_page_of_dst_swap,
-    single_page_of_src,
+    format_pages_list, format_src_desc, page_idx, remove_slots, resolve_slots,
+    single_page_of_dst_swap, single_page_of_src,
 };
 use super::types::{DstMove, DstSwap, PageMoveCmd, PageMoveError, PageMoveResult, Src,
     ValidationError};
@@ -30,6 +30,43 @@ fn execute_move_to(
     dst: DstMove,
 ) -> Result<PageMoveResult, PageMoveError> {
     let mut mgr = StateManager::open(project_root)?;
+
+    // Handle unplace-destination: remove photos from layout (and delete pages for Src::Pages).
+    if matches!(dst, DstMove::Unplace) {
+        return match src {
+            Src::Slots { page, slots } => {
+                let idx = page_idx(page, &mgr.state.layout)?;
+                let slot_indices = resolve_slots(page, &slots, &mgr.state.layout)?;
+                remove_slots(&mut mgr.state.layout, idx, slot_indices);
+                mgr.finish(&format!("page move: page {page}:... -> (unplace)"))?;
+                Ok(PageMoveResult {
+                    pages_modified: vec![page],
+                    pages_inserted: vec![],
+                    pages_deleted: vec![],
+                })
+            }
+            Src::Pages(pe) => {
+                // Remove pages descending so indices stay valid.
+                let mut page_nums = pe.pages.clone();
+                let src_desc = format_pages_list(&pe.pages);
+                page_nums.sort_unstable_by(|a, b| b.cmp(a));
+                let mut deleted = vec![];
+                for &p in &page_nums {
+                    let idx = page_idx(p, &mgr.state.layout)?;
+                    let page_num = mgr.state.layout[idx].page as u32;
+                    mgr.state.layout.remove(idx);
+                    deleted.push(page_num);
+                }
+                deleted.sort();
+                mgr.finish(&format!("page move: {src_desc} -> (unplace)"))?;
+                Ok(PageMoveResult {
+                    pages_modified: vec![],
+                    pages_inserted: vec![],
+                    pages_deleted: deleted,
+                })
+            }
+        };
+    }
 
     let (photos, _src_page_indices) = collect_src_photos(&src, &mgr.state.layout)?;
     if photos.is_empty() {
@@ -59,6 +96,7 @@ fn execute_move_to(
             );
             (new_idx, Some(new_page_num as u32))
         }
+        DstMove::Unplace => unreachable!("Unplace handled above"),
     };
 
     // For Slots variant: remove the slots and add to dst, then return early.
@@ -236,6 +274,51 @@ mod tests {
         assert!(page1.photos.contains(&"p2.jpg".to_owned()));
         assert!(page1.photos.contains(&"p3.jpg".to_owned()));
         assert!(mgr.state.layout[1].photos.is_empty());
+        mgr.finish("test: noop").unwrap();
+    }
+
+    #[test]
+    fn test_execute_move_unplace_page() {
+        let state = make_state_with_layout(vec![
+            vec!["p0.jpg", "p1.jpg"],
+            vec!["p2.jpg"],
+        ]);
+        let tmp = TempDir::new().unwrap();
+        setup_repo(&tmp, &state);
+
+        let cmd = PageMoveCmd::Move {
+            src: Src::Pages(PagesExpr::single(1)),
+            dst: DstMove::Unplace,
+        };
+        let result = execute_move(tmp.path(), cmd).unwrap();
+        assert_eq!(result.pages_deleted, vec![1]);
+        assert!(result.pages_modified.is_empty());
+
+        let mgr = StateManager::open(tmp.path()).unwrap();
+        assert_eq!(mgr.state.layout.len(), 1);
+        assert_eq!(mgr.state.layout[0].photos, vec!["p2.jpg"]);
+        mgr.finish("test: noop").unwrap();
+    }
+
+    #[test]
+    fn test_execute_move_unplace_slots() {
+        let state = make_state_with_layout(vec![vec!["p0.jpg", "p1.jpg", "p2.jpg"]]);
+        let tmp = TempDir::new().unwrap();
+        setup_repo(&tmp, &state);
+
+        let cmd = PageMoveCmd::Move {
+            src: Src::Slots {
+                page: 1,
+                slots: SlotExpr::from_range(1, 2),
+            },
+            dst: DstMove::Unplace,
+        };
+        let result = execute_move(tmp.path(), cmd).unwrap();
+        assert_eq!(result.pages_modified, vec![1]);
+        assert!(result.pages_deleted.is_empty());
+
+        let mgr = StateManager::open(tmp.path()).unwrap();
+        assert_eq!(mgr.state.layout[0].photos, vec!["p2.jpg"]);
         mgr.finish("test: noop").unwrap();
     }
 

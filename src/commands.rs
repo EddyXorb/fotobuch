@@ -17,6 +17,7 @@ pub mod project;
 pub mod rebuild;
 pub mod remove;
 pub mod status;
+pub mod unplace;
 
 pub use add::{AddConfig, AddResult, GroupSummary, add};
 pub use build::{BuildConfig, BuildResult, DpiWarning, build};

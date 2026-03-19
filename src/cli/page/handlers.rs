@@ -4,6 +4,7 @@ use anyhow::{Context, Result};
 use std::path::PathBuf;
 
 use fotobuch::commands::page::{self as page_cmd, PageMoveCmd};
+use fotobuch::commands::unplace::execute_unplace;
 
 use super::parse_api::{
     parse_move_cmd, parse_pages_expr, parse_split_addr, parse_swap_addrs, parse_unplace_addr,
@@ -17,7 +18,7 @@ fn project_root() -> Result<PathBuf> {
 pub fn handle_unplace(address: &str) -> Result<()> {
     let (page, slots) = parse_unplace_addr(address)
         .map_err(|e| anyhow::anyhow!("Invalid address '{}': {}", address, e))?;
-    let result = page_cmd::execute_unplace(&project_root()?, page, slots)
+    let result = execute_unplace(&project_root()?, page, slots)
         .map_err(|e| anyhow::anyhow!("{}", e))?;
     if result.pages_modified.is_empty() {
         println!("Nothing to unplace.");
@@ -34,14 +35,27 @@ pub fn handle_move(args: &[String]) -> Result<()> {
         .map_err(|e| anyhow::anyhow!("Invalid move expression '{}': {}", raw, e))?;
     let result = page_cmd::execute_move(&project_root()?, cmd)
         .map_err(|e| anyhow::anyhow!("{}", e))?;
-    println!(
-        "Moved photos. Modified pages: {}",
-        format_page_list(&result.pages_modified)
-    );
-    if !result.pages_inserted.is_empty() {
+    if result.pages_deleted.is_empty() {
         println!(
-            "Inserted new pages: {}",
-            format_page_list(&result.pages_inserted)
+            "Moved photos. Modified pages: {}",
+            format_page_list(&result.pages_modified)
+        );
+        if !result.pages_inserted.is_empty() {
+            println!(
+                "Inserted new pages: {}",
+                format_page_list(&result.pages_inserted)
+            );
+        }
+    } else {
+        if !result.pages_modified.is_empty() {
+            println!(
+                "Unplaced slots from page(s): {}",
+                format_page_list(&result.pages_modified)
+            );
+        }
+        println!(
+            "Unplaced and deleted page(s): {}",
+            format_page_list(&result.pages_deleted)
         );
     }
     Ok(())
