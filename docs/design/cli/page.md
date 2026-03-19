@@ -66,13 +66,16 @@ fotobuch unplace 3:2..5,7     # kombiniert
 ```
 
 Seiten ohne verbleibende Fotos werden nicht automatisch gelöscht — dafür `page combine`
-oder manuelles Löschen via `page move`.
+oder manuelles Löschen via `page move SRC ->`.
+
+Alternativ: `page move 3:2 ->` ist äquivalent zu `unplace 3:2`. Für ganze Seiten
+(`page move 3 ->`) wird die Seite direkt gelöscht — das geht mit `unplace` nicht.
 
 -----
 
 ### `page move`
 
-Universeller Operator für alle Umstrukturierungen. Zwei Varianten:
+Universeller Operator für alle Umstrukturierungen. Drei Varianten:
 
 #### Variante 1: Verschieben (`->`)
 
@@ -89,6 +92,23 @@ fotobuch page move 3:2 -> 4+          # slot 2 von seite 3 auf neue seite nach 4
 ```
 
 Die Quellseite wird nach dem Verschieben nicht automatisch gelöscht, auch wenn sie leer ist.
+
+#### Variante 2: Unplace (`->` ohne Ziel)
+
+Kein Ziel nach `->` bedeutet: Fotos werden aus dem Layout entfernt (unplaced), aber nicht
+aus dem Projekt gelöscht.
+
+```
+fotobuch page move 3 ->               # seite 3 wird gelöscht, fotos werden unplaced
+fotobuch page move 3,4 ->             # seiten 3 und 4 werden gelöscht
+fotobuch page move 3:2 ->             # nur slot 2 auf seite 3 wird unplaced, seite bleibt
+fotobuch page move 3:1..3 ->          # slots 1-3 werden unplaced, seite bleibt
+```
+
+Unterschied je nach Quelle:
+
+- `Src::Pages` (`3`, `3,4`, `3..5`): Die gesamten Seiten werden **gelöscht**
+- `Src::Slots` (`3:2`, `3:1..3`): Nur die Slots werden entfernt, **Seite bleibt** (ggf. leer)
 
 #### Variante 2: Swap (`<>`)
 
@@ -192,6 +212,7 @@ src         = pages_expr
 
 dst_move    = page
             | page "+"
+            | ε          (kein Ziel → Unplace)
 
 dst_swap    = pages_expr
             | page ":" slot_expr
@@ -208,6 +229,7 @@ enum Src {
 enum DstMove {
     Page(u32),
     NewPageAfter(u32),
+    Unplace,
 }
 
 enum DstSwap {
