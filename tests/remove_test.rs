@@ -283,7 +283,7 @@ fn test_remove_empty_pages_are_deleted() -> Result<()> {
 
         // Verify pages are renumbered sequentially
         for (i, page) in state_after.layout.iter().enumerate() {
-            assert_eq!(page.page, i + 1, "Pages should be renumbered 1-based");
+            assert_eq!(page.page, i, "Pages should be renumbered by array index (0-based)");
         }
     }
 

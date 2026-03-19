@@ -25,7 +25,7 @@ pub struct DpiWarning {
     pub photo_id: String,
     /// Actual DPI in the slot
     pub actual_dpi: f64,
-    /// Page number where this occurs
+    /// 0-based page index (layout array position) where this occurs
     pub page: usize,
     /// Original dimensions in pixels
     pub original_px: (u32, u32),
@@ -38,7 +38,7 @@ pub struct DpiWarning {
 pub struct BuildConfig {
     /// Build final PDF instead of preview (default: false)
     pub release: bool,
-    /// Only build these pages (optional, default: all)
+    /// Only process these pages (0-based indices, optional, default: all)
     pub pages: Option<Vec<usize>>,
 }
 
@@ -47,9 +47,9 @@ pub struct BuildConfig {
 pub struct BuildResult {
     /// Path to generated PDF
     pub pdf_path: PathBuf,
-    /// Pages that were rebuilt (1-based page numbers)
+    /// Pages that were rebuilt (0-based array indices into layout[])
     pub pages_rebuilt: Vec<usize>,
-    /// Pages with only swaps (no layout changes, 1-based)
+    /// Pages with only swaps (no layout changes, 0-based indices)
     pub pages_swapped: Vec<usize>,
     /// Number of images processed in cache
     pub images_processed: usize,
