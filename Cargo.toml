@@ -64,6 +64,8 @@ git2 = { version = "0.20", default-features = false }
 
 [dev-dependencies]
 approx = "0.5"
+assert_cmd = "2"
+predicates = "3"
 proptest = "1"
 rand_chacha = "0.3"
 tempfile = "3.10"
