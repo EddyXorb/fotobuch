@@ -5,7 +5,7 @@ use crate::cache::preview;
 use crate::state_manager::StateManager;
 use anyhow::Result;
 use std::path::Path;
-use tracing::info;
+use tracing::{info, warn};
 
 /// Performs incremental build: updates only modified pages.
 pub fn incremental_build(
@@ -27,9 +27,19 @@ pub fn incremental_build(
     }
 
     // 2. Detect which pages need rebuilding
-    let page_indices_needing_rebuild = mgr.outdated_pages_indices();
+    let mut page_indices_needing_rebuild = mgr.outdated_pages_indices();
 
-    // 3. Apply page filter if specified
+    // 3. If cover is active and index 0 is outdated, skip it and warn the user
+    let has_cover = mgr.state.config.book.cover.as_ref().is_some_and(|c| c.active);
+    if has_cover && page_indices_needing_rebuild.contains(&0) {
+        warn!(
+            "Cover page (index 0) has changes but will not be rebuilt automatically. \
+             Use `rebuild --page 0` to rebuild it explicitly."
+        );
+        page_indices_needing_rebuild.retain(|&idx| idx != 0);
+    }
+
+    // 4. Apply page filter if specified
     let pages_needing_rebuild = apply_page_filter(page_indices_needing_rebuild, page_filter);
 
     if pages_needing_rebuild.is_empty() {
@@ -55,9 +65,6 @@ pub fn incremental_build(
         "Rebuilding {} page(s): {:?}",
         pages_needing_rebuild.len(),
         pages_needing_rebuild
-            .iter()
-            .map(|i| i + 1)
-            .collect::<Vec<_>>()
     );
 
     // 4. Build photo index for fast lookup
@@ -82,7 +89,7 @@ pub fn incremental_build(
 
     Ok(BuildResult {
         pdf_path,
-        pages_rebuilt: pages_needing_rebuild.iter().map(|i| i + 1).collect(), // convert to 1-based page numbers for reporting
+        pages_rebuilt: pages_needing_rebuild,
         pages_swapped: vec![],
         images_processed: cache_result.created,
         total_cost,

@@ -395,8 +395,8 @@ mod tests {
         ];
 
         renumber_pages(&mut layout, false);
-        assert_eq!(layout[0].page, 1);
-        assert_eq!(layout[1].page, 2);
+        assert_eq!(layout[0].page, 0);
+        assert_eq!(layout[1].page, 1);
     }
 
     #[test]
