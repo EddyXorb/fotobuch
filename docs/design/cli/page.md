@@ -13,6 +13,8 @@ fotobuch page move    <SRC=PAGES_EXPR|PAGE:SLOT_EXPR>  out
 fotobuch page split   <PAGE:SLOT>
 fotobuch page combine <PAGES_EXPR>
 fotobuch page swap    <PAGE:SLOT_EXPR>  <PAGE:SLOT_EXPR>
+fotobuch page info    <PAGES_EXPR|PAGE:SLOT_EXPR>  [--weights|--ids|--pixels]
+fotobuch page weight  <PAGE:SLOT_EXPR|PAGE>  <WEIGHT>
 ```
 
 **Adressierungs-Syntax:**
@@ -189,6 +191,68 @@ Erlaubt: Swap innerhalb derselben Seite (`swap 1:3 1:7`). Fehler: Überlappende 
 
 -----
 
+### `page info`
+
+Gibt Informationen über platzierte Fotos aus. Bei genau einem aufgelösten Slot vertikale
+Ansicht, ab zwei Slots Tabellenansicht. Die Entscheidung erfolgt nach dem Auflösen der
+`SLOT_EXPR` — `3:2..2` ergibt einen Slot und zeigt die vertikale Ansicht.
+
+```
+fotobuch page info 3:2              # einzelner slot → vertikale ansicht
+fotobuch page info 3:1..3,7         # mehrere slots → tabellenansicht
+fotobuch page info 3                # ganze seite → tabellenansicht
+fotobuch page info 3 --weights      # nur weights aller slots
+fotobuch page info 3 --ids          # nur ids aller slots
+fotobuch page info 3 --pixels       # nur pixeldimensionen aller slots
+```
+
+**Vertikale Ansicht** (ein Slot):
+
+```
+page 3, slot 2
+  id:      2024-01-15_Urlaub/IMG_002.jpg
+  source:  /home/user/Fotos/2024-01-15_Urlaub/IMG_002.jpg
+  pixels:  4000x6000
+  ratio:   0.67
+  weight:  2.0
+  placed:  x=155.0mm y=10.0mm w=90.3mm h=135.5mm
+```
+
+**Tabellenansicht** (mehrere Slots):
+
+```
+page 3  (4/7 slots shown)
+  slot  id                                      pixels     ratio  weight  placed
+  1     2024-01-15_Urlaub/IMG_001.jpg           6000x4000  1.50   1.0     10.0, 10.0, 135.5x90.3
+  2     2024-01-15_Urlaub/IMG_002.jpg           4000x6000  0.67   2.0     155.0, 10.0, 90.3x135.5
+  3     2024-01-15_Urlaub/IMG_003.jpg           6000x4000  1.50   1.0     10.0, 110.0, 135.5x90.3
+  7     2024-01-15_Urlaub/IMG_007.jpg           6000x4000  1.50   1.5     155.0, 110.0, 135.5x90.3
+```
+
+**`--weights` Ausgabe** (maschinenlesbar, direkt als Input für `page weight` verwendbar):
+
+```
+3:1=1.0
+3:2=2.0
+3:3=1.0
+3:7=1.5
+```
+
+-----
+
+### `page weight`
+
+Setzt das `area_weight` eines oder mehrerer Slots. Ohne Slot-Angabe wird das Gewicht
+für alle Slots der Seite gesetzt.
+
+```
+fotobuch page weight 3:2 2.0        # einzelner slot
+fotobuch page weight 3:1..3,7 2.0   # mehrere slots, gleiches gewicht
+fotobuch page weight 3 2.0          # alle slots der seite
+```
+
+-----
+
 ## Parser-Design
 
 ### Grundprinzip
@@ -328,6 +392,13 @@ enum PageCommand {
     Split { address: String },
     Combine { pages: String },
     Swap { left: String, right: String },
+    Info {
+        address: String,
+        #[arg(long)] weights: bool,
+        #[arg(long)] ids: bool,
+        #[arg(long)] pixels: bool,
+    },
+    Weight { address: String, weight: f64 },
 }
 ```
 
@@ -363,9 +434,11 @@ pub struct SlotExpr { ... }
 pub enum ValidationError {
     PageNotFound(u32),
     SlotNotFound { page: u32, slot: u32 },
-    SwapSamePage(u32),
+    SwapRangesOverlap,
+    SwapNonContiguous,
     CombineSinglePage(u32),
     SplitAtFirstSlot(u32),
+    WeightOutOfRange(f64),
 }
 
 // Ausführung
@@ -389,14 +462,52 @@ pub fn execute_swap(
     project_root: &Path,
     left: Src,
     right: DstSwap,
-) -> Result<PageMoveResult, PageMoveError> { ... }
+) -> Result<PageMoveResult, PageError> { ... }
+
+pub fn execute_info(
+    project_root: &Path,
+    address: InfoAddress,
+    filter: InfoFilter,
+) -> Result<PageInfoResult, PageError> { ... }
+
+pub fn execute_weight(
+    project_root: &Path,
+    address: WeightAddress,
+    weight: f64,
+) -> Result<(), PageError> { ... }
 ```
 
-`PageMoveError` ist ein Wrapper über `ValidationError` und interne Fehler
+`InfoAddress` und `InfoFilter` kapseln die aufgelöste Adresse und die Flag-Auswahl:
+
+```rust
+pub enum InfoAddress {
+    Pages(PagesExpr),
+    Slots { page: u32, slots: SlotExpr },
+}
+
+pub struct InfoFilter {
+    pub weights: bool,
+    pub ids: bool,
+    pub pixels: bool,
+}
+
+/// Wenn alle flags false: alle felder ausgeben.
+impl InfoFilter {
+    pub fn all() -> Self { ... }
+    pub fn is_all(&self) -> bool { !self.weights && !self.ids && !self.pixels }
+}
+
+pub enum WeightAddress {
+    Page(u32),
+    Slots { page: u32, slots: SlotExpr },
+}
+```
+
+`PageError` ist ein Wrapper über `ValidationError` und interne Fehler
 (IO, YAML-Serialisierung etc.):
 
 ```rust
-pub enum PageMoveError {
+pub enum PageError {
     Validation(ValidationError),
     Io(std::io::Error),
     Project(ProjectError),
@@ -411,14 +522,29 @@ pub enum PageMoveError {
 /// Syntaktisches Parsing: Raw-String → PageMoveCmd.
 /// Kein Zugriff auf ProjectState, nur Zeichenketten-Analyse.
 fn parse_move_cmd(args: &[String]) -> Result<PageMoveCmd, ParseError> { ... }
+fn parse_info_address(s: &str) -> Result<InfoAddress, ParseError> { ... }
+fn parse_weight_address(s: &str) -> Result<WeightAddress, ParseError> { ... }
 
 /// Fehlerformatierung für die Konsole.
-fn format_page_move_error(err: &PageMoveError) -> String { ... }
+fn format_page_error(err: &PageError) -> String { ... }
 
 fn handle_page_move(args: &[String]) -> Result<()> {
     let cmd = parse_move_cmd(args).map_err(|e| /* format + exit */)?;
     let result = fotobuch::commands::page::execute_move(&project_root, cmd)?;
     print_page_move_result(&result);
+    Ok(())
+}
+
+fn handle_page_info(address: &str, filter: InfoFilter) -> Result<()> {
+    let addr = parse_info_address(address)?;
+    let result = fotobuch::commands::page::execute_info(&project_root, addr, filter)?;
+    print_page_info_result(&result);
+    Ok(())
+}
+
+fn handle_page_weight(address: &str, weight: f64) -> Result<()> {
+    let addr = parse_weight_address(address)?;
+    fotobuch::commands::page::execute_weight(&project_root, addr, weight)?;
     Ok(())
 }
 ```
@@ -451,4 +577,22 @@ cli.rs
         → YAML schreiben
         → PageMoveResult
     → print_page_move_result()
+
+  String (address)
+    → parse_info_address()           # Syntax-Check
+        → InfoAddress
+    → lib::commands::page::execute_info(project_root, addr, filter)
+        → ProjectState laden
+        → validate()
+        → PageInfoResult             # nur lesend, kein YAML schreiben
+    → print_page_info_result()       # vertikale oder tabellenansicht
+
+  String (address) + f64 (weight)
+    → parse_weight_address()         # Syntax-Check
+        → WeightAddress
+    → lib::commands::page::execute_weight(project_root, addr, weight)
+        → ProjectState laden
+        → validate()
+        → area_weight mutieren
+        → YAML schreiben
 ```
