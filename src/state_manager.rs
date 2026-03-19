@@ -359,14 +359,13 @@ impl StateManager {
         if let Err(e) = self.state.check_validity() {
             error!("State is invalid before commit! Reason(s): {e}");
         }
+        renumber_pages(&mut self.state.layout);
         let diff = StateDiff::compute(&self.baseline, &self.state);
 
         if diff.is_empty() && !always_commit {
             self.committed = true;
             return Ok(());
         }
-
-        renumber_pages(&mut self.state.layout);
 
         let yaml_name = format!("{}.yaml", self.project_name);
         self.state
