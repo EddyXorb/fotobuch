@@ -19,6 +19,7 @@ To be done in this order
 - [ ] prüfen ob das generierte pdf wirklich die mediabox/bleedbox/targetbox so gesetzt hat, wie indesign das machen würde entsprechend den anforderungen für saal digital
 - [x] make DPI of final configurable in yaml, as well as jpg-quality for both preview and final
 - [ ] order the slots/photos in layout according to reading order (to make the appendix work later)
+- [ ] page numbering as option in template
 
 ## to improve it further
 

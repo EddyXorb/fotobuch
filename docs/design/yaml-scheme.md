@@ -8,8 +8,14 @@ config:
     page_height_mm: 297.0
     bleed_mm: 3.0
     # margin_mm, gap_mm, bleed_threshold_mm: defaulted
+    cover:                          # optional — fehlt dieser Block, gibt es kein Cover
+      spine_mm_per_10_pages: 1.4   # Pflichtfeld wenn cover vorhanden
+      page_width_mm: ~             # optional, default = book.page_width_mm
+      page_height_mm: ~            # optional, default = book.page_height_mm
+      spine_text: ~                # optional, default = book.title
   # ga: defaulted
   # preview: defaulted
+  #   cover_separate_pdf: false    # TODO: Cover als eigenes PDF ausgeben (noch nicht implementiert)
 
 photos:
   - group: "2024-01-15_Urlaub"
@@ -41,9 +47,18 @@ photos:
         hash: a2345234244643a54v3...
 
 layout:
+  - page: 0
+    cover: true                                      # optional — macht diese Seite zum Cover; nur die erste solche Seite wird gerendert
+    photos:
+      - "2024-01-15_Urlaub/IMG_001.jpg"              # 1.50
+    slots:
+      - x_mm: -3.0
+        y_mm: -3.0
+        width_mm: 843.0
+        height_mm: 303.0
   - page: 1
     photos:                                          # Benutzer-Input: welche Fotos (sortiert nach Ratio), nach id
-      - "2024-01-15_Urlaub/IMG_002.jpg"              # 0.67 
+      - "2024-01-15_Urlaub/IMG_002.jpg"              # 0.67
       - "2024-01-15_Urlaub/IMG_001.jpg"              # 1.50
     slots:                                           # Solver-Output: Platzierung (Index-gekoppelt an photos)
       - x_mm: -3.0
@@ -80,3 +95,57 @@ layout:
 - Bei Re-Optimierung einer Seite: Solver liest `layout[i].photos` -> findet Metadaten in `photos` (Top-Level) -> laesst GA laufen -> schreibt `layout[i].slots` neu. Die `photos`-Liste bleibt unangetastet.
 - `layout[].page`: ein counter, der nur für den benutzer da ist und dem index +1 in der liste entsprechend sollte; wird nicht fürs rendering verwendet und dient nur als info; d.h. änderungen daran durch benutzer ändern das fotobuch nicht. Wird nach jedem build/rebuild neu gesetzt
 - `hash`: wird bei jedem add für jedes photo berechnet und gesetzt. Der hash entsteht durch hashen der ersten und letzten 64 kb jeder datei mit blake3 (zur zeit)
+
+## Cover
+
+### Aktivierung
+
+`config.book.cover` muss vorhanden sein — fehlt der Block, gibt es kein Cover. `fotobuch project new` legt keinen Cover-Block an. Nachträgliches Hinzufügen:
+
+```
+fotobuch add cover --spine_mm_per_10_pages <N> [--width_mm <W>] [--height_mm <H>]
+```
+
+Dieser Befehl setzt `config.book.cover` in der YAML und markiert automatisch die erste Seite mit `cover: true`.
+
+### Cover-Seite im Layout
+
+`cover: true` ist ein optionales Flag auf einem `layout`-Eintrag. Nur der erste solche Eintrag wird als Cover behandelt — spätere werden stillschweigend ignoriert. `page` wird nach jedem Build neu gesetzt (wie bei anderen Seiten), hat also keine Sonderbedeutung für das Cover.
+
+### Dimensionen
+
+Die Cover-Breite wird **nicht automatisch** aus `2 × page_width + Bunddicke` berechnet — Slots werden komplett dem Nutzer/Solver überlassen. `cover.page_width_mm` und `cover.page_height_mm` sind die Seitenmaße für die Cover-Seite im Template.
+
+Fehlt `cover.page_width_mm` oder `cover.page_height_mm`, gelten die Werte aus `book.page_width_mm` / `book.page_height_mm`.
+
+### Bunddicke
+
+```
+spine_width_mm = (inner_page_count / 10.0) * spine_mm_per_10_pages
+```
+
+`inner_page_count` = Anzahl aller Layout-Einträge ohne Cover. Wer Doppelseiten verwendet, gibt die Bunddicke pro 10 Doppelseiten an; wer Einzelseiten nutzt, halbiert den Wert entsprechend.
+
+### Buchrücken-Text
+
+- Default: `book.title`
+- Überschreibbar mit `cover.spine_text`
+- Schriftgröße: automatisch, max. `spine_width_mm * 0.8`
+- Position: 5 % vom unteren Rand des Rückens, Leserichtung nach oben (90° CCW rotiert)
+- Rendering erfolgt im Template, nicht im Solver
+
+### Solver-Integration
+
+Der Solver darf eine Cover-Seite **nur als Einzelseite** berechnen (`page_layout_solver` mit expliziten Cover-Dimensionen). Keine Mischung mit normalen Innenseiten in Multi-Page-Builds.
+
+### Template-Verhalten
+
+1. Template prüft ob `data.layout` einen Eintrag mit `cover == true` enthält
+2. Wenn ja: Cover-Seite wird **zuerst** gerendert mit `(cover.spine_mm_per_10_pages * ((layout.pages.len() - 1)/10 + cover.page_width_mm) × cover.page_height_mm`
+3. Danach folgen alle anderen Seiten in Listenreihenfolge
+4. Im Preview wird das Cover als erste Seite angezeigt
+5. bleed bleibt gleich für cover, keine margins
+
+### Geplant (noch nicht implementiert)
+
+- `config.preview.cover_separate_pdf: true` — gibt das Cover als eigenes PDF aus, getrennt vom Innenteil
