@@ -5,7 +5,8 @@ use std::path::Path;
 use crate::state_manager::StateManager;
 
 use crate::commands::page::{
-    page_idx, remove_slots, resolve_slots, PageMoveError, PageMoveResult, SlotExpr,
+    delete_empty_pages, page_idx, remove_slots, resolve_slots, PageMoveError, PageMoveResult,
+    SlotExpr,
 };
 
 /// Remove photos from the layout at the given page:slot address.
@@ -30,13 +31,15 @@ pub fn execute_unplace(
 
     let page_idx_val = page_idx(page, &mgr.state.layout)?;
     remove_slots(&mut mgr.state.layout, page_idx_val, slot_indices);
+    let deleted = delete_empty_pages(&mut mgr.state.layout);
+    let modified = if deleted.contains(&page) { vec![] } else { vec![page] };
 
     mgr.finish(&format!("unplace: page {page}"))?;
 
     Ok(PageMoveResult {
-        pages_modified: vec![page],
+        pages_modified: modified,
         pages_inserted: vec![],
-        pages_deleted: vec![],
+        pages_deleted: deleted,
     })
 }
 
@@ -62,6 +65,22 @@ mod tests {
         let mgr = StateManager::open(tmp.path()).unwrap();
         let page = &mgr.state.layout[0];
         assert_eq!(page.photos, vec!["p0.jpg", "p2.jpg"]);
+        mgr.finish("test: noop").unwrap();
+    }
+
+    #[test]
+    fn test_execute_unplace_last_photo_deletes_page() {
+        let state = make_state_with_layout(vec![vec!["p0.jpg"], vec!["p1.jpg"]]);
+        let tmp = TempDir::new().unwrap();
+        setup_repo(&tmp, &state);
+
+        let result = execute_unplace(tmp.path(), 1, SlotExpr::single(1)).unwrap();
+        assert!(result.pages_deleted.contains(&1));
+        assert!(result.pages_modified.is_empty());
+
+        let mgr = StateManager::open(tmp.path()).unwrap();
+        assert_eq!(mgr.state.layout.len(), 1);
+        assert_eq!(mgr.state.layout[0].photos, vec!["p1.jpg"]);
         mgr.finish("test: noop").unwrap();
     }
 

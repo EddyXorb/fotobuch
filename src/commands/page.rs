@@ -12,7 +12,7 @@ mod types;
 pub(crate) mod test_fixtures;
 
 pub use combine::execute_combine;
-pub(crate) use helpers::{page_idx, remove_slots, resolve_slots};
+pub(crate) use helpers::{delete_empty_pages, page_idx, remove_slots, resolve_slots};
 pub use move_cmd::execute_move;
 pub use split::execute_split;
 pub use types::{

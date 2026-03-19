@@ -65,11 +65,10 @@ fotobuch unplace 3:2..5       # slots 2 bis 5 auf seite 3
 fotobuch unplace 3:2..5,7     # kombiniert
 ```
 
-Seiten ohne verbleibende Fotos werden nicht automatisch gelöscht — dafür `page combine`
-oder manuelles Löschen via `page move SRC out`.
+Wird die letzte Seite einer Seite entfernt, wird die Seite automatisch gelöscht.
 
-Alternativ: `page move 3:2 out` ist äquivalent zu `unplace 3:2`. Für ganze Seiten
-(`page move 3 out`) wird die Seite direkt gelöscht — das geht mit `unplace` nicht.
+Alternativ: `page move 3:2 out` ist äquivalent zu `unplace 3:2`. `page move 3 out`
+löscht die gesamte Seite ohne Slot-Angabe.
 
 -----
 
@@ -91,7 +90,7 @@ fotobuch page move 3..5 to 2          # alle fotos von seiten 3-5 auf seite 2
 fotobuch page move 3:2 to 4+          # slot 2 von seite 3 auf neue seite nach 4
 ```
 
-Die Quellseite wird nach dem Verschieben nicht automatisch gelöscht, auch wenn sie leer ist.
+Wird die Quellseite durch das Verschieben leer, wird sie automatisch gelöscht.
 
 #### Variante 2: Unplace (`out`)
 
@@ -101,14 +100,12 @@ aus dem Projekt gelöscht.
 ```
 fotobuch page move 3 out              # seite 3 wird gelöscht, fotos werden unplaced
 fotobuch page move 3,4 out            # seiten 3 und 4 werden gelöscht
-fotobuch page move 3:2 out            # nur slot 2 auf seite 3 wird unplaced, seite bleibt
-fotobuch page move 3:1..3 out         # slots 1-3 werden unplaced, seite bleibt
+fotobuch page move 3:2 out            # slot 2 wird unplaced; seite bleibt, außer sie wird leer
+fotobuch page move 3:1..3 out         # slots 1-3 werden unplaced; seite bleibt, außer sie wird leer
 ```
 
-Unterschied je nach Quelle:
-
-- `Src::Pages` (`3`, `3,4`, `3..5`): Die gesamten Seiten werden **gelöscht**
-- `Src::Slots` (`3:2`, `3:1..3`): Nur die Slots werden entfernt, **Seite bleibt** (ggf. leer)
+`Src::Pages` löscht die Seite immer. `Src::Slots` entfernt die Fotos — wird die Seite dadurch
+leer, wird sie ebenfalls gelöscht.
 
 -----
 
