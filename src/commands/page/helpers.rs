@@ -2,7 +2,7 @@
 
 use crate::dto_models::LayoutPage;
 
-use super::types::{DstSwap, SlotExpr, Src, ValidationError};
+use super::types::{DstSwap, SlotExpr, SlotItem, Src, ValidationError};
 
 // ── Index resolution ──────────────────────────────────────────────────────────
 
@@ -15,7 +15,7 @@ pub(crate) fn page_idx(page: u32, layout: &[LayoutPage]) -> Result<usize, Valida
 }
 
 /// Resolve slot numbers on a page to 0-based indices and validate they exist.
-/// `slots` are 1-based slot numbers.
+/// Slot numbers are 1-based; open-ended ranges are resolved against the actual page size.
 pub(crate) fn resolve_slots(
     page: u32,
     slot_expr: &SlotExpr,
@@ -23,12 +23,29 @@ pub(crate) fn resolve_slots(
 ) -> Result<Vec<usize>, ValidationError> {
     let idx = page_idx(page, layout)?;
     let n_slots = layout[idx].photos.len();
-    let mut result = Vec::with_capacity(slot_expr.slots.len());
-    for &s in &slot_expr.slots {
-        if s == 0 || s as usize > n_slots {
-            return Err(ValidationError::SlotNotFound { page, slot: s });
+    let mut result = Vec::new();
+    for item in &slot_expr.items {
+        match item {
+            SlotItem::Single(s) => {
+                if *s == 0 || *s as usize > n_slots {
+                    return Err(ValidationError::SlotNotFound { page, slot: *s });
+                }
+                result.push(*s as usize - 1);
+            }
+            SlotItem::Range { from, to } => {
+                let start = from.unwrap_or(1);
+                let end = to.unwrap_or(n_slots as u32);
+                if start == 0 {
+                    return Err(ValidationError::SlotNotFound { page, slot: 0 });
+                }
+                if end as usize > n_slots {
+                    return Err(ValidationError::SlotNotFound { page, slot: end });
+                }
+                for s in start..=end {
+                    result.push(s as usize - 1);
+                }
+            }
         }
-        result.push(s as usize - 1);
     }
     Ok(result)
 }
@@ -152,10 +169,22 @@ pub(super) fn format_src_desc(src: &Src) -> String {
     match src {
         Src::Pages(pe) => format_pages_list(&pe.pages),
         Src::Slots { page, slots } => {
-            let slot_list: Vec<String> = slots.slots.iter().map(|s| s.to_string()).collect();
-            format!("page {}:{}", page, slot_list.join(","))
+            format!("page {}:{}", page, format_slot_expr(slots))
         }
     }
+}
+
+fn format_slot_expr(slots: &SlotExpr) -> String {
+    let parts: Vec<String> = slots.items.iter().map(|item| match item {
+        SlotItem::Single(n) => n.to_string(),
+        SlotItem::Range { from, to } => match (from, to) {
+            (Some(a), Some(b)) => format!("{a}..{b}"),
+            (Some(a), None) => format!("{a}.."),
+            (None, Some(b)) => format!("..{b}"),
+            (None, None) => "..".to_string(),
+        },
+    }).collect();
+    parts.join(",")
 }
 
 pub(super) fn format_pages_list(pages: &[u32]) -> String {
@@ -194,9 +223,12 @@ mod tests {
     #[test]
     fn test_resolve_slots_valid() {
         let state = make_state_with_layout(vec![vec!["p0.jpg", "p1.jpg", "p2.jpg"]]);
-        let slots = SlotExpr::from_range(1, 3);
-        let indices = resolve_slots(1, &slots, &state.layout).unwrap();
-        assert_eq!(indices, vec![0, 1, 2]);
+        // bounded range
+        assert_eq!(resolve_slots(1, &SlotExpr::from_range(1, 3), &state.layout).unwrap(), vec![0, 1, 2]);
+        // open end: 2.. → slots 2 and 3
+        assert_eq!(resolve_slots(1, &SlotExpr::from_open_end(2), &state.layout).unwrap(), vec![1, 2]);
+        // open start: ..2 → slots 1 and 2
+        assert_eq!(resolve_slots(1, &SlotExpr::from_open_start(2), &state.layout).unwrap(), vec![0, 1]);
     }
 
     #[test]

@@ -26,25 +26,40 @@ impl PagesExpr {
 
 // ── SlotExpr ──────────────────────────────────────────────────────────────────
 
-/// A set of slot indices: `2`, `2,7`, `2..5`, or `2..5,7`.
+/// A single item inside a [`SlotExpr`]: a concrete slot number or a range
+/// with optional bounds (`N..`, `..N`, `N..M`).
+#[derive(Debug, Clone, PartialEq)]
+pub enum SlotItem {
+    Single(u32),
+    /// `from..=to`, where `None` means "open end" (resolved at execution time).
+    Range { from: Option<u32>, to: Option<u32> },
+}
+
+/// A set of slot indices: `2`, `2,7`, `2..5`, `2..`, `..5`, or combinations.
 #[derive(Debug, Clone, PartialEq)]
 pub struct SlotExpr {
-    pub slots: Vec<u32>,
+    pub items: Vec<SlotItem>,
 }
 
 impl SlotExpr {
     pub fn single(slot: u32) -> Self {
-        Self { slots: vec![slot] }
+        Self { items: vec![SlotItem::Single(slot)] }
     }
 
     pub fn from_list(slots: Vec<u32>) -> Self {
-        Self { slots }
+        Self { items: slots.into_iter().map(SlotItem::Single).collect() }
     }
 
     pub fn from_range(start: u32, end: u32) -> Self {
-        Self {
-            slots: (start..=end).collect(),
-        }
+        Self { items: vec![SlotItem::Range { from: Some(start), to: Some(end) }] }
+    }
+
+    pub fn from_open_end(from: u32) -> Self {
+        Self { items: vec![SlotItem::Range { from: Some(from), to: None }] }
+    }
+
+    pub fn from_open_start(to: u32) -> Self {
+        Self { items: vec![SlotItem::Range { from: None, to: Some(to) }] }
     }
 }
 
@@ -226,7 +241,7 @@ mod tests {
     #[test]
     fn test_slot_expr_from_range() {
         let se = SlotExpr::from_range(2, 5);
-        assert_eq!(se.slots, vec![2, 3, 4, 5]);
+        assert_eq!(se.items, vec![SlotItem::Range { from: Some(2), to: Some(5) }]);
     }
 
     #[test]

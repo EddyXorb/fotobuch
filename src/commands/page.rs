@@ -20,6 +20,6 @@ pub use move_cmd::execute_move;
 pub use split::execute_split;
 pub use types::{
     DstMove, DstSwap, InfoFilter, PageInfoResult, PageMoveCmd, PageMoveError, PageMoveResult,
-    PagesExpr, SlotExpr, SlotInfo, Src, ValidationError, WeightAddress,
+    PagesExpr, SlotExpr, SlotInfo, SlotItem, Src, ValidationError, WeightAddress,
 };
 pub use weight::execute_weight;

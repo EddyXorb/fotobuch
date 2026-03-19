@@ -3,7 +3,7 @@
 use super::lexer::tokenize;
 use super::parse_api::{parse_move_cmd, parse_pages_expr, parse_split_addr, parse_unplace_addr};
 use super::tokens::{ParseError, Token};
-use fotobuch::commands::page::*;
+use fotobuch::commands::page::{DstMove, PageMoveCmd, PagesExpr, SlotExpr, SlotItem, Src};
 
 // ── tokenize ──────────────────────────────────────────────────────────────────
 
@@ -109,7 +109,12 @@ fn test_parse_range_slots_to_page() {
         PageMoveCmd::Move {
             src: Src::Slots {
                 page: 3,
-                slots: SlotExpr::from_list(vec![1, 2, 3, 7]),
+                slots: SlotExpr {
+                    items: vec![
+                        SlotItem::Range { from: Some(1), to: Some(3) },
+                        SlotItem::Single(7),
+                    ],
+                },
             },
             dst: DstMove::Page(5),
         }
@@ -215,21 +220,38 @@ fn test_parse_split_addr() {
 fn test_parse_unplace_single_slot() {
     let (page, slots) = parse_unplace_addr("3:2").unwrap();
     assert_eq!(page, 3);
-    assert_eq!(slots.slots, vec![2]);
+    assert_eq!(slots.items, vec![SlotItem::Single(2)]);
 }
 
 #[test]
 fn test_parse_unplace_slot_range() {
     let (page, slots) = parse_unplace_addr("3:2..5").unwrap();
     assert_eq!(page, 3);
-    assert_eq!(slots.slots, vec![2, 3, 4, 5]);
+    assert_eq!(slots.items, vec![SlotItem::Range { from: Some(2), to: Some(5) }]);
 }
 
 #[test]
 fn test_parse_unplace_combined() {
     let (page, slots) = parse_unplace_addr("3:2..5,7").unwrap();
     assert_eq!(page, 3);
-    assert_eq!(slots.slots, vec![2, 3, 4, 5, 7]);
+    assert_eq!(slots.items, vec![
+        SlotItem::Range { from: Some(2), to: Some(5) },
+        SlotItem::Single(7),
+    ]);
+}
+
+#[test]
+fn test_parse_open_end_slot_range() {
+    let (page, slots) = parse_unplace_addr("1:2..").unwrap();
+    assert_eq!(page, 1);
+    assert_eq!(slots.items, vec![SlotItem::Range { from: Some(2), to: None }]);
+}
+
+#[test]
+fn test_parse_open_start_slot_range() {
+    let (page, slots) = parse_unplace_addr("1:..4").unwrap();
+    assert_eq!(page, 1);
+    assert_eq!(slots.items, vec![SlotItem::Range { from: None, to: Some(4) }]);
 }
 
 // ── parse_pages_expr ──────────────────────────────────────────────────────────
@@ -251,3 +273,4 @@ fn test_parse_pages_range() {
     let pe = parse_pages_expr("3..5").unwrap();
     assert_eq!(pe.pages, vec![3, 4, 5]);
 }
+

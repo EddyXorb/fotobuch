@@ -1,6 +1,6 @@
 //! Recursive-descent parser: tokens → AST (PageMoveCmd / addresses).
 
-use fotobuch::commands::page::{DstMove, DstSwap, PageMoveCmd, PagesExpr, SlotExpr, Src};
+use fotobuch::commands::page::{DstMove, DstSwap, PageMoveCmd, PagesExpr, SlotExpr, SlotItem, Src};
 
 use super::tokens::{ParseError, Token};
 
@@ -63,21 +63,36 @@ impl Parser {
     }
 
     /// Parse `slot_expr`: `slot_item ("," slot_item)*`
-    /// where `slot_item` is `NUMBER` or `NUMBER ".." NUMBER`.
+    ///
+    /// `slot_item` is one of:
+    /// - `NUMBER`          → single slot
+    /// - `NUMBER ".." NUMBER` → bounded range
+    /// - `NUMBER ".."`     → open-end range (from N to last slot)
+    /// - `".." NUMBER`     → open-start range (from first slot to N)
     pub fn parse_slot_expr(&mut self) -> Result<SlotExpr, ParseError> {
-        let mut slots = Vec::new();
+        let mut items = Vec::new();
 
         loop {
-            let first = self.expect_number("slot number")?;
-            if let Some(Token::Range) = self.peek() {
+            let item = if let Some(Token::Range) = self.peek() {
                 self.advance(); // consume ".."
-                let last = self.expect_number("slot number after '..'")?;
-                for s in first..=last {
-                    slots.push(s);
-                }
+                let end = self.expect_number("slot number after '..'")?;
+                SlotItem::Range { from: None, to: Some(end) }
             } else {
-                slots.push(first);
-            }
+                let first = self.expect_number("slot number")?;
+                if let Some(Token::Range) = self.peek() {
+                    self.advance(); // consume ".."
+                    if matches!(self.peek(), Some(Token::Number(_))) {
+                        let last = self.expect_number("slot number after '..'")?;
+                        SlotItem::Range { from: Some(first), to: Some(last) }
+                    } else {
+                        SlotItem::Range { from: Some(first), to: None }
+                    }
+                } else {
+                    SlotItem::Single(first)
+                }
+            };
+            items.push(item);
+
             if let Some(Token::Comma) = self.peek() {
                 self.advance(); // consume ","
             } else {
@@ -85,7 +100,7 @@ impl Parser {
             }
         }
 
-        Ok(SlotExpr::from_list(slots))
+        Ok(SlotExpr { items })
     }
 
     /// Parse `src`: `pages_expr | page ":" slot_expr`
