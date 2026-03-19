@@ -232,8 +232,35 @@ fn test_parse_missing_operator() {
 }
 
 #[test]
-fn test_parse_missing_destination() {
-    let err = parse_move_cmd("3 ->").unwrap_err();
+fn test_parse_page_unplace() {
+    let cmd = parse_move_cmd("3 ->").unwrap();
+    assert_eq!(
+        cmd,
+        PageMoveCmd::Move {
+            src: Src::Pages(PagesExpr::single(3)),
+            dst: DstMove::Unplace,
+        }
+    );
+}
+
+#[test]
+fn test_parse_slots_unplace() {
+    let cmd = parse_move_cmd("3:4..6 ->").unwrap();
+    assert_eq!(
+        cmd,
+        PageMoveCmd::Move {
+            src: Src::Slots {
+                page: 3,
+                slots: SlotExpr::from_range(4, 6),
+            },
+            dst: DstMove::Unplace,
+        }
+    );
+}
+
+#[test]
+fn test_parse_missing_destination_swap() {
+    let err = parse_move_cmd("3 <>").unwrap_err();
     assert_eq!(err, ParseError::MissingDestination);
 }
 

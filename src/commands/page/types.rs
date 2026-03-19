@@ -66,6 +66,8 @@ pub enum DstMove {
     Page(u32),
     /// New page inserted directly after this page number.
     NewPageAfter(u32),
+    /// Unplace the source photos (and delete the page if the source is whole pages).
+    Unplace,
 }
 
 /// Destination for `page move <>` (swap).

@@ -4,8 +4,9 @@ use std::path::Path;
 
 use crate::state_manager::StateManager;
 
-use super::helpers::{page_idx, remove_slots, resolve_slots};
-use super::types::{PageMoveError, PageMoveResult, SlotExpr};
+use crate::commands::page::{
+    page_idx, remove_slots, resolve_slots, PageMoveError, PageMoveResult, SlotExpr,
+};
 
 /// Remove photos from the layout at the given page:slot address.
 ///
@@ -44,8 +45,8 @@ pub fn execute_unplace(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use super::super::test_fixtures::{make_state_with_layout, setup_repo};
-    use super::super::types::{SlotExpr, ValidationError};
+    use crate::commands::page::test_fixtures::{make_state_with_layout, setup_repo};
+    use crate::commands::page::{SlotExpr, ValidationError};
     use crate::state_manager::StateManager;
     use tempfile::TempDir;
 

@@ -162,7 +162,7 @@ impl Parser {
         match self.advance() {
             Some(Token::Arrow) => {
                 if self.is_at_end() {
-                    return Err(ParseError::MissingDestination);
+                    return Ok(PageMoveCmd::Move { src, dst: DstMove::Unplace });
                 }
                 let dst = self.parse_dst_move()?;
                 Ok(PageMoveCmd::Move { src, dst })
