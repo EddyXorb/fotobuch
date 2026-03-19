@@ -95,7 +95,7 @@
     for (pi, page_data) in data.layout.enumerate() {
       let pairs = ()
       for (i, photo_id) in page_data.photos.enumerate() {
-        pairs = pairs + ((photo_id, page_data.slots.at(i)),)
+        pairs = pairs + ((photo_id, page_data.slots.at(i, default: none)),)
       }
       for (pos, p) in pairs.enumerate() {
         photo_ref.insert(p.at(0), str(pi + 1) + "." + str(pos + 1))
@@ -169,11 +169,9 @@
       box(
         width: slot.width_mm * 1mm,
         height: slot.height_mm * 1mm,
-        align(center + horizon,
-          text(size: 20pt, weight: "bold", fill: white)[
-            #slot_nr \(#str(calc.round(photo_weight.at(photo_id, default: 1.0), digits: 1))\)
-          ],
-        ),
+        align(center + horizon, text(size: 20pt, weight: "bold", fill: white)[
+          #slot_nr \(#str(calc.round(photo_weight.at(photo_id, default: 1.0), digits: 1))\)
+        ]),
       ),
     )
   ]
@@ -196,7 +194,11 @@
 
 // Renders the PREVIEW watermark diagonally across the page
 #let render_preview_watermark(page_number) = [
-  #place(center + horizon, rotate(-30deg, text(size: 120pt, fill: rgb("#00000055"), weight: "bold")[PREVIEW #page_number]) )
+  #place(center + horizon, rotate(-30deg, text(
+    size: 120pt,
+    fill: rgb("#00000055"),
+    weight: "bold",
+  )[PREVIEW #page_number]))
 ]
 
 // Renders the photo index: page separators, group headers, entries with timestamps
@@ -266,8 +268,12 @@
 #let has_cover = cover_or_none != none and cover_or_none.at("active", default: false)
 #let inner_page_count = if has_cover { data.layout.len() - 1 } else { data.layout.len() }
 // cover_front_back_w = page_width_mm (front+back without spine), default = 2 * book width
-#let cover_front_back_w = if has_cover { cover_or_none.at("page_width_mm", default: 2.0 * data.config.book.page_width_mm) } else { 0.0 }
-#let cover_page_h = if has_cover { cover_or_none.at("page_height_mm", default: data.config.book.page_height_mm) } else { 0.0 }
+#let cover_front_back_w = if has_cover {
+  cover_or_none.at("page_width_mm", default: 2.0 * data.config.book.page_width_mm)
+} else { 0.0 }
+#let cover_page_h = if has_cover { cover_or_none.at("page_height_mm", default: data.config.book.page_height_mm) } else {
+  0.0
+}
 #let spine_w = if has_cover { float(inner_page_count) / 10.0 * cover_or_none.spine_mm_per_10_pages } else { 0.0 }
 #let cover_total_w = if has_cover { cover_front_back_w + spine_w } else { 0.0 }
 #let spine_text_content = if has_cover { cover_or_none.at("spine_text", default: data.config.book.title) } else { "" }
@@ -283,25 +289,26 @@
     #if show_borders_on_preview [
       #draw_borders(cover_total_w, cover_page_h)
       // Spine area markers: two vertical green lines bounding the spine
-      #place(top + left, dx: (cover_front_back_w / 2) * 1mm, dy: -bleed,
-        rect(width: spine_w * 1mm, height: cover_page_h * 1mm + 2 * bleed,
-          stroke: (left: green + 0.5pt, right: green + 0.5pt, top: none, bottom: none),
-          fill: rgb(0, 200, 0, 20),
-        )
-      )
+      #place(top + left, dx: (cover_front_back_w / 2) * 1mm, dy: -bleed, rect(
+        width: spine_w * 1mm,
+        height: cover_page_h * 1mm + 2 * bleed,
+        stroke: (left: green + 0.5pt, right: green + 0.5pt, top: none, bottom: none),
+        fill: rgb(0, 200, 0, 20),
+      ))
     ]
     #for (i, slot) in cover_data.slots.enumerate() [
       #let photo_id = cover_data.photos.at(i, default: none)
       #if photo_id != none [#render_photo(slot, i + 1, photo_id, photo_ref, photo_weight)]
     ]
     // Spine text — reads bottom-to-top; dx = half of front+back = single page width
-    #place(top + left, dx: (cover_front_back_w / 2) * 1mm, dy: 0mm,
-      box(width: spine_w * 1mm, height: cover_page_h * 1mm,
-        align(center + horizon,
-          rotate(-90deg, text(size: 12pt, spine_text_content))
-        )
-      )
-    )
+    #place(top + left, dx: (cover_front_back_w / 2) * 1mm, dy: 0mm, box(
+      width: spine_w * 1mm,
+      height: cover_page_h * 1mm,
+      align(horizon + center, rotate(-90deg, box(stroke: green, width: cover_page_h * 1mm, align(left, text(
+        size: calc.min(20mm, spine_w * 0.9 * 1mm),
+        h(0.05 * cover_page_h * 1mm) + spine_text_content,
+      ))))),
+    ))
     #if not is_final [#render_preview_watermark("Cover")]
     #pagebreak()
   ]
