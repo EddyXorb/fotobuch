@@ -15,6 +15,7 @@ pub mod project;
 pub mod rebuild;
 pub mod remove;
 pub mod status;
+pub mod undo;
 
 /// Photobook layout solver and project manager
 #[derive(Parser, Debug)]
@@ -149,6 +150,19 @@ pub enum Commands {
         count: usize,
     },
 
+    /// Undo the last N commits (default: 1)
+    Undo {
+        /// Number of steps to undo
+        #[arg(default_value_t = 1)]
+        steps: usize,
+    },
+
+    /// Redo N previously undone commits (default: 1)
+    Redo {
+        /// Number of steps to redo
+        #[arg(default_value_t = 1)]
+        steps: usize,
+    },
     /// Project management commands
     Project {
         #[command(subcommand)]
@@ -334,6 +348,8 @@ impl Execute for Commands {
             Commands::Status { page } => status::handle(*page),
             Commands::Config => config::handle(),
             Commands::History { count } => history::handle(*count),
+            Commands::Undo { steps } => undo::handle_undo(*steps),
+            Commands::Redo { steps } => undo::handle_redo(*steps),
             Commands::Project { command } => command.execute(),
         }
     }

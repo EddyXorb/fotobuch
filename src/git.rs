@@ -94,6 +94,12 @@ pub fn stage_and_commit(repo: &Repository, paths: &[&str], message: &str) -> Res
 
     repo.commit(Some("HEAD"), &sig, &sig, message, &tree, &parent_refs)
         .context("Failed to create commit")?;
+
+    // A new commit invalidates any pending redo future.
+    if let Some(workdir) = repo.workdir() {
+        crate::undo_stack::clear(workdir).ok();
+    }
+
     Ok(())
 }
 
@@ -102,7 +108,7 @@ pub fn is_git_repo(dir: &Path) -> bool {
     dir.join(".git").exists()
 }
 
-fn build_signature(repo: &Repository) -> Signature<'static> {
+pub fn build_signature(repo: &Repository) -> Signature<'static> {
     let config = repo.config().ok();
     let name = config
         .as_ref()
