@@ -268,14 +268,14 @@ fn is_contiguous(items: &[u32]) -> bool {
 fn src_is_contiguous(src: &Src) -> bool {
     match src {
         Src::Pages(pe) => is_contiguous(&pe.pages),
-        Src::Slots { slots, .. } => is_contiguous(&slots.slots),
+        Src::Slots { slots, .. } => slots.items.len() <= 1,
     }
 }
 
 fn dst_swap_is_contiguous(dst: &DstSwap) -> bool {
     match dst {
         DstSwap::Pages(pe) => is_contiguous(&pe.pages),
-        DstSwap::Slots { slots, .. } => is_contiguous(&slots.slots),
+        DstSwap::Slots { slots, .. } => slots.items.len() <= 1,
     }
 }
 
