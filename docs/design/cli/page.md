@@ -222,11 +222,11 @@ page 3, slot 2
 
 ```
 page 3  (4/7 slots shown)
-  slot  id                                      pixels     ratio  weight  placed
-  1     2024-01-15_Urlaub/IMG_001.jpg           6000x4000  1.50   1.0     10.0, 10.0, 135.5x90.3
-  2     2024-01-15_Urlaub/IMG_002.jpg           4000x6000  0.67   2.0     155.0, 10.0, 90.3x135.5
-  3     2024-01-15_Urlaub/IMG_003.jpg           6000x4000  1.50   1.0     10.0, 110.0, 135.5x90.3
-  7     2024-01-15_Urlaub/IMG_007.jpg           6000x4000  1.50   1.5     155.0, 110.0, 135.5x90.3
+  slot  ratio  weight  pixels     placed                    id
+  1     1.50   1.0     6000x4000  10.0, 10.0, 135.5x90.3   2024-01-15_Urlaub/IMG_001.jpg
+  2     0.67   2.0     4000x6000  155.0, 10.0, 90.3x135.5  2024-01-15_Urlaub/IMG_002.jpg
+  3     1.50   1.0     6000x4000  10.0, 110.0, 135.5x90.3  2024-01-15_Urlaub/IMG_003.jpg
+  7     1.50   1.5     6000x4000  155.0, 110.0, 135.5x90.3 2024-01-15_Urlaub/IMG_007.jpg
 ```
 
 **`--weights` Ausgabe** (maschinenlesbar, direkt als Input für `page weight` verwendbar):
