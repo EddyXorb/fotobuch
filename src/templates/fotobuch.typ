@@ -3,11 +3,11 @@
 // ╚══════════════════════════════════════════════════════════════════╝
 
 // Show filename as a label centered on each photo (preview only)
-#let show_image_captions_on_preview = true
+#let show_image_captions_on_preview = false
 // Show bleed (red) and margin (blue) border overlays (preview only)
 #let show_borders_on_preview = true
 // Show slot number and area weight centered on each photo, e.g. "3:1.5" (preview only)
-#let show_slot_info_on_preview = false
+#let show_slot_info_on_preview = true
 
 // Append a photo index at the end of the document
 #let appendix_show = true
