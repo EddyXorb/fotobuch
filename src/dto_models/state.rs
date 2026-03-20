@@ -54,7 +54,13 @@ impl ProjectState {
             .map(|file| (&file.id, file))
             .collect::<std::collections::HashMap<_, _>>();
 
-        for (page_index, page) in self.layout.iter().enumerate() {
+        // we skip the first page if its a cover, as the cover is allowed to be special
+        for (page_index, page) in self
+            .layout
+            .iter()
+            .enumerate()
+            .skip(self.config.book.cover.active as usize)
+        {
             for (slot_index, (slot, photo)) in page.slots.iter().zip(page.photos.iter()).enumerate()
             {
                 let slot_ratio = slot.width_mm / slot.height_mm;
