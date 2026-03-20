@@ -218,6 +218,12 @@ pub struct SlotInfo {
     pub placement: Option<crate::dto_models::Slot>,
     /// Total number of slots on this page (for `N/total` header).
     pub total_page_slots: usize,
+    /// Whether this page is the cover page.
+    pub is_cover: bool,
+    /// Canvas width in mm (cover spread width for cover, page width otherwise).
+    pub page_width_mm: f64,
+    /// Canvas height in mm.
+    pub page_height_mm: f64,
 }
 
 /// Result of `execute_info`.

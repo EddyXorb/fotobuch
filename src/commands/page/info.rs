@@ -3,10 +3,21 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-use crate::dto_models::PhotoFile;
+use crate::dto_models::{PhotoFile, ProjectState};
 
 use super::helpers::{page_idx, resolve_slots};
 use super::types::{InfoFilter, PageInfoResult, PageMoveError, SlotInfo, Src};
+
+fn page_dims(state: &ProjectState, idx: usize) -> (bool, f64, f64) {
+    let book = &state.config.book;
+    if state.has_cover() && idx == 0 {
+        let cover = book.cover.as_ref().unwrap();
+        let inner = state.layout.len() - 1;
+        (true, cover.spread_width_mm(inner), cover.height_mm)
+    } else {
+        (false, book.page_width_mm, book.page_height_mm)
+    }
+}
 
 /// Read metadata for the given address and return per-slot records.
 ///
@@ -37,6 +48,7 @@ pub fn execute_info(
                 let idx = page_idx(p, &mgr.state.layout)?;
                 let lp = &mgr.state.layout[idx];
                 let total = lp.photos.len();
+                let (is_cover, page_width_mm, page_height_mm) = page_dims(&mgr.state, idx);
                 for (i, photo_id) in lp.photos.iter().enumerate() {
                     if let Some(pf) = photo_map.get(photo_id.as_str()) {
                         slots.push(SlotInfo {
@@ -49,6 +61,9 @@ pub fn execute_info(
                             area_weight: pf.area_weight,
                             placement: lp.slots.get(i).cloned(),
                             total_page_slots: total,
+                            is_cover,
+                            page_width_mm,
+                            page_height_mm,
                         });
                     }
                 }
@@ -59,6 +74,7 @@ pub fn execute_info(
             let idx = page_idx(p, &mgr.state.layout)?;
             let lp = &mgr.state.layout[idx];
             let total = lp.photos.len();
+            let (is_cover, page_width_mm, page_height_mm) = page_dims(&mgr.state, idx);
             let slot_indices = resolve_slots(p, slot_expr, &mgr.state.layout)?;
             for &i in &slot_indices {
                 let photo_id = &lp.photos[i];
@@ -73,6 +89,9 @@ pub fn execute_info(
                         area_weight: pf.area_weight,
                         placement: lp.slots.get(i).cloned(),
                         total_page_slots: total,
+                        is_cover,
+                        page_width_mm,
+                        page_height_mm,
                     });
                 }
             }
