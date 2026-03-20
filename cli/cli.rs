@@ -62,6 +62,10 @@ pub enum Commands {
         /// Scan directories recursively (each subdir becomes its own group)
         #[arg(long, short = 'r')]
         recursive: bool,
+
+        /// Area weight for all imported photos (default: 1.0)
+        #[arg(long, value_name = "WEIGHT", default_value_t = 1.0)]
+        weight: f64,
     },
 
     /// Calculate layout and generate preview or final PDF
@@ -346,6 +350,7 @@ impl Execute for Commands {
                 dry,
                 update,
                 recursive,
+                weight,
             } => add::handle(
                 paths.clone(),
                 *allow_duplicates,
@@ -354,6 +359,7 @@ impl Execute for Commands {
                 *dry,
                 *update,
                 *recursive,
+                *weight,
             ),
             Commands::Build { release, pages } => build::handle(*release, pages.clone()),
             Commands::Rebuild {

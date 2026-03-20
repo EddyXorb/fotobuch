@@ -50,6 +50,7 @@ fn test_add_single_directory_creates_groups() -> Result<()> {
         dry_run: false,
         update: false,
         recursive: true,
+        weight: 1.0,
     };
 
     let result = add(&project_root, &add_config)?;
@@ -116,6 +117,7 @@ fn test_add_duplicate_path_skips() -> Result<()> {
         dry_run: false,
         update: false,
         recursive: true,
+        weight: 1.0,
     };
 
     // First add
@@ -158,6 +160,7 @@ fn test_add_merges_existing_group() -> Result<()> {
         dry_run: false,
         update: false,
         recursive: false,
+        weight: 1.0,
     };
     let result1 = add(&project_root, &add_config1)?;
 
@@ -176,6 +179,7 @@ fn test_add_merges_existing_group() -> Result<()> {
         dry_run: false,
         update: false,
         recursive: false,
+        weight: 1.0,
     };
     let _result2 = add(&project_root, &add_config2)?;
 
@@ -237,6 +241,7 @@ fn test_add_allow_duplicates_flag() -> Result<()> {
         dry_run: false,
         update: false,
         recursive: false,
+        weight: 1.0,
     };
     let result1 = add(&project_root, &add_config1)?;
     assert_eq!(
@@ -257,6 +262,7 @@ fn test_add_allow_duplicates_flag() -> Result<()> {
         dry_run: false,
         update: false,
         recursive: false,
+        weight: 1.0,
     };
     let result2 = add(&project_root, &add_config2)?;
 
@@ -279,6 +285,7 @@ fn test_add_allow_duplicates_flag() -> Result<()> {
         dry_run: false,
         update: false,
         recursive: false,
+        weight: 1.0,
     };
     let result3 = add(&project_root, &add_config3)?;
     assert_eq!(
@@ -313,6 +320,7 @@ fn test_add_sorts_groups_by_sort_key() -> Result<()> {
         dry_run: false,
         update: false,
         recursive: true,
+        weight: 1.0,
     };
     add(&project_root, &add_config)?;
 
@@ -349,6 +357,7 @@ fn test_dry_run_does_not_write_state() -> Result<()> {
         dry_run: true,
         update: false,
         recursive: true,
+        weight: 1.0,
     };
     let result = add(&project_root, &add_config)?;
 
@@ -382,6 +391,7 @@ fn test_xmp_filter_with_no_match_excludes_nothing() -> Result<()> {
         dry_run: true,
         update: false,
         recursive: true,
+        weight: 1.0,
     };
     let result = add(&project_root, &add_config)?;
 
@@ -441,6 +451,7 @@ fn test_xmp_filter_matches_modified_description() -> Result<()> {
         dry_run: false,
         update: false,
         recursive: true,
+        weight: 1.0,
     };
     let result = add(&project_root, &add_config)?;
 
@@ -521,6 +532,7 @@ fn test_add_handles_missing_directory() -> Result<()> {
         dry_run: false,
         update: false,
         recursive: false,
+        weight: 1.0,
     };
 
     // Should return an error for missing directory
@@ -543,6 +555,7 @@ fn test_add_hashes_are_persisted() -> Result<()> {
         dry_run: false,
         update: false,
         recursive: true,
+        weight: 1.0,
     };
     let result = add(&project_root, &add_config)?;
 
@@ -572,6 +585,39 @@ fn test_add_hashes_are_persisted() -> Result<()> {
             assert!(
                 photo.hash.chars().all(|c| c.is_ascii_hexdigit()),
                 "Hash should be hexadecimal"
+            );
+        }
+    }
+
+    Ok(())
+}
+
+#[test]
+fn test_add_weight_is_applied_to_all_photos() -> Result<()> {
+    let temp_dir = TempDir::new()?;
+    let project_root = create_test_project(&temp_dir)?;
+
+    let add_config = AddConfig {
+        paths: vec![test_photos_path()],
+        allow_duplicates: false,
+        xmp_filters: vec![],
+        source_filters: vec![],
+        dry_run: false,
+        update: false,
+        recursive: true,
+        weight: 2.5,
+    };
+    add(&project_root, &add_config)?;
+
+    let yaml_path = project_root.join("testproject.yaml");
+    let state = ProjectState::load(&yaml_path)?;
+
+    for group in &state.photos {
+        for photo in &group.files {
+            assert_eq!(
+                photo.area_weight, 2.5,
+                "Photo {} should have area_weight 2.5",
+                photo.id
             );
         }
     }
