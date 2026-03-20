@@ -20,6 +20,11 @@ fn create_test_project_with_photos(temp_dir: &TempDir) -> Result<PathBuf> {
         height_mm: 250.0,
         bleed_mm: 3.0,
         quiet: true,
+        with_cover: false,
+        cover_width_mm: None,
+        cover_height_mm: None,
+        spine_grow_per_10_pages_mm: None,
+        spine_mm: None,
     };
     let result = project_new(temp_dir.path(), &config)?;
     let project_root = result.project_root;
@@ -59,6 +64,11 @@ fn create_test_project_with_artificial_photos_3(temp_dir: &TempDir) -> Result<Pa
         height_mm: 250.0,
         bleed_mm: 3.0,
         quiet: true,
+        with_cover: false,
+        cover_width_mm: None,
+        cover_height_mm: None,
+        spine_grow_per_10_pages_mm: None,
+        spine_mm: None,
     };
     let result = project_new(temp_dir.path(), &config)?;
     let project_root = result.project_root;
@@ -399,6 +409,11 @@ fn test_build_handles_empty_photo_list() -> Result<()> {
         height_mm: 250.0,
         bleed_mm: 3.0,
         quiet: true,
+        with_cover: false,
+        cover_width_mm: None,
+        cover_height_mm: None,
+        spine_grow_per_10_pages_mm: None,
+        spine_mm: None,
     };
     let result = project_new(temp_dir.path(), &config)?;
     let project_root = result.project_root;

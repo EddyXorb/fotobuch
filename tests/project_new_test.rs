@@ -15,6 +15,11 @@ fn test_project_new_mode1_creates_complete_structure() -> Result<()> {
         height_mm: 1234.0,
         bleed_mm: 1234.0,
         quiet: true,
+        with_cover: false,
+        cover_width_mm: None,
+        cover_height_mm: None,
+        spine_grow_per_10_pages_mm: None,
+        spine_mm: None,
     };
 
     let result = project_new(temp_dir.path(), &config)?;
@@ -83,6 +88,11 @@ fn test_project_new_mode2_creates_additional_project() -> Result<()> {
         height_mm: 250.0,
         bleed_mm: 2.0,
         quiet: true,
+        with_cover: false,
+        cover_width_mm: None,
+        cover_height_mm: None,
+        spine_grow_per_10_pages_mm: None,
+        spine_mm: None,
     };
     let result1 = project_new(temp_dir.path(), &config1)?;
 
@@ -93,6 +103,11 @@ fn test_project_new_mode2_creates_additional_project() -> Result<()> {
         height_mm: 240.0,
         bleed_mm: 4.0,
         quiet: true,
+        with_cover: false,
+        cover_width_mm: None,
+        cover_height_mm: None,
+        spine_grow_per_10_pages_mm: None,
+        spine_mm: None,
     };
     let result2 = project_new(&result1.project_root, &config2)?;
 
@@ -132,6 +147,11 @@ fn test_project_new_rejects_duplicate_name() -> Result<()> {
         height_mm: 297.0,
         bleed_mm: 3.0,
         quiet: true,
+        with_cover: false,
+        cover_width_mm: None,
+        cover_height_mm: None,
+        spine_grow_per_10_pages_mm: None,
+        spine_mm: None,
     };
 
     // Create first project
@@ -196,6 +216,11 @@ fn test_project_new_with_different_page_dimensions() -> Result<()> {
             height_mm: height,
             bleed_mm: bleed,
             quiet: true,
+            with_cover: false,
+            cover_width_mm: None,
+            cover_height_mm: None,
+            spine_grow_per_10_pages_mm: None,
+            spine_mm: None,
         };
 
         let result = project_new(temp_dir.path(), &config)?;
