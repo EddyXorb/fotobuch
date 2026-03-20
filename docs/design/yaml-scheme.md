@@ -142,7 +142,7 @@ berechnet werden. Kein Mixing mit normalen Innenseiten in MultiPage-Builds.
 Cover ist aktiv wenn `config.book.cover` vorhanden **und** `cover.active = true`. `fotobuch project new` legt keinen Cover-Block an. Nachträgliches Hinzufügen:
 
 ```
-fotobuch add cover --spine_mm_per_10_pages <N> [--width_mm <W>] [--height_mm <H>]
+fotobuch add cover --spine_mode <auto|fixed> [--spine_mm_per_10_pages <N> | --spine_width_mm <W>] [--width_mm <W>] [--height_mm <H>]
 ```
 
 Dieser Befehl setzt `config.book.cover` mit `active: true` in der YAML. Der erste `layout`-Eintrag wird automatisch zur Coverseite — kein Flag auf dem `layout`-Eintrag nötig.
@@ -155,12 +155,36 @@ Wenn `cover.active = true`: der **erste** `layout`-Eintrag ist das Cover. Kein e
 
 ### Dimensionen
 
-`cover.front_back_width_mm` ist die Breite von Vorder- und Rückseite zusammen, ohne Buchrücken. `cover.height_mm` ist die Höhe des Covers. Beide Felder sind Pflicht wenn `cover` vorhanden ist. Die Gesamtbreite im Template ergibt sich als `front_back_width_mm + spine_width_mm`.
+`cover.front_back_width_mm` ist die Breite von Vorder- und Rückseite zusammen, ohne Buchrücken. `cover.height_mm` ist die Höhe des Covers. Beide Felder sind Pflicht wenn `cover` vorhanden ist.
 
-### Bunddicke
+### Bunddicke (Spine)
 
-```
+Zwei Modi:
+
+- **Auto-Modus** (Standard): `spine_width_mm` wird aus der Seitenanzahl berechnet:
+
+```text
 spine_width_mm = (inner_page_count / 10.0) * spine_mm_per_10_pages
+```
+
+Diese Breite **beeinflusst die Cover-Gesamtbreite** im Solver.
+
+```yaml
+cover:
+  spine_mode: auto
+  spine_mm_per_10_pages: 1.4
+  front_back_width_mm: 594.0
+  height_mm: 297.0
+```
+
+- **Fixed-Modus**: Benutzer gibt `spine_width_mm` fest vor. Diese Breite **beeinflusst nicht die Cover-Gesamtbreite** im Solver, dient aber dem Template als Info für Buchrückentext-Größe.
+
+```yaml
+cover:
+  spine_mode: fixed
+  spine_width_mm: 2.5
+  front_back_width_mm: 594.0
+  height_mm: 297.0
 ```
 
 `inner_page_count` = `layout.len() - 1` (alle Einträge außer dem ersten, wenn Cover aktiv). Wer Doppelseiten verwendet, gibt die Bunddicke pro 10 Doppelseiten an; wer Einzelseiten nutzt, halbiert den Wert entsprechend.
