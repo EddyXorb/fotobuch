@@ -42,6 +42,7 @@ fn create_test_project_with_layout(temp_dir: &TempDir) -> Result<PathBuf> {
         xmp_filters: vec![],
         dry_run: false,
         update: false,
+        recursive: true,
     };
     add(&project_root, &add_config)?;
 

@@ -38,7 +38,7 @@ pub fn scan_photos(input: ScannerInput) -> Result<ScannerOutput> {
                 .with_context(|| format!("Failed to scan file {}", path.display()))?
         } else if path.is_dir() {
             scanner
-                .scan_photo_group_dirs(&path)
+                .scan_photo_group_dirs(&path, input.recursive)
                 .with_context(|| format!("Failed to scan directory {}", path.display()))?
         } else {
             anyhow::bail!("Path is neither a file nor a directory: {}", path.display());
@@ -64,6 +64,7 @@ pub fn scan_photo_group_dirs(root: &Path) -> Result<Vec<PhotoGroup>> {
         paths: vec![root.to_path_buf()],
         xmp_filters: vec![],
         source_filters: vec![],
+        recursive: false,
     };
     let output = scan_photos(input)?;
     Ok(output.groups)
@@ -142,6 +143,7 @@ mod tests {
             paths: vec![portrait_path.clone()],
             xmp_filters: vec![],
             source_filters: vec![],
+            recursive: false,
         };
 
         let output = scan_photos(input).expect("scan_single_file should succeed");
@@ -169,6 +171,7 @@ mod tests {
             paths: vec![unsupported_path.clone()],
             xmp_filters: vec![],
             source_filters: vec![],
+            recursive: false,
         };
 
         // This should either skip the path (if no exist check) or bail (if file doesn't exist)
@@ -190,6 +193,7 @@ mod tests {
             paths: vec![],
             xmp_filters: vec![],
             source_filters: vec![],
+            recursive: false,
         };
 
         let output = scan_photos(input).expect("scan_photos should handle empty paths");
@@ -213,6 +217,7 @@ mod tests {
             paths: vec![portrait_path.clone()],
             xmp_filters: vec![],
             source_filters: vec![matching_filter],
+            recursive: false,
         };
 
         let output = scan_photos(input).expect("scan_photos should succeed");
@@ -226,6 +231,7 @@ mod tests {
             paths: vec![portrait_path],
             xmp_filters: vec![],
             source_filters: vec![non_matching_filter],
+            recursive: false,
         };
 
         let output = scan_photos(input).expect("scan_photos should succeed");

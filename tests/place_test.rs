@@ -38,6 +38,7 @@ fn create_test_project_with_layout(temp_dir: &TempDir) -> Result<PathBuf> {
         source_filters: vec![],
         dry_run: false,
         update: false,
+        recursive: true,
     };
     add(&project_root, &add_config)?;
 
@@ -102,6 +103,7 @@ fn test_place_requires_layout() -> Result<()> {
         source_filters: vec![],
         dry_run: false,
         update: false,
+        recursive: true,
     };
     add(&project_root, &add_config)?;
 

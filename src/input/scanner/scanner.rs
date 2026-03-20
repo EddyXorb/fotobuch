@@ -6,7 +6,7 @@ use tracing::{debug, warn};
 use crate::dto_models::{PhotoFile, PhotoGroup};
 use crate::input::xmp;
 
-use super::helper::{get_subdirs, is_supported_image, naive_to_utc, parse_timestamp_from_name};
+use super::helper::{get_all_dirs_recursive, is_supported_image, naive_to_utc, parse_timestamp_from_name};
 use super::metadata::enrich_photo_metadata;
 use super::types::{ScanStats, ScannerFilters, ScannerInput};
 
@@ -57,21 +57,22 @@ impl Scanner {
         }
     }
 
-    /// Scans a root directory and returns all photo groups, sorted chronologically.
+    /// Scans directories and returns photo groups, sorted chronologically.
     ///
-    /// Each subdirectory becomes one group. If the root directory itself contains photos,
-    /// they are grouped under the root directory's name.
-    pub fn scan_photo_group_dirs(&mut self, root: &Path) -> Result<Vec<PhotoGroup>> {
-        let mut groups: Vec<PhotoGroup> = get_subdirs(root)?
+    /// Without `recursive`: only `root` itself is scanned (one group).
+    /// With `recursive`: `root` and all nested subdirectories are scanned (one group each).
+    pub fn scan_photo_group_dirs(&mut self, root: &Path, recursive: bool) -> Result<Vec<PhotoGroup>> {
+        let dirs = if recursive {
+            get_all_dirs_recursive(root)?
+        } else {
+            vec![root.to_path_buf()]
+        };
+
+        let mut groups: Vec<PhotoGroup> = dirs
             .into_iter()
             .filter_map(|dir| match self.scan_single_photo_group_dir(&dir) {
-                Ok(group) => {
-                    if !group.files.is_empty() {
-                        Some(group)
-                    } else {
-                        None
-                    }
-                }
+                Ok(group) if !group.files.is_empty() => Some(group),
+                Ok(_) => None,
                 Err(e) => {
                     warn!("Skipping {:?}: {}", dir, e);
                     None
@@ -79,16 +80,7 @@ impl Scanner {
             })
             .collect();
 
-        // Check if the root directory itself contains photos
-        if let Ok(root_group) = self.scan_single_photo_group_dir(root)
-            && !root_group.files.is_empty()
-        {
-            groups.push(root_group);
-        }
-
-        // Sort groups according to sort_key (ISO 8601 timestamp string)
         groups.sort_by(|a, b| a.sort_key.cmp(&b.sort_key));
-
         Ok(groups)
     }
 

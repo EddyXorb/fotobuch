@@ -49,6 +49,7 @@ fn create_test_project_with_photos(temp_dir: &TempDir) -> Result<PathBuf> {
         source_filters: vec![],
         dry_run: false,
         update: false,
+        recursive: true,
     };
     add(&project_root, &add_config)?;
 
@@ -96,6 +97,7 @@ fn create_test_project_with_artificial_photos_3(temp_dir: &TempDir) -> Result<Pa
         source_filters: vec![],
         dry_run: false,
         update: false,
+        recursive: false,
     };
     add(&project_root, &add_config)?;
 
