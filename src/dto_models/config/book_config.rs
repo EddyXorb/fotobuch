@@ -25,6 +25,36 @@ pub struct BookConfig {
     pub cover: Option<CoverConfig>,
 }
 
+pub trait CanvasConfig {
+    fn page_width_mm(&self) -> f64;
+    fn page_height_mm(&self) -> f64;
+    fn bleed_mm(&self) -> f64;
+    fn margin_mm(&self) -> f64;
+    fn gap_mm(&self) -> f64;
+    fn bleed_threshold_mm(&self) -> f64;
+}
+
+impl CanvasConfig for BookConfig {
+    fn page_width_mm(&self) -> f64 {
+        self.page_width_mm
+    }
+    fn page_height_mm(&self) -> f64 {
+        self.page_height_mm
+    }
+    fn bleed_mm(&self) -> f64 {
+        self.bleed_mm
+    }
+    fn margin_mm(&self) -> f64 {
+        self.margin_mm
+    }
+    fn gap_mm(&self) -> f64 {
+        self.gap_mm
+    }
+    fn bleed_threshold_mm(&self) -> f64 {
+        self.bleed_threshold_mm
+    }
+}
+
 fn default_margin_mm() -> f64 {
     0.0
 }

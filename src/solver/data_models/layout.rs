@@ -1,6 +1,6 @@
 use super::canvas::Canvas;
 use super::photo::Photo;
-use crate::dto_models::{BookConfig, LayoutPage, Slot};
+use crate::dto_models::{CanvasConfig, LayoutPage, Slot};
 
 /// Placement of a single photo on the canvas.
 #[derive(Debug, Clone, Copy)]
@@ -224,9 +224,9 @@ impl SolverPageLayout {
         &self,
         page_num: usize,
         photos: &[Photo],
-        book_config: &BookConfig,
+        canvas_config: &impl CanvasConfig,
     ) -> LayoutPage {
-        let adapted_layout = self.centered().zoom_to_respect_bleed(book_config);
+        let adapted_layout = self.centered().zoom_to_respect_bleed(canvas_config);
 
         let photo_ids: Vec<String> = adapted_layout
             .placements
@@ -255,8 +255,8 @@ impl SolverPageLayout {
     /// center if the layout is too close to the print border.
     /// The scaling is meant to be applied to the center of the layout,
     ///  so that the layout "zooms in" and touches the bleed-margins, if necessary.
-    fn calc_needed_scaling_around_center_for_bleed(&self, book_config: &BookConfig) -> f64 {
-        if book_config.margin_mm > 0.0 || book_config.bleed_mm == 0.0 {
+    fn calc_needed_scaling_around_center_for_bleed(&self, book_config: &impl CanvasConfig) -> f64 {
+        if book_config.margin_mm() > 0.0 || book_config.bleed_mm() == 0.0 {
             return 1.0;
         }
         let mut bleed_scale_factor = 1.0;
@@ -283,9 +283,9 @@ impl SolverPageLayout {
                 .iter()
                 .enumerate()
                 .filter(|&(_, d)| {
-                    d <= &book_config.bleed_threshold_mm && d >= &-book_config.bleed_mm
+                    d <= &book_config.bleed_threshold_mm() && d >= &-book_config.bleed_mm()
                 })
-                .map(|(i, d)| (i, f64::abs(-book_config.bleed_mm - d)))
+                .map(|(i, d)| (i, f64::abs(-book_config.bleed_mm() - d)))
                 .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
 
             if needed_increase.is_none() || needed_increase.unwrap().1 <= 0.001 {
@@ -312,7 +312,7 @@ impl SolverPageLayout {
     }
 
     /// This method zooms the layout in around the center (it possibly crops, too), to respect the bleed requirements.
-    fn zoom_to_respect_bleed(&self, book_config: &BookConfig) -> Self {
+    fn zoom_to_respect_bleed(&self, book_config: &impl CanvasConfig) -> Self {
         let scale_factor = self.calc_needed_scaling_around_center_for_bleed(book_config);
         let (center_x, center_y) = self.canvas.center();
         self.scale_around_fixpoint(scale_factor, center_x, center_y)
@@ -323,6 +323,7 @@ impl SolverPageLayout {
 mod tests {
     use super::*;
     use approx::assert_relative_eq;
+    use crate::dto_models::BookConfig;
 
     // PhotoPlacement tests
     #[test]

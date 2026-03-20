@@ -10,10 +10,14 @@ config:
     # margin_mm, gap_mm, bleed_threshold_mm: defaulted
     cover:                          # optional — fehlt dieser Block, gibt es kein Cover
       active: true                  # false = Cover-Block vorhanden aber deaktiviert
-      spine_mm_per_10_pages: 1.4   # Pflichtfeld wenn cover vorhanden
-      page_width_mm: ~             # optional, default = book.page_width_mm
-      page_height_mm: ~            # optional, default = book.page_height_mm
+      spine_mm_per_10_pages: 1.4   # Rückendicke pro 10 Seiten
+      front_back_width_mm: 594.0   # Gesamtbreite Vorder- + Rückseite, ohne Buchrücken
+      height_mm: 297.0             # Höhe des Covers
       spine_text: ~                # optional, default = book.title
+      bleed_mm: 3.0
+      margin_mm: 0.0
+      gap_mm: 5.0
+      bleed_threshold_mm: 3.0
   # ga: defaulted
   # preview: defaulted
   #   cover_separate_pdf: false    # TODO: Cover als eigenes PDF ausgeben (noch nicht implementiert)
@@ -151,7 +155,7 @@ Wenn `cover.active = true`: der **erste** `layout`-Eintrag ist das Cover. Kein e
 
 ### Dimensionen
 
-`cover.page_width_mm` und `cover.page_height_mm` sind die rohenSeitenmaße für die Cover-Seite im Template, ohne die Buchrückendicke einzuberechnen. Fehlen sie, gelten die Werte aus `book.page_width_mm` / `book.page_height_mm`.
+`cover.front_back_width_mm` ist die Breite von Vorder- und Rückseite zusammen, ohne Buchrücken. `cover.height_mm` ist die Höhe des Covers. Beide Felder sind Pflicht wenn `cover` vorhanden ist. Die Gesamtbreite im Template ergibt sich als `front_back_width_mm + spine_width_mm`.
 
 ### Bunddicke
 

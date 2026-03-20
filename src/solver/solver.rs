@@ -3,7 +3,7 @@
 //! This module provides the main entry point for running the photobook solver,
 //! coordinating input loading, solver configuration, optimization, and export.
 
-use crate::dto_models::{BookConfig, BookLayoutSolverConfig, LayoutPage, PhotoGroup};
+use crate::dto_models::{BookLayoutSolverConfig, CanvasConfig, LayoutPage, PhotoGroup};
 use crate::solver::book_layout_solver::{self, SolverError};
 use crate::solver::page_layout_solver;
 use crate::solver::prelude::*;
@@ -22,7 +22,7 @@ pub enum RequestType {
 
 /// Request containing all data for running the solver.
 #[derive(Debug)]
-pub struct Request<'a> {
+pub struct Request<'a, C: CanvasConfig> {
     /// Type of optimization to perform.
     pub request_type: RequestType,
     /// Photo groups (for both single and multi-page requests).
@@ -31,66 +31,46 @@ pub struct Request<'a> {
     pub config: &'a BookLayoutSolverConfig,
     /// Genetic algorithm configuration.
     pub ga_config: &'a GaConfig,
-    /// Book configuration (page size, margins, etc.).
-    pub book_config: &'a BookConfig,
+    /// Canvas configuration (page size, margins, bleed, gap).
+    pub canvas_config: &'a C,
 }
 
 /// The main entry point for running the photobook layout solver.
-///
-/// # Algorithm
-/// 1. Validates that input is not empty
-/// 2. Converts DTOs (PhotoGroup, BookConfig) to internal models (Photo, Canvas)
-/// 3. Dispatches to single-page or multi-page solver based on request_type
-/// 4. Converts results back to DTO (LayoutPage)
-///
-/// # Returns
-/// Vector of LayoutPage containing photo IDs and slot positions for each page.
-pub fn run_solver(request: &Request) -> Result<Vec<LayoutPage>, SolverError> {
-    // 1. Validate request
+pub fn run_solver<C: CanvasConfig>(request: &Request<C>) -> Result<Vec<LayoutPage>, SolverError> {
     if request.groups.is_empty() {
         return Ok(vec![]);
     }
 
-    // 2. Convert DTOs to internal models
     let photos = Photo::from_photo_groups(request.groups);
-    let canvas = Canvas::from_book_config(request.book_config);
+    let canvas = Canvas::from_canvas_config(request.canvas_config);
 
-    // 3. Dispatch based on request type
     match request.request_type {
         RequestType::SinglePage => run_single_page(&photos, &canvas, request),
         RequestType::MultiPage => run_multi_page(&photos, &canvas, request),
     }
 }
 
-/// Runs single-page layout optimization.
-fn run_single_page(
+fn run_single_page<C: CanvasConfig>(
     photos: &[Photo],
     canvas: &Canvas,
-    request: &Request,
+    request: &Request<C>,
 ) -> Result<Vec<LayoutPage>, SolverError> {
-    // Run single-page GA solver
     let ga_result = page_layout_solver::run_ga(photos, canvas, request.ga_config);
-
-    // Convert to DTO
     let layout_page = ga_result
         .layout
-        .to_layout_page(1, photos, request.book_config);
-
+        .to_layout_page(1, photos, request.canvas_config);
     Ok(vec![layout_page])
 }
 
-/// Runs multi-page book layout optimization.
-fn run_multi_page(
+fn run_multi_page<C: CanvasConfig>(
     photos: &[Photo],
     canvas: &Canvas,
-    request: &Request,
+    request: &Request<C>,
 ) -> Result<Vec<LayoutPage>, SolverError> {
-    // Run book layout solver (MIP + local search)
     let book_layout =
         book_layout_solver::solve_book_layout(photos, request.config, canvas, request.ga_config)?;
 
     let mut curr_idx = 0;
-    // Convert each page to DTO
     let layout_pages: Vec<LayoutPage> = book_layout
         .pages
         .iter()
@@ -99,7 +79,7 @@ fn run_multi_page(
             let layout_page = page.to_layout_page(
                 i + 1,
                 &photos[curr_idx..curr_idx + page.placements.len()],
-                request.book_config,
+                request.canvas_config,
             );
             curr_idx += page.placements.len();
             layout_page
@@ -111,16 +91,16 @@ fn run_multi_page(
     Ok(layout_pages)
 }
 
-fn check_validity(
+fn check_validity<C: CanvasConfig>(
     photos: &[Photo],
-    request: &Request<'_>,
+    request: &Request<'_, C>,
     curr_idx: usize,
     layout_pages: &[LayoutPage],
 ) {
     assert!(
         curr_idx == photos.len(),
-        "All photos should be assigned to pages. Request:\n {:#?} Photos: \n{}\nPages: \n{}",
-        request,
+        "All photos should be assigned to pages. RequestType: {:?}\nPhotos:\n{}\nPages:\n{}",
+        request.request_type,
         photos
             .iter()
             .map(|p| format!("{:?}", p))

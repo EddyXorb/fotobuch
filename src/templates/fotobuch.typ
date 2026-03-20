@@ -130,17 +130,18 @@
 // ── Page rendering blocks ────────────────────────────────────────────
 
 // Draws red bleed border and blue margin border as overlays (w_mm/h_mm = content size without bleed)
-#let draw_borders(w_mm, h_mm) = [
-  #place(top + left, dx: -(bleed / 2 + margin), dy: -(bleed / 2 + margin), rect(
-    width: w_mm * 1mm + bleed,
-    height: h_mm * 1mm + bleed,
-    stroke: red + bleed,
+// b = bleed length value, m = margin length value
+#let draw_borders(w_mm, h_mm, b, m) = [
+  #place(top + left, dx: -(b / 2 + m), dy: -(b / 2 + m), rect(
+    width: w_mm * 1mm + b,
+    height: h_mm * 1mm + b,
+    stroke: red + b,
     fill: none,
   ))
-  #place(top + left, dx: -margin / 2, dy: -margin / 2, rect(
-    width: w_mm * 1mm - margin,
-    height: h_mm * 1mm - margin,
-    stroke: (paint: blue, thickness: margin),
+  #place(top + left, dx: -m / 2, dy: -m / 2, rect(
+    width: w_mm * 1mm - m,
+    height: h_mm * 1mm - m,
+    stroke: (paint: blue, thickness: m),
     fill: none,
   ))
 ]
@@ -267,13 +268,10 @@
 #let cover_or_none = data.config.book.at("cover", default: none)
 #let has_cover = cover_or_none != none and cover_or_none.at("active", default: false)
 #let inner_page_count = if has_cover { data.layout.len() - 1 } else { data.layout.len() }
-// cover_front_back_w = page_width_mm (front+back without spine), default = 2 * book width
-#let cover_front_back_w = if has_cover {
-  cover_or_none.at("page_width_mm", default: 2.0 * data.config.book.page_width_mm)
-} else { 0.0 }
-#let cover_page_h = if has_cover { cover_or_none.at("page_height_mm", default: data.config.book.page_height_mm) } else {
-  0.0
-}
+#let cover_front_back_w = if has_cover { cover_or_none.front_back_width_mm } else { 0.0 }
+#let cover_h = if has_cover { cover_or_none.height_mm } else { 0.0 }
+#let cover_bleed = if has_cover { cover_or_none.bleed_mm * 1mm } else { 0mm }
+#let cover_margin = if has_cover { cover_or_none.margin_mm * 1mm } else { 0mm }
 #let spine_w = if has_cover { float(inner_page_count) / 10.0 * cover_or_none.spine_mm_per_10_pages } else { 0.0 }
 #let cover_total_w = if has_cover { cover_front_back_w + spine_w } else { 0.0 }
 #let spine_text_content = if has_cover { cover_or_none.at("spine_text", default: data.config.book.title) } else { "" }
@@ -281,17 +279,17 @@
 #if has_cover [
   #[
     #set page(
-      width: cover_total_w * 1mm + 2 * bleed,
-      height: cover_page_h * 1mm + 2 * bleed,
-      margin: bleed + margin,
+      width: cover_total_w * 1mm + 2 * cover_bleed,
+      height: cover_h * 1mm + 2 * cover_bleed,
+      margin: cover_bleed + cover_margin,
     )
     #let cover_data = data.layout.at(0)
     #if show_borders_on_preview [
-      #draw_borders(cover_total_w, cover_page_h)
+      #draw_borders(cover_total_w, cover_h, cover_bleed, cover_margin)
       // Spine area markers: two vertical green lines bounding the spine
-      #place(top + left, dx: (cover_front_back_w / 2) * 1mm, dy: -bleed, rect(
+      #place(top + left, dx: (cover_front_back_w / 2) * 1mm, dy: -cover_bleed, rect(
         width: spine_w * 1mm,
-        height: cover_page_h * 1mm + 2 * bleed,
+        height: cover_h * 1mm + 2 * cover_bleed,
         stroke: (left: green + 0.5pt, right: green + 0.5pt, top: none, bottom: none),
         fill: rgb(0, 200, 0, 20),
       ))
@@ -303,10 +301,10 @@
     // Spine text — reads bottom-to-top; dx = half of front+back = single page width
     #place(top + left, dx: (cover_front_back_w / 2) * 1mm, dy: 0mm, box(
       width: spine_w * 1mm,
-      height: cover_page_h * 1mm,
-      align(horizon + center, rotate(-90deg, box(stroke: green, width: cover_page_h * 1mm, align(left, text(
+      height: cover_h * 1mm,
+      align(horizon + center, rotate(-90deg, box(stroke: green, width: cover_h * 1mm, align(left, text(
         size: calc.min(20mm, spine_w * 0.9 * 1mm),
-        h(0.05 * cover_page_h * 1mm) + spine_text_content,
+        h(0.05 * cover_h * 1mm) + spine_text_content,
       ))))),
     ))
     #if not is_final [#render_preview_watermark("Cover")]
@@ -319,7 +317,7 @@
 
 #for page_index in range(layout_start, data.layout.len()) [
   #let page_data = data.layout.at(page_index)
-  #if show_borders_on_preview [#draw_borders(data.config.book.page_width_mm, data.config.book.page_height_mm)]
+  #if show_borders_on_preview [#draw_borders(data.config.book.page_width_mm, data.config.book.page_height_mm, bleed, margin)]
 
   #for (i, slot) in page_data.slots.enumerate() [
     #let photo_id = page_data.photos.at(i, default: none)
