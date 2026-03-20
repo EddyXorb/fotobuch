@@ -10,9 +10,10 @@
 #let show_slot_info_on_preview = true
 
 // Append a photo index at the end of the document
-#let appendix_show = true
-#let appendix_nr_columns = 5
+#let appendix_show = false
+#let appendix_nr_columns = 7
 #let appendix_try_strip_datetimes_from_photo_name = true
+#let appendix_show_page_nr_separator = true
 
 // Reference mode for the photo index:
 // "counter"   = sequential number shown as a badge on each photo
@@ -152,7 +153,7 @@
   #place(top + left, dx: slot.x_mm * 1mm, dy: slot.y_mm * 1mm, rect(
     width: slot.width_mm * 1mm,
     height: slot.height_mm * 1mm,
-    stroke: (paint: black, thickness: 0.5pt),
+    stroke: if show_slot_info_on_preview { (paint: black, thickness: 0.5pt) } else { none },
     fill: none,
   ))
 
@@ -234,14 +235,16 @@
     let items = ()
     let cur_group = none
     for (page_nr, page_data) in data.layout.enumerate() {
-      items.push(block(
-        width: 100%,
-        above: 3mm,
-        below: 1.5mm,
-        fill: rgb("#dddddd"),
-        inset: (x: 2mm, y: 1.5mm),
-        text(size: 8pt, weight: "bold")[#appendix_label_page #(page_nr + 1)],
-      ))
+      if appendix_show_page_nr_separator {
+        items.push(block(
+          width: 100%,
+          above: 3mm,
+          below: 1.5mm,
+          fill: rgb("#dddddd"),
+          inset: (x: 2mm, y: 1.5mm),
+          text(size: 8pt, weight: "bold")[#appendix_label_page #(page_nr + 1)],
+        ))
+      }
       for photo_id in page_data.photos {
         let parts = photo_id.split("/")
         let group = parts.at(0)
@@ -254,7 +257,7 @@
             above: 2mm,
             below: 2mm,
             inset: 0mm,
-            text(size: 8pt, weight: "bold", fill: rgb("#333333"))[#group],
+            text(size: 8pt, weight: "bold", fill: rgb("#333333"))[#try_strip_datetime_from(group)],
           ))
         }
         let ts = photo_ts.at(photo_id, default: none)
@@ -263,7 +266,9 @@
           above: 0pt,
           below: 1mm,
           text(size: 7pt)[
-            #box(width: 6mm, inset: (x: 1mm, y: 0mm), align(left, text(fill: black, weight: "bold")[#ref_label]))
+            #box(width: 6mm, inset: (x: 1mm, y: 0mm), align(left, text(fill: black, weight: "bold")[#ref_label])) #h(
+              0.5mm,
+            )
             #try_strip_datetime_from(name)
             #if ts != none [#text(fill: rgb("#888888"))[ · #fmt_ts_de(ts)]]
           ],
