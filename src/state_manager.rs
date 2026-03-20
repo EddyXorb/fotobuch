@@ -16,7 +16,7 @@ use serde_yaml::Value;
 use std::cell::RefCell;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
-use tracing::{error, warn};
+use tracing::warn;
 
 use crate::dto_models::{LayoutPage, PhotoGroup, ProjectState};
 use crate::git;
@@ -360,7 +360,7 @@ impl StateManager {
 
     fn finish_internal(mut self, message: &str, always_commit: bool) -> Result<()> {
         if let Err(e) = self.state.check_validity() {
-            error!("State is invalid before commit! Reason(s): {e}");
+            warn!("State is not clean before commit! Reason(s): {e}");
         }
         let has_cover = self.state.config.book.cover.active;
         renumber_pages(&mut self.state.layout, has_cover);
