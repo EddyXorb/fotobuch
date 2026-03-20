@@ -57,6 +57,9 @@
   margin: bleed + margin,
 )
 
+#let cover_or_none = data.config.book.at("cover", default: none)
+#let has_cover = cover_or_none != none and cover_or_none.at("active", default: false)
+
 // ── Utility functions ────────────────────────────────────────────────
 
 // Strips an ISO date prefix (e.g. "2024-01-15T120000_") from a filename
@@ -85,7 +88,7 @@
 #let calc_photo_ref() = {
   let photo_ref = (:)
   if appendix_ref_mode == "counter" {
-    let n = 1
+    let n = if has_cover { 0 } else { 1 }
     for page_data in data.layout {
       for photo_id in page_data.photos {
         photo_ref.insert(photo_id, str(n))
@@ -99,7 +102,10 @@
         pairs = pairs + ((photo_id, page_data.slots.at(i, default: none)),)
       }
       for (pos, p) in pairs.enumerate() {
-        photo_ref.insert(p.at(0), str(pi + 1) + "." + str(pos + 1))
+        photo_ref.insert(
+          p.at(0),
+          str(if has_cover { pi } else { pi + 1 }) + "." + str(if has_cover { pos } else { pos + 1 }),
+        )
       }
     }
   }
@@ -286,8 +292,6 @@
 #let photo_ref = calc_photo_ref()
 
 // ── Cover page ───────────────────────────────────────────────────────
-#let cover_or_none = data.config.book.at("cover", default: none)
-#let has_cover = cover_or_none != none and cover_or_none.at("active", default: false)
 #let inner_page_count = if has_cover { data.layout.len() - 1 } else { data.layout.len() }
 #let cover_front_back_w = if has_cover { cover_or_none.front_back_width_mm } else { 0.0 }
 #let cover_h = if has_cover { cover_or_none.height_mm } else { 0.0 }
