@@ -16,7 +16,7 @@ pub(crate) fn page_idx(page: u32, layout: &[LayoutPage]) -> Result<usize, Valida
 }
 
 /// Resolve slot numbers on a page to 0-based indices and validate they exist.
-/// Slot numbers are 1-based; open-ended ranges are resolved against the actual page size.
+/// Slot numbers are 0-based; open-ended ranges are resolved against the actual page size.
 pub(crate) fn resolve_slots(
     page: u32,
     slot_expr: &SlotExpr,
@@ -28,22 +28,19 @@ pub(crate) fn resolve_slots(
     for item in &slot_expr.items {
         match item {
             SlotItem::Single(s) => {
-                if *s == 0 || *s as usize > n_slots {
+                if *s as usize >= n_slots {
                     return Err(ValidationError::SlotNotFound { page, slot: *s });
                 }
-                result.push(*s as usize - 1);
+                result.push(*s as usize);
             }
             SlotItem::Range { from, to } => {
-                let start = from.unwrap_or(1);
-                let end = to.unwrap_or(n_slots as u32);
-                if start == 0 {
-                    return Err(ValidationError::SlotNotFound { page, slot: 0 });
-                }
-                if end as usize > n_slots {
+                let start = from.unwrap_or(0);
+                let end = to.unwrap_or(n_slots.saturating_sub(1) as u32);
+                if end as usize >= n_slots {
                     return Err(ValidationError::SlotNotFound { page, slot: end });
                 }
                 for s in start..=end {
-                    result.push(s as usize - 1);
+                    result.push(s as usize);
                 }
             }
         }
@@ -63,7 +60,7 @@ pub(super) fn photos_at_slots(
         if i >= layout[page_idx].photos.len() {
             return Err(ValidationError::SlotEmpty {
                 page: layout[page_idx].page as u32,
-                slot: i as u32 + 1,
+                slot: i as u32,
             });
         }
         photos.push(layout[page_idx].photos[i].clone());
@@ -72,7 +69,7 @@ pub(super) fn photos_at_slots(
 }
 
 /// Remove all pages with no photos from the layout.
-/// Returns the 1-based page numbers that were deleted.
+/// Returns the 0-based page numbers that were deleted.
 pub(crate) fn delete_empty_pages(layout: &mut Vec<LayoutPage>) -> Vec<u32> {
     let mut deleted = Vec::new();
     let mut i = 0;
@@ -212,20 +209,20 @@ mod tests {
     #[test]
     fn test_page_idx_valid() {
         let state = make_state_with_layout(vec![vec!["p0.jpg"], vec!["p1.jpg"]]);
-        assert_eq!(page_idx(1, &state.layout).unwrap(), 0);
-        assert_eq!(page_idx(2, &state.layout).unwrap(), 1);
+        assert_eq!(page_idx(0, &state.layout).unwrap(), 0);
+        assert_eq!(page_idx(1, &state.layout).unwrap(), 1);
     }
 
     #[test]
     fn test_page_idx_out_of_range() {
         let state = make_state_with_layout(vec![vec!["p0.jpg"]]);
         assert_eq!(
-            page_idx(2, &state.layout),
-            Err(ValidationError::PageNotFound(2))
+            page_idx(1, &state.layout),
+            Err(ValidationError::PageNotFound(1))
         );
         assert_eq!(
-            page_idx(0, &state.layout),
-            Err(ValidationError::PageNotFound(0))
+            page_idx(5, &state.layout),
+            Err(ValidationError::PageNotFound(5))
         );
     }
 
@@ -233,20 +230,20 @@ mod tests {
     fn test_resolve_slots_valid() {
         let state = make_state_with_layout(vec![vec!["p0.jpg", "p1.jpg", "p2.jpg"]]);
         // bounded range
-        assert_eq!(resolve_slots(1, &SlotExpr::from_range(1, 3), &state.layout).unwrap(), vec![0, 1, 2]);
-        // open end: 2.. → slots 2 and 3
-        assert_eq!(resolve_slots(1, &SlotExpr::from_open_end(2), &state.layout).unwrap(), vec![1, 2]);
-        // open start: ..2 → slots 1 and 2
-        assert_eq!(resolve_slots(1, &SlotExpr::from_open_start(2), &state.layout).unwrap(), vec![0, 1]);
+        assert_eq!(resolve_slots(0, &SlotExpr::from_range(0, 2), &state.layout).unwrap(), vec![0, 1, 2]);
+        // open end: 1.. → slots 1 and 2
+        assert_eq!(resolve_slots(0, &SlotExpr::from_open_end(1), &state.layout).unwrap(), vec![1, 2]);
+        // open start: ..1 → slots 0 and 1
+        assert_eq!(resolve_slots(0, &SlotExpr::from_open_start(1), &state.layout).unwrap(), vec![0, 1]);
     }
 
     #[test]
     fn test_resolve_slots_out_of_range() {
         let state = make_state_with_layout(vec![vec!["p0.jpg", "p1.jpg"]]);
-        let slots = SlotExpr::single(3);
+        let slots = SlotExpr::single(2);
         assert_eq!(
-            resolve_slots(1, &slots, &state.layout),
-            Err(ValidationError::SlotNotFound { page: 1, slot: 3 })
+            resolve_slots(0, &slots, &state.layout),
+            Err(ValidationError::SlotNotFound { page: 0, slot: 2 })
         );
     }
 }

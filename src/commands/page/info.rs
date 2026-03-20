@@ -52,7 +52,7 @@ pub fn execute_info(
                     if let Some(pf) = photo_map.get(photo_id.as_str()) {
                         slots.push(SlotInfo {
                             page: p,
-                            slot: i as u32 + 1,
+                            slot: i as u32,
                             id: pf.id.clone(),
                             source: pf.source.clone(),
                             width_px: pf.width_px,
@@ -115,11 +115,11 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         setup_repo(&tmp, &state);
 
-        let result = execute_info(tmp.path(), Src::Pages(PagesExpr::single(1)), InfoFilter::default()).unwrap();
+        let result = execute_info(tmp.path(), Src::Pages(PagesExpr::single(0)), InfoFilter::default()).unwrap();
         assert_eq!(result.slots.len(), 2);
-        assert_eq!(result.slots[0].slot, 1);
+        assert_eq!(result.slots[0].slot, 0);
         assert_eq!(result.slots[0].id, "p0.jpg");
-        assert_eq!(result.slots[1].slot, 2);
+        assert_eq!(result.slots[1].slot, 1);
         assert_eq!(result.slots[0].total_page_slots, 2);
     }
 
@@ -131,7 +131,7 @@ mod tests {
 
         let result = execute_info(
             tmp.path(),
-            Src::Slots { page: 1, slots: SlotExpr::from_range(1, 2) },
+            Src::Slots { page: 0, slots: SlotExpr::from_range(0, 1) },
             InfoFilter::default(),
         ).unwrap();
         assert_eq!(result.slots.len(), 2);
@@ -144,7 +144,7 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         setup_repo(&tmp, &state);
 
-        let err = execute_info(tmp.path(), Src::Pages(PagesExpr::single(5)), InfoFilter::default()).unwrap_err();
-        assert!(err.to_string().contains("page 5"));
+        let err = execute_info(tmp.path(), Src::Pages(PagesExpr::single(99)), InfoFilter::default()).unwrap_err();
+        assert!(err.to_string().contains("page 99"));
     }
 }

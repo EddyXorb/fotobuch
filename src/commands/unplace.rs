@@ -12,7 +12,7 @@ use crate::commands::page::{
 /// Remove photos from the layout at the given page:slot address.
 ///
 /// Photos are kept in `state.photos` (they become "unplaced").
-/// Returns the 1-based page numbers that were modified.
+/// Returns the 0-based page numbers that were modified.
 pub fn execute_unplace(
     project_root: &Path,
     page: u32,
@@ -59,8 +59,8 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         setup_repo(&tmp, &state);
 
-        let result = execute_unplace(tmp.path(), 1, SlotExpr::single(2)).unwrap();
-        assert_eq!(result.pages_modified, vec![1]);
+        let result = execute_unplace(tmp.path(), 0, SlotExpr::single(1)).unwrap();
+        assert_eq!(result.pages_modified, vec![0]);
 
         let mgr = StateManager::open(tmp.path()).unwrap();
         let page = &mgr.state.layout[0];
@@ -74,8 +74,8 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         setup_repo(&tmp, &state);
 
-        let result = execute_unplace(tmp.path(), 1, SlotExpr::single(1)).unwrap();
-        assert!(result.pages_deleted.contains(&1));
+        let result = execute_unplace(tmp.path(), 0, SlotExpr::single(0)).unwrap();
+        assert!(result.pages_deleted.contains(&0));
         assert!(result.pages_modified.is_empty());
 
         let mgr = StateManager::open(tmp.path()).unwrap();
@@ -90,11 +90,11 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         setup_repo(&tmp, &state);
 
-        let result = execute_unplace(tmp.path(), 1, SlotExpr::single(5));
+        let result = execute_unplace(tmp.path(), 0, SlotExpr::single(5));
         assert!(matches!(
             result,
             Err(PageMoveError::Validation(ValidationError::SlotNotFound {
-                page: 1,
+                page: 0,
                 slot: 5
             }))
         ));

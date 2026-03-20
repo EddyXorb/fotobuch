@@ -10,7 +10,7 @@ use super::types::{PageMoveError, PageMoveResult, ValidationError};
 
 /// Split a page at a given slot: photos from `slot` onwards move to a new page after it.
 ///
-/// `page` and `slot` are 1-based.
+/// `page` and `slot` are 0-based.
 pub fn execute_split(
     project_root: &Path,
     page: u32,
@@ -21,14 +21,14 @@ pub fn execute_split(
     let idx = page_idx(page, &mgr.state.layout)?;
     let n_photos = mgr.state.layout[idx].photos.len();
 
-    if slot == 0 || slot as usize > n_photos {
+    if slot as usize >= n_photos {
         return Err(ValidationError::SlotNotFound { page, slot }.into());
     }
-    if slot == 1 {
+    if slot == 0 {
         return Err(ValidationError::SplitAtFirstSlot(page).into());
     }
 
-    let split_at = slot as usize - 1;
+    let split_at = slot as usize;
     let moved_photos: Vec<String> = mgr.state.layout[idx].photos[split_at..].to_vec();
     let moved_slots: Vec<_> = if split_at < mgr.state.layout[idx].slots.len() {
         mgr.state.layout[idx].slots[split_at..].to_vec()
@@ -43,13 +43,13 @@ pub fn execute_split(
     mgr.state.layout.insert(
         new_idx,
         LayoutPage {
-            page: (new_idx + 1) as usize, // will be renumbered by finish()
+            page: new_idx, // will be renumbered by finish()
             photos: moved_photos,
             slots: moved_slots,
         },
     );
 
-    let new_page_num = new_idx as u32 + 1;
+    let new_page_num = new_idx as u32;
     mgr.finish(&format!("page split: page {page} at slot {slot}"))?;
 
     Ok(PageMoveResult {
@@ -76,7 +76,7 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         setup_repo(&tmp, &state);
 
-        let result = execute_split(tmp.path(), 1, 3).unwrap();
+        let result = execute_split(tmp.path(), 0, 2).unwrap();
         assert!(!result.pages_inserted.is_empty());
 
         let mgr = StateManager::open(tmp.path()).unwrap();
@@ -92,10 +92,10 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         setup_repo(&tmp, &state);
 
-        let result = execute_split(tmp.path(), 1, 1);
+        let result = execute_split(tmp.path(), 0, 0);
         assert!(matches!(
             result,
-            Err(PageMoveError::Validation(ValidationError::SplitAtFirstSlot(1)))
+            Err(PageMoveError::Validation(ValidationError::SplitAtFirstSlot(0)))
         ));
     }
 }

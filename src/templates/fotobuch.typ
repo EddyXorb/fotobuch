@@ -325,7 +325,7 @@
     ]
     #for (i, slot) in cover_data.slots.enumerate() [
       #let photo_id = cover_data.photos.at(i, default: none)
-      #render_slot(0, slot, i + 1, photo_id, photo_ref, photo_weight)
+      #render_slot(0, slot, i, photo_id, photo_ref, photo_weight)
     ]
     // Spine text — reads bottom-to-top; dx = half of front+back = single page width
     #place(top + left, dx: (cover_front_back_w / 2) * 1mm, dy: 0mm, box(
@@ -355,7 +355,7 @@
 
   #for (i, slot) in page_data.slots.enumerate() [
     #let photo_id = page_data.photos.at(i, default: none)
-    #render_slot(page_index, slot, i + 1, photo_id, photo_ref, photo_weight)
+    #render_slot(page_index, slot, i, photo_id, photo_ref, photo_weight)
   ]
 
   #let display_nr = page_index - layout_start + 1
