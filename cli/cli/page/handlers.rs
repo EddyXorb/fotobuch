@@ -147,12 +147,18 @@ pub fn handle_info(address: &str, filter: InfoFilter) -> Result<()> {
 
 fn print_vertical(s: &SlotInfo) {
     let ratio = s.width_px as f64 / s.height_px as f64;
-    println!("page {}, slot {}", s.page, s.slot);
+    let page_label = if s.is_cover {
+        format!("page {} [cover]", s.page)
+    } else {
+        format!("page {}", s.page)
+    };
+    println!("{page_label}, slot {}", s.slot);
     println!("  id:      {}", s.id);
     println!("  source:  {}", s.source);
     println!("  pixels:  {}x{}", s.width_px, s.height_px);
     println!("  ratio:   {ratio:.2}");
     println!("  weight:  {}", s.area_weight);
+    println!("  canvas:  {:.1}mm × {:.1}mm", s.page_width_mm, s.page_height_mm);
     if let Some(sl) = &s.placement {
         println!(
             "  placed:  x={:.1}mm y={:.1}mm w={:.1}mm h={:.1}mm",
@@ -205,10 +211,12 @@ fn print_table(slots: &[SlotInfo]) {
     for (s, row) in slots.iter().zip(rows.iter()) {
         if current_page != Some(s.page) {
             let shown = slots.iter().filter(|x| x.page == s.page).count();
+            let cover_tag = if s.is_cover { " [cover]" } else { "" };
+            let dims = format!("  {:.1}mm × {:.1}mm", s.page_width_mm, s.page_height_mm);
             if shown == s.total_page_slots {
-                println!("page {}", s.page);
+                println!("page {}{cover_tag}{dims}", s.page);
             } else {
-                println!("page {}  ({}/{} slots shown)", s.page, shown, s.total_page_slots);
+                println!("page {}{cover_tag}  ({}/{} slots shown){dims}", s.page, shown, s.total_page_slots);
             }
             println!(
                 "  {:<w_slot$}  {:<w_ratio$}  {:<w_weight$}  {:<w_pixels$}  {:<w_placed$}  id",
