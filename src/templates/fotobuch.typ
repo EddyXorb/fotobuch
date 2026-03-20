@@ -146,22 +146,35 @@
   ))
 ]
 
-// Places a single photo in its slot — with optional filename label and reference badge
-#let render_photo(page_index, slot, slot_nr, photo_id, photo_ref, photo_weight) = [
-  #place(top + left, dx: slot.x_mm * 1mm, dy: slot.y_mm * 1mm, image(
-    cache_prefix + photo_id,
+// Renders a slot: thin black frame, centered slot address, and optionally a photo with weight
+#let render_slot(page_index, slot, slot_nr, photo_id, photo_ref, photo_weight) = [
+  // Draw thin black frame around slot
+  #place(top + left, dx: slot.x_mm * 1mm, dy: slot.y_mm * 1mm, rect(
     width: slot.width_mm * 1mm,
     height: slot.height_mm * 1mm,
-    fit: "cover",
+    stroke: (paint: black, thickness: 0.5pt),
+    fill: none,
   ))
-  #if show_image_captions_on_preview [
-    #place(
-      top + left,
-      dx: slot.x_mm * 1mm,
-      dy: (slot.y_mm + slot.height_mm / 2) * 1mm,
-      text(size: 8pt, photo_id.split("/").last(), white),
-    )
+
+  // Place image if photo_id is provided
+  #if photo_id != none [
+    #place(top + left, dx: slot.x_mm * 1mm, dy: slot.y_mm * 1mm, image(
+      cache_prefix + photo_id,
+      width: slot.width_mm * 1mm,
+      height: slot.height_mm * 1mm,
+      fit: "cover",
+    ))
+    #if show_image_captions_on_preview [
+      #place(
+        top + left,
+        dx: slot.x_mm * 1mm,
+        dy: (slot.y_mm + slot.height_mm / 2) * 1mm,
+        text(size: 8pt, photo_id.split("/").last(), white),
+      )
+    ]
   ]
+
+  // Centered slot address (always shown when show_slot_info_on_preview is true)
   #if show_slot_info_on_preview [
     #place(
       top + left,
@@ -171,12 +184,15 @@
         width: slot.width_mm * 1mm,
         height: slot.height_mm * 1mm,
         align(center + horizon, text(size: 20pt, weight: "bold", fill: white)[
-          #page_index:#slot_nr \(#str(calc.round(photo_weight.at(photo_id, default: 1.0), digits: 1))\)
+          #page_index:#slot_nr
+          #if photo_id != none [ \(#str(calc.round(photo_weight.at(photo_id, default: 1.0), digits: 1))\)]
         ]),
       ),
     )
   ]
-  #if appendix_show and appendix_ref_mode == "counter" [
+
+  // Reference badge (only if photo is present)
+  #if photo_id != none and appendix_show and appendix_ref_mode == "counter" [
     #let ref_label = photo_ref.at(photo_id, default: "")
     #if ref_label != "" [
       #place(
@@ -309,7 +325,7 @@
     ]
     #for (i, slot) in cover_data.slots.enumerate() [
       #let photo_id = cover_data.photos.at(i, default: none)
-      #if photo_id != none [#render_photo(0,slot, i + 1, photo_id, photo_ref, photo_weight)]
+      #render_slot(0, slot, i + 1, photo_id, photo_ref, photo_weight)
     ]
     // Spine text — reads bottom-to-top; dx = half of front+back = single page width
     #place(top + left, dx: (cover_front_back_w / 2) * 1mm, dy: 0mm, box(
@@ -334,7 +350,7 @@
 
   #for (i, slot) in page_data.slots.enumerate() [
     #let photo_id = page_data.photos.at(i, default: none)
-    #if photo_id != none [#render_photo(page_index,slot, i + 1, photo_id, photo_ref, photo_weight)]
+    #render_slot(page_index, slot, i + 1, photo_id, photo_ref, photo_weight)
   ]
 
   #let display_nr = page_index - layout_start + 1
