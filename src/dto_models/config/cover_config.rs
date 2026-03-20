@@ -31,18 +31,24 @@ pub struct CoverConfig {
     #[serde(default)]
     pub active: bool,
     /// Spine configuration: auto or fixed.
-    #[serde(flatten)]
+    #[serde(default, flatten)]
     pub spine: SpineConfig,
     /// Total cover width in mm (front + back, without spine).
+    #[serde(default)]
     pub front_back_width_mm: f64,
     /// Cover height in mm.
+    #[serde(default)]
     pub height_mm: f64,
     /// Text printed on the spine. Defaults to `book.title` if absent.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub spine_text: Option<String>,
+    #[serde(default)]
     pub bleed_mm: f64,
+    #[serde(default)]
     pub margin_mm: f64,
+    #[serde(default)]
     pub gap_mm: f64,
+    #[serde(default)]
     pub bleed_threshold_mm: f64,
 }
 
