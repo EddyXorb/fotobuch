@@ -11,7 +11,7 @@ use std::path::Path;
 pub struct MultiPageParams<'a> {
     /// Photo groups to process
     pub groups: &'a [PhotoGroup],
-    /// Optional range to replace in existing layout (0-based start, 1-based end for splice)
+    /// Optional range to replace in existing layout (0-based start, 0-based exclusive end for splice)
     /// If None, replaces entire layout
     pub range: Option<(usize, usize)>,
     /// Flexibility in page count (+/- pages)

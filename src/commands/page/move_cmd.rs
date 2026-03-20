@@ -291,8 +291,8 @@ fn dst_swap_is_contiguous(dst: &DstSwap) -> bool {
 }
 
 /// Block-transpose two contiguous page ranges within the layout.
-/// `left_pages` and `right_pages` are 1-based, contiguous, non-overlapping.
-/// The block that starts first (by 1-based number) is treated as the "left" block.
+/// `left_pages` and `right_pages` are 0-based (matching `LayoutPage.page`), contiguous, non-overlapping.
+/// The block that starts first (by page number) is treated as the "left" block.
 fn block_transpose_pages(layout: &mut Vec<LayoutPage>, left_pages: &[u32], right_pages: &[u32]) {
     let l0 = page_idx(left_pages[0], layout).unwrap();
     let l1 = page_idx(*left_pages.last().unwrap(), layout).unwrap();

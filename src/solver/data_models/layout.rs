@@ -213,7 +213,7 @@ impl SolverPageLayout {
     ///
     /// # Arguments
     ///
-    /// * `page_num` - Page number (1-based)
+    /// * `page_num` - Page number (0-based index)
     /// * `photos` - Array of photos to map photo_idx to photo.id
     ///
     /// # Returns

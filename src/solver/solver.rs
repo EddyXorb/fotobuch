@@ -58,7 +58,7 @@ fn run_single_page<C: CanvasConfig>(
     let ga_result = page_layout_solver::run_ga(photos, canvas, request.ga_config);
     let layout_page = ga_result
         .layout
-        .to_layout_page(1, photos, request.canvas_config);
+        .to_layout_page(0, photos, request.canvas_config);
     Ok(vec![layout_page])
 }
 
@@ -77,7 +77,7 @@ fn run_multi_page<C: CanvasConfig>(
         .enumerate()
         .map(|(i, page)| {
             let layout_page = page.to_layout_page(
-                i + 1,
+                i,
                 &photos[curr_idx..curr_idx + page.placements.len()],
                 request.canvas_config,
             );

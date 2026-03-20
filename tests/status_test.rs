@@ -119,12 +119,12 @@ fn test_status_page_detail() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let project_root = create_test_project_with_layout(&temp_dir)?;
 
-    let config = StatusConfig { page: Some(1) };
+    let config = StatusConfig { page: Some(0) };
     let report = status(&project_root, &config)?;
 
     assert!(report.detail.is_some());
     let detail = report.detail.unwrap();
-    assert_eq!(detail.page, 1);
+    assert_eq!(detail.page, 0);
     assert!(detail.photo_count > 0);
     assert!(!detail.slots.is_empty());
 
@@ -179,7 +179,7 @@ fn test_status_swap_groups() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let project_root = create_test_project_with_layout(&temp_dir)?;
 
-    let config = StatusConfig { page: Some(1) };
+    let config = StatusConfig { page: Some(0) };
     let report = status(&project_root, &config)?;
 
     if let Some(detail) = report.detail {
