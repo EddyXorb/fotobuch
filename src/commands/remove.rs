@@ -231,7 +231,7 @@ pub fn remove(project_root: &Path, config: &RemoveConfig) -> Result<RemoveResult
 
     // 3. Leere Seiten entfernen + renumbern
     remove_empty_pages(&mut mgr.state.layout);
-    let has_cover = mgr.state.config.book.cover.as_ref().is_some_and(|c| c.active);
+    let has_cover = mgr.state.config.book.cover.active;
     renumber_pages(&mut mgr.state.layout, has_cover);
 
     // 4. Aus Photos entfernen (nur ohne --keep-files)

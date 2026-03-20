@@ -362,7 +362,7 @@ impl StateManager {
         if let Err(e) = self.state.check_validity() {
             error!("State is invalid before commit! Reason(s): {e}");
         }
-        let has_cover = self.state.config.book.cover.as_ref().is_some_and(|c| c.active);
+        let has_cover = self.state.config.book.cover.active;
         renumber_pages(&mut self.state.layout, has_cover);
         let diff = StateDiff::compute(&self.baseline, &self.state);
 
@@ -544,7 +544,7 @@ mod tests {
                     gap_mm: 5.0,
                     bleed_threshold_mm: 3.0,
                     dpi: 300.0,
-                    cover: None,
+                    cover: Default::default(),
                 },
                 page_layout_solver: Default::default(),
                 preview: Default::default(),
