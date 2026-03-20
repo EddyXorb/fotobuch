@@ -1,4 +1,4 @@
-use crate::dto_models::BookConfig;
+use crate::dto_models::CanvasConfig;
 
 /// Canvas dimensions and spacing parameters for the photobook layout.
 /// Equivalent of the TargetBox/ArtBox in PDF, so we ignore margins/bleed here.
@@ -43,27 +43,12 @@ impl Canvas {
         self.width / self.height
     }
 
-    /// Creates a Canvas for the solver from BookConfig.
-    /// We only pass the dimensions of the pdf-Trimbox to the solver
-    /// and do the margin/bleed logic in an outside step.
-    ///
-    /// Canvas dimensions are calculated as:
-    /// - canvas = page - 2*margin (bleed is outside margin, not relevant for layout)
-    ///
-    /// Within the solver, we assume that the canvas is the actual area we have for layout.
-    ///
-    /// # Arguments
-    ///
-    /// * `config` - BookConfig with page dimensions, margin, gap, and bleed
-    ///
-    /// # Returns
-    ///
-    /// A new Canvas with dimensions calculated from BookConfig
-    pub fn from_book_config(config: &BookConfig) -> Self {
-        let width = config.page_width_mm - 2.0 * config.margin_mm;
-        let height = config.page_height_mm - 2.0 * config.margin_mm;
-
-        Self::new(width, height, config.gap_mm)
+    /// Creates a Canvas from any CanvasConfig (BookConfig or CoverConfig).
+    /// Canvas dimensions are page size minus 2×margin; gap sets the photo gap β.
+    pub fn from_canvas_config(config: &impl CanvasConfig) -> Self {
+        let width = config.page_width_mm() - 2.0 * config.margin_mm();
+        let height = config.page_height_mm() - 2.0 * config.margin_mm();
+        Self::new(width, height, config.gap_mm())
     }
 }
 
@@ -83,6 +68,7 @@ mod tests {
     use super::super::test_fixtures::*;
     use super::*;
     use approx::assert_relative_eq;
+    use crate::dto_models::BookConfig;
 
     #[test]
     fn test_new_canvas() {
@@ -134,13 +120,7 @@ mod tests {
     mod converter_tests {
         use super::*;
 
-        fn create_book_config(
-            width: f64,
-            height: f64,
-            margin: f64,
-            bleed: f64,
-            gap: f64,
-        ) -> BookConfig {
+        fn create_book_config(width: f64, height: f64, margin: f64, bleed: f64, gap: f64) -> BookConfig {
             BookConfig {
                 title: "Test".to_string(),
                 page_width_mm: width,
@@ -155,58 +135,49 @@ mod tests {
         }
 
         #[test]
-        fn test_from_book_config_with_margin() {
+        fn test_from_canvas_config_with_margin() {
             let config = create_book_config(297.0, 210.0, 10.0, 3.0, 5.0);
-            let canvas = Canvas::from_book_config(&config);
-
-            // Canvas = page - 2*margin
+            let canvas = Canvas::from_canvas_config(&config);
             assert_relative_eq!(canvas.width, 277.0, epsilon = 1e-6);
             assert_relative_eq!(canvas.height, 190.0, epsilon = 1e-6);
             assert_eq!(canvas.beta, 5.0);
         }
 
         #[test]
-        fn test_from_book_config_without_margin() {
+        fn test_from_canvas_config_without_margin() {
             let config = create_book_config(297.0, 210.0, 0.0, 3.0, 5.0);
-            let canvas = Canvas::from_book_config(&config);
-
-            // Canvas = page + 2*bleed (when margin = 0)
+            let canvas = Canvas::from_canvas_config(&config);
             assert_relative_eq!(canvas.width, 297.0, epsilon = 1e-6);
             assert_relative_eq!(canvas.height, 210.0, epsilon = 1e-6);
             assert_eq!(canvas.beta, 5.0);
         }
 
         #[test]
-        fn test_from_book_config_zero_bleed() {
+        fn test_from_canvas_config_zero_bleed() {
             let config = create_book_config(297.0, 210.0, 10.0, 0.0, 2.0);
-            let canvas = Canvas::from_book_config(&config);
-
-            // Bleed doesn't matter when margin > 0
+            let canvas = Canvas::from_canvas_config(&config);
             assert_relative_eq!(canvas.width, 277.0, epsilon = 1e-6);
             assert_relative_eq!(canvas.height, 190.0, epsilon = 1e-6);
             assert_eq!(canvas.beta, 2.0);
         }
 
         #[test]
-        fn test_from_book_config_large_bleed_no_margin() {
+        fn test_from_canvas_config_large_bleed_no_margin() {
             let config = create_book_config(100.0, 100.0, 0.0, 10.0, 1.0);
-            let canvas = Canvas::from_book_config(&config);
-
-            // Large bleed increases canvas significantly when margin = 0
+            let canvas = Canvas::from_canvas_config(&config);
             assert_relative_eq!(canvas.width, 100.0, epsilon = 1e-6);
             assert_relative_eq!(canvas.height, 100.0, epsilon = 1e-6);
         }
 
         #[test]
-        fn test_from_book_config_preserves_gap() {
+        fn test_from_canvas_config_preserves_gap() {
             let configs = vec![
                 create_book_config(297.0, 210.0, 10.0, 3.0, 2.0),
                 create_book_config(297.0, 210.0, 0.0, 3.0, 5.0),
                 create_book_config(297.0, 210.0, 5.0, 0.0, 10.0),
             ];
-
             for config in configs {
-                let canvas = Canvas::from_book_config(&config);
+                let canvas = Canvas::from_canvas_config(&config);
                 assert_eq!(canvas.beta, config.gap_mm);
             }
         }

@@ -48,7 +48,7 @@
 //!     groups: &photo_groups,
 //!     config: &solver_config,
 //!     ga_config: &ga_config,
-//!     book_config: &book_config,
+//!     canvas_config: &book_config,
 //! };
 //!
 //! // Run solver

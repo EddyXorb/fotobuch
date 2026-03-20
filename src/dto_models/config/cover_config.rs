@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::dto_models::config::book_config::CanvasConfig;
+
 /// Cover configuration. Present only if the project has a cover page.
 /// Absence of this block means no cover exists.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9,32 +11,24 @@ pub struct CoverConfig {
     #[serde(default)]
     pub active: bool,
     /// Spine thickness per 10 pages (linear interpolation).
-    /// For double-page spreads use the value per 10 spreads;
-    /// for single pages halve accordingly.
     pub spine_mm_per_10_pages: f64,
     /// Total cover width in mm (front + back, without spine).
-    /// Defaults to `2 × book.page_width_mm` if absent.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub page_width_mm: Option<f64>,
-    /// Cover page height in mm. Defaults to `book.page_height_mm` if absent.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub page_height_mm: Option<f64>,
+    pub front_back_width_mm: f64,
+    /// Cover height in mm.
+    pub height_mm: f64,
     /// Text printed on the spine. Defaults to `book.title` if absent.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub spine_text: Option<String>,
+    pub bleed_mm: f64,
+    pub margin_mm: f64,
+    pub gap_mm: f64,
+    pub bleed_threshold_mm: f64,
 }
 
 impl CoverConfig {
-    /// Total cover spread width: page_width_mm (front+back) + spine.
-    /// `page_width_mm` defaults to `2 × book_page_width_mm` when absent.
-    pub fn resolved_width_mm(&self, book_page_width_mm: f64, inner_page_count: usize) -> f64 {
-        let front_back = self.page_width_mm.unwrap_or(2.0 * book_page_width_mm);
-        front_back + self.spine_width_mm(inner_page_count)
-    }
-
-    /// Resolved cover height: explicit value or fallback to inner page height.
-    pub fn resolved_height_mm(&self, book_page_height_mm: f64) -> f64 {
-        self.page_height_mm.unwrap_or(book_page_height_mm)
+    /// Total cover spread width: front_back_width_mm + spine.
+    pub fn spread_width_mm(&self, inner_page_count: usize) -> f64 {
+        self.front_back_width_mm + self.spine_width_mm(inner_page_count)
     }
 
     /// Resolved spine text: explicit value or fallback to book title.
@@ -48,6 +42,30 @@ impl CoverConfig {
     }
 }
 
+impl CanvasConfig for CoverConfig {
+    /// Returns the full spread width (front + back + spine).
+    /// Caller must pass the correct inner_page_count via spread_width_mm() when
+    /// constructing the solver canvas — this value excludes the spine.
+    fn page_width_mm(&self) -> f64 {
+        self.front_back_width_mm
+    }
+    fn page_height_mm(&self) -> f64 {
+        self.height_mm
+    }
+    fn bleed_mm(&self) -> f64 {
+        self.bleed_mm
+    }
+    fn margin_mm(&self) -> f64 {
+        self.margin_mm
+    }
+    fn gap_mm(&self) -> f64 {
+        self.gap_mm
+    }
+    fn bleed_threshold_mm(&self) -> f64 {
+        self.bleed_threshold_mm
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -56,9 +74,13 @@ mod tests {
         CoverConfig {
             active: true,
             spine_mm_per_10_pages,
-            page_width_mm: None,
-            page_height_mm: None,
+            front_back_width_mm: 420.0,
+            height_mm: 297.0,
             spine_text: None,
+            bleed_mm: 3.0,
+            margin_mm: 0.0,
+            gap_mm: 5.0,
+            bleed_threshold_mm: 3.0,
         }
     }
 
@@ -71,24 +93,15 @@ mod tests {
     }
 
     #[test]
-    fn resolved_width_fallback() {
-        // default front+back = 2*210 = 420, spine(0) = 0 → 420
+    fn spread_width_no_spine() {
         let c = cfg(1.0);
-        assert!((c.resolved_width_mm(210.0, 0) - 420.0).abs() < 1e-9);
+        assert!((c.spread_width_mm(0) - 420.0).abs() < 1e-9);
     }
 
     #[test]
-    fn resolved_width_includes_spine() {
-        // default front+back = 2*210 = 420, spine(10, 1.4) = 1.4 → 421.4
+    fn spread_width_includes_spine() {
         let c = cfg(1.4);
-        assert!((c.resolved_width_mm(210.0, 10) - 421.4).abs() < 1e-9);
-    }
-
-    #[test]
-    fn resolved_width_explicit() {
-        // explicit front+back = 400, spine(0) = 0 → 400
-        let c = CoverConfig { active: true, spine_mm_per_10_pages: 1.0, page_width_mm: Some(400.0), page_height_mm: None, spine_text: None };
-        assert!((c.resolved_width_mm(210.0, 0) - 400.0).abs() < 1e-9);
+        assert!((c.spread_width_mm(10) - 421.4).abs() < 1e-9);
     }
 
     #[test]
@@ -99,7 +112,8 @@ mod tests {
 
     #[test]
     fn resolved_spine_text_explicit() {
-        let c = CoverConfig { active: true, spine_mm_per_10_pages: 1.0, page_width_mm: None, page_height_mm: None, spine_text: Some("Override".into()) };
+        let mut c = cfg(1.0);
+        c.spine_text = Some("Override".into());
         assert_eq!(c.resolved_spine_text("Mein Buch"), "Override");
     }
 }

@@ -56,7 +56,7 @@ pub fn multipage_build(
         groups: params.groups,
         config: &config,
         ga_config: &mgr.state.config.page_layout_solver,
-        book_config: &mgr.state.config.book,
+        canvas_config: &mgr.state.config.book,
     })?;
 
     // 4. Update layout

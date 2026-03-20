@@ -11,7 +11,7 @@ mod ga_config;
 mod preview_config;
 mod project_config;
 
-pub use book_config::BookConfig;
+pub use book_config::{BookConfig, CanvasConfig};
 pub use book_layout_solver_config::{BookLayoutSolverConfig, ValidationError};
 pub use cover_config::CoverConfig;
 pub use fitness_weights::FitnessWeights;
