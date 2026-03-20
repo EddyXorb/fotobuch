@@ -71,11 +71,10 @@ pub fn parse_timestamp_from_name(name: &str) -> Option<NaiveDateTime> {
 
     // Date-only formats: produce midnight timestamp.
     for (fmt, len) in &formats_date {
-        if let Some(candidate) = name.get(..*len) {
-            if let Ok(date) = chrono::NaiveDate::parse_from_str(candidate, fmt) {
+        if let Some(candidate) = name.get(..*len)
+            && let Ok(date) = chrono::NaiveDate::parse_from_str(candidate, fmt) {
                 return date.and_hms_opt(0, 0, 0);
             }
-        }
     }
 
     None
