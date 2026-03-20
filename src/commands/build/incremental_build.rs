@@ -30,7 +30,7 @@ pub fn incremental_build(
     let mut page_indices_needing_rebuild = mgr.outdated_pages_indices();
 
     // 3. If cover is active and index 0 is outdated, skip it and warn the user
-    let has_cover = mgr.state.config.book.cover.as_ref().is_some_and(|c| c.active);
+    let has_cover = mgr.state.config.book.cover.active;
     if has_cover && page_indices_needing_rebuild.contains(&0) {
         warn!(
             "Cover page (index 0) has changes but will not be rebuilt automatically. \

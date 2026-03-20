@@ -11,9 +11,8 @@ use super::types::{InfoFilter, PageInfoResult, PageMoveError, SlotInfo, Src};
 fn page_dims(state: &ProjectState, idx: usize) -> (bool, f64, f64) {
     let book = &state.config.book;
     if state.has_cover() && idx == 0 {
-        let cover = book.cover.as_ref().unwrap();
         let inner = state.layout.len() - 1;
-        (true, cover.spread_width_mm(inner), cover.height_mm)
+        (true, book.cover.spread_width_mm(inner), book.cover.height_mm)
     } else {
         (false, book.page_width_mm, book.page_height_mm)
     }

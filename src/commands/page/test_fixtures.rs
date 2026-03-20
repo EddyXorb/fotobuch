@@ -38,7 +38,7 @@ pub fn make_state_with_layout(pages: Vec<Vec<&str>>) -> ProjectState {
                 gap_mm: 5.0,
                 bleed_threshold_mm: 3.0,
                 dpi: 300.0,
-                cover: None,
+                cover: Default::default(),
             },
             page_layout_solver: Default::default(),
             preview: Default::default(),

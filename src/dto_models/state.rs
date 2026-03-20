@@ -43,7 +43,7 @@ impl ProjectState {
 
     /// Returns true if the cover page is configured and active.
     pub fn has_cover(&self) -> bool {
-        self.config.book.cover.as_ref().is_some_and(|c| c.active)
+        self.config.book.cover.active
     }
 
     pub fn check_validity(&self) -> Result<()> {
@@ -98,7 +98,7 @@ mod tests {
                     gap_mm: 5.0,
                     bleed_threshold_mm: 3.0,
                     dpi: 300.0,
-                    cover: None,
+                    cover: Default::default(),
                 },
                 page_layout_solver: Default::default(),
                 preview: Default::default(),
@@ -148,7 +148,7 @@ mod tests {
                     gap_mm: 5.0,
                     bleed_threshold_mm: 3.0,
                     dpi: 300.0,
-                    cover: None,
+                    cover: Default::default(),
                 },
                 page_layout_solver: Default::default(),
                 preview: Default::default(),

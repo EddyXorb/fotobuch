@@ -20,9 +20,9 @@ pub struct BookConfig {
     /// DPI for final image generation (default: 300)
     #[serde(default = "default_dpi")]
     pub dpi: f64,
-    /// Cover configuration. Absent means no cover.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub cover: Option<CoverConfig>,
+    /// Cover configuration. Always present, defaults to inactive (active: false).
+    #[serde(default)]
+    pub cover: CoverConfig,
 }
 
 pub trait CanvasConfig {
@@ -82,7 +82,7 @@ impl Default for BookConfig {
             gap_mm: default_gap_mm(),
             bleed_threshold_mm: default_bleed_threshold_mm(),
             dpi: default_dpi(),
-            cover: None,
+            cover: CoverConfig::default(),
         }
     }
 }
