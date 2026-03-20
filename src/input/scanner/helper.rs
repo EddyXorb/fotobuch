@@ -46,20 +46,24 @@ pub fn is_supported_image(path: &Path) -> bool {
 pub fn parse_timestamp_from_name(name: &str) -> Option<NaiveDateTime> {
     // Extract the leading date-like part (up to the first non-date character after the date).
     let formats_datetime = [
-        ("%Y-%m-%d_%H-%M-%S", 19),
-        ("%Y-%m-%d %H-%M", 16),
-        ("%Y-%m-%d_%H-%M", 16),
-        ("%Y%m%d_%H%M%S", 15),
-        ("%Y%m%d_%H%M", 13),
-        ("%Y-%m-%d@%H%M%S", 16),
+        ("%Y-%m-%d_%H-%M-%S", "2024-07-15_18-30-00".len()),
+        ("%Y-%m-%d %H-%M",    "2024-07-15 18-30".len()),
+        ("%Y-%m-%d_%H-%M",    "2024-07-15_18-30".len()),
+        ("%Y%m%d_%H%M%S",     "20240715_183000".len()),
+        ("%Y%m%d_%H%M",       "20240715_1830".len()),
+        ("%Y-%m-%d@%H%M%S",   "2024-07-15@183000".len()),
     ];
 
-    let formats_date = [("%Y-%m-%d", 10), ("%Y%m%d", 8), ("%Y_%m_%d", 10)];
+    let formats_date = [
+        ("%Y-%m-%d", "2024-07-15".len()),
+        ("%Y%m%d",   "20240715".len()),
+        ("%Y_%m_%d", "2024_07_15".len()),
+    ];
 
     // Try to match from the start of the string.
     for (fmt, len) in &formats_datetime {
-        if name.len() >= *len
-            && let Ok(dt) = NaiveDateTime::parse_from_str(&name[..*len], fmt)
+        if let Some(candidate) = name.get(..*len)
+            && let Ok(dt) = NaiveDateTime::parse_from_str(candidate, fmt)
         {
             return Some(dt);
         }
@@ -67,10 +71,8 @@ pub fn parse_timestamp_from_name(name: &str) -> Option<NaiveDateTime> {
 
     // Date-only formats: produce midnight timestamp.
     for (fmt, len) in &formats_date {
-        if name.len() >= *len {
-            let candidate = &name[..*len];
+        if let Some(candidate) = name.get(..*len) {
             if let Ok(date) = chrono::NaiveDate::parse_from_str(candidate, fmt) {
-                // and_hms_opt should always succeed for midnight (0:0:0)
                 return date.and_hms_opt(0, 0, 0);
             }
         }
