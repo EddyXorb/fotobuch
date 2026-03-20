@@ -147,7 +147,7 @@
 ]
 
 // Places a single photo in its slot — with optional filename label and reference badge
-#let render_photo(slot, slot_nr, photo_id, photo_ref, photo_weight) = [
+#let render_photo(page_index, slot, slot_nr, photo_id, photo_ref, photo_weight) = [
   #place(top + left, dx: slot.x_mm * 1mm, dy: slot.y_mm * 1mm, image(
     cache_prefix + photo_id,
     width: slot.width_mm * 1mm,
@@ -171,7 +171,7 @@
         width: slot.width_mm * 1mm,
         height: slot.height_mm * 1mm,
         align(center + horizon, text(size: 20pt, weight: "bold", fill: white)[
-          #slot_nr \(#str(calc.round(photo_weight.at(photo_id, default: 1.0), digits: 1))\)
+          #page_index:#slot_nr \(#str(calc.round(photo_weight.at(photo_id, default: 1.0), digits: 1))\)
         ]),
       ),
     )
@@ -309,7 +309,7 @@
     ]
     #for (i, slot) in cover_data.slots.enumerate() [
       #let photo_id = cover_data.photos.at(i, default: none)
-      #if photo_id != none [#render_photo(slot, i + 1, photo_id, photo_ref, photo_weight)]
+      #if photo_id != none [#render_photo(0,slot, i + 1, photo_id, photo_ref, photo_weight)]
     ]
     // Spine text — reads bottom-to-top; dx = half of front+back = single page width
     #place(top + left, dx: (cover_front_back_w / 2) * 1mm, dy: 0mm, box(
@@ -334,7 +334,7 @@
 
   #for (i, slot) in page_data.slots.enumerate() [
     #let photo_id = page_data.photos.at(i, default: none)
-    #if photo_id != none [#render_photo(slot, i + 1, photo_id, photo_ref, photo_weight)]
+    #if photo_id != none [#render_photo(page_index,slot, i + 1, photo_id, photo_ref, photo_weight)]
   ]
 
   #let display_nr = page_index - layout_start + 1
