@@ -183,7 +183,7 @@
       box(
         width: slot.width_mm * 1mm,
         height: slot.height_mm * 1mm,
-        align(center + horizon, text(size: 20pt, weight: "bold", fill: white)[
+        align(center + horizon, text(size: 20pt, weight: "bold", fill: if photo_id == none { black } else { white })[
           #page_index:#slot_nr
           #if photo_id != none [ \(#str(calc.round(photo_weight.at(photo_id, default: 1.0), digits: 1))\)]
         ]),
@@ -346,7 +346,12 @@
 
 #for page_index in range(layout_start, data.layout.len()) [
   #let page_data = data.layout.at(page_index)
-  #if show_borders_on_preview [#draw_borders(data.config.book.page_width_mm, data.config.book.page_height_mm, bleed, margin)]
+  #if show_borders_on_preview [#draw_borders(
+    data.config.book.page_width_mm,
+    data.config.book.page_height_mm,
+    bleed,
+    margin,
+  )]
 
   #for (i, slot) in page_data.slots.enumerate() [
     #let photo_id = page_data.photos.at(i, default: none)
