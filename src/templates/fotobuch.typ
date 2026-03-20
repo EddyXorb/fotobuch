@@ -336,10 +336,14 @@
     #place(top + left, dx: (cover_front_back_w / 2) * 1mm, dy: 0mm, box(
       width: spine_w * 1mm,
       height: cover_h * 1mm,
-      align(horizon + center, rotate(-90deg, box(stroke: green, width: cover_h * 1mm, align(left, text(
-        size: calc.min(20mm, spine_w * 0.9 * 1mm),
-        h(0.05 * cover_h * 1mm) + spine_text_content,
-      ))))),
+      align(horizon + center, rotate(-90deg, box(
+        stroke: if is_final { none } else { green },
+        width: cover_h * 1mm,
+        align(left, text(
+          size: calc.min(20mm, spine_w * 0.9 * 1mm),
+          h(0.05 * cover_h * 1mm) + spine_text_content,
+        )),
+      ))),
     ))
     #if not is_final [#render_preview_watermark("Cover")]
     #pagebreak()
