@@ -133,15 +133,15 @@ fn test_place_with_invalid_page_number() -> Result<()> {
     let page_count = state.layout.len();
     assert!(page_count > 0);
 
-    // Try placing into page 0 (invalid)
+    // Try placing into page beyond layout (0-based, so page_count is out of bounds)
     let config = PlaceConfig {
         filters: vec![],
-        into_page: Some(0),
+        into_page: Some(page_count),
     };
     let result = place(&project_root, &config);
     assert!(result.is_err());
 
-    // Try placing into page beyond layout
+    // Try placing far beyond layout
     let config = PlaceConfig {
         filters: vec![],
         into_page: Some(page_count + 10),
@@ -174,25 +174,25 @@ fn test_place_into_specific_page() -> Result<()> {
     }
     state_modified.save(&yaml_path)?;
 
-    // Now place the unplaced photo into page 1
+    // Now place the unplaced photo into page 0 (0-based first page)
     let config = PlaceConfig {
         filters: vec![],
-        into_page: Some(1),
+        into_page: Some(0),
     };
     let result = place(&project_root, &config)?;
 
     assert_eq!(result.photos_placed, 1, "Should place exactly 1 photo");
     assert_eq!(
         result.pages_affected,
-        vec![1],
-        "Only page 1 should be affected"
+        vec![0],
+        "Only page 0 should be affected"
     );
 
-    // Verify state was saved and photo is back on page 1
+    // Verify state was saved and photo is back on page 0
     let state_after = ProjectState::load(&yaml_path)?;
     assert!(
         state_after.layout[0].photos.contains(&removed_photo),
-        "Removed photo should be on page 1"
+        "Removed photo should be on page 0"
     );
 
     // Verify git commit
@@ -202,7 +202,7 @@ fn test_place_into_specific_page() -> Result<()> {
     let message = commit.message().unwrap_or("");
     assert!(message.contains("place:"), "Commit should mention place");
     assert!(
-        message.contains("page 1"),
+        message.contains("page 0"),
         "Commit should mention page number"
     );
 

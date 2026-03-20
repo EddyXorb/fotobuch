@@ -74,22 +74,22 @@ pub enum Commands {
         #[arg(long)]
         release: bool,
 
-        /// Only rebuild specific pages (1-based, comma-separated or repeated flag)
+        /// Only rebuild specific pages (0-based, comma-separated or repeated flag)
         #[arg(long, value_delimiter = ',')]
         pages: Option<Vec<usize>>,
     },
 
     /// Force re-optimization of pages or page ranges
     Rebuild {
-        /// Single page to rebuild (1-based)
+        /// Single page to rebuild (0-based index)
         #[arg(long, conflicts_with_all = ["range_start", "all"])]
         page: Option<usize>,
 
-        /// Start of page range (1-based, requires --range-end)
+        /// Start of page range (0-based index, requires --range-end)
         #[arg(long, requires = "range_end", conflicts_with_all = ["page", "all"])]
         range_start: Option<usize>,
 
-        /// End of page range (1-based, requires --range-start)
+        /// End of page range (0-based index, inclusive, requires --range-start)
         #[arg(long, requires = "range_start", conflicts_with_all = ["page", "all"])]
         range_end: Option<usize>,
 
@@ -108,15 +108,14 @@ pub enum Commands {
         #[arg(long, value_name = "REGEX")]
         filter: Vec<String>,
 
-        /// Place all matching photos onto this specific page (1-based)
+        /// Place all matching photos onto this specific page (0-based index)
         #[arg(long)]
         into: Option<usize>,
     },
 
     /// Remove photos from the layout at a page:slot address (they stay in the project)
     ///
-    /// The page is NOT deleted automatically, even if it becomes empty.
-    /// To delete a whole page and unplace its photos, use: page move PAGE out
+    /// The page is deleted automatically if it becomes empty.
     Unplace {
         /// Slot address: "3:2" (slot 2 on page 3), "3:2,7", "3:2..5", "3:2..5,7"
         address: String,
@@ -144,7 +143,7 @@ pub enum Commands {
 
     /// Show project status
     Status {
-        /// Show detailed information for a specific page (1-based)
+        /// Show detailed information for a specific page (0-based index)
         page: Option<usize>,
     },
 

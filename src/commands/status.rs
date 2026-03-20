@@ -11,7 +11,7 @@ use crate::state_manager::StateManager;
 /// Configuration for status command
 #[derive(Debug, Clone)]
 pub struct StatusConfig {
-    /// Show detail for a specific page (1-based)
+    /// Show detail for a specific page (0-based index)
     pub page: Option<usize>,
 }
 
@@ -42,7 +42,7 @@ pub struct SlotInfo {
 /// Detailed information about a single page
 #[derive(Debug, Clone)]
 pub struct PageDetail {
-    /// Page number (1-based)
+    /// Page index (0-based, into layout[])
     pub page: usize,
     /// Number of photos on this page
     pub photo_count: usize,
@@ -69,7 +69,7 @@ pub struct StatusReport {
     pub page_count: usize,
     /// Average photos per page
     pub avg_photos_per_page: f64,
-    /// 1-based page numbers that were modified since last build
+    /// 0-based page indices (into layout[]) that were modified since last build
     pub page_changes: Vec<usize>,
     /// Detailed info for a specific page (if requested)
     pub detail: Option<PageDetail>,
@@ -167,15 +167,16 @@ fn build_page_detail(
     page_num: usize,
     modified_pages: &[usize],
 ) -> Result<PageDetail> {
-    if page_num == 0 || page_num > state.layout.len() {
+    if page_num >= state.layout.len() {
         anyhow::bail!(
-            "Invalid page {} (layout has {} pages)",
+            "Invalid page {} (layout has {} pages, indices 0..{})",
             page_num,
-            state.layout.len()
+            state.layout.len(),
+            state.layout.len().saturating_sub(1),
         );
     }
 
-    let page = &state.layout[page_num - 1];
+    let page = &state.layout[page_num];
     let photo_index = build_photo_index(&state.photos);
 
     // Collect ratios for all photos on this page

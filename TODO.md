@@ -23,6 +23,7 @@ To be done in this order
 
 ## to improve it further
 
+- [ ] preview config is not applied in template - remove or fix it
 - [ ] cli should habe a command to output the template again
 - [ ] `fotobuch config` should output also cover options
 - [ ] try scip as backend for MIP

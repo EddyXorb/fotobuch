@@ -86,12 +86,13 @@ pub fn place(project_root: &Path, config: &PlaceConfig) -> Result<PlaceResult> {
         anyhow::bail!("No layout yet. Run `fotobuch build` first.");
     }
     if let Some(page) = config.into_page
-        && (page == 0 || page > mgr.state.layout.len())
+        && page >= mgr.state.layout.len()
     {
         anyhow::bail!(
-            "Invalid page {} (layout has {} pages)",
+            "Invalid page {} (layout has {} pages, indices 0..{})",
             page,
-            mgr.state.layout.len()
+            mgr.state.layout.len(),
+            mgr.state.layout.len().saturating_sub(1),
         );
     }
 
@@ -115,7 +116,7 @@ pub fn place(project_root: &Path, config: &PlaceConfig) -> Result<PlaceResult> {
 
     // 3. Place photos
     let pages_affected = if let Some(page) = config.into_page {
-        place_into_page(&mut mgr.state, &filtered, page - 1)
+        place_into_page(&mut mgr.state, &filtered, page)
     } else {
         place_chronologically(&mut mgr.state, &filtered)
     };
@@ -213,7 +214,7 @@ fn find_target_page(
 }
 
 /// Places photos chronologically onto appropriate pages
-/// Returns affected page numbers (1-based, sorted, deduplicated)
+/// Returns affected page indices (0-based, sorted, deduplicated)
 fn place_chronologically(state: &mut ProjectState, photos: &[&UnplacedPhoto]) -> Vec<usize> {
     let photo_index = build_photo_index(&state.photos);
     let page_ranges = compute_page_ranges(state, &photo_index);
@@ -223,7 +224,7 @@ fn place_chronologically(state: &mut ProjectState, photos: &[&UnplacedPhoto]) ->
     for photo in photos {
         let page_idx = find_target_page(photo.timestamp, &page_ranges);
         state.layout[page_idx].photos.push(photo.id.clone());
-        affected.insert(page_idx + 1);
+        affected.insert(page_idx);
     }
 
     let mut result: Vec<usize> = affected.into_iter().collect();
@@ -232,7 +233,7 @@ fn place_chronologically(state: &mut ProjectState, photos: &[&UnplacedPhoto]) ->
 }
 
 /// Places all photos onto a specific page
-/// Returns affected page number (as 1-based vector)
+/// Returns affected page index (0-based, as single-element vector)
 fn place_into_page(
     state: &mut ProjectState,
     photos: &[&UnplacedPhoto],
@@ -241,7 +242,7 @@ fn place_into_page(
     for photo in photos {
         state.layout[page_idx].photos.push(photo.id.clone());
     }
-    vec![page_idx + 1]
+    vec![page_idx]
 }
 
 /// Formats page list for commit message: "page 5" or "pages 2, 5, 8"
