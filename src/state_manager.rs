@@ -389,8 +389,10 @@ impl StateManager {
 
     /// If the on-disk YAML differs from the last committed version, auto-commit
     /// the manual edits with `"chore: manual edits — {summary}"`.
+    /// If loading the committed state fails (e.g., old incompatible YAML format),
+    /// warns and commits the current state as baseline.
     fn auto_commit_manual_edits(&mut self) -> Result<()> {
-        let committed_state = self.load_committed_state()?;
+        let committed_state = self.load_committed_state();
         let Some(committed) = committed_state else {
             // No previous commit for this file — nothing to compare
             return Ok(());
@@ -403,7 +405,12 @@ impl StateManager {
 
         let yaml_name = format!("{}.yaml", self.project_name);
         let commit_msg = format!("chore: manual edits — {}", diff.summary());
-        git::stage_and_commit(&self.repo, &[&yaml_name], &commit_msg)?;
+        if let Err(e) = git::stage_and_commit(&self.repo, &[&yaml_name], &commit_msg) {
+            warn!(
+                "Failed to auto-commit manual edits for {}: {} — continuing anyway",
+                yaml_name, e
+            );
+        }
 
         Ok(())
     }
@@ -411,8 +418,18 @@ impl StateManager {
     /// Load the project YAML from the latest commit (`HEAD:{name}.yaml`).
     ///
     /// Returns `None` when the file doesn't exist in HEAD yet (initial project state).
-    fn load_committed_state(&self) -> Result<Option<ProjectState>> {
-        self.load_state_from_spec(&format!("HEAD:{}.yaml", self.project_name))
+    /// If parsing fails (e.g., old incompatible YAML format), warns and returns `None`.
+    fn load_committed_state(&self) -> Option<ProjectState> {
+        match self.load_state_from_spec(&format!("HEAD:{}.yaml", self.project_name)) {
+            Ok(state) => state,
+            Err(e) => {
+                warn!(
+                    "Failed to load baseline state for {} from git: {} — treating as first change",
+                    self.project_name, e
+                );
+                None
+            }
+        }
     }
 
     /// Resolves `build_baseline` from `Pending` to either `Loaded` or `NoBuildCommit`.
