@@ -110,7 +110,7 @@ fn execute_move_to(
         DstMove::Unplace => unreachable!("Unplace handled above"),
     };
 
-    // For Slots variant: remove the slots and add to dst, then return early.
+    // For Slots variant: remove photos from src and add to dst.
     if let Src::Slots { page, .. } = &src {
         let src_page = *page;
         // Adjust src index if the new-page insert shifted it.
@@ -124,10 +124,19 @@ fn execute_move_to(
             (idx, slot_indices)
         };
         let dst_page_num = mgr.state.layout[dst_page_idx].page as u32;
-        remove_slots(&mut mgr.state.layout, idx, slot_indices);
+
+        // Remove photos from src slots (descending to keep indices stable)
+        let mut desc = slot_indices.clone();
+        desc.sort_unstable_by(|a, b| b.cmp(a));
+        for &i in &desc {
+            mgr.state.layout[idx].photos.remove(i);
+        }
+
+        // Add photos to dst
         for photo in &photos {
             mgr.state.layout[dst_page_idx].photos.push(photo.clone());
         }
+
         let deleted = delete_empty_pages(&mut mgr.state.layout);
         let mut modified = vec![src_page, dst_page_num];
         modified.retain(|p| !deleted.contains(p));
@@ -155,7 +164,6 @@ fn execute_move_to(
 
     for &idx in &src_page_indices {
         mgr.state.layout[idx].photos.clear();
-        mgr.state.layout[idx].slots.clear();
     }
 
     for photo in &photos {
@@ -235,6 +243,8 @@ fn execute_swap(
         }
     }
 
+    let swap_slots = left_photos.len() != right_photos.len();
+
     swap_photos_in_layout(
         &mut mgr.state.layout,
         left_page_idx,
@@ -243,6 +253,7 @@ fn execute_swap(
         right_page_idx,
         &right_slot_indices,
         &right_photos,
+        swap_slots,
     );
 
     let mut modified_pages = vec![
@@ -315,13 +326,14 @@ fn swap_photos_in_layout(
     right_page_idx: usize,
     right_slot_indices: &[usize],
     right_photos: &[String],
+    swap_slots: bool,
 ) {
     // Remove left photos (descending order to keep indices stable)
     let mut left_desc: Vec<usize> = left_slot_indices.to_vec();
     left_desc.sort_unstable_by(|a, b| b.cmp(a));
     for &i in &left_desc {
         layout[left_page_idx].photos.remove(i);
-        if i < layout[left_page_idx].slots.len() {
+        if swap_slots && i < layout[left_page_idx].slots.len() {
             layout[left_page_idx].slots.remove(i);
         }
     }
@@ -336,7 +348,7 @@ fn swap_photos_in_layout(
     right_desc.sort_unstable_by(|a, b| b.cmp(a));
     for &i in &right_desc {
         layout[right_page_idx].photos.remove(i);
-        if i < layout[right_page_idx].slots.len() {
+        if swap_slots && i < layout[right_page_idx].slots.len() {
             layout[right_page_idx].slots.remove(i);
         }
     }
