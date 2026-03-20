@@ -84,8 +84,15 @@ fn print_dry_run(result: &commands::AddResult) {
     if result.groups_added.is_empty() {
         info!("ℹ️  No photos would be added.");
     } else {
+        info!("Would add:");
+        for group in &result.groups_added {
+            info!(
+                "   📁 {} — {} photos ({})",
+                group.name, group.photo_count, group.timestamp
+            );
+        }
         info!(
-            "Would add {} photos in {} groups:",
+            "... {} photos in {} groups.",
             result
                 .groups_added
                 .iter()
@@ -93,12 +100,6 @@ fn print_dry_run(result: &commands::AddResult) {
                 .sum::<usize>(),
             result.groups_added.len()
         );
-        for group in &result.groups_added {
-            info!(
-                "   📁 {} — {} photos ({})",
-                group.name, group.photo_count, group.timestamp
-            );
-        }
     }
 
     print_shared_stats(result);
