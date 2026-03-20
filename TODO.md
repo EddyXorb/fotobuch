@@ -23,6 +23,7 @@ To be done in this order
 
 ## to improve it further
 
+- [ ] rare bug: image gets a rotated slot after build (so aspect ratio is wrong), happened with last image on page with 7 images, where the last was taking the whole height of the canvas, unclear
 - [ ] preview config is not applied in template - remove or fix it
 - [ ] cli should habe a command to output the template again
 - [ ] `fotobuch config` should output also cover options
