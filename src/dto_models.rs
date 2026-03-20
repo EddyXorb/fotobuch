@@ -12,7 +12,7 @@ mod state;
 
 pub use config::{
     BookConfig, BookLayoutSolverConfig, CanvasConfig, CoverConfig, FitnessWeights, GaConfig,
-    PreviewConfig, ProjectConfig, ValidationError,
+    PreviewConfig, ProjectConfig, SpineConfig, ValidationError,
 };
 pub use layout::{LayoutPage, Slot};
 pub use photos::{PhotoFile, PhotoGroup};

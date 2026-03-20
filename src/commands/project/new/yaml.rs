@@ -5,8 +5,10 @@ use std::fs;
 use std::path::Path;
 
 use crate::dto_models::{
-    BookConfig, BookLayoutSolverConfig, GaConfig, PreviewConfig, ProjectConfig, ProjectState,
+    BookConfig, BookLayoutSolverConfig, CoverConfig, GaConfig, PreviewConfig, ProjectConfig,
+    ProjectState, SpineConfig,
 };
+use tracing::warn;
 
 /// Generate default project state with given dimensions
 pub fn generate_default_state(
@@ -14,7 +16,45 @@ pub fn generate_default_state(
     width_mm: f64,
     height_mm: f64,
     bleed_mm: f64,
+    with_cover: bool,
+    cover_width_mm: Option<f64>,
+    cover_height_mm: Option<f64>,
+    spine_grow_per_10_pages_mm: Option<f64>,
+    spine_mm: Option<f64>,
 ) -> ProjectState {
+    let cover = if with_cover {
+        let cw = cover_width_mm.unwrap_or_else(|| {
+            warn!("--with-cover set but --cover-width not provided, using page_width * 2");
+            width_mm * 2.0
+        });
+        let ch = cover_height_mm.unwrap_or_else(|| {
+            warn!("--with-cover set but --cover-height not provided, using page_height");
+            height_mm
+        });
+        let spine_config = if let Some(rate) = spine_grow_per_10_pages_mm {
+            SpineConfig::Auto {
+                spine_mm_per_10_pages: rate,
+            }
+        } else {
+            SpineConfig::Fixed {
+                spine_width_mm: spine_mm.expect("validated in CLI handler"),
+            }
+        };
+        CoverConfig {
+            active: true,
+            spine: spine_config,
+            front_back_width_mm: cw,
+            height_mm: ch,
+            spine_text: None,
+            bleed_mm,
+            margin_mm: 0.0,
+            gap_mm: 5.0,
+            bleed_threshold_mm: 3.0,
+        }
+    } else {
+        CoverConfig::default()
+    };
+
     ProjectState {
         config: ProjectConfig {
             book: BookConfig {
@@ -26,7 +66,7 @@ pub fn generate_default_state(
                 gap_mm: 5.0,
                 bleed_threshold_mm: 3.0,
                 dpi: 300.0,
-                cover: Default::default(),
+                cover,
             },
             page_layout_solver: GaConfig::default(),
             preview: PreviewConfig::default(),
@@ -54,11 +94,12 @@ mod tests {
 
     #[test]
     fn test_generate_default_state() {
-        let state = generate_default_state("test", 210.0, 297.0, 3.0);
+        let state = generate_default_state("test", 210.0, 297.0, 3.0, false, None, None, None, None);
 
         assert_eq!(state.config.book.page_width_mm, 210.0);
         assert_eq!(state.config.book.page_height_mm, 297.0);
         assert_eq!(state.config.book.bleed_mm, 3.0);
+        assert!(!state.config.book.cover.active);
         assert!(state.photos.is_empty());
         assert!(state.layout.is_empty());
     }
@@ -68,7 +109,7 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let yaml_path = temp_dir.path().join("test.yaml");
 
-        let state = generate_default_state("test", 210.0, 297.0, 3.0);
+        let state = generate_default_state("test", 210.0, 297.0, 3.0, false, None, None, None, None);
         write_yaml(&yaml_path, &state).unwrap();
 
         assert!(yaml_path.exists());
