@@ -174,11 +174,11 @@ impl From<ValidationError> for PageMoveError {
 /// Summary of what a page command changed.
 #[derive(Debug)]
 pub struct PageMoveResult {
-    /// Pages whose photo list changed (need rebuild), 1-based.
+    /// Pages whose photo list changed (need rebuild), 0-based.
     pub pages_modified: Vec<u32>,
-    /// Pages that were newly inserted, 1-based.
+    /// Pages that were newly inserted, 0-based.
     pub pages_inserted: Vec<u32>,
-    /// Pages that were deleted, 1-based (original numbers before deletion).
+    /// Pages that were deleted, 0-based (original numbers before deletion).
     pub pages_deleted: Vec<u32>,
 }
 
@@ -209,9 +209,9 @@ impl InfoFilter {
 /// Per-slot info record returned by `execute_info`.
 #[derive(Debug, Clone)]
 pub struct SlotInfo {
-    /// 1-based page number.
+    /// 0-based page number.
     pub page: u32,
-    /// 1-based slot number.
+    /// 0-based slot number.
     pub slot: u32,
     pub id: String,
     pub source: String,

@@ -9,7 +9,7 @@ use super::types::{PageMoveError, PageMoveResult, PagesExpr, ValidationError};
 
 /// Combine all given pages onto the first page and delete the rest.
 ///
-/// Pages in `pages_expr` must be 1-based. At least two pages required.
+/// Pages in `pages_expr` must be 0-based. At least two pages required.
 pub fn execute_combine(
     project_root: &Path,
     pages_expr: PagesExpr,
@@ -77,9 +77,9 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         setup_repo(&tmp, &state);
 
-        let pages = PagesExpr::from_range(1, 3);
+        let pages = PagesExpr::from_range(0, 2);
         let result = execute_combine(tmp.path(), pages).unwrap();
-        assert_eq!(result.pages_deleted, vec![2, 3]);
+        assert_eq!(result.pages_deleted, vec![1, 2]);
 
         let mgr = StateManager::open(tmp.path()).unwrap();
         assert_eq!(mgr.state.layout.len(), 1);
@@ -93,11 +93,11 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         setup_repo(&tmp, &state);
 
-        let pages = PagesExpr::single(1);
+        let pages = PagesExpr::single(0);
         let result = execute_combine(tmp.path(), pages);
         assert!(matches!(
             result,
-            Err(PageMoveError::Validation(ValidationError::CombineSinglePage(1)))
+            Err(PageMoveError::Validation(ValidationError::CombineSinglePage(0)))
         ));
     }
 }

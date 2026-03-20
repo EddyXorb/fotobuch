@@ -96,7 +96,7 @@ fn execute_move_to(
         DstMove::NewPageAfter(p) => {
             let after_idx = page_idx(*p, &mgr.state.layout)?;
             let new_idx = after_idx + 1;
-            let new_page_num = new_idx + 1; // will be renumbered by finish()
+            let new_page_num = new_idx; // will be renumbered by finish()
             mgr.state.layout.insert(
                 new_idx,
                 LayoutPage {
@@ -380,11 +380,11 @@ mod tests {
         setup_repo(&tmp, &state);
 
         let cmd = PageMoveCmd::Move {
-            src: Src::Pages(PagesExpr::single(2)),
-            dst: DstMove::Page(1),
+            src: Src::Pages(PagesExpr::single(1)),
+            dst: DstMove::Page(0),
         };
         let result = execute_move(tmp.path(), cmd).unwrap();
-        assert!(result.pages_deleted.contains(&2));
+        assert!(result.pages_deleted.contains(&1));
 
         let mgr = StateManager::open(tmp.path()).unwrap();
         assert_eq!(mgr.state.layout.len(), 1);
@@ -404,11 +404,11 @@ mod tests {
         setup_repo(&tmp, &state);
 
         let cmd = PageMoveCmd::Move {
-            src: Src::Pages(PagesExpr::single(1)),
+            src: Src::Pages(PagesExpr::single(0)),
             dst: DstMove::Unplace,
         };
         let result = execute_move(tmp.path(), cmd).unwrap();
-        assert_eq!(result.pages_deleted, vec![1]);
+        assert_eq!(result.pages_deleted, vec![0]);
         assert!(result.pages_modified.is_empty());
 
         let mgr = StateManager::open(tmp.path()).unwrap();
@@ -425,13 +425,13 @@ mod tests {
 
         let cmd = PageMoveCmd::Move {
             src: Src::Slots {
-                page: 1,
-                slots: SlotExpr::from_range(1, 2),
+                page: 0,
+                slots: SlotExpr::from_range(0, 1),
             },
             dst: DstMove::Unplace,
         };
         let result = execute_move(tmp.path(), cmd).unwrap();
-        assert_eq!(result.pages_modified, vec![1]);
+        assert_eq!(result.pages_modified, vec![0]);
         assert!(result.pages_deleted.is_empty());
 
         let mgr = StateManager::open(tmp.path()).unwrap();
@@ -450,10 +450,10 @@ mod tests {
 
         let cmd = PageMoveCmd::Move {
             src: Src::Slots {
-                page: 1,
-                slots: SlotExpr::single(1),
+                page: 0,
+                slots: SlotExpr::single(0),
             },
-            dst: DstMove::NewPageAfter(1),
+            dst: DstMove::NewPageAfter(0),
         };
         let result = execute_move(tmp.path(), cmd).unwrap();
         assert!(!result.pages_inserted.is_empty());
@@ -477,16 +477,16 @@ mod tests {
 
         let cmd = PageMoveCmd::Move {
             src: Src::Slots {
-                page: 2,
-                slots: SlotExpr::single(1),
+                page: 1,
+                slots: SlotExpr::single(0),
             },
-            dst: DstMove::NewPageAfter(1),
+            dst: DstMove::NewPageAfter(0),
         };
         let result = execute_move(tmp.path(), cmd).unwrap();
         assert!(!result.pages_inserted.is_empty());
 
         let mgr = StateManager::open(tmp.path()).unwrap();
-        // Original page 1, new page (with p1.jpg), original page 2 (with p2.jpg)
+        // Original page 0, new page (with p1.jpg), original page 1 (with p2.jpg)
         assert_eq!(mgr.state.layout.len(), 3);
         assert_eq!(mgr.state.layout[0].photos, vec!["p0.jpg"]);
         assert!(mgr.state.layout[1].photos.contains(&"p1.jpg".to_owned()));
@@ -503,16 +503,16 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         setup_repo(&tmp, &state);
 
-        // Move the only slot from page 1 to page 2 → page 1 becomes empty → deleted
+        // Move the only slot from page 0 to page 1 → page 0 becomes empty → deleted
         let cmd = PageMoveCmd::Move {
             src: Src::Slots {
-                page: 1,
-                slots: SlotExpr::single(1),
+                page: 0,
+                slots: SlotExpr::single(0),
             },
-            dst: DstMove::Page(2),
+            dst: DstMove::Page(1),
         };
         let result = execute_move(tmp.path(), cmd).unwrap();
-        assert!(result.pages_deleted.contains(&1));
+        assert!(result.pages_deleted.contains(&0));
 
         let mgr = StateManager::open(tmp.path()).unwrap();
         assert_eq!(mgr.state.layout.len(), 1);
@@ -529,16 +529,16 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         setup_repo(&tmp, &state);
 
-        // Unplace all slots from page 1 → page 1 becomes empty → deleted
+        // Unplace all slots from page 0 → page 0 becomes empty → deleted
         let cmd = PageMoveCmd::Move {
             src: Src::Slots {
-                page: 1,
-                slots: SlotExpr::from_range(1, 2),
+                page: 0,
+                slots: SlotExpr::from_range(0, 1),
             },
             dst: DstMove::Unplace,
         };
         let result = execute_move(tmp.path(), cmd).unwrap();
-        assert!(result.pages_deleted.contains(&1));
+        assert!(result.pages_deleted.contains(&0));
         assert!(result.pages_modified.is_empty());
 
         let mgr = StateManager::open(tmp.path()).unwrap();
@@ -558,13 +558,13 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         setup_repo(&tmp, &state);
 
-        // Equal-size block transposition: [1,2] ↔ [3,4]
+        // Equal-size block transposition: [0,1] ↔ [2,3]
         let cmd = PageMoveCmd::Swap {
-            left: Src::Pages(PagesExpr::from_range(1, 2)),
-            right: super::super::types::DstSwap::Pages(PagesExpr::from_range(3, 4)),
+            left: Src::Pages(PagesExpr::from_range(0, 1)),
+            right: super::super::types::DstSwap::Pages(PagesExpr::from_range(2, 3)),
         };
         let result = execute_move(tmp.path(), cmd).unwrap();
-        assert_eq!(result.pages_modified, vec![1, 2, 3, 4]);
+        assert_eq!(result.pages_modified, vec![0, 1, 2, 3]);
 
         let mgr = StateManager::open(tmp.path()).unwrap();
         assert_eq!(mgr.state.layout[0].photos, vec!["c1.jpg", "c2.jpg", "c3.jpg"]);
@@ -576,7 +576,7 @@ mod tests {
 
     #[test]
     fn test_execute_swap_page_range_unequal_sizes_with_middle() {
-        // [1,2] ↔ [4,5,6] with page 3 as middle
+        // [0,1] ↔ [3,4,5] with page 2 as middle
         // before: [a, b, M, c, d, e]
         // after:  [c, d, e, M, a, b]
         let state = make_state_with_layout(vec![
@@ -591,11 +591,11 @@ mod tests {
         setup_repo(&tmp, &state);
 
         let cmd = PageMoveCmd::Swap {
-            left: Src::Pages(PagesExpr::from_range(1, 2)),
-            right: super::super::types::DstSwap::Pages(PagesExpr::from_range(4, 6)),
+            left: Src::Pages(PagesExpr::from_range(0, 1)),
+            right: super::super::types::DstSwap::Pages(PagesExpr::from_range(3, 5)),
         };
         let result = execute_move(tmp.path(), cmd).unwrap();
-        assert_eq!(result.pages_modified, vec![1, 2, 4, 5, 6]);
+        assert_eq!(result.pages_modified, vec![0, 1, 3, 4, 5]);
 
         let mgr = StateManager::open(tmp.path()).unwrap();
         assert_eq!(mgr.state.layout[0].photos, vec!["c.jpg"]);
@@ -619,8 +619,8 @@ mod tests {
         setup_repo(&tmp, &state);
 
         let cmd = PageMoveCmd::Swap {
-            left: Src::Pages(PagesExpr::from_list(vec![1, 3])),
-            right: super::super::types::DstSwap::Pages(PagesExpr::from_list(vec![2, 4])),
+            left: Src::Pages(PagesExpr::from_list(vec![0, 2])),
+            right: super::super::types::DstSwap::Pages(PagesExpr::from_list(vec![1, 3])),
         };
         let err = execute_move(tmp.path(), cmd).unwrap_err();
         assert!(matches!(
@@ -640,8 +640,8 @@ mod tests {
         setup_repo(&tmp, &state);
 
         let cmd = PageMoveCmd::Swap {
-            left: Src::Pages(PagesExpr::from_range(1, 2)),
-            right: super::super::types::DstSwap::Pages(PagesExpr::from_range(2, 3)),
+            left: Src::Pages(PagesExpr::from_range(0, 1)),
+            right: super::super::types::DstSwap::Pages(PagesExpr::from_range(1, 2)),
         };
         let err = execute_move(tmp.path(), cmd).unwrap_err();
         assert!(matches!(
@@ -652,19 +652,19 @@ mod tests {
 
     #[test]
     fn test_execute_swap_same_page_slots_allowed() {
-        // swap 1:1 1:3 — slot 1 and slot 3 on the same page swap positions.
+        // swap 0:0 0:2 — slot 0 and slot 2 on the same page swap positions.
         let state = make_state_with_layout(vec![vec!["a.jpg", "b.jpg", "c.jpg"]]);
         let tmp = TempDir::new().unwrap();
         setup_repo(&tmp, &state);
 
         let cmd = PageMoveCmd::Swap {
             left: Src::Slots {
-                page: 1,
-                slots: SlotExpr::single(1),
+                page: 0,
+                slots: SlotExpr::single(0),
             },
             right: super::super::types::DstSwap::Slots {
-                page: 1,
-                slots: SlotExpr::single(3),
+                page: 0,
+                slots: SlotExpr::single(2),
             },
         };
         execute_move(tmp.path(), cmd).unwrap();
@@ -682,12 +682,12 @@ mod tests {
 
         let cmd = PageMoveCmd::Swap {
             left: Src::Slots {
-                page: 1,
-                slots: SlotExpr::from_range(1, 2),
+                page: 0,
+                slots: SlotExpr::from_range(0, 1),
             },
             right: super::super::types::DstSwap::Slots {
-                page: 1,
-                slots: SlotExpr::from_range(2, 3),
+                page: 0,
+                slots: SlotExpr::from_range(1, 2),
             },
         };
         let err = execute_move(tmp.path(), cmd).unwrap_err();

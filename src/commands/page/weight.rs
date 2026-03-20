@@ -67,7 +67,7 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         setup_repo(&tmp, &state);
 
-        execute_weight(tmp.path(), WeightAddress::Page(1), 2.5).unwrap();
+        execute_weight(tmp.path(), WeightAddress::Page(0), 2.5).unwrap();
 
         let mgr = StateManager::open(tmp.path()).unwrap();
         let files = &mgr.state.photos[0].files;
@@ -86,7 +86,7 @@ mod tests {
 
         execute_weight(
             tmp.path(),
-            WeightAddress::Slots { page: 1, slots: SlotExpr::from_range(1, 2) },
+            WeightAddress::Slots { page: 0, slots: SlotExpr::from_range(0, 1) },
             3.0,
         ).unwrap();
 
@@ -104,7 +104,7 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         setup_repo(&tmp, &state);
 
-        let err = execute_weight(tmp.path(), WeightAddress::Page(1), 0.0).unwrap_err();
+        let err = execute_weight(tmp.path(), WeightAddress::Page(0), 0.0).unwrap_err();
         assert!(matches!(
             err,
             PageMoveError::Validation(ValidationError::WeightOutOfRange(_))
