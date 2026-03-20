@@ -21,7 +21,7 @@ pub fn make_state_with_layout(pages: Vec<Vec<&str>>) -> ProjectState {
         .into_iter()
         .enumerate()
         .map(|(i, photos)| LayoutPage {
-            page: i + 1,
+            page: i,
             photos: photos.iter().map(|s| s.to_string()).collect(),
             slots: (0..photos.len()).map(|_| make_slot()).collect(),
         })

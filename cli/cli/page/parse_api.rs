@@ -95,7 +95,7 @@ pub fn parse_weight_address(raw: &str) -> Result<WeightAddress, ParseError> {
             return Err(ParseError::UnexpectedToken {
                 got: format!("{t:?}"),
                 expected: "':'",
-            })
+            });
         }
         None => return Err(ParseError::UnexpectedEnd { expected: "':'" }),
     }

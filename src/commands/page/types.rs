@@ -108,6 +108,7 @@ pub enum PageMoveCmd {
 pub enum ValidationError {
     PageNotFound(u32),
     SlotNotFound { page: u32, slot: u32 },
+    SlotEmpty { page: u32, slot: u32 },
     SwapRangesOverlap,
     SwapNonContiguous,
     CombineSinglePage(u32),
@@ -121,6 +122,9 @@ impl std::fmt::Display for ValidationError {
             Self::PageNotFound(p) => write!(f, "page {p} does not exist"),
             Self::SlotNotFound { page, slot } => {
                 write!(f, "slot {slot} does not exist on page {page}")
+            }
+            Self::SlotEmpty { page, slot } => {
+                write!(f, "slot {slot} on page {page} is empty (no photo)")
             }
             Self::SwapRangesOverlap => write!(f, "swap ranges must not overlap"),
             Self::SwapNonContiguous => {
