@@ -23,7 +23,7 @@ pub(crate) fn resolve_slots(
     layout: &[LayoutPage],
 ) -> Result<Vec<usize>, ValidationError> {
     let idx = page_idx(page, layout)?;
-    let n_slots = layout[idx].photos.len();
+    let n_slots = layout[idx].slots.len();
     let mut result = Vec::new();
     for item in &slot_expr.items {
         match item {
@@ -52,15 +52,23 @@ pub(crate) fn resolve_slots(
 }
 
 /// Collect photo IDs at the given 0-based slot indices on a page.
+/// Returns error if any slot has no photo (index out of bounds in photos array).
 pub(super) fn photos_at_slots(
     layout: &[LayoutPage],
     page_idx: usize,
     slot_indices: &[usize],
-) -> Vec<String> {
-    slot_indices
-        .iter()
-        .map(|&i| layout[page_idx].photos[i].clone())
-        .collect()
+) -> Result<Vec<String>, ValidationError> {
+    let mut photos = Vec::new();
+    for &i in slot_indices {
+        if i >= layout[page_idx].photos.len() {
+            return Err(ValidationError::SlotEmpty {
+                page: layout[page_idx].page as u32,
+                slot: i as u32 + 1,
+            });
+        }
+        photos.push(layout[page_idx].photos[i].clone());
+    }
+    Ok(photos)
 }
 
 /// Remove all pages with no photos from the layout.
@@ -114,7 +122,7 @@ pub(super) fn collect_src_photos(
         Src::Slots { page, slots } => {
             let idx = page_idx(*page, layout)?;
             let slot_indices = resolve_slots(*page, slots, layout)?;
-            let photos = photos_at_slots(layout, idx, &slot_indices);
+            let photos = photos_at_slots(layout, idx, &slot_indices)?;
             Ok((photos, vec![idx]))
         }
     }
@@ -137,7 +145,7 @@ pub(super) fn collect_src_photos_with_indices(
         Src::Slots { page, slots } => {
             let idx = page_idx(*page, layout)?;
             let slot_indices = resolve_slots(*page, slots, layout)?;
-            let photos = photos_at_slots(layout, idx, &slot_indices);
+            let photos = photos_at_slots(layout, idx, &slot_indices)?;
             Ok((photos, idx, slot_indices))
         }
     }
@@ -158,7 +166,7 @@ pub(super) fn collect_dst_swap_photos_with_indices(
         DstSwap::Slots { page, slots } => {
             let idx = page_idx(*page, layout)?;
             let slot_indices = resolve_slots(*page, slots, layout)?;
-            let photos = photos_at_slots(layout, idx, &slot_indices);
+            let photos = photos_at_slots(layout, idx, &slot_indices)?;
             Ok((photos, idx, slot_indices))
         }
     }
