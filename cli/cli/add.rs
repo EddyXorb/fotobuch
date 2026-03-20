@@ -14,6 +14,7 @@ pub fn handle(
     dry: bool,
     update: bool,
     recursive: bool,
+    weight: f64,
 ) -> Result<()> {
     let project_root = std::env::current_dir().context("Failed to determine current directory")?;
 
@@ -37,6 +38,7 @@ pub fn handle(
         dry_run: dry,
         update,
         recursive,
+        weight,
     };
 
     let result = commands::add(&project_root, &config)?;

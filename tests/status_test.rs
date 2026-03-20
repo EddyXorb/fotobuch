@@ -43,6 +43,7 @@ fn create_test_project_with_layout(temp_dir: &TempDir) -> Result<PathBuf> {
         dry_run: false,
         update: false,
         recursive: true,
+        weight: 1.0,
     };
     add(&project_root, &add_config)?;
 

@@ -36,6 +36,8 @@ pub struct AddConfig {
     pub update: bool,
     /// Scan directories recursively (each subdir becomes its own group)
     pub recursive: bool,
+    /// Area weight for all imported photos (default: 1.0)
+    pub weight: f64,
 }
 
 /// Summary of a single added (or would-be-added) group
@@ -122,6 +124,10 @@ pub fn add(project_root: &Path, config: &AddConfig) -> Result<AddResult> {
     let total_source_filtered = scan_output.stats.source_filtered;
 
     for mut scanned_group in scan_output.groups {
+        for file in &mut scanned_group.files {
+            file.area_weight = config.weight;
+        }
+
         let (kept_files, updated_files, skipped, warnings) = deduplicate(
             &mut scanned_group.files,
             &existing_paths,

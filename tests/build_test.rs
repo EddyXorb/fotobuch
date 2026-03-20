@@ -50,6 +50,7 @@ fn create_test_project_with_photos(temp_dir: &TempDir) -> Result<PathBuf> {
         dry_run: false,
         update: false,
         recursive: true,
+        weight: 1.0,
     };
     add(&project_root, &add_config)?;
 
@@ -98,6 +99,7 @@ fn create_test_project_with_artificial_photos_3(temp_dir: &TempDir) -> Result<Pa
         dry_run: false,
         update: false,
         recursive: false,
+        weight: 1.0,
     };
     add(&project_root, &add_config)?;
 
