@@ -13,6 +13,7 @@ pub fn handle(
     filter: Vec<String>,
     dry: bool,
     update: bool,
+    recursive: bool,
 ) -> Result<()> {
     let project_root = std::env::current_dir().context("Failed to determine current directory")?;
 
@@ -35,6 +36,7 @@ pub fn handle(
         source_filters,
         dry_run: dry,
         update,
+        recursive,
     };
 
     let result = commands::add(&project_root, &config)?;

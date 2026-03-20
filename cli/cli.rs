@@ -58,6 +58,10 @@ pub enum Commands {
         /// Re-add photos whose path already exists but whose content has changed
         #[arg(long)]
         update: bool,
+
+        /// Scan directories recursively (each subdir becomes its own group)
+        #[arg(long, short = 'r')]
+        recursive: bool,
     },
 
     /// Calculate layout and generate preview or final PDF
@@ -341,6 +345,7 @@ impl Execute for Commands {
                 filter,
                 dry,
                 update,
+                recursive,
             } => add::handle(
                 paths.clone(),
                 *allow_duplicates,
@@ -348,6 +353,7 @@ impl Execute for Commands {
                 filter.to_vec(),
                 *dry,
                 *update,
+                *recursive,
             ),
             Commands::Build { release, pages } => build::handle(*release, pages.clone()),
             Commands::Rebuild {

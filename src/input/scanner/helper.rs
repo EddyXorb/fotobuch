@@ -8,18 +8,24 @@ pub fn naive_to_utc(naive: NaiveDateTime) -> DateTime<chrono::Utc> {
     DateTime::<chrono::Utc>::from_naive_utc_and_offset(naive, chrono::Utc)
 }
 
-/// Returns all direct subdirectories of the given root path.
-pub fn get_subdirs(root: &Path) -> Result<Vec<PathBuf>> {
-    let entries =
-        std::fs::read_dir(root).with_context(|| format!("Cannot read directory {:?}", root))?;
+/// Returns all directories reachable from `root` (including `root` itself), recursively.
+pub fn get_all_dirs_recursive(root: &Path) -> Result<Vec<PathBuf>> {
+    let mut result = vec![root.to_path_buf()];
+    let mut queue = vec![root.to_path_buf()];
 
-    let dirs = entries
-        .filter_map(|e| e.ok())
-        .map(|e| e.path())
-        .filter(|p| p.is_dir())
-        .collect();
+    while let Some(dir) = queue.pop() {
+        let entries = std::fs::read_dir(&dir)
+            .with_context(|| format!("Cannot read directory {:?}", dir))?;
+        for entry in entries.filter_map(|e| e.ok()) {
+            let path = entry.path();
+            if path.is_dir() {
+                result.push(path.clone());
+                queue.push(path);
+            }
+        }
+    }
 
-    Ok(dirs)
+    Ok(result)
 }
 
 pub fn is_supported_image(path: &Path) -> bool {

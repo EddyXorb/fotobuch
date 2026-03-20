@@ -12,6 +12,8 @@ pub struct ScannerInput {
     pub xmp_filters: Vec<Regex>,
     /// Filters for source file path (all must match)
     pub source_filters: Vec<Regex>,
+    /// Scan directories recursively (each subdir becomes its own group)
+    pub recursive: bool,
 }
 
 /// Statistics from photo scanning.

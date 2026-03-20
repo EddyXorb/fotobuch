@@ -34,6 +34,8 @@ pub struct AddConfig {
     pub dry_run: bool,
     /// Re-add photos whose path already exists but whose content (hash) has changed
     pub update: bool,
+    /// Scan directories recursively (each subdir becomes its own group)
+    pub recursive: bool,
 }
 
 /// Summary of a single added (or would-be-added) group
@@ -113,6 +115,7 @@ pub fn add(project_root: &Path, config: &AddConfig) -> Result<AddResult> {
         paths: config.paths.clone(),
         xmp_filters: config.xmp_filters.clone(),
         source_filters: config.source_filters.clone(),
+        recursive: config.recursive,
     })?;
 
     let total_xmp_filtered = scan_output.stats.xmp_filtered;
