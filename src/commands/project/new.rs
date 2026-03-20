@@ -29,6 +29,16 @@ pub struct NewConfig {
     pub bleed_mm: f64,
     /// Quiet mode (suppress welcome message)
     pub quiet: bool,
+    /// Create project with active cover
+    pub with_cover: bool,
+    /// Cover width (defaults to width_mm * 2 if with_cover and not provided)
+    pub cover_width_mm: Option<f64>,
+    /// Cover height (defaults to height_mm if with_cover and not provided)
+    pub cover_height_mm: Option<f64>,
+    /// Spine auto mode: mm per 10 inner pages
+    pub spine_grow_per_10_pages_mm: Option<f64>,
+    /// Spine fixed mode: fixed width in mm
+    pub spine_mm: Option<f64>,
 }
 
 /// Result of project creation
@@ -135,6 +145,11 @@ fn create_first_project(parent_dir: &Path, config: &NewConfig) -> Result<NewResu
         config.width_mm,
         config.height_mm,
         config.bleed_mm,
+        config.with_cover,
+        config.cover_width_mm,
+        config.cover_height_mm,
+        config.spine_grow_per_10_pages_mm,
+        config.spine_mm,
     );
     yaml::write_yaml(&yaml_path, &state)?;
 
@@ -206,6 +221,11 @@ fn create_additional_project(repo_root: &Path, config: &NewConfig) -> Result<New
         config.width_mm,
         config.height_mm,
         config.bleed_mm,
+        config.with_cover,
+        config.cover_width_mm,
+        config.cover_height_mm,
+        config.spine_grow_per_10_pages_mm,
+        config.spine_mm,
     );
     yaml::write_yaml(&yaml_path, &state)?;
 
@@ -272,6 +292,11 @@ mod tests {
             height_mm: 297.0,
             bleed_mm: 3.0,
             quiet: true,
+            with_cover: false,
+            cover_width_mm: None,
+            cover_height_mm: None,
+            spine_grow_per_10_pages_mm: None,
+            spine_mm: None,
         };
 
         let result = project_new(temp_dir.path(), &config).unwrap();
@@ -305,6 +330,11 @@ mod tests {
             height_mm: 250.0,
             bleed_mm: 5.0,
             quiet: true,
+            with_cover: false,
+            cover_width_mm: None,
+            cover_height_mm: None,
+            spine_grow_per_10_pages_mm: None,
+            spine_mm: None,
         };
 
         let result = project_new(temp_dir.path(), &config).unwrap();
@@ -324,6 +354,11 @@ mod tests {
             height_mm: 297.0,
             bleed_mm: 3.0,
             quiet: true,
+            with_cover: false,
+            cover_width_mm: None,
+            cover_height_mm: None,
+            spine_grow_per_10_pages_mm: None,
+            spine_mm: None,
         };
 
         let result = project_new(temp_dir.path(), &config).unwrap();
@@ -342,6 +377,11 @@ mod tests {
             height_mm: 297.0,
             bleed_mm: 3.0,
             quiet: true,
+            with_cover: false,
+            cover_width_mm: None,
+            cover_height_mm: None,
+            spine_grow_per_10_pages_mm: None,
+            spine_mm: None,
         };
 
         let result = project_new(temp_dir.path(), &config);
@@ -357,6 +397,11 @@ mod tests {
             height_mm: 297.0,
             bleed_mm: 3.0,
             quiet: true,
+            with_cover: false,
+            cover_width_mm: None,
+            cover_height_mm: None,
+            spine_grow_per_10_pages_mm: None,
+            spine_mm: None,
         };
 
         // Create first project

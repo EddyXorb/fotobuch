@@ -14,6 +14,11 @@ pub enum ProjectSubcommand {
         bleed: f64,
         parent_dir: Option<PathBuf>,
         quiet: bool,
+        with_cover: bool,
+        cover_width: Option<f64>,
+        cover_height: Option<f64>,
+        spine_grow_per_10_pages_mm: Option<f64>,
+        spine_mm: Option<f64>,
     },
     List,
     Switch {
@@ -30,7 +35,17 @@ pub fn handle(command: ProjectSubcommand) -> Result<()> {
             bleed,
             parent_dir,
             quiet,
+            with_cover,
+            cover_width,
+            cover_height,
+            spine_grow_per_10_pages_mm,
+            spine_mm,
         } => {
+            // Validate spine args if cover is requested
+            if with_cover && spine_grow_per_10_pages_mm.is_none() && spine_mm.is_none() {
+                anyhow::bail!("--with-cover requires either --spine-grow-per-10-pages-mm or --spine-mm");
+            }
+
             let parent = parent_dir
                 .as_deref()
                 .unwrap_or_else(|| std::path::Path::new("."));
@@ -41,6 +56,11 @@ pub fn handle(command: ProjectSubcommand) -> Result<()> {
                 height_mm: height,
                 bleed_mm: bleed,
                 quiet,
+                with_cover,
+                cover_width_mm: cover_width,
+                cover_height_mm: cover_height,
+                spine_grow_per_10_pages_mm,
+                spine_mm,
             };
 
             let result = commands::project_new(parent, &config)?;

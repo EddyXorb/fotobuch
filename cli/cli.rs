@@ -299,6 +299,26 @@ pub enum ProjectCommands {
         /// Suppress welcome message
         #[arg(long, default_value_t = false)]
         quiet: bool,
+
+        /// Create project with an active cover page
+        #[arg(long, default_value_t = false)]
+        with_cover: bool,
+
+        /// Cover width in millimeters (defaults to page_width * 2 if --with-cover is set, with warning)
+        #[arg(long, requires = "with_cover")]
+        cover_width: Option<f64>,
+
+        /// Cover height in millimeters (defaults to page_height if --with-cover is set, with warning)
+        #[arg(long, requires = "with_cover")]
+        cover_height: Option<f64>,
+
+        /// Spine width growth per 10 inner pages in mm (auto mode, conflicts with --spine-mm)
+        #[arg(long, requires = "with_cover", conflicts_with = "spine_mm")]
+        spine_grow_per_10_pages_mm: Option<f64>,
+
+        /// Fixed spine width in mm (conflicts with --spine-grow-per-10-pages-mm)
+        #[arg(long, requires = "with_cover", conflicts_with = "spine_grow_per_10_pages_mm")]
+        spine_mm: Option<f64>,
     },
 
     /// List all photobook projects
@@ -381,6 +401,11 @@ impl Execute for ProjectCommands {
                 bleed,
                 parent_dir,
                 quiet,
+                with_cover,
+                cover_width,
+                cover_height,
+                spine_grow_per_10_pages_mm,
+                spine_mm,
             } => project::handle(project::ProjectSubcommand::New {
                 name: name.clone(),
                 width: *width,
@@ -388,6 +413,11 @@ impl Execute for ProjectCommands {
                 bleed: *bleed,
                 parent_dir: parent_dir.clone(),
                 quiet: *quiet,
+                with_cover: *with_cover,
+                cover_width: *cover_width,
+                cover_height: *cover_height,
+                spine_grow_per_10_pages_mm: *spine_grow_per_10_pages_mm,
+                spine_mm: *spine_mm,
             }),
             ProjectCommands::List => project::handle(project::ProjectSubcommand::List),
             ProjectCommands::Switch { name } => {
