@@ -14,6 +14,14 @@ pub enum SpineConfig {
     Fixed { spine_width_mm: f64 },
 }
 
+impl Default for SpineConfig {
+    fn default() -> Self {
+        SpineConfig::Auto {
+            spine_mm_per_10_pages: 1.4,
+        }
+    }
+}
+
 /// Cover configuration. Present only if the project has a cover page.
 /// Absence of this block means no cover exists.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -36,6 +44,22 @@ pub struct CoverConfig {
     pub margin_mm: f64,
     pub gap_mm: f64,
     pub bleed_threshold_mm: f64,
+}
+
+impl Default for CoverConfig {
+    fn default() -> Self {
+        CoverConfig {
+            active: false,
+            spine: SpineConfig::default(),
+            front_back_width_mm: 0.0,
+            height_mm: 0.0,
+            spine_text: None,
+            bleed_mm: 3.0,
+            margin_mm: 0.0,
+            gap_mm: 5.0,
+            bleed_threshold_mm: 3.0,
+        }
+    }
 }
 
 impl CoverConfig {
