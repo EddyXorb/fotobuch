@@ -272,8 +272,21 @@
 #let cover_h = if has_cover { cover_or_none.height_mm } else { 0.0 }
 #let cover_bleed = if has_cover { cover_or_none.bleed_mm * 1mm } else { 0mm }
 #let cover_margin = if has_cover { cover_or_none.margin_mm * 1mm } else { 0mm }
-#let spine_w = if has_cover { float(inner_page_count) / 10.0 * cover_or_none.spine_mm_per_10_pages } else { 0.0 }
-#let cover_total_w = if has_cover { cover_front_back_w + spine_w } else { 0.0 }
+#let spine_mode = if has_cover { cover_or_none.at("spine_mode", default: "auto") } else { "auto" }
+#let spine_w = if has_cover {
+  if spine_mode == "auto" {
+    float(inner_page_count) / 10.0 * cover_or_none.spine_mm_per_10_pages
+  } else {
+    cover_or_none.spine_width_mm
+  }
+} else { 0.0 }
+#let cover_total_w = if has_cover {
+  if spine_mode == "auto" {
+    cover_front_back_w + spine_w
+  } else {
+    cover_front_back_w
+  }
+} else { 0.0 }
 #let spine_text_content = if has_cover { cover_or_none.at("spine_text", default: data.config.book.title) } else { "" }
 
 #if has_cover [
