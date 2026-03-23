@@ -108,7 +108,7 @@ fn validate_scope(scope: &RebuildScope, mgr: &StateManager) -> Result<()> {
 fn rebuild_single(mut mgr: StateManager, project_root: &Path, idx: usize) -> Result<BuildResult> {
     // 1. Preview-Cache
     let preview_cache_dir = mgr.preview_cache_dir();
-    preview::ensure_previews(&mgr.state, &preview_cache_dir)?;
+    preview::ensure_previews(&mut mgr.state, &preview_cache_dir)?;
 
     // 2. Solver — reuse rebuild_single_page from build module
     let photo_index = build_photo_index(&mgr.state.photos);
@@ -134,11 +134,7 @@ fn rebuild_single(mut mgr: StateManager, project_root: &Path, idx: usize) -> Res
 
 /// If cover is active and `start` is 0, skip the cover and return effective start = 1.
 /// Emits a warning in that case. Returns `Err` if the resulting range would be empty.
-fn skip_cover_if_needed(
-    has_cover: bool,
-    start: usize,
-    end: usize,
-) -> Result<usize> {
+fn skip_cover_if_needed(has_cover: bool, start: usize, end: usize) -> Result<usize> {
     if !has_cover || start != 0 {
         return Ok(start);
     }
@@ -201,7 +197,10 @@ fn rebuild_all(mgr: StateManager, project_root: &Path) -> Result<BuildResult> {
     };
 
     let (groups, range) = if effective_start > 0 {
-        (collect_photos_as_groups(&mgr.state, effective_start, layout_len), Some((effective_start, layout_len)))
+        (
+            collect_photos_as_groups(&mgr.state, effective_start, layout_len),
+            Some((effective_start, layout_len)),
+        )
     } else {
         (mgr.state.photos.clone(), None)
     };

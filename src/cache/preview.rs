@@ -2,6 +2,7 @@
 
 use crate::cache::common::{is_cache_fresh, preview_path, resize_and_save};
 use crate::dto_models::{PhotoFile, ProjectState};
+use crate::input::scanner::enrich_photo_metadata;
 use anyhow::Result;
 use rayon::prelude::*;
 use std::path::Path;
@@ -20,33 +21,39 @@ pub struct PreviewCacheResult {
 
 /// Ensures all preview images are present and up-to-date.
 /// Generates missing or stale previews in parallel using rayon.
+/// Updates each photos metadata if the source image is newer than the cached preview.
 ///
 /// # Returns
 /// Statistics about created/skipped images
 pub fn ensure_previews(
-    state: &ProjectState,
+    state: &mut ProjectState,
     preview_cache_dir: &Path,
 ) -> Result<PreviewCacheResult> {
     let max_px = state.config.preview.max_preview_px;
 
     // Collect all photos across groups
-    let all_photos: Vec<&PhotoFile> = state.photos.iter().flat_map(|g| g.files.iter()).collect();
+    let mut all_photos: Vec<&mut PhotoFile> = state
+        .photos
+        .iter_mut()
+        .flat_map(|g| g.files.iter_mut())
+        .collect();
 
     let total = all_photos.len();
     let created = AtomicUsize::new(0);
     let skipped = AtomicUsize::new(0);
 
     // Process in parallel
-    all_photos.par_iter().try_for_each(|photo| {
-        let source = Path::new(&photo.source);
+    all_photos.par_iter_mut().try_for_each(|photo| {
+        let source = Path::new(&photo.source).to_path_buf();
         let cached = preview_path(preview_cache_dir, &photo.id);
 
-        if is_cache_fresh(source, &cached, None) {
+        if is_cache_fresh(&source, &cached, None) {
             skipped.fetch_add(1, Ordering::Relaxed);
         } else {
+            enrich_photo_metadata(photo);
             let (target_width, target_height) =
                 fit_dimensions(photo.width_px, photo.height_px, max_px);
-            resize_and_save(source, &cached, target_width, target_height, 50)?;
+            resize_and_save(&source, &cached, target_width, target_height, 50)?;
             created.fetch_add(1, Ordering::Relaxed);
         }
 
@@ -160,7 +167,7 @@ mod tests {
         create_test_image(&source_path, 1920, 1080);
 
         // Create test state
-        let state = ProjectState {
+        let mut state = ProjectState {
             config: create_test_config(400),
             photos: vec![PhotoGroup {
                 group: "TestGroup".to_string(),
@@ -178,7 +185,7 @@ mod tests {
             layout: vec![],
         };
 
-        let result = ensure_previews(&state, &cache_dir).unwrap();
+        let result = ensure_previews(&mut state, &cache_dir).unwrap();
 
         assert_eq!(result.total, 1);
         assert_eq!(result.created, 1);
@@ -209,7 +216,7 @@ mod tests {
         create_test_image(&cached_path, 400, 225);
 
         // Create test state
-        let state = ProjectState {
+        let mut state = ProjectState {
             config: create_test_config(400),
             photos: vec![PhotoGroup {
                 group: "TestGroup".to_string(),
@@ -227,7 +234,7 @@ mod tests {
             layout: vec![],
         };
 
-        let result = ensure_previews(&state, &cache_dir).unwrap();
+        let result = ensure_previews(&mut state, &cache_dir).unwrap();
 
         assert_eq!(result.total, 1);
         assert_eq!(result.created, 0);
@@ -251,7 +258,7 @@ mod tests {
         let source_path = photos_dir.join("test.jpg");
         create_test_image(&source_path, 1920, 1080);
 
-        let state = ProjectState {
+        let mut state = ProjectState {
             config: create_test_config(400),
             photos: vec![PhotoGroup {
                 group: "TestGroup".to_string(),
@@ -269,7 +276,7 @@ mod tests {
             layout: vec![],
         };
 
-        let result = ensure_previews(&state, &cache_dir).unwrap();
+        let result = ensure_previews(&mut state, &cache_dir).unwrap();
 
         assert_eq!(result.total, 1);
         assert_eq!(result.created, 1);

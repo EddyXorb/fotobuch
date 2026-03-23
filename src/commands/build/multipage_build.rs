@@ -41,7 +41,7 @@ pub fn multipage_build(
 ) -> Result<BuildResult> {
     // 1. Preview-Cache
     let preview_cache_dir = mgr.preview_cache_dir();
-    let cache_result = preview::ensure_previews(&mgr.state, &preview_cache_dir)?;
+    let cache_result = preview::ensure_previews(&mut mgr.state, &preview_cache_dir)?;
 
     // 2. Determine solver config
     let config = if let Some(custom) = params.custom_config {

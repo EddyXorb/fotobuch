@@ -1,5 +1,6 @@
 //! Final cache generation for high-quality PDF output
 
+use crate::cache::preview::ensure_previews;
 use crate::commands::build::DpiWarning;
 use crate::dto_models::ProjectState;
 use anyhow::Result;
@@ -24,10 +25,13 @@ pub struct FinalCacheResult {
 /// Processes all photos in the layout, generating cached images at the specified DPI
 /// for each slot. Collects warnings for photos that will be displayed below the target DPI.
 pub fn build_final_cache(
-    state: &ProjectState,
+    state: &mut ProjectState,
     final_cache_dir: &Path,
     progress: &AtomicUsize,
 ) -> Result<FinalCacheResult> {
+    // make sure the metadata is up to date by updating the preview cache first (which enriches metadata)
+    ensure_previews(state, final_cache_dir)?;
+
     let target_dpi = state.config.book.dpi;
 
     // Build photo lookup map: photo_id -> PhotoFile
