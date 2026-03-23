@@ -17,7 +17,7 @@ pub fn incremental_build(
 
     // 1. Generate/update preview cache
     let preview_cache_dir = mgr.preview_cache_dir();
-    let cache_result = preview::ensure_previews(&mgr.state, &preview_cache_dir)?;
+    let cache_result = preview::ensure_previews(&mut mgr.state, &preview_cache_dir)?;
 
     if cache_result.created > 0 {
         info!(

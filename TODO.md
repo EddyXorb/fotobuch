@@ -19,11 +19,11 @@ To be done in this order
 - [x] prüfen ob das generierte pdf wirklich die mediabox/bleedbox/targetbox so gesetzt hat, wie indesign das machen würde entsprechend den anforderungen für saal digital
 - [x] make DPI of final configurable in yaml, as well as jpg-quality for both preview and final
 - [x] order the slots/photos in layout according to reading order (to make the appendix work later)
-- [ ] page numbering as option in template
 
 ## to improve it further
 
-- [ ] rare bug: image gets a rotated slot after build (so aspect ratio is wrong), happened with last image on page with 7 images, where the last was taking the whole height of the canvas, unclear
+- [ ] page numbering as option in template
+- [ ] rare bug: image gets a rotated slot after build (so aspect ratio is wrong), happened with last image on page with 7 images, where the last was taking the whole height of the canvas, unclear, maybe just zooming after bleed transform
 - [ ] preview config is not applied in template - remove or fix it
 - [ ] cli should habe a command to output the template again
 - [ ] `fotobuch config` should output also cover options

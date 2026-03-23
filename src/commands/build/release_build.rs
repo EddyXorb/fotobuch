@@ -17,7 +17,7 @@ use tracing::{info, warn};
 /// 2. Generate final cache and collect DPI warnings
 /// 3. Compile final.typ -> final.pdf
 /// 4. Save and commit
-pub fn release_build(mgr: StateManager, project_root: &Path) -> Result<super::BuildResult> {
+pub fn release_build(mut mgr: StateManager, project_root: &Path) -> Result<super::BuildResult> {
     let dpi = mgr.state.config.book.dpi;
     info!("Release build: generating final PDF at {:.0} DPI...", dpi);
 
@@ -35,7 +35,7 @@ pub fn release_build(mgr: StateManager, project_root: &Path) -> Result<super::Bu
     // 2. Generate final cache at 300 DPI
     let progress = AtomicUsize::new(0);
     let final_cache_dir = mgr.final_cache_dir();
-    let final_result = final_cache::build_final_cache(&mgr.state, &final_cache_dir, &progress)?;
+    let final_result = final_cache::build_final_cache(&mut mgr.state, &final_cache_dir, &progress)?;
 
     info!(
         "Final cache: {} images generated, {} DPI warnings",
