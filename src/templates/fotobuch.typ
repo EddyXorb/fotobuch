@@ -13,7 +13,7 @@
 #let appendix_show = false
 #let appendix_nr_columns = 7
 #let appendix_try_strip_datetimes_from_photo_name = true
-#let appendix_show_page_nr_separator = true
+#let appendix_show_page_nr_separator = false
 
 // Reference mode for the photo index:
 // "counter"   = sequential number shown as a badge on each photo
@@ -275,8 +275,8 @@
             #box(width: 6mm, inset: (x: 1mm, y: 0mm), align(left, text(fill: black, weight: "bold")[#ref_label])) #h(
               0.5mm,
             )
-            #try_strip_datetime_from(name)
-            #if ts != none [#text(fill: rgb("#888888"))[ · #fmt_ts_de(ts)]]
+           #fmt_ts_de(ts)  
+            #if ts != none [#text(fill: rgb("#888888"))[ · #try_strip_datetime_from(name)]]
           ],
         ))
       }
