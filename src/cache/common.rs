@@ -74,7 +74,9 @@ pub fn is_cache_fresh(source: &Path, cached: &Path, target_dim: Option<(u32, u32
             .and_then(|reader| reader.into_decoder().ok())
             .map(|decoder| decoder.dimensions())
         {
-            Some((cached_w, cached_h)) => cached_w == target_w && cached_h == target_h,
+            Some((cached_w, cached_h)) => {
+                cached_w.abs_diff(target_w) <= 1 && cached_h.abs_diff(target_h) <= 1
+            }
             None => false,
         }
     } else {
