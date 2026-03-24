@@ -325,7 +325,7 @@
     #if show_borders_on_preview [
       #draw_borders(cover_total_w, cover_h, cover_bleed, cover_margin)
       // Spine area markers: two vertical green lines bounding the spine
-      #place(top + left, dx: (cover_front_back_w / 2) * 1mm, dy: -cover_bleed, rect(
+      #place(top + left, dx: (cover_front_back_w / 2 - spine_w / 2) * 1mm, dy: -cover_bleed, rect(
         width: spine_w * 1mm,
         height: cover_h * 1mm + 2 * cover_bleed,
         stroke: (left: green + 0.5pt, right: green + 0.5pt, top: none, bottom: none),
@@ -337,7 +337,7 @@
       #render_slot(0, slot, i, photo_id, photo_ref, photo_weight)
     ]
     // Spine text — reads bottom-to-top; dx = half of front+back = single page width
-    #place(top + left, dx: (cover_front_back_w / 2) * 1mm, dy: 0mm, box(
+    #place(top + left, dx: (cover_front_back_w / 2 - spine_w / 2) * 1mm, dy: 0mm, box(
       width: spine_w * 1mm,
       height: cover_h * 1mm,
       align(horizon + center, rotate(-90deg, box(
