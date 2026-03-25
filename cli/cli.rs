@@ -70,9 +70,9 @@ pub enum Commands {
 
     /// Calculate layout and generate preview or final PDF
     Build {
-        /// Generate final high-quality PDF at 300 DPI (requires clean state)
-        #[arg(long)]
-        release: bool,
+        /// Release subcommand (generate final PDF instead of preview)
+        #[command(subcommand)]
+        command: Option<BuildCommands>,
 
         /// Only rebuild specific pages (0-based, comma-separated or repeated flag)
         #[arg(long, value_delimiter = ',')]
@@ -174,6 +174,17 @@ pub enum Commands {
     Project {
         #[command(subcommand)]
         command: ProjectCommands,
+    },
+}
+
+/// Build subcommands
+#[derive(Subcommand, Debug)]
+pub enum BuildCommands {
+    /// Generate final high-quality PDF at 300 DPI
+    Release {
+        /// Force release even if layout has uncommitted changes
+        #[arg(long)]
+        force: bool,
     },
 }
 
@@ -360,7 +371,12 @@ impl Execute for Commands {
                 *recursive,
                 *weight,
             ),
-            Commands::Build { release, pages } => build::handle(*release, pages.clone()),
+            Commands::Build { command, pages } => {
+                match command {
+                    Some(BuildCommands::Release { force }) => build::handle_release(*force),
+                    None => build::handle(false, pages.clone()),
+                }
+            }
             Commands::Rebuild {
                 page,
                 range_start,

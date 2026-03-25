@@ -59,6 +59,7 @@ fn create_test_project_with_build(temp_dir: &TempDir) -> Result<PathBuf> {
     // Run initial build (with 5 photos and max 2 per page, we get at least 3 pages)
     let build_config = BuildConfig {
         release: false,
+        force: false,
         pages: None,
     };
     build(&project_root, &build_config)?;
