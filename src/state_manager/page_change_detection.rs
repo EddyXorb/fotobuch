@@ -4,6 +4,13 @@ use crate::dto_models::ProjectState;
 use std::collections::{BTreeSet, HashMap, HashSet};
 
 const ASPECT_RATIO_THRESHOLD: f64 = 0.001;
+const WEIGHT_THRESHOLD: f64 = 0.01;
+
+/// Metadata for a single photo used in change detection.
+struct PhotoMetadata {
+    aspect_ratio: f64,
+    area_weight: f64,
+}
 
 /// Computes which pages (by array index in `new.layout`) differ from `reference`.
 ///
@@ -76,7 +83,7 @@ pub fn compute_outdated_pages(reference: &ProjectState, new: &ProjectState) -> V
 
             // Get photo's aspect ratio from metadata map
             let photo_ar = match ref_photo_metadata.get(photo_id.as_str()) {
-                Some((ar, _weight)) => *ar,
+                Some(meta) => meta.aspect_ratio,
                 None => {
                     // Photo not in reference metadata - conservative: mark as outdated
                     page_valid = false;
@@ -102,15 +109,20 @@ pub fn compute_outdated_pages(reference: &ProjectState, new: &ProjectState) -> V
     outdated
 }
 
-/// Build a map of photo ID -> (aspect_ratio, area_weight) from a photo collection.
-fn build_photo_metadata(photos: &[crate::dto_models::PhotoGroup]) -> HashMap<String, (f64, f64)> {
+/// Build a map of photo ID -> metadata from a photo collection.
+fn build_photo_metadata(
+    photos: &[crate::dto_models::PhotoGroup],
+) -> HashMap<String, PhotoMetadata> {
     photos
         .iter()
         .flat_map(|group| {
             group.files.iter().map(|file| {
                 (
                     file.id.clone(),
-                    (file.aspect_ratio(), file.area_weight),
+                    PhotoMetadata {
+                        aspect_ratio: file.aspect_ratio(),
+                        area_weight: file.area_weight,
+                    },
                 )
             })
         })
@@ -134,18 +146,18 @@ fn build_page_hashes(
 fn find_changed_photos(
     _reference: &ProjectState,
     new: &ProjectState,
-    ref_metadata: &HashMap<String, (f64, f64)>,
+    ref_metadata: &HashMap<String, PhotoMetadata>,
 ) -> HashSet<String> {
     let new_metadata = build_photo_metadata(&new.photos);
 
     // Check for photos with changed metadata or new photos
     let mut changed = new_metadata
         .iter()
-        .filter_map(|(photo_id, (new_ar, new_weight))| {
-            if let Some((ref_ar, ref_weight)) = ref_metadata.get(photo_id) {
+        .filter_map(|(photo_id, new_meta)| {
+            if let Some(ref_meta) = ref_metadata.get(photo_id) {
                 // Check if aspect ratio or weight changed
-                if (new_ar - ref_ar).abs() > ASPECT_RATIO_THRESHOLD
-                    || (new_weight - ref_weight).abs() > ASPECT_RATIO_THRESHOLD
+                if (new_meta.aspect_ratio - ref_meta.aspect_ratio).abs() > ASPECT_RATIO_THRESHOLD
+                    || (new_meta.area_weight - ref_meta.area_weight).abs() > WEIGHT_THRESHOLD
                 {
                     Some(photo_id.clone())
                 } else {
