@@ -45,6 +45,15 @@ Work happens on branch `claude/prepare-release-v1-w7cvz`.
 - [ ] Rewrite `README.md` in English (current one is outdated and German) + coverage badge at top
 - [ ] Clean up README placeholders: replace `YOUREMAIL@example.com` with real address,
       remove `<!-- USER: ... -->` comments, replace or remove `docs/assets/example_spread.jpg`
+- [ ] Add `fotobuch init` as alias for `project new` (familiar pattern from git/cargo/npm)
+- [ ] Add `fotobuch completions --shell <bash|zsh|fish|powershell>` subcommand
+      (clap has built-in support via `clap_complete`, minimal code needed)
+- [ ] Create example project in `examples/demo-project/` with 5–10 small public-domain photos
+      (e.g. from Unsplash, downscaled to ~100 KB each) and a ready-to-use `fotobuch.yaml`.
+      A new user can `cd examples/demo-project && fotobuch build` to see a result immediately.
+- [ ] Record terminal demo with [VHS](https://github.com/charmbracelet/vhs) using the example
+      project: `init` → `add` → `build` → `page swap` → `rebuild` → `build release` (~30 sec).
+      Embed the resulting GIF in the README as hero image (replaces placeholder screenshot).
 - [ ] `cliff.toml` – git-cliff config for Conventional Commits → CHANGELOG + release notes
       (needed before CHANGELOG generation)
 - [ ] Generate initial `CHANGELOG.md` via git-cliff
