@@ -9,35 +9,37 @@ use tracing::{info, warn};
 /// Performs release build: generates final high-quality PDF at the configured DPI.
 ///
 /// # Requirements
-/// - Layout must be clean (no uncommitted changes)
+/// - Layout must be clean (no uncommitted changes), unless force is true
 /// - All photos must be available
 ///
 /// # Steps
-/// 1. Verify layout is clean
+/// 1. Verify layout is clean (skip if force is true)
 /// 2. Generate final cache and collect DPI warnings
 /// 3. Compile final.typ -> final.pdf
 /// 4. Save and commit
-pub fn release_build(mut mgr: StateManager, project_root: &Path) -> Result<super::BuildResult> {
+pub fn release_build(mut mgr: StateManager, project_root: &Path, force: bool) -> Result<super::BuildResult> {
     let dpi = mgr.state.config.book.dpi;
     info!("Release build: generating final PDF at {:.0} DPI...", dpi);
 
     // 1. Check that layout is clean (no changes since last build)
-    let changed_pages: Vec<_> = mgr
-        .outdated_pages_indices()
-        .into_iter()
-        .filter(|i| {
-            if mgr.state.config.book.cover.active {
-                *i != 0
-            } else {
-                true
-            }
-        })
-        .collect();
-    if !changed_pages.is_empty() {
-        anyhow::bail!(
-            "Layout has changes since last build. Changed pages: {:?}. Run `fotobuch build` first to commit all changes.",
-            changed_pages
-        );
+    if !force {
+        let changed_pages: Vec<_> = mgr
+            .outdated_pages_indices()
+            .into_iter()
+            .filter(|i| {
+                if mgr.state.config.book.cover.active {
+                    *i != 0
+                } else {
+                    true
+                }
+            })
+            .collect();
+        if !changed_pages.is_empty() {
+            anyhow::bail!(
+                "Layout has changes since last build. Changed pages: {:?}. Run `fotobuch build` first to commit all changes, or use `fotobuch build release --force`.",
+                changed_pages
+            );
+        }
     }
 
     if mgr.state.layout.is_empty() {

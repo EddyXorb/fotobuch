@@ -38,6 +38,8 @@ pub struct DpiWarning {
 pub struct BuildConfig {
     /// Build final PDF instead of preview (default: false)
     pub release: bool,
+    /// Force release even if layout has uncommitted changes (default: false)
+    pub force: bool,
     /// Only process these pages (0-based indices, optional, default: all)
     pub pages: Option<Vec<usize>>,
 }
@@ -104,9 +106,9 @@ pub fn build(project_root: &Path, config: &BuildConfig) -> Result<BuildResult> {
     // Handle release builds separately
     if config.release {
         if config.pages.is_some() {
-            anyhow::bail!("--pages is not allowed with --release (must build entire book)");
+            anyhow::bail!("--pages is not allowed with release (must build entire book)");
         }
-        return release_build(mgr, project_root);
+        return release_build(mgr, project_root, config.force);
     }
 
     // First build vs incremental build
