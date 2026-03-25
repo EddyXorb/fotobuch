@@ -156,22 +156,37 @@ Only pages that have changed since the last build are recomputed. A change is de
 by comparing image hashes and layout state. This makes iterative refinement fast even
 for large books.
 
-### Page layout solver — Genetic algorithm with DFS ordering
+### Page layout solver — Genetic algorithm with exact gap handling
 
-Single-page layout is solved by a genetic algorithm operating on *slicing trees* — a
-data structure from academic layout research. Each individual in the population encodes
-a complete binary partition of the page area.
+Single-page layout is solved by a genetic algorithm operating on *slicing trees*, a
+data structure from academic layout research. The foundational algorithm is described in:
 
-**Novel contribution:** The standard slicing-tree crossover and mutation operators
-assume photos can be placed in arbitrary order. `fotobuch` enforces reading order via
-a depth-first traversal of the tree (DFS indexing). This requires a fundamentally
-different mutator: instead of swapping arbitrary nodes, it swaps only leaves with
-compatible aspect ratios, preserving the DFS sequence. This improvement is not described
-in the literature and produces measurably better results in terms of reading-flow
-coherence.
+> O. Fan, *"Genetic Algorithm for Layout Optimization"*,
+> [IEEE Xplore, 2012](https://ieeexplore.ieee.org/document/6266273).
+> Many thanks to the author for this elegant foundation.
 
+A big thank-you also to [@masse](https://github.com/masse) for
+[collage-solver](https://github.com/masse/collage-solver), whose work was an inspiring
+starting point and proof that slicing-tree approaches produce genuinely beautiful results.
+
+Each individual in the population encodes a complete binary partition of the page area.
 The population is evolved with island-model parallelism: independent sub-populations
 evolve in parallel on separate threads, with periodic migration between islands.
+
+**Novel contribution — exact gap computation in O(n):**
+The original algorithm approximates the inter-photo gap (beta) or recomputes it in
+O(n³) per fitness evaluation. `fotobuch` derives an exact closed-form solution: given
+a slicing tree, the precise gap that fills the page without any overlap or leftover
+space can be computed via an *affine vector-space transformation* of the tree's size
+expressions. This reduces complexity from O(n³) to **O(n)** per evaluation — a
+significant speedup for pages with many photos — while guaranteeing pixel-accurate
+placement. This formulation does not appear in the literature.
+
+**Reading-order preservation via DFS indexing:**
+Photos are assigned to tree leaves in depth-first order, ensuring the visual reading
+sequence (top-left to bottom-right) matches the chronological order of the input.
+This requires a different mutation strategy: instead of swapping arbitrary nodes, the
+mutator exchanges only leaves with compatible aspect ratios, preserving the DFS sequence.
 
 ### Book layout solver — Mixed Integer Programming
 
