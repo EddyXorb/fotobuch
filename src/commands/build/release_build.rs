@@ -22,10 +22,15 @@ pub fn release_build(mut mgr: StateManager, project_root: &Path) -> Result<super
     info!("Release build: generating final PDF at {:.0} DPI...", dpi);
 
     // 1. Check that layout is clean (no changes since last build)
-    let changed_pages = mgr.outdated_pages_indices();
-    if !changed_pages.iter().any(|&i| i != 0) {
+    let changed_pages: Vec<_> = mgr
+        .outdated_pages_indices()
+        .into_iter()
+        .filter(|i| *i != 0)
+        .collect();
+    if !changed_pages.is_empty() {
         anyhow::bail!(
-            "Layout has changes since last build. Run `fotobuch build` first to commit all changes."
+            "Layout has changes since last build. Changed pages: {:?}. Run `fotobuch build` first to commit all changes.",
+            changed_pages
         );
     }
 
