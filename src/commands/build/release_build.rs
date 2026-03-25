@@ -25,7 +25,13 @@ pub fn release_build(mut mgr: StateManager, project_root: &Path) -> Result<super
     let changed_pages: Vec<_> = mgr
         .outdated_pages_indices()
         .into_iter()
-        .filter(|i| *i != 0)
+        .filter(|i| {
+            if mgr.state.config.book.cover.active {
+                *i != 0
+            } else {
+                true
+            }
+        })
         .collect();
     if !changed_pages.is_empty() {
         anyhow::bail!(
@@ -57,7 +63,7 @@ pub fn release_build(mut mgr: StateManager, project_root: &Path) -> Result<super
         );
         for warning in &final_result.dpi_warnings {
             warn!(
-                "  Page {}: {} - {:.1} DPI ({}x{} px in {:.1}x{:.1} mm slot)",
+                "  Page {}: {} - {:.2} DPI ({}x{} px in {:.1}x{:.1} mm slot)",
                 warning.page,
                 warning.photo_id,
                 warning.actual_dpi,
