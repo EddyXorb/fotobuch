@@ -22,19 +22,18 @@ To be done in this order
 
 ## to improve it further
 
+- [ ] reevaluate cli commands for page (maybe remove "to" in page move)
 - [ ] page numbering as option in template
-- [ ] rare bug: image gets a rotated slot after build (so aspect ratio is wrong), happened with last image on page with 7 images, where the last was taking the whole height of the canvas, unclear, maybe just zooming after bleed transform
 - [ ] preview config is not applied in template - remove or fix it
-- [ ] cli should habe a command to output the template again
+- [ ] cli should have a command to output the template again
 - [ ] `fotobuch config` should output also cover options
-- [ ] try scip as backend for MIP
 - [ ] remove max_coverage_cost parameter, as it is not used anymore
 - [ ] new should be clearer where it creates the folder (and that its created at all). The --parent-dir option is not explained clearly enough. It should be clear that its not necessary to create a new folder for a new project, but that it can be done within an exisitng fotobuch-repo
 - [ ] automatically increase image weight according to xmp-rating. Low rating = smaller
 - [ ] make sure rebuild --page [nr] creates always a new layout that is different from the ones before (check git history) and make a configurable lookback with default 5. In case the solver does not generate a new layout restart it up to 10 times (unless it takes more than 200 ms to build the page) until a new layout is created. if not, ignore the lookbackrule
 - [ ] make the genetic algorithm prune equal individuals to keep the genpool diverse; once done, output not only one layout but the best x layouts; this comes in handy when rebuilding a single page and we want a new layout than before. → [Design: Population Diversity](docs/design/page_layout_solver_genetic_algorithm/population_diversity.md) -> tried simple deduplicatation, no change in quality
 - [ ] improve mutator of pagelayoutsolver: it should switch only leafes with different aspect ratios
-- [ ] log* zu gitignore hinzufügen
+- [x] log* zu gitignore hinzufügen
 - [ ] sort_key in groups should be checked to be unique to avoid randomness; to obtain a better key go into the folder of the group and take the first timestamp of all photos (as is done when no timestamp is in the group-name)
 - [ ] Verify that each image has a colour space and if not, set it for missing ones with a default that makes sense when creating the photo cache
   - Olympus OMD-EM1 JPEGs taggen den Farbraum nur im EXIF (`ColorSpace=1`=sRGB), betten aber kein ICC-Profil ein
