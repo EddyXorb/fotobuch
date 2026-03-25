@@ -16,7 +16,7 @@ use serde_yaml::Value;
 use std::cell::RefCell;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
-use tracing::warn;
+use tracing::{debug, warn};
 
 use crate::dto_models::{LayoutPage, PhotoGroup, ProjectState};
 use crate::git;
@@ -187,6 +187,7 @@ fn diff_pages(old: &[LayoutPage], new: &[LayoutPage]) -> (usize, usize, usize) {
 // ── BuildBaseline ─────────────────────────────────────────────────────────────
 
 /// Lazy reference state from the last `build:` or `rebuild:` git commit.
+#[derive(Debug)]
 enum LazyLoad {
     /// Not yet resolved — loaded on first access.
     Pending,
@@ -426,8 +427,16 @@ impl StateManager {
         if matches!(*self.build_baseline.borrow(), LazyLoad::Pending) {
             let resolved = match self.find_last_build_state() {
                 Ok(Some(s)) => LazyLoad::Loaded(Box::new(s)),
-                _ => LazyLoad::Failed,
+                Err(e) => {
+                    debug!("Failed to find last build state: {}", e);
+                    LazyLoad::Failed
+                }
+                Ok(None) => {
+                    debug!("No previous build commit found");
+                    LazyLoad::Failed
+                }
             };
+
             *self.build_baseline.borrow_mut() = resolved;
         }
     }
