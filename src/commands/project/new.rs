@@ -134,7 +134,14 @@ fn create_first_project(parent_dir: &Path, config: &NewConfig) -> Result<NewResu
 
     // 3. Write .gitignore
     let gitignore_path = project_root.join(".gitignore");
-    let gitignore_content = ".fotobuch/\n*.pdf\nfinal.typ\nlog*\n";
+    let gitignore_content = r#"
+.fotobuch/
+*.pdf
+final.typ
+log*
+*.yaml
+*.typ
+"#;
     fs::write(&gitignore_path, gitignore_content)
         .with_context(|| format!("Failed to write .gitignore to {:?}", gitignore_path))?;
 
