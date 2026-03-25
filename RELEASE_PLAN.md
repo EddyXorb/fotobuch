@@ -55,13 +55,40 @@ Work happens on branch `claude/prepare-release-v1-w7cvz`.
 ### Phase 3 – Documentation (mdBook)
 
 - [ ] Set up mdBook structure in `docs/book/`
-- [ ] Write: Introduction & Concepts
-- [ ] Write: Installation
-- [ ] Write: Quickstart (full workflow A→Z)
-- [ ] Write: CLI Reference (all 15+ subcommands)
-- [ ] Write: Configuration (YAML schema)
-- [ ] Write: Saal Digital / Print settings
-- [ ] (Optional) Internals – recycle the 27 existing design docs in `docs/design/`
+- [ ] Write: Introduction (philosophy, what makes fotobuch different)
+- [ ] Write: Getting Started
+  - [ ] Installation (build from source + pre-built binaries)
+  - [ ] Quickstart (project new → add → build → release, ~5 min)
+  - [ ] VS Code Setup (Typst Preview extension, live layout)
+- [ ] Write: Concepts
+  - [ ] How a Project Works (git-repo inside project, yaml, .typ, caches)
+  - [ ] Groups & Ordering (folder names, timestamps, reading flow)
+  - [ ] The Layout Solvers (MIP for pages, GA for slots – non-technical)
+  - [ ] Cover (what's different, spine, placement)
+- [ ] Write: Example Workflows
+  - [ ] Example 1 – Fully automatic: add photos → build → release, no manual steps
+  - [ ] Example 2 – With manual refinement: rebuild a page, swap pages, weight a photo,
+        undo, add cover; shows how much control is available when needed
+- [ ] Write: CLI Reference (one page per command)
+  - [ ] project (new, list, switch)
+  - [ ] add (--filter, --recursive, --weight, --update, --dry)
+  - [ ] build (preview vs. release, --pages)
+  - [ ] rebuild (--page, --range, --all, --flex)
+  - [ ] place / unplace (addressing syntax, examples)
+  - [ ] page (move, swap, split, combine, info, weight)
+  - [ ] remove (--keep-files, --unplaced)
+  - [ ] status
+  - [ ] config
+  - [ ] history
+  - [ ] undo / redo
+- [ ] Write: Configuration Reference (all YAML fields with type, default, description)
+- [ ] Write: Printing & Export – Saal Digital (bleed, TrimBox, DPI, upload)
+- [ ] Write: Known Issues & Limitations
+  - [ ] Current limitations (cover workflow, etc.)
+  - [ ] Out of scope (what fotobuch deliberately does not do)
+- [ ] Write: Technical Background (recycle + expand from README)
+  - [ ] Page Layout Solver (GA, O(n) gap, DFS)
+  - [ ] Book Layout Solver (MIP, decomposition)
 
 ### Phase 4 – UX Review & Polish
 
