@@ -14,13 +14,15 @@ Work happens on branch `claude/prepare-release-v1-w7cvz`.
 | Documentation site | mdBook on GitHub Pages |
 | Python dev tools | Moved to `tests/tools/` ✅ |
 | cargo doc in Pages | Skip for now – not needed for v1.0 |
-| Distribution | Only self-build for now; crates.io easy to add later (needs license first) |
-| Windows installer | `.exe` as `.zip` only, no `.msi` for v1.0 |
+| Distribution | Self-build only for now; no crates.io for first release |
+| Windows installer | `.exe` as `.zip` only, no `.msi` |
 | cargo audit | Yes – in CI and runnable locally (`cargo install cargo-audit && cargo audit`) |
 | Code coverage | Yes – report in CI + badge in README |
-| Release drafts | Yes – auto-draft via `release-drafter` action; manually publish when ready |
+| Changelog | Auto-generated via **git-cliff** from Conventional Commits (commits already use this format) |
+| Release drafts | Yes – git-cliff generates release notes → auto-draft on tag; manually publish when ready |
 | TODO.md | Keep as-is; move out-of-scope items to new `## Out of Scope (post v1.0)` section |
-| Release trigger | Manual (you push the tag / click publish) |
+| Release trigger | Manual (push tag → CI builds + drafts release → you review + publish) |
+| First release version | **`0.1.0`** – signals no stable API guarantee yet; `1.0.0` when CLI/YAML format is stable |
 | License | **TBD** – discuss after all other points are settled |
 
 ---
@@ -45,19 +47,19 @@ Note: License is also required before publishing to crates.io.
 ### Phase 1 – Housekeeping
 
 - [x] Move Python dev tools to `tests/tools/` (`artificial_input_generator.py`, `pyproject.toml`, `uv.lock`)
-- [ ] Bump version `Cargo.toml`: `0.1.0` → `1.0.0`
+- [ ] Keep version at `0.1.0` in `Cargo.toml` (signals pre-stable API)
 - [ ] Add `LICENSE` file (depends on license decision)
 - [ ] Rewrite `README.md` in English (current one is outdated and German) + coverage badge at top
-- [ ] Create `CHANGELOG.md`
+- [ ] Generate initial `CHANGELOG.md` via git-cliff
 - [ ] Move out-of-scope items in `TODO.md` to new `## Out of Scope (post v1.0)` section
 
 ### Phase 2 – GitHub Actions
 
 - [ ] `ci.yml` – `cargo test` + `cargo clippy` + `cargo fmt --check` on push/PR + coverage report
-- [ ] `release.yml` – build Linux + Windows binaries on manual tag `v*`, create GitHub Release
+- [ ] `release.yml` – build Linux + Windows binaries on manual tag `v*`, run git-cliff, create GitHub Release draft
 - [ ] `pages.yml` – build mdBook and deploy to GitHub Pages on push to `main`
 - [ ] `audit.yml` – `cargo audit` (runs in CI, also usable locally)
-- [ ] `release-drafter.yml` – auto-generate release draft from commits
+- [ ] `cliff.toml` – git-cliff config for Conventional Commits → CHANGELOG + release notes
 
 ### Phase 3 – Documentation (mdBook)
 
@@ -73,9 +75,8 @@ Note: License is also required before publishing to crates.io.
 ### Phase 4 – Release
 
 - [ ] Decide and set license
-- [ ] (Optional) Publish to crates.io
 - [ ] Final review of all changes
-- [ ] Push tag `v1.0.0` manually → triggers release workflow
+- [ ] Push tag `v0.1.0` manually → triggers release workflow → git-cliff generates notes → draft created
 - [ ] Review and publish the auto-generated release draft
 - [ ] Verify GitHub Pages deployment
 
