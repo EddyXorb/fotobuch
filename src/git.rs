@@ -78,7 +78,7 @@ pub fn list_branches_with_prefix(repo: &Repository, prefix: &str) -> Result<Vec<
 pub fn stage_and_commit(repo: &Repository, paths: &[&str], message: &str) -> Result<()> {
     let mut index = repo.index().context("Failed to get index")?;
     index
-        .add_all(paths.iter().copied(), IndexAddOption::DEFAULT, None)
+        .add_all(paths.iter().copied(), IndexAddOption::FORCE, None)
         .context("Failed to stage files")?;
     index.write().context("Failed to write index")?;
 
