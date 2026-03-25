@@ -358,6 +358,7 @@ impl StateManager {
         }
 
         let yaml_name = format!("{}.yaml", self.project_name);
+        let typst_name = format!("{}.typ", self.project_name);
         self.state
             .save(&self.project_root.join(&yaml_name))
             .context("Failed to save YAML")?;
@@ -367,7 +368,7 @@ impl StateManager {
         } else {
             format!("{} — {}", message, diff.summary())
         };
-        git::stage_and_commit(&self.repo, &[&yaml_name], &commit_msg)?;
+        git::stage_and_commit(&self.repo, &[&yaml_name, &typst_name], &commit_msg)?;
 
         self.committed = true;
         Ok(())
@@ -390,8 +391,9 @@ impl StateManager {
         }
 
         let yaml_name = format!("{}.yaml", self.project_name);
+        let typst_name = format!("{}.typ", self.project_name);
         let commit_msg = format!("chore: manual edits — {}", diff.summary());
-        if let Err(e) = git::stage_and_commit(&self.repo, &[&yaml_name], &commit_msg) {
+        if let Err(e) = git::stage_and_commit(&self.repo, &[&yaml_name, &typst_name], &commit_msg) {
             warn!(
                 "Failed to auto-commit manual edits for {}: {} — continuing anyway",
                 yaml_name, e
