@@ -69,7 +69,7 @@ pub fn build_final_cache(
 
             // Check if photo meets DPI requirements
             let photo_dpi = actual_dpi(photo.width_px, photo.height_px, slot);
-            if photo_dpi < target_dpi {
+            if photo_dpi < target_dpi - 0.05 {
                 warnings.lock().unwrap().push(DpiWarning {
                     page: *page_num,
                     photo_id: photo_id.clone(),
