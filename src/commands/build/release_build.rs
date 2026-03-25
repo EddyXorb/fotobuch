@@ -22,7 +22,8 @@ pub fn release_build(mut mgr: StateManager, project_root: &Path) -> Result<super
     info!("Release build: generating final PDF at {:.0} DPI...", dpi);
 
     // 1. Check that layout is clean (no changes since last build)
-    if !mgr.outdated_pages_indices().is_empty() {
+    let changed_pages = mgr.outdated_pages_indices();
+    if !changed_pages.iter().any(|&i| i != 0) {
         anyhow::bail!(
             "Layout has changes since last build. Run `fotobuch build` first to commit all changes."
         );
@@ -32,7 +33,7 @@ pub fn release_build(mut mgr: StateManager, project_root: &Path) -> Result<super
         anyhow::bail!("No layout found. Run `fotobuch build` first to generate layout.");
     }
 
-    // 2. Generate final cache at 300 DPI
+    // 2. Generate final cache
     let progress = AtomicUsize::new(0);
     let final_cache_dir = mgr.final_cache_dir();
     let final_result = final_cache::build_final_cache(&mut mgr.state, &final_cache_dir, &progress)?;
