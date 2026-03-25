@@ -214,7 +214,7 @@ pub struct StateManager {
     /// Used by `finish()` and `Drop` to detect programmatic changes.
     baseline: ProjectState,
     /// Lazy reference state from the last `build:` or `rebuild:` commit.
-    /// Resolved on first call to `has_changes_since_last_build()` or `modified_pages()`.
+    /// Resolved on first call to `outdated_pages_indices()`.
     build_baseline: RefCell<LazyLoad>,
     /// Raw YAML value of the config section as loaded from disk.
     raw_config: Value,
@@ -311,20 +311,6 @@ impl StateManager {
     /// Used by `finish()` and `Drop`.
     pub fn has_changes_since_open(&self) -> bool {
         !StateDiff::compute(&self.baseline, &self.state).is_empty()
-    }
-
-    /// `true` when `state` differs from the last `build:` or `rebuild:` commit.
-    ///
-    /// Falls back to `has_changes_since_open()` when no build commit exists.
-    /// Used by `release_build` (clean-check) and `incremental_build`.
-    pub fn has_changes_since_last_build(&self) -> bool {
-        self.ensure_build_baseline();
-        match &*self.build_baseline.borrow() {
-            LazyLoad::Loaded(build_state) => {
-                !StateDiff::compute(build_state, &self.state).is_empty()
-            }
-            LazyLoad::Failed | LazyLoad::Pending => self.has_changes_since_open(),
-        }
     }
 
     /// Returns 0-based layout array indices of pages that were outdated since the last build commit.
@@ -861,86 +847,6 @@ mod tests {
             .unwrap_or("")
             .to_owned();
         assert!(msg.starts_with("chore: manual edits"));
-    }
-
-    #[test]
-    fn test_has_changes_since_last_build_detects_user_edit_after_build() {
-        let tmp = TempDir::new().unwrap();
-        setup_project_repo(&tmp);
-
-        // Simulate a build commit
-        {
-            let mut state = make_state("Urlaub");
-            state.config.book.title = "AfterBuild".to_owned();
-            state.save(&tmp.path().join("urlaub.yaml")).unwrap();
-            let repo = git::open_repo(tmp.path()).unwrap();
-            git::stage_and_commit(&repo, &["urlaub.yaml"], "build: 3 pages").unwrap();
-        }
-
-        // Simulate user editing area_weight after build
-        {
-            let mut state = make_state("Urlaub");
-            state.config.book.title = "AfterBuild".to_owned();
-            state.config.book.margin_mm = 15.0; // different from build state
-            state.save(&tmp.path().join("urlaub.yaml")).unwrap();
-        }
-
-        // open() auto-commits the edit; last_build_state = state from "build:" commit
-        let mut mgr = StateManager::open(tmp.path()).unwrap();
-
-        // has_changes_since_open() is false (baseline = current state after auto-commit)
-        assert!(
-            !mgr.has_changes_since_open(),
-            "No programmatic changes since open"
-        );
-        // has_changes_since_last_build() is true (compares against last build commit)
-        assert!(
-            mgr.has_changes_since_last_build(),
-            "Should detect changes since last build"
-        );
-
-        mgr.committed = true; // suppress Drop warning (no-op, we just read)
-    }
-
-    #[test]
-    fn test_has_changes_since_last_build_edit_then_revert() {
-        let tmp = TempDir::new().unwrap();
-        setup_project_repo(&tmp);
-
-        // Simulate a build commit with known state
-        {
-            let state = make_state("Urlaub");
-            state.save(&tmp.path().join("urlaub.yaml")).unwrap();
-            let repo = git::open_repo(tmp.path()).unwrap();
-            git::stage_and_commit(&repo, &["urlaub.yaml"], "build: 3 pages").unwrap();
-        }
-
-        // Edit → auto-commit "chore: manual edits"
-        {
-            let mut state = make_state("Urlaub");
-            state.config.book.margin_mm = 99.0;
-            state.save(&tmp.path().join("urlaub.yaml")).unwrap();
-        }
-        {
-            let mgr = StateManager::open(tmp.path()).unwrap();
-            drop(mgr);
-        }
-
-        // Revert → auto-commit "chore: manual edits" again
-        {
-            let state = make_state("Urlaub"); // same as build state
-            state.save(&tmp.path().join("urlaub.yaml")).unwrap();
-        }
-        let mut mgr = StateManager::open(tmp.path()).unwrap();
-
-        // Both should be false: reverted to build state
-        assert!(!mgr.has_changes_since_open());
-        assert!(
-            !mgr.has_changes_since_last_build(),
-            "Reverted state matches build state"
-        );
-
-        mgr.committed = true;
     }
 
     fn count_commits(repo: &git2::Repository) -> usize {

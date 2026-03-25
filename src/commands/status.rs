@@ -242,8 +242,6 @@ pub fn status(project_root: &Path, config: &StatusConfig) -> Result<StatusReport
     // Determine project state and changed pages
     let (project_state, page_changes) = if mgr.state.layout.is_empty() {
         (ProjectState_::Empty, vec![])
-    } else if !mgr.has_changes_since_last_build() {
-        (ProjectState_::Clean, vec![])
     } else {
         let modified = mgr.outdated_pages_indices();
         if modified.is_empty() {
@@ -257,15 +255,9 @@ pub fn status(project_root: &Path, config: &StatusConfig) -> Result<StatusReport
     let warnings = check_consistency(&mgr.state);
 
     // Detail view (if page requested)
-    let modified_pages = if mgr.state.layout.is_empty() {
-        vec![]
-    } else {
-        mgr.outdated_pages_indices()
-    };
-
     let detail = config
         .page
-        .map(|p| build_page_detail(&mgr.state, p, &modified_pages))
+        .map(|p| build_page_detail(&mgr.state, p, &page_changes))
         .transpose()?;
 
     Ok(StatusReport {
