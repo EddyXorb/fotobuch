@@ -22,6 +22,12 @@ To be done in this order
 
 ## to improve it further
 
+- [ ] Coloured terminal output (`owo-colors` or `console` crate): success green, errors red,
+      warnings yellow, highlighted paths — makes the CLI feel polished and professional
+- [ ] Progress bars for solver & build (`indicatif` crate): "Building page 3/24…", spinner
+      during MIP solve. Eliminates "is it stuck?" anxiety, especially for release builds.
+- [ ] Richer `fotobuch status` output: human-readable summary showing project name, group/photo/page
+      counts, cover state, unplaced photos, last build type and age — all at a glance
 - [ ] reevaluate cli commands for page (maybe remove "to" in page move)
 - [ ] page numbering as option in template
 - [ ] preview config is not applied in template - remove or fix it
