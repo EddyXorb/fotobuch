@@ -55,9 +55,9 @@ pub fn execute_weight(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::test_fixtures::{make_state_with_layout, setup_repo};
     use super::super::types::{SlotExpr, ValidationError};
+    use super::*;
     use crate::state_manager::StateManager;
     use tempfile::TempDir;
 
@@ -86,15 +86,28 @@ mod tests {
 
         execute_weight(
             tmp.path(),
-            WeightAddress::Slots { page: 0, slots: SlotExpr::from_range(0, 1) },
+            WeightAddress::Slots {
+                page: 0,
+                slots: SlotExpr::from_range(0, 1),
+            },
             3.0,
-        ).unwrap();
+        )
+        .unwrap();
 
         let mgr = StateManager::open(tmp.path()).unwrap();
         let files = &mgr.state.photos[0].files;
-        assert_eq!(files.iter().find(|f| f.id == "p0.jpg").unwrap().area_weight, 3.0);
-        assert_eq!(files.iter().find(|f| f.id == "p1.jpg").unwrap().area_weight, 3.0);
-        assert_eq!(files.iter().find(|f| f.id == "p2.jpg").unwrap().area_weight, 1.0);
+        assert_eq!(
+            files.iter().find(|f| f.id == "p0.jpg").unwrap().area_weight,
+            3.0
+        );
+        assert_eq!(
+            files.iter().find(|f| f.id == "p1.jpg").unwrap().area_weight,
+            3.0
+        );
+        assert_eq!(
+            files.iter().find(|f| f.id == "p2.jpg").unwrap().area_weight,
+            1.0
+        );
         mgr.finish("test: noop").unwrap();
     }
 

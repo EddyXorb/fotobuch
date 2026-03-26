@@ -209,7 +209,11 @@ pub enum Commands {
         #[arg(long, requires = "with_cover", conflicts_with = "spine_mm")]
         spine_grow_per_10_pages_mm: Option<f64>,
         /// Fixed spine width in mm
-        #[arg(long, requires = "with_cover", conflicts_with = "spine_grow_per_10_pages_mm")]
+        #[arg(
+            long,
+            requires = "with_cover",
+            conflicts_with = "spine_grow_per_10_pages_mm"
+        )]
         spine_mm: Option<f64>,
     },
 
@@ -386,7 +390,11 @@ pub enum ProjectCommands {
         spine_grow_per_10_pages_mm: Option<f64>,
 
         /// Fixed spine width in mm (conflicts with --spine-grow-per-10-pages-mm)
-        #[arg(long, requires = "with_cover", conflicts_with = "spine_grow_per_10_pages_mm")]
+        #[arg(
+            long,
+            requires = "with_cover",
+            conflicts_with = "spine_grow_per_10_pages_mm"
+        )]
         spine_mm: Option<f64>,
     },
 
@@ -422,12 +430,10 @@ impl Execute for Commands {
                 *recursive,
                 *weight,
             ),
-            Commands::Build { command, pages } => {
-                match command {
-                    Some(BuildCommands::Release { force }) => build::handle_release(*force),
-                    None => build::handle(false, pages.clone()),
-                }
-            }
+            Commands::Build { command, pages } => match command {
+                Some(BuildCommands::Release { force }) => build::handle_release(*force),
+                None => build::handle(false, pages.clone()),
+            },
             Commands::Rebuild {
                 page,
                 range_start,
@@ -494,9 +500,21 @@ impl Execute for PageCommands {
             PageCommands::Split { address } => page::handle_split(address),
             PageCommands::Combine { pages } => page::handle_combine(pages),
             PageCommands::Swap { left, right } => page::handle_swap(left, right),
-            PageCommands::Info { address, weights, ids, pixels } => {
+            PageCommands::Info {
+                address,
+                weights,
+                ids,
+                pixels,
+            } => {
                 use fotobuch::commands::page::InfoFilter;
-                page::handle_info(address, InfoFilter { weights: *weights, ids: *ids, pixels: *pixels })
+                page::handle_info(
+                    address,
+                    InfoFilter {
+                        weights: *weights,
+                        ids: *ids,
+                        pixels: *pixels,
+                    },
+                )
             }
             PageCommands::Weight { address, weight } => page::handle_weight(address, *weight),
         }

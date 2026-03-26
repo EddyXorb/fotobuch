@@ -92,9 +92,9 @@ impl CoverConfig {
     /// Used by template for display/text sizing in both modes.
     pub fn spine_width_mm(&self, inner_page_count: usize) -> f64 {
         match &self.spine {
-            SpineConfig::Auto { spine_mm_per_10_pages } => {
-                (inner_page_count as f64 / 10.0) * spine_mm_per_10_pages
-            }
+            SpineConfig::Auto {
+                spine_mm_per_10_pages,
+            } => (inner_page_count as f64 / 10.0) * spine_mm_per_10_pages,
             SpineConfig::Fixed { spine_width_mm } => *spine_width_mm,
         }
     }
@@ -131,7 +131,9 @@ mod tests {
     fn cfg_auto(spine_mm_per_10_pages: f64) -> CoverConfig {
         CoverConfig {
             active: true,
-            spine: SpineConfig::Auto { spine_mm_per_10_pages },
+            spine: SpineConfig::Auto {
+                spine_mm_per_10_pages,
+            },
             front_back_width_mm: 420.0,
             height_mm: 297.0,
             spine_text: None,

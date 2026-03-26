@@ -12,7 +12,11 @@ fn page_dims(state: &ProjectState, idx: usize) -> (bool, f64, f64) {
     let book = &state.config.book;
     if state.has_cover() && idx == 0 {
         let inner = state.layout.len() - 1;
-        (true, book.cover.spread_width_mm(inner), book.cover.height_mm)
+        (
+            true,
+            book.cover.spread_width_mm(inner),
+            book.cover.height_mm,
+        )
     } else {
         (false, book.page_width_mm, book.page_height_mm)
     }
@@ -68,7 +72,10 @@ pub fn execute_info(
                 }
             }
         }
-        Src::Slots { page, slots: slot_expr } => {
+        Src::Slots {
+            page,
+            slots: slot_expr,
+        } => {
             let p = *page;
             let idx = page_idx(p, &mgr.state.layout)?;
             let lp = &mgr.state.layout[idx];
@@ -104,9 +111,9 @@ pub fn execute_info(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::test_fixtures::{make_state_with_layout, setup_repo};
     use super::super::types::{PagesExpr, SlotExpr};
+    use super::*;
     use tempfile::TempDir;
 
     #[test]
@@ -115,7 +122,12 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         setup_repo(&tmp, &state);
 
-        let result = execute_info(tmp.path(), Src::Pages(PagesExpr::single(0)), InfoFilter::default()).unwrap();
+        let result = execute_info(
+            tmp.path(),
+            Src::Pages(PagesExpr::single(0)),
+            InfoFilter::default(),
+        )
+        .unwrap();
         assert_eq!(result.slots.len(), 2);
         assert_eq!(result.slots[0].slot, 0);
         assert_eq!(result.slots[0].id, "p0.jpg");
@@ -131,9 +143,13 @@ mod tests {
 
         let result = execute_info(
             tmp.path(),
-            Src::Slots { page: 0, slots: SlotExpr::from_range(0, 1) },
+            Src::Slots {
+                page: 0,
+                slots: SlotExpr::from_range(0, 1),
+            },
             InfoFilter::default(),
-        ).unwrap();
+        )
+        .unwrap();
         assert_eq!(result.slots.len(), 2);
         assert_eq!(result.slots[0].total_page_slots, 3);
     }
@@ -144,7 +160,12 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         setup_repo(&tmp, &state);
 
-        let err = execute_info(tmp.path(), Src::Pages(PagesExpr::single(99)), InfoFilter::default()).unwrap_err();
+        let err = execute_info(
+            tmp.path(),
+            Src::Pages(PagesExpr::single(99)),
+            InfoFilter::default(),
+        )
+        .unwrap_err();
         assert!(err.to_string().contains("page 99"));
     }
 }
