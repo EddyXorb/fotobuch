@@ -137,7 +137,10 @@ mod tests {
         let output = scan_photos(input).expect("scan_single_file should succeed");
         assert_eq!(output.groups.len(), 1, "should return exactly one group");
         let group = &output.groups[0];
-        assert_eq!(group.group, "rotated", "group name should be parent dir name");
+        assert_eq!(
+            group.group, "rotated",
+            "group name should be parent dir name"
+        );
         assert_eq!(group.files.len(), 1, "should contain exactly one photo");
 
         let photo = &output.groups[0].files[0];
