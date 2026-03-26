@@ -6,39 +6,43 @@ use regex::Regex;
 use std::path::PathBuf;
 use tracing::{info, warn};
 
-pub fn handle(
-    paths: Vec<PathBuf>,
-    allow_duplicates: bool,
-    filter_xmp: Vec<String>,
-    filter: Vec<String>,
-    dry: bool,
-    update: bool,
-    recursive: bool,
-    weight: f64,
-) -> Result<()> {
+pub struct AddArgs {
+    pub paths: Vec<PathBuf>,
+    pub allow_duplicates: bool,
+    pub filter_xmp: Vec<String>,
+    pub filter: Vec<String>,
+    pub dry: bool,
+    pub update: bool,
+    pub recursive: bool,
+    pub weight: f64,
+}
+
+pub fn handle(args: AddArgs) -> Result<()> {
     let project_root = std::env::current_dir().context("Failed to determine current directory")?;
 
-    let xmp_filters: Result<Vec<Regex>> = filter_xmp
+    let xmp_filters: Result<Vec<Regex>> = args
+        .filter_xmp
         .iter()
         .map(|pat| Regex::new(pat).with_context(|| format!("Invalid --filter-xmp regex: {pat}")))
         .collect();
     let xmp_filters = xmp_filters?;
 
-    let source_filters: Result<Vec<Regex>> = filter
+    let source_filters: Result<Vec<Regex>> = args
+        .filter
         .iter()
         .map(|pat| Regex::new(pat).with_context(|| format!("Invalid --filter regex: {pat}")))
         .collect();
     let source_filters = source_filters?;
 
     let config = commands::AddConfig {
-        paths,
-        allow_duplicates,
+        paths: args.paths,
+        allow_duplicates: args.allow_duplicates,
         xmp_filters,
         source_filters,
-        dry_run: dry,
-        update,
-        recursive,
-        weight,
+        dry_run: args.dry,
+        update: args.update,
+        recursive: args.recursive,
+        weight: args.weight,
     };
 
     let result = commands::add(&project_root, &config)?;
