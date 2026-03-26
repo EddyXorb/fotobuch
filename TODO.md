@@ -65,6 +65,16 @@ To be done in this order
 - [x] Tests for all lib execute_* functions
 - [x] Tests for lexer and parser
 
+## Workflow improvements (found during book review)
+
+- [ ] Cover setup is too manual (3–4 commands + YAML edit). A dedicated
+      `fotobuch cover set-photo <path>` command would make it a one-liner.
+- [ ] First `build` auto-places all photos, but subsequent builds require
+      explicit `fotobuch place`. This asymmetry is surprising. Consider
+      auto-placing in `build` or warning loudly about unplaced photos.
+- [ ] `build --pages` (limit rendering) vs `rebuild --page` (re-solve) have
+      confusingly similar names. Consider unifying or renaming.
+
 ## Internal todos
 
 - [ ] clean up the builder-section and have a new wrapper that calls the others, but takes care to build the pdf and get the correct BookLayoutConfig for further processing.
