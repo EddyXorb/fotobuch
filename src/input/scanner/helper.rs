@@ -14,8 +14,8 @@ pub fn get_all_dirs_recursive(root: &Path) -> Result<Vec<PathBuf>> {
     let mut queue = vec![root.to_path_buf()];
 
     while let Some(dir) = queue.pop() {
-        let entries = std::fs::read_dir(&dir)
-            .with_context(|| format!("Cannot read directory {:?}", dir))?;
+        let entries =
+            std::fs::read_dir(&dir).with_context(|| format!("Cannot read directory {:?}", dir))?;
         for entry in entries.filter_map(|e| e.ok()) {
             let path = entry.path();
             if path.is_dir() {
@@ -47,16 +47,16 @@ pub fn parse_timestamp_from_name(name: &str) -> Option<NaiveDateTime> {
     // Extract the leading date-like part (up to the first non-date character after the date).
     let formats_datetime = [
         ("%Y-%m-%d_%H-%M-%S", "2024-07-15_18-30-00".len()),
-        ("%Y-%m-%d %H-%M",    "2024-07-15 18-30".len()),
-        ("%Y-%m-%d_%H-%M",    "2024-07-15_18-30".len()),
-        ("%Y%m%d_%H%M%S",     "20240715_183000".len()),
-        ("%Y%m%d_%H%M",       "20240715_1830".len()),
-        ("%Y-%m-%d@%H%M%S",   "2024-07-15@183000".len()),
+        ("%Y-%m-%d %H-%M", "2024-07-15 18-30".len()),
+        ("%Y-%m-%d_%H-%M", "2024-07-15_18-30".len()),
+        ("%Y%m%d_%H%M%S", "20240715_183000".len()),
+        ("%Y%m%d_%H%M", "20240715_1830".len()),
+        ("%Y-%m-%d@%H%M%S", "2024-07-15@183000".len()),
     ];
 
     let formats_date = [
         ("%Y-%m-%d", "2024-07-15".len()),
-        ("%Y%m%d",   "20240715".len()),
+        ("%Y%m%d", "20240715".len()),
         ("%Y_%m_%d", "2024_07_15".len()),
     ];
 
@@ -72,9 +72,10 @@ pub fn parse_timestamp_from_name(name: &str) -> Option<NaiveDateTime> {
     // Date-only formats: produce midnight timestamp.
     for (fmt, len) in &formats_date {
         if let Some(candidate) = name.get(..*len)
-            && let Ok(date) = chrono::NaiveDate::parse_from_str(candidate, fmt) {
-                return date.and_hms_opt(0, 0, 0);
-            }
+            && let Ok(date) = chrono::NaiveDate::parse_from_str(candidate, fmt)
+        {
+            return date.and_hms_opt(0, 0, 0);
+        }
     }
 
     None

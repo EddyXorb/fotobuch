@@ -43,7 +43,9 @@ pub fn handle(command: ProjectSubcommand) -> Result<()> {
         } => {
             // Validate spine args if cover is requested
             if with_cover && spine_grow_per_10_pages_mm.is_none() && spine_mm.is_none() {
-                anyhow::bail!("--with-cover requires either --spine-grow-per-10-pages-mm or --spine-mm");
+                anyhow::bail!(
+                    "--with-cover requires either --spine-grow-per-10-pages-mm or --spine-mm"
+                );
             }
 
             let parent = parent_dir

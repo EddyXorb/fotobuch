@@ -32,7 +32,10 @@ impl PagesExpr {
 pub enum SlotItem {
     Single(u32),
     /// `from..=to`, where `None` means "open end" (resolved at execution time).
-    Range { from: Option<u32>, to: Option<u32> },
+    Range {
+        from: Option<u32>,
+        to: Option<u32>,
+    },
 }
 
 /// A set of slot indices: `2`, `2,7`, `2..5`, `2..`, `..5`, or combinations.
@@ -43,23 +46,42 @@ pub struct SlotExpr {
 
 impl SlotExpr {
     pub fn single(slot: u32) -> Self {
-        Self { items: vec![SlotItem::Single(slot)] }
+        Self {
+            items: vec![SlotItem::Single(slot)],
+        }
     }
 
     pub fn from_list(slots: Vec<u32>) -> Self {
-        Self { items: slots.into_iter().map(SlotItem::Single).collect() }
+        Self {
+            items: slots.into_iter().map(SlotItem::Single).collect(),
+        }
     }
 
     pub fn from_range(start: u32, end: u32) -> Self {
-        Self { items: vec![SlotItem::Range { from: Some(start), to: Some(end) }] }
+        Self {
+            items: vec![SlotItem::Range {
+                from: Some(start),
+                to: Some(end),
+            }],
+        }
     }
 
     pub fn from_open_end(from: u32) -> Self {
-        Self { items: vec![SlotItem::Range { from: Some(from), to: None }] }
+        Self {
+            items: vec![SlotItem::Range {
+                from: Some(from),
+                to: None,
+            }],
+        }
     }
 
     pub fn from_open_start(to: u32) -> Self {
-        Self { items: vec![SlotItem::Range { from: None, to: Some(to) }] }
+        Self {
+            items: vec![SlotItem::Range {
+                from: None,
+                to: Some(to),
+            }],
+        }
     }
 }
 
@@ -128,7 +150,10 @@ impl std::fmt::Display for ValidationError {
             }
             Self::SwapRangesOverlap => write!(f, "swap ranges must not overlap"),
             Self::SwapNonContiguous => {
-                write!(f, "swap operands must be a single number or a range, not a list")
+                write!(
+                    f,
+                    "swap operands must be a single number or a range, not a list"
+                )
             }
             Self::CombineSinglePage(p) => {
                 write!(f, "combine requires at least two pages, got only page {p}")
@@ -251,7 +276,13 @@ mod tests {
     #[test]
     fn test_slot_expr_from_range() {
         let se = SlotExpr::from_range(2, 5);
-        assert_eq!(se.items, vec![SlotItem::Range { from: Some(2), to: Some(5) }]);
+        assert_eq!(
+            se.items,
+            vec![SlotItem::Range {
+                from: Some(2),
+                to: Some(5)
+            }]
+        );
     }
 
     #[test]

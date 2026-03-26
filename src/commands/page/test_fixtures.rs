@@ -70,11 +70,7 @@ pub fn setup_repo(tmp: &TempDir, state: &ProjectState) {
     config.set_str("user.email", "test@example.com").unwrap();
     drop(config);
 
-    std::fs::write(
-        tmp.path().join(".gitignore"),
-        ".fotobuch/\n*.pdf\nlog*\n",
-    )
-    .unwrap();
+    std::fs::write(tmp.path().join(".gitignore"), ".fotobuch/\n*.pdf\nlog*\n").unwrap();
     state.save(&tmp.path().join("urlaub.yaml")).unwrap();
     git::stage_and_commit(&repo, &[".gitignore", "urlaub.yaml"], "init").unwrap();
     git::create_branch(&repo, "fotobuch/urlaub").unwrap();

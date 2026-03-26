@@ -17,7 +17,11 @@ use tracing::{info, warn};
 /// 2. Generate final cache and collect DPI warnings
 /// 3. Compile final.typ -> final.pdf
 /// 4. Save and commit
-pub fn release_build(mut mgr: StateManager, project_root: &Path, force: bool) -> Result<super::BuildResult> {
+pub fn release_build(
+    mut mgr: StateManager,
+    project_root: &Path,
+    force: bool,
+) -> Result<super::BuildResult> {
     let dpi = mgr.state.config.book.dpi;
     info!("Release build: generating final PDF at {:.0} DPI...", dpi);
 
