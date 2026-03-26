@@ -272,7 +272,7 @@ pub enum PageCommands {
     ///   3:2 out       Unplace slot 2, page 3 stays (possibly empty)
     #[command(verbatim_doc_comment)]
     Move {
-        /// Expression passed as space-separated tokens, e.g.: 3:2 -> 5
+        /// Expression passed as space-separated tokens, e.g.: 3:2 to 5
         #[arg(num_args = 1..)]
         args: Vec<String>,
     },

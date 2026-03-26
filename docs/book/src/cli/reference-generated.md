@@ -205,7 +205,7 @@ Unplace:
 
 ###### **Arguments:**
 
-* `<ARGS>` — Expression passed as space-separated tokens, e.g.: 3:2 -> 5
+* `<ARGS>` — Expression passed as space-separated tokens, e.g.: 3:2 to 5
 
 
 
@@ -425,6 +425,9 @@ Create a new photobook project
 * `--cover-height <COVER_HEIGHT>` — Cover height in millimeters (defaults to page_height if --with-cover is set, with warning)
 * `--spine-grow-per-10-pages-mm <SPINE_GROW_PER_10_PAGES_MM>` — Spine width growth per 10 inner pages in mm (auto mode, conflicts with --spine-mm)
 * `--spine-mm <SPINE_MM>` — Fixed spine width in mm (conflicts with --spine-grow-per-10-pages-mm)
+* `--margin-mm <MARGIN_MM>` — Inner margin in millimeters (default: 0)
+
+  Default value: `0`
 
 
 
@@ -476,6 +479,9 @@ Create a new photobook project (alias for `project new`)
 * `--cover-height <COVER_HEIGHT>` — Cover height in millimeters
 * `--spine-grow-per-10-pages-mm <SPINE_GROW_PER_10_PAGES_MM>` — Spine width growth per 10 inner pages in mm
 * `--spine-mm <SPINE_MM>` — Fixed spine width in mm
+* `--margin-mm <MARGIN_MM>` — Inner margin in millimeters (default: 0)
+
+  Default value: `0`
 
 
 
