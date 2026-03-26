@@ -504,14 +504,14 @@ fn test_xmp_filter_matches_modified_description() -> Result<()> {
 
 /// Helper to check if exiftool is available, warn and skip test if not
 fn warn_if_exiftool_missing() -> Result<bool> {
-    let output = Command::new("exiftool")
-        .arg("-ver")
-        .output();
+    let output = Command::new("exiftool").arg("-ver").output();
 
     if matches!(output, Ok(output) if output.status.success()) {
         Ok(true)
     } else {
-        eprintln!("⚠ Test skipped: exiftool not available. Install with: apt-get install libimage-exiftool-perl");
+        eprintln!(
+            "⚠ Test skipped: exiftool not available. Install with: apt-get install libimage-exiftool-perl"
+        );
         Ok(false)
     }
 }
