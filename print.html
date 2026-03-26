@@ -36,10 +36,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-bad6f84c.js";
+            window.path_to_searchindex_js = "searchindex-ee43bea2.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-286b49dc.js"></script>
+        <script src="toc-46d27161.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -200,6 +200,11 @@ same event stay together. Fully automatic, or tweak any page by hand.</p>
 </tbody>
 </table>
 </div>
+<h2 id="example-project"><a class="header" href="#example-project">Example project</a></h2>
+<p>The repository ships with a complete example in <code>docs/examples/</code> — a ready-made
+project with sample images and both preview and release PDFs. A good way to
+explore the YAML, the Typst template, and the output without creating your own
+project first.</p>
 <h2 id="source-code"><a class="header" href="#source-code">Source code</a></h2>
 <p><a href="https://github.com/EddyXorb/fotobuch">github.com/EddyXorb/fotobuch</a></p>
 <div style="break-before: page; page-break-before: always;"></div>
@@ -341,6 +346,10 @@ Use <code>fotobuch undo</code> / <code>fotobuch redo</code> to navigate the hist
 <h1 id="your-first-book"><a class="header" href="#your-first-book">Your First Book</a></h1>
 <p>This walkthrough takes you from zero to a print-ready PDF.
 Prerequisites: <code>fotobuch</code> installed, a folder of photos on your machine.</p>
+<blockquote>
+<p><strong>Prefer learning by example?</strong> Check out the complete project in <code>docs/examples/</code>
+— it has sample images, YAML config, template, and generated PDFs.</p>
+</blockquote>
 <hr>
 <h2 id="step-1--create-a-project"><a class="header" href="#step-1--create-a-project">Step 1 — Create a project</a></h2>
 <pre><code class="language-bash">fotobuch project new "Italy-2024" --width 297 --height 210
@@ -583,6 +592,91 @@ section).</p>
 <p>The <code>page_layout_solver</code> section (genetic algorithm parameters) exists too but
 rarely needs tweaking. Run <code>fotobuch config</code> to see all fields.</p>
 </blockquote>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="customizing-the-template"><a class="header" href="#customizing-the-template">Customizing the Template</a></h1>
+<p>Every project has a <code>{name}.typ</code> file — a <a href="https://typst.app/">Typst</a> template
+that controls how the PDF looks. fotobuch generates this file for you, but you
+are free (and encouraged) to edit it.</p>
+<p>The top of the template has a clearly marked <strong>USER SETTINGS</strong> section. These
+are the knobs you can turn without understanding the rest of the template.</p>
+<blockquote>
+<p><strong>Important:</strong> Always edit <code>{name}.typ</code>, never <code>final.typ</code>. The final
+template is auto-generated from yours during <code>build release</code> (with
+<code>is_final = true</code>). Your changes in <code>final.typ</code> would be overwritten.</p>
+</blockquote>
+<hr>
+<h2 id="preview-overlays"><a class="header" href="#preview-overlays">Preview overlays</a></h2>
+<p>These settings only affect the preview PDF. They are automatically disabled in
+the release build.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Setting</th><th>Default</th><th>Effect</th></tr>
+</thead>
+<tbody>
+<tr><td><code>show_image_captions_on_preview</code></td><td><code>false</code></td><td>Show the filename on each photo</td></tr>
+<tr><td><code>show_borders_on_preview</code></td><td><code>true</code></td><td>Red bleed border + blue margin border</td></tr>
+<tr><td><code>show_slot_info_on_preview</code></td><td><code>true</code></td><td>Slot address and weight on each photo (e.g. <code>3:2 (1.5)</code>)</td></tr>
+</tbody>
+</table>
+</div>
+<pre><code class="language-typ">#let show_image_captions_on_preview = false
+#let show_borders_on_preview = true
+#let show_slot_info_on_preview = true
+</code></pre>
+<p>Turn on <code>show_image_captions_on_preview</code> when you’re trying to identify which
+photo is where. Turn off <code>show_slot_info_on_preview</code> once you’re happy with the
+layout and just want a clean preview.</p>
+<hr>
+<h2 id="photo-index-appendix"><a class="header" href="#photo-index-appendix">Photo index (appendix)</a></h2>
+<p>The template can append a photo index at the end of the book — a compact
+reference listing every photo with its group, timestamp, and a reference back to
+its page position.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Setting</th><th>Default</th><th>Effect</th></tr>
+</thead>
+<tbody>
+<tr><td><code>appendix_show</code></td><td><code>false</code></td><td>Enable the appendix</td></tr>
+<tr><td><code>appendix_nr_columns</code></td><td><code>7</code></td><td>Number of columns in the listing</td></tr>
+<tr><td><code>appendix_ref_mode</code></td><td><code>"positions"</code></td><td>How photos are referenced (see below)</td></tr>
+<tr><td><code>appendix_show_page_nr_separator</code></td><td><code>false</code></td><td>Show a page-number header between pages</td></tr>
+<tr><td><code>appendix_try_strip_datetimes_from_photo_name</code></td><td><code>true</code></td><td>Strip leading timestamps from filenames</td></tr>
+<tr><td><code>appendix_label_title</code></td><td><code>"Bildverzeichnis"</code></td><td>Title text (change for your language)</td></tr>
+<tr><td><code>appendix_label_page</code></td><td><code>"Seite"</code></td><td>“Page” label (change for your language)</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="reference-modes"><a class="header" href="#reference-modes">Reference modes</a></h3>
+<p><strong><code>"positions"</code></strong> (default) — Each photo is referenced as <code>page.slot</code>, e.g.
+<code>2.3</code> means page 2, slot 3. No visual badge is added to the photos.</p>
+<p><strong><code>"counter"</code></strong> — Photos are numbered sequentially (1, 2, 3, …) and a small
+badge with the number appears in the bottom-right corner of each photo in the
+PDF.</p>
+<pre><code class="language-typ">#let appendix_show = true
+#let appendix_ref_mode = "counter"
+#let appendix_label_title = "Photo Index"
+#let appendix_label_page = "Page"
+</code></pre>
+<hr>
+<h2 id="going-further"><a class="header" href="#going-further">Going further</a></h2>
+<p>Everything below the <code>USER SETTINGS</code> block is the full Typst template: page
+setup, slot rendering, cover logic, watermarks, and the appendix renderer. If
+you know Typst, you can customize anything — fonts, colours, page numbering,
+decorative elements, or the layout structure itself.</p>
+<p>A few things to keep in mind:</p>
+<ul>
+<li>The template reads layout data from <code>{name}.yaml</code> via <code>#let data = yaml(…)</code>.
+The YAML structure is stable, so your customizations won’t break on updates.</li>
+<li><code>is_final</code> controls preview vs. release mode. Use it to conditionally show or
+hide elements: <code>#if not is_final [Draft watermark]</code>.</li>
+<li>Image paths are resolved relative to the project root via <code>cache_prefix</code>.
+Preview images live in <code>.fotobuch/cache/{name}/preview/</code>, final images in
+<code>.fotobuch/cache/{name}/final/</code>.</li>
+</ul>
+<p>If you want to start over with the default template, create a fresh project with
+<code>fotobuch project new</code> and copy the generated <code>{name}.typ</code> back.</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="printing--export"><a class="header" href="#printing--export">Printing &amp; Export</a></h1>
 <h2 id="general-checklist"><a class="header" href="#general-checklist">General checklist</a></h2>
