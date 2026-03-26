@@ -406,6 +406,10 @@ fn test_xmp_filter_with_no_match_excludes_nothing() -> Result<()> {
 
 #[test]
 fn test_xmp_filter_matches_modified_description() -> Result<()> {
+    if !warn_if_exiftool_missing()? {
+        return Ok(());
+    }
+
     let temp_dir = TempDir::new()?;
     let project_root = create_test_project(&temp_dir)?;
 
@@ -496,6 +500,20 @@ fn test_xmp_filter_matches_modified_description() -> Result<()> {
     );
 
     Ok(())
+}
+
+/// Helper to check if exiftool is available, warn and skip test if not
+fn warn_if_exiftool_missing() -> Result<bool> {
+    let output = Command::new("exiftool")
+        .arg("-ver")
+        .output();
+
+    if matches!(output, Ok(output) if output.status.success()) {
+        Ok(true)
+    } else {
+        eprintln!("⚠ Test skipped: exiftool not available. Install with: apt-get install libimage-exiftool-perl");
+        Ok(false)
+    }
 }
 
 /// Helper function to recursively copy directories
