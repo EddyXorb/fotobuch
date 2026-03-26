@@ -35,10 +35,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-da5b6455.js";
+            window.path_to_searchindex_js = "searchindex-bad6f84c.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-6db7f8a4.js"></script>
+        <script src="toc-286b49dc.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -181,38 +181,46 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="your-first-book"><a class="header" href="#your-first-book">Your First Book</a></h1>
-<p>This walkthrough takes you from zero to a print-ready PDF. It assumes you have
-<code>fotobuch</code> installed and a folder of photos somewhere on your machine.</p>
-<p>The whole process takes about 10 minutes the first time.</p>
+<p>This walkthrough takes you from zero to a print-ready PDF.
+Prerequisites: <code>fotobuch</code> installed, a folder of photos on your machine.</p>
 <hr>
 <h2 id="step-1--create-a-project"><a class="header" href="#step-1--create-a-project">Step 1 — Create a project</a></h2>
-<p>A fotobuch project is a regular folder containing a <code>fotobuch.yaml</code> config file
-and a Git repository that tracks every change you make.</p>
-<pre><code class="language-bash">fotobuch project new "Italy 2024" --width 297 --height 210
+<pre><code class="language-bash">fotobuch project new "Italy-2024" --width 297 --height 210
 </code></pre>
-<p>This creates a folder called <code>Italy 2024</code> in the current directory and
-initialises a Git repo inside it. The <code>--width</code> and <code>--height</code> values are in
-millimetres (297 × 210 mm = A4 landscape).</p>
+<p>This creates a directory <code>Italy-2024/</code> with a Git repo, a YAML config, and a
+Typst template. The <code>--width</code> and <code>--height</code> values are in millimetres
+(297 × 210 mm = A4 landscape).</p>
 <p>Switch into the project folder:</p>
-<pre><code class="language-bash">cd "Italy 2024"
+<pre><code class="language-bash">cd "Italy-2024"
 </code></pre>
 <blockquote>
-<p><strong>Tip:</strong> Run <code>fotobuch config</code> at any time to see the full resolved
-configuration with all default values.</p>
+<p>Project names must start with a letter and can only contain letters, digits,
+or dashes.</p>
 </blockquote>
 <hr>
 <h2 id="step-2--add-photos"><a class="header" href="#step-2--add-photos">Step 2 — Add photos</a></h2>
-<p>Point fotobuch at one or more folders. Each folder becomes a <em>group</em> — photos
-from the same group are kept together on pages.</p>
+<p>Point fotobuch at one or more folders. Each folder becomes a
+<a href="concepts.html#photos-and-groups">group</a> — photos from the same group are kept
+together on pages.</p>
 <pre><code class="language-bash">fotobuch add /photos/2024-07-Italy
 fotobuch add /photos/2024-08-Hiking
 </code></pre>
-<p>Folder names that contain a date (<code>2024-07-Italy</code>, <code>20240715_Rome</code>) are sorted
-chronologically. Folders without a date go at the end.</p>
-<p>You can also add a single file, or add recursively (each subfolder becomes its
-own group):</p>
-<pre><code class="language-bash">fotobuch add /photos/2024-07-Italy/DSC_0042.jpg
+<p>Folders with a date in the name (<code>2024-07-Italy</code>, <code>20240715_Rome</code>) are sorted
+chronologically. Folders without a recognisable date are sorted by the oldest
+photo’s timestamp.</p>
+<p>You can also add single files, add recursively (each subfolder = its own group),
+or filter:</p>
+<pre><code class="language-bash"># single file
+fotobuch add /photos/2024-07-Italy/DSC_0042.jpg
+
+# recursive — each subfolder becomes a group
 fotobuch add --recursive /photos/2024-summer
+
+# only photos matching a filename pattern
+fotobuch add /photos/2024-07-Italy --filter "DSC_00.*\.jpg"
+
+# only 3-to-5-star photos, giving them more space
+fotobuch add /photos/2024-07-Italy --filter-xmp "Rating.*[3-5]" --weight 5
 </code></pre>
 <p>Check what was imported:</p>
 <pre><code class="language-bash">fotobuch status
@@ -221,24 +229,26 @@ fotobuch add --recursive /photos/2024-summer
 <h2 id="step-3--build-a-preview"><a class="header" href="#step-3--build-a-preview">Step 3 — Build a preview</a></h2>
 <pre><code class="language-bash">fotobuch build
 </code></pre>
-<p>fotobuch solves the layout and renders a preview PDF at 150 DPI (fast).
-Open <code>preview.pdf</code> (or the <code>.typ</code> file in VS Code with Typst Preview) to
-review the result.</p>
+<p>On the first run, fotobuch distributes all photos across pages automatically and
+renders a preview PDF at lower DPI (fast). Open <code>Italy-2024.pdf</code> to review the
+result — or open <code>Italy-2024.typ</code> in VS Code with
+<a href="https://marketplace.visualstudio.com/items?itemName=mgt19937.typst-preview">Typst Preview</a>
+for a live preview.</p>
 <hr>
 <h2 id="step-4--adjust-the-layout"><a class="header" href="#step-4--adjust-the-layout">Step 4 — Adjust the layout</a></h2>
 <p>You will almost certainly want to tweak a few things.</p>
 <p><strong>Swap two pages:</strong></p>
 <pre><code class="language-bash">fotobuch page swap 3 7
 </code></pre>
-<p><strong>Move a photo from one page to another:</strong></p>
+<p><strong>Move a photo to another page:</strong></p>
 <pre><code class="language-bash">fotobuch page move 3:2 to 5
 </code></pre>
-<p><code>3:2</code> means slot 2 on page 3 (slots are numbered from 1, left-to-right,
-top-to-bottom).</p>
-<p><strong>Give a photo more space</strong> (weight &gt; 1 makes it relatively larger):</p>
+<p>This moves slot 2 on page 3 to page 5. (Pages and slots count from 0 — use
+<code>fotobuch status 3</code> to see which slot is which.)</p>
+<p><strong>Give a photo more space</strong> (weight &gt; 1 = relatively larger):</p>
 <pre><code class="language-bash">fotobuch page weight 3:2 2.0
 </code></pre>
-<p><strong>Force the solver to redo a single page:</strong></p>
+<p><strong>Re-solve a single page</strong> (runs the solver again from scratch for that page):</p>
 <pre><code class="language-bash">fotobuch rebuild --page 6
 </code></pre>
 <p><strong>Undo any change:</strong></p>
@@ -250,19 +260,30 @@ log, and <code>fotobuch undo N</code> rolls back N steps.</p>
 <pre><code class="language-bash">fotobuch build
 </code></pre>
 <hr>
-<h2 id="step-5--export-for-print"><a class="header" href="#step-5--export-for-print">Step 5 — Export for print</a></h2>
-<p>When you are happy with the layout:</p>
+<h2 id="step-5--adding-more-photos-later"><a class="header" href="#step-5--adding-more-photos-later">Step 5 — Adding more photos later</a></h2>
+<p>After the first build, newly added photos start as <strong>unplaced</strong>. Place them
+before building:</p>
+<pre><code class="language-bash">fotobuch add /photos/bonus-shots
+fotobuch place
+fotobuch build
+</code></pre>
+<p>You can also place photos onto a specific page:</p>
+<pre><code class="language-bash">fotobuch place --into 4
+</code></pre>
+<hr>
+<h2 id="step-6--export-for-print"><a class="header" href="#step-6--export-for-print">Step 6 — Export for print</a></h2>
+<p>When you’re happy with the layout:</p>
 <pre><code class="language-bash">fotobuch build release
 </code></pre>
-<p>This re-renders all images at 300 DPI and writes <code>release.pdf</code>.
-The file is ready to upload directly to your print service (e.g. Saal Digital).</p>
-<p>See <a href="printing.html">Printing &amp; Known Limitations</a> for Saal Digital-specific details.</p>
+<p>This re-renders all images at 300 DPI and writes <code>Italy-2024_final.pdf</code>.
+The file is ready to upload to your print service (e.g. Saal Digital).</p>
+<p>See <a href="printing.html">Printing</a> for Saal Digital-specific details.</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="installation.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="concepts.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
@@ -276,7 +297,7 @@ The file is ready to upload directly to your print service (e.g. Saal Digital).<
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="installation.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="concepts.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 

@@ -35,10 +35,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-da5b6455.js";
+            window.path_to_searchindex_js = "searchindex-bad6f84c.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-6db7f8a4.js"></script>
+        <script src="toc-286b49dc.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -182,7 +182,7 @@
                     <main>
                         <h1 id="command-overview"><a class="header" href="#command-overview">Command Overview</a></h1>
 <p>All commands follow the pattern <code>fotobuch &lt;command&gt; [options]</code>.
-Run <code>fotobuch --help</code> or <code>fotobuch &lt;command&gt; --help</code> for a full flag listing,
+Run <code>fotobuch --help</code> or <code>fotobuch &lt;command&gt; --help</code> for details,
 or see the <a href="cli/reference-generated.html">Full Flag Reference</a>.</p>
 <h2 id="commands-at-a-glance"><a class="header" href="#commands-at-a-glance">Commands at a glance</a></h2>
 <div class="table-wrapper">
@@ -192,80 +192,140 @@ or see the <a href="cli/reference-generated.html">Full Flag Reference</a>.</p>
 </thead>
 <tbody>
 <tr><td><code>project new</code></td><td>Create a new photobook project</td></tr>
-<tr><td><code>project list</code></td><td>List all projects in the current directory tree</td></tr>
-<tr><td><code>project switch</code></td><td>Switch the active project</td></tr>
-<tr><td><code>add</code></td><td>Add photos or folders to the project</td></tr>
-<tr><td><code>remove</code></td><td>Remove photos or groups from the project</td></tr>
-<tr><td><code>place</code></td><td>Place unplaced photos into the layout</td></tr>
-<tr><td><code>unplace</code></td><td>Remove photos from the layout (photos stay in the project)</td></tr>
-<tr><td><code>build</code></td><td>Solve layout and render preview PDF (150 DPI)</td></tr>
+<tr><td><code>project list</code></td><td>List all projects in the current repo</td></tr>
+<tr><td><code>project switch</code></td><td>Switch to another project (checks out its Git branch)</td></tr>
+<tr><td><code>add</code></td><td>Import photos or folders into the project</td></tr>
+<tr><td><code>remove</code></td><td>Delete photos from the project entirely</td></tr>
+<tr><td><code>place</code></td><td>Assign unplaced photos to pages</td></tr>
+<tr><td><code>unplace</code></td><td>Remove photos from their page slots (they stay in the project)</td></tr>
+<tr><td><code>build</code></td><td>Solve layout and render preview PDF</td></tr>
 <tr><td><code>build release</code></td><td>Render final PDF at full resolution (300 DPI)</td></tr>
 <tr><td><code>rebuild</code></td><td>Re-run the solver on specific pages</td></tr>
-<tr><td><code>page move</code></td><td>Move or swap photos between pages</td></tr>
+<tr><td><code>page move</code></td><td>Move photos between pages</td></tr>
 <tr><td><code>page swap</code></td><td>Swap pages or slots</td></tr>
 <tr><td><code>page split</code></td><td>Split a page at a slot</td></tr>
 <tr><td><code>page combine</code></td><td>Merge pages together</td></tr>
 <tr><td><code>page info</code></td><td>Show photo metadata for slots on a page</td></tr>
 <tr><td><code>page weight</code></td><td>Set the area weight for one or more slots</td></tr>
-<tr><td><code>status</code></td><td>Show project overview or single-page detail</td></tr>
-<tr><td><code>config</code></td><td>Print resolved configuration with all defaults</td></tr>
+<tr><td><code>status</code></td><td>Show project overview (or single-page detail)</td></tr>
+<tr><td><code>config</code></td><td>Print the resolved configuration with all defaults</td></tr>
 <tr><td><code>history</code></td><td>Show the project change log</td></tr>
 <tr><td><code>undo</code></td><td>Undo the last N changes</td></tr>
 <tr><td><code>redo</code></td><td>Redo N undone changes</td></tr>
 </tbody>
 </table>
 </div>
-<hr>
-<h2 id="slot-addressing"><a class="header" href="#slot-addressing">Slot addressing</a></h2>
-<p>Many commands take a <em>slot address</em> to identify one or more photos on a page.</p>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Address</th><th>Meaning</th></tr>
-</thead>
-<tbody>
-<tr><td><code>3</code></td><td>All slots on page 3</td></tr>
-<tr><td><code>3:2</code></td><td>Slot 2 on page 3</td></tr>
-<tr><td><code>3:2..5</code></td><td>Slots 2 through 5 on page 3</td></tr>
-<tr><td><code>3:2..5,7</code></td><td>Slots 2–5 and slot 7 on page 3</td></tr>
-<tr><td><code>4+</code></td><td>New page inserted after page 4 (move destination only)</td></tr>
-</tbody>
-</table>
-</div>
-<p>Pages and slots are numbered from 0. Use <code>fotobuch status &lt;page&gt;</code> to see the
-slot numbers for a specific page.</p>
+<h3 id="remove-vs-unplace"><a class="header" href="#remove-vs-unplace"><code>remove</code> vs. <code>unplace</code></a></h3>
+<ul>
+<li><strong><code>remove</code></strong> deletes photos from the project. They are gone (unless you <code>undo</code>).</li>
+<li><strong><code>unplace</code></strong> takes photos off their page but keeps them in the project. They
+become unplaced and can be re-placed with <code>fotobuch place</code>.</li>
+</ul>
+<p>Use <code>remove --keep-files</code> if you want remove-like pattern matching but
+unplace-like behaviour (photos stay, just lose their page assignment).</p>
+<h3 id="build-vs-rebuild"><a class="header" href="#build-vs-rebuild"><code>build</code> vs. <code>rebuild</code></a></h3>
+<ul>
+<li><strong><code>build</code></strong> renders the PDF and only re-solves pages that changed since the
+last build. On the first run it solves everything.</li>
+<li><strong><code>rebuild --page N</code></strong> forces the solver to re-optimize page N from scratch,
+even if nothing changed. Useful when you’re not happy with a layout.</li>
+<li><strong><code>rebuild --all</code></strong> re-solves every page.</li>
+</ul>
 <hr>
 <h2 id="yaml-configuration"><a class="header" href="#yaml-configuration">YAML configuration</a></h2>
-<p>Every project contains a <code>fotobuch.yaml</code> file. Most settings have sensible
-defaults; you only need to change what matters to you.</p>
-<p>Run <code>fotobuch config</code> to see the current values including all defaults.</p>
-<p>Key fields:</p>
+<p>Every project contains a <code>{name}.yaml</code> file. Most settings have sensible
+defaults. Run <code>fotobuch config</code> to see the current values.</p>
+<p>Here are the fields you’re most likely to touch. The YAML nesting is shown
+as-is (e.g. <code>book.gap_mm</code> means the <code>gap_mm</code> key inside the <code>config.book</code>
+section).</p>
+<h3 id="book-settings-configbook"><a class="header" href="#book-settings-configbook">Book settings (<code>config.book</code>)</a></h3>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Field</th><th>Default</th><th>Description</th></tr>
+<tr><th>Field</th><th>Default</th><th>What it controls</th></tr>
 </thead>
 <tbody>
-<tr><td><code>title</code></td><td><code>"Untitled"</code></td><td>Book title (also used as spine text)</td></tr>
-<tr><td><code>page_width_mm</code></td><td><code>210</code></td><td>Page width in millimetres</td></tr>
-<tr><td><code>page_height_mm</code></td><td><code>297</code></td><td>Page height in millimetres</td></tr>
-<tr><td><code>bleed_mm</code></td><td><code>3</code></td><td>Bleed margin added around each page</td></tr>
-<tr><td><code>margin_mm</code></td><td><code>0</code></td><td>Inner margin (safe zone away from the cut edge)</td></tr>
-<tr><td><code>gap_mm</code></td><td><code>5</code></td><td>Gap between photos on a page</td></tr>
+<tr><td><code>title</code></td><td><code>"Untitled"</code></td><td>Book title (used as spine text if no explicit spine text is set)</td></tr>
+<tr><td><code>page_width_mm</code></td><td><code>210</code></td><td>Page width in mm</td></tr>
+<tr><td><code>page_height_mm</code></td><td><code>297</code></td><td>Page height in mm</td></tr>
+<tr><td><code>bleed_mm</code></td><td><code>3</code></td><td>Bleed area around each page (cut off by the printer)</td></tr>
+<tr><td><code>margin_mm</code></td><td><code>0</code></td><td>Inset from the page edge — photos won’t extend into this zone</td></tr>
+<tr><td><code>gap_mm</code></td><td><code>5</code></td><td>Space between photos on a page</td></tr>
 <tr><td><code>dpi</code></td><td><code>300</code></td><td>DPI for the final release PDF</td></tr>
-<tr><td><code>solver.page_target</code></td><td><code>32</code></td><td>Target number of pages</td></tr>
-<tr><td><code>solver.page_min</code></td><td><code>1</code></td><td>Minimum number of pages</td></tr>
-<tr><td><code>solver.page_max</code></td><td><code>48</code></td><td>Maximum number of pages</td></tr>
-<tr><td><code>solver.photos_per_page_min</code></td><td><code>2</code></td><td>Minimum photos per page</td></tr>
-<tr><td><code>solver.photos_per_page_max</code></td><td><code>20</code></td><td>Maximum photos per page</td></tr>
-<tr><td><code>preview.max_preview_px</code></td><td><code>800</code></td><td>Longest edge of cached preview images</td></tr>
-<tr><td><code>preview.show_filenames</code></td><td><code>true</code></td><td>Show filename captions in preview</td></tr>
-<tr><td><code>cover.active</code></td><td><code>false</code></td><td>Enable cover page</td></tr>
 </tbody>
 </table>
 </div>
-<p>The full YAML schema is documented in the source at
-<code>docs/design/yaml-scheme.md</code>.</p>
+<h3 id="page-distribution-configbook_layout_solver"><a class="header" href="#page-distribution-configbook_layout_solver">Page distribution (<code>config.book_layout_solver</code>)</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Field</th><th>Default</th><th>What it controls</th></tr>
+</thead>
+<tbody>
+<tr><td><code>page_target</code></td><td><code>32</code></td><td>Target page count the solver aims for</td></tr>
+<tr><td><code>page_min</code></td><td><code>1</code></td><td>Hard minimum page count</td></tr>
+<tr><td><code>page_max</code></td><td><code>48</code></td><td>Hard maximum page count</td></tr>
+<tr><td><code>photos_per_page_min</code></td><td><code>2</code></td><td>Minimum photos on any page</td></tr>
+<tr><td><code>photos_per_page_max</code></td><td><code>20</code></td><td>Maximum photos on any page</td></tr>
+<tr><td><code>group_max_per_page</code></td><td><code>3</code></td><td>Max distinct groups per page</td></tr>
+<tr><td><code>group_min_photos</code></td><td><code>2</code></td><td>Min photos from a group if it’s split across pages</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="preview-configpreview"><a class="header" href="#preview-configpreview">Preview (<code>config.preview</code>)</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Field</th><th>Default</th><th>What it controls</th></tr>
+</thead>
+<tbody>
+<tr><td><code>max_preview_px</code></td><td><code>800</code></td><td>Longest edge of cached preview images</td></tr>
+<tr><td><code>show_filenames</code></td><td><code>true</code></td><td>Show filename captions in preview PDF</td></tr>
+<tr><td><code>show_page_numbers</code></td><td><code>true</code></td><td>Show page numbers in preview PDF</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="cover-configbookcover"><a class="header" href="#cover-configbookcover">Cover (<code>config.book.cover</code>)</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Field</th><th>Default</th><th>What it controls</th></tr>
+</thead>
+<tbody>
+<tr><td><code>active</code></td><td><code>false</code></td><td>Enable cover page (page 0)</td></tr>
+<tr><td><code>front_back_width_mm</code></td><td>—</td><td>Cover panel width (set via <code>--cover-width</code> on project creation)</td></tr>
+<tr><td><code>height_mm</code></td><td>—</td><td>Cover height (set via <code>--cover-height</code>)</td></tr>
+<tr><td><code>spine_mode</code></td><td><code>auto</code></td><td><code>auto</code> grows spine with page count; <code>fixed</code> uses a fixed width</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="example-yaml-snippet"><a class="header" href="#example-yaml-snippet">Example YAML snippet</a></h3>
+<pre><code class="language-yaml">config:
+  book:
+    title: "Italy 2024"
+    page_width_mm: 297.0
+    page_height_mm: 210.0
+    bleed_mm: 3.0
+    margin_mm: 0.0
+    gap_mm: 5.0
+    dpi: 300.0
+    cover:
+      active: false
+  book_layout_solver:
+    page_target: 32
+    page_min: 1
+    page_max: 48
+    photos_per_page_min: 2
+    photos_per_page_max: 20
+  preview:
+    show_filenames: true
+    show_page_numbers: true
+    max_preview_px: 800
+</code></pre>
+<blockquote>
+<p>The <code>page_layout_solver</code> section (genetic algorithm parameters) exists too but
+rarely needs tweaking. Run <code>fotobuch config</code> to see all fields.</p>
+</blockquote>
 
                     </main>
 

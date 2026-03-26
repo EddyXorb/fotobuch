@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Printing &amp; Known Limitations - fotobuch</title>
+        <title>Printing &amp; Export - fotobuch</title>
 
 
         <!-- Custom HTML head -->
@@ -35,10 +35,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-da5b6455.js";
+            window.path_to_searchindex_js = "searchindex-bad6f84c.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-6db7f8a4.js"></script>
+        <script src="toc-286b49dc.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -180,58 +180,31 @@
 
                 <div id="mdbook-content" class="content">
                     <main>
-                        <h1 id="printing--known-limitations"><a class="header" href="#printing--known-limitations">Printing &amp; Known Limitations</a></h1>
-<h2 id="exporting-for-saal-digital"><a class="header" href="#exporting-for-saal-digital">Exporting for Saal Digital</a></h2>
-<p>fotobuch generates PDFs that meet Saal Digital’s technical requirements out of
+                        <h1 id="printing--export"><a class="header" href="#printing--export">Printing &amp; Export</a></h1>
+<h2 id="general-checklist"><a class="header" href="#general-checklist">General checklist</a></h2>
+<p>Before uploading your PDF, verify these things:</p>
+<ul>
+<li>Run <code>fotobuch build release</code> — only the release PDF has full 300 DPI</li>
+<li>Check the terminal output for <strong>DPI warnings</strong> (photos that are too small for
+their slot will be listed)</li>
+<li>Open the final PDF (<code>{name}_final.pdf</code>) and spot-check a few pages</li>
+</ul>
+<h2 id="saal-digital"><a class="header" href="#saal-digital">Saal Digital</a></h2>
+<p>fotobuch generates PDFs that meet
+<a href="https://www.saal-digital.com/">Saal Digital’s</a> technical requirements out of
 the box:</p>
 <ul>
-<li><strong>Bleed:</strong> 3 mm on all sides (configurable via <code>bleed_mm</code> in <code>fotobuch.yaml</code>)</li>
+<li><strong>Bleed:</strong> 3 mm on all sides (configurable via <code>config.book.bleed_mm</code> in the
+YAML)</li>
 <li><strong>PDF boxes:</strong> MediaBox, TrimBox, and BleedBox are set correctly — matching
-what InDesign would produce for a Saal Digital upload</li>
-<li><strong>Resolution:</strong> 300 DPI for <code>build release</code> (configurable via <code>dpi</code>)</li>
-<li><strong>Colour space:</strong> sRGB (embedded ICC profile)</li>
+what InDesign would produce</li>
+<li><strong>Resolution:</strong> 300 DPI for <code>build release</code> (configurable via
+<code>config.book.dpi</code>)</li>
 </ul>
-<h3 id="export-steps"><a class="header" href="#export-steps">Export steps</a></h3>
-<ol>
-<li>Run <code>fotobuch build release</code> to generate <code>release.pdf</code></li>
-<li>Upload <code>release.pdf</code> directly to Saal Digital</li>
-</ol>
-<p>No further processing needed.</p>
-<h3 id="cover-export"><a class="header" href="#cover-export">Cover export</a></h3>
-<p>If your project has an active cover (<code>cover.active: true</code> in <code>fotobuch.yaml</code>),
-the cover is exported as a separate PDF spread (front + spine + back on one
-page). Upload it separately from the inner pages PDF.</p>
-<hr>
-<h2 id="known-limitations"><a class="header" href="#known-limitations">Known Limitations</a></h2>
-<h3 id="cover-photo-placement"><a class="header" href="#cover-photo-placement">Cover photo placement</a></h3>
-<p>Adding a cover currently requires manually editing <code>fotobuch.yaml</code> to position
-photos on the front and back panels without overlapping the spine. The solver
-also distributes regular photos onto the cover page during the first build.</p>
-<p><strong>Workaround:</strong> after <code>fotobuch build</code>, use <code>fotobuch unplace</code> to remove photos
-from the cover page, then manually add cover photos via <code>fotobuch add</code> and
-<code>fotobuch place --into 0</code>.</p>
-<p>This limitation is tracked and will be addressed in a future release.</p>
-<h3 id="page-move-syntax"><a class="header" href="#page-move-syntax"><code>page move</code> syntax</a></h3>
-<p>The command <code>fotobuch page move 3:2 to 5</code> contains a <code>to</code> keyword that feels
-unexpected compared to most CLI tools. This will be revisited.</p>
-<h3 id="no-page-numbering-in-template"><a class="header" href="#no-page-numbering-in-template">No page numbering in template</a></h3>
-<p>The default Typst template does not render page numbers. This can be added
-manually in the <code>.typ</code> file.</p>
-<h3 id="preview-config-not-applied-in-template"><a class="header" href="#preview-config-not-applied-in-template">Preview config not applied in template</a></h3>
-<p>The <code>preview</code> section of <code>fotobuch.yaml</code> (show filenames, show page numbers)
-is not yet applied by the Typst template. Filename captions visible in the
-preview are a known gap.</p>
-<hr>
-<h2 id="what-fotobuch-deliberately-does-not-do"><a class="header" href="#what-fotobuch-deliberately-does-not-do">What fotobuch deliberately does not do</a></h2>
-<ul>
-<li><strong>No manual placement of individual photos at arbitrary coordinates.</strong>
-The solver decides placement; you influence it through weights, groups, and
-rebuild commands.</li>
-<li><strong>No support for mixed page sizes</strong> within one project.</li>
-<li><strong>No built-in image editing</strong> (colour correction, cropping, rotation).
-Prepare your photos in Lightroom or similar before adding them.</li>
-<li><strong>No upload integration</strong> with print services. fotobuch stops at the PDF.</li>
-</ul>
+<h2 id="other-print-services"><a class="header" href="#other-print-services">Other print services</a></h2>
+<p>Most print-on-demand services accept standard PDF with bleed. Adjust
+<code>config.book.bleed_mm</code> if your provider requires a different bleed size.
+The default 3 mm works for the majority of European providers.</p>
 
                     </main>
 
@@ -241,7 +214,7 @@ Prepare your photos in Lightroom or similar before adding them.</li>
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
-                            <a rel="next prefetch" href="cli/reference-generated.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="known_limitations.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                             </a>
 
@@ -255,7 +228,7 @@ Prepare your photos in Lightroom or similar before adding them.</li>
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
-                    <a rel="next prefetch" href="cli/reference-generated.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="known_limitations.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                     </a>
             </nav>
