@@ -1,9 +1,9 @@
 //! Generates the CLI flag reference for mdBook from the clap CLI definition.
 //!
-//! Run with: `cargo run --example generate-cli-docs`
+//! Run with: `cargo run --bin generate-cli-docs --features cli-docs`
 //! Output:   `docs/book/src/cli/reference-generated.md`
 
-// Only `Cli` is used; the rest of the cli module is dead in this example context.
+// Only `Cli` is used; the rest of the cli module is dead in this binary context.
 #![allow(dead_code, unused_imports)]
 
 mod cli;
