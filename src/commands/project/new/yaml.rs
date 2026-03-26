@@ -10,30 +10,35 @@ use crate::dto_models::{
 };
 use tracing::warn;
 
-/// Generate default project state with given dimensions
-pub fn generate_default_state(
-    name: &str,
-    width_mm: f64,
-    height_mm: f64,
-    bleed_mm: f64,
-    with_cover: bool,
-    cover_width_mm: Option<f64>,
-    cover_height_mm: Option<f64>,
-    spine_grow_per_10_pages_mm: Option<f64>,
-    spine_mm: Option<f64>,
-) -> ProjectState {
-    let cover = if with_cover {
+use super::NewConfig;
+
+/// Generate default project state from a `NewConfig`.
+pub fn generate_default_state(config: &NewConfig) -> ProjectState {
+    let NewConfig {
+        name,
+        width_mm,
+        height_mm,
+        bleed_mm,
+        with_cover,
+        cover_width_mm,
+        cover_height_mm,
+        spine_grow_per_10_pages_mm,
+        spine_mm,
+        ..
+    } = config;
+
+    let cover = if *with_cover {
         let cw = cover_width_mm.unwrap_or_else(|| {
             warn!("--with-cover set but --cover-width not provided, using page_width * 2");
             width_mm * 2.0
         });
         let ch = cover_height_mm.unwrap_or_else(|| {
             warn!("--with-cover set but --cover-height not provided, using page_height");
-            height_mm
+            *height_mm
         });
         let spine_config = if let Some(rate) = spine_grow_per_10_pages_mm {
             SpineConfig::Auto {
-                spine_mm_per_10_pages: rate,
+                spine_mm_per_10_pages: *rate,
             }
         } else {
             SpineConfig::Fixed {
@@ -46,7 +51,7 @@ pub fn generate_default_state(
             front_back_width_mm: cw,
             height_mm: ch,
             spine_text: None,
-            bleed_mm,
+            bleed_mm: *bleed_mm,
             margin_mm: 0.0,
             gap_mm: 5.0,
             bleed_threshold_mm: 3.0,
@@ -58,10 +63,10 @@ pub fn generate_default_state(
     ProjectState {
         config: ProjectConfig {
             book: BookConfig {
-                title: name.to_string(),
-                page_width_mm: width_mm,
-                page_height_mm: height_mm,
-                bleed_mm,
+                title: name.clone(),
+                page_width_mm: *width_mm,
+                page_height_mm: *height_mm,
+                bleed_mm: *bleed_mm,
                 margin_mm: 10.0,
                 gap_mm: 5.0,
                 bleed_threshold_mm: 3.0,
@@ -90,12 +95,27 @@ pub fn write_yaml(path: &Path, state: &ProjectState) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use super::super::NewConfig;
     use tempfile::TempDir;
+
+    fn test_config() -> NewConfig {
+        NewConfig {
+            name: "test".to_string(),
+            width_mm: 210.0,
+            height_mm: 297.0,
+            bleed_mm: 3.0,
+            quiet: false,
+            with_cover: false,
+            cover_width_mm: None,
+            cover_height_mm: None,
+            spine_grow_per_10_pages_mm: None,
+            spine_mm: None,
+        }
+    }
 
     #[test]
     fn test_generate_default_state() {
-        let state =
-            generate_default_state("test", 210.0, 297.0, 3.0, false, None, None, None, None);
+        let state = generate_default_state(&test_config());
 
         assert_eq!(state.config.book.page_width_mm, 210.0);
         assert_eq!(state.config.book.page_height_mm, 297.0);
@@ -110,8 +130,7 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let yaml_path = temp_dir.path().join("test.yaml");
 
-        let state =
-            generate_default_state("test", 210.0, 297.0, 3.0, false, None, None, None, None);
+        let state = generate_default_state(&test_config());
         write_yaml(&yaml_path, &state).unwrap();
 
         assert!(yaml_path.exists());

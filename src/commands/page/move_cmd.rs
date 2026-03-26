@@ -248,17 +248,14 @@ fn execute_swap(
         }
     }
 
-    let swap_slots = left_photos.len() != right_photos.len();
-
     swap_photos_in_layout(
         &mut mgr.state.layout,
-        left_page_idx,
-        &left_slot_indices,
-        &left_photos,
-        right_page_idx,
-        &right_slot_indices,
-        &right_photos,
-        swap_slots,
+        SwapSide { page_idx: left_page_idx, slot_indices: &left_slot_indices, photos: &left_photos },
+        SwapSide {
+            page_idx: right_page_idx,
+            slot_indices: &right_slot_indices,
+            photos: &right_photos,
+        },
     );
 
     let mut modified_pages = vec![
@@ -327,45 +324,44 @@ fn block_transpose_pages(layout: &mut Vec<LayoutPage>, left_pages: &[u32], right
     }
 }
 
-fn swap_photos_in_layout(
-    layout: &mut [LayoutPage],
-    left_page_idx: usize,
-    left_slot_indices: &[usize],
-    left_photos: &[String],
-    right_page_idx: usize,
-    right_slot_indices: &[usize],
-    right_photos: &[String],
-    swap_slots: bool,
-) {
+struct SwapSide<'a> {
+    page_idx: usize,
+    slot_indices: &'a [usize],
+    photos: &'a [String],
+}
+
+fn swap_photos_in_layout(layout: &mut [LayoutPage], left: SwapSide, right: SwapSide) {
+    let swap_slots = left.photos.len() != right.photos.len();
+
     // Remove left photos (descending order to keep indices stable)
-    let mut left_desc: Vec<usize> = left_slot_indices.to_vec();
+    let mut left_desc: Vec<usize> = left.slot_indices.to_vec();
     left_desc.sort_unstable_by(|a, b| b.cmp(a));
     for &i in &left_desc {
-        layout[left_page_idx].photos.remove(i);
-        if swap_slots && i < layout[left_page_idx].slots.len() {
-            layout[left_page_idx].slots.remove(i);
+        layout[left.page_idx].photos.remove(i);
+        if swap_slots && i < layout[left.page_idx].slots.len() {
+            layout[left.page_idx].slots.remove(i);
         }
     }
 
-    let insert_at = left_slot_indices.iter().min().copied().unwrap_or(0);
-    for (j, photo) in right_photos.iter().enumerate() {
-        let pos = (insert_at + j).min(layout[left_page_idx].photos.len());
-        layout[left_page_idx].photos.insert(pos, photo.clone());
+    let insert_at = left.slot_indices.iter().min().copied().unwrap_or(0);
+    for (j, photo) in right.photos.iter().enumerate() {
+        let pos = (insert_at + j).min(layout[left.page_idx].photos.len());
+        layout[left.page_idx].photos.insert(pos, photo.clone());
     }
 
-    let mut right_desc: Vec<usize> = right_slot_indices.to_vec();
+    let mut right_desc: Vec<usize> = right.slot_indices.to_vec();
     right_desc.sort_unstable_by(|a, b| b.cmp(a));
     for &i in &right_desc {
-        layout[right_page_idx].photos.remove(i);
-        if swap_slots && i < layout[right_page_idx].slots.len() {
-            layout[right_page_idx].slots.remove(i);
+        layout[right.page_idx].photos.remove(i);
+        if swap_slots && i < layout[right.page_idx].slots.len() {
+            layout[right.page_idx].slots.remove(i);
         }
     }
 
-    let insert_at_r = right_slot_indices.iter().min().copied().unwrap_or(0);
-    for (j, photo) in left_photos.iter().enumerate() {
-        let pos = (insert_at_r + j).min(layout[right_page_idx].photos.len());
-        layout[right_page_idx].photos.insert(pos, photo.clone());
+    let insert_at_r = right.slot_indices.iter().min().copied().unwrap_or(0);
+    for (j, photo) in left.photos.iter().enumerate() {
+        let pos = (insert_at_r + j).min(layout[right.page_idx].photos.len());
+        layout[right.page_idx].photos.insert(pos, photo.clone());
     }
 }
 
