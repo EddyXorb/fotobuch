@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-40322265.js";
+            window.path_to_searchindex_js = "searchindex-6fb82937.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-df0efecf.js"></script>
@@ -188,8 +188,9 @@ it with sensible defaults. You only edit the parts you want to change.</p>
 (including all defaults).</p>
 <hr>
 <h2 id="the-most-important-settings"><a class="header" href="#the-most-important-settings">The most important settings</a></h2>
-<p>Before your first <code>fotobuch build</code>, open the YAML and check these:</p>
-<h3 id="page-count-configbook_layout_solver"><a class="header" href="#page-count-configbook_layout_solver">Page count (<code>config.book_layout_solver</code>)</a></h3>
+<p>Before your first <code>fotobuch build</code>, open the YAML and check these settings.
+They have the biggest impact on your result.</p>
+<h3 id="page-count-and-distribution-configbook_layout_solver"><a class="header" href="#page-count-and-distribution-configbook_layout_solver">Page count and distribution (<code>config.book_layout_solver</code>)</a></h3>
 <p>The <strong>book layout solver</strong> decides how your photos are distributed across pages.
 It uses a mathematical optimisation (Mixed Integer Programming) that balances
 three goals: keep pages evenly filled, keep photo groups together, and hit your
@@ -197,176 +198,223 @@ target page count.</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Field</th><th>Default</th><th>What it does</th></tr>
+<tr><th>Field</th><th>Default</th><th>Description</th></tr>
 </thead>
 <tbody>
-<tr><td><code>page_target</code></td><td><code>12</code></td><td>The page count the solver aims for. Set this to the number of pages you want your book to have.</td></tr>
-<tr><td><code>page_max</code></td><td><code>26</code></td><td>The maximum page count the solver is allowed to use. Set this <strong>higher</strong> than <code>page_target</code> to give the solver more freedom — it may use extra pages if that produces a better layout.</td></tr>
-<tr><td><code>page_min</code></td><td><code>1</code></td><td>The minimum page count. Usually fine to leave at <code>1</code>.</td></tr>
+<tr><td><strong><code>page_target</code></strong></td><td><code>12</code></td><td><strong>The page count the solver aims for.</strong> Set this to the number of pages you want your book to have. This is the most important setting — get it right first.</td></tr>
+<tr><td><strong><code>page_max</code></strong></td><td><code>26</code></td><td><strong>Hard upper limit on page count.</strong> Set this a few pages above <code>page_target</code> to give the solver freedom to use extra pages when that produces a significantly better layout. If <code>page_max</code> equals <code>page_target</code>, the solver has no room to optimise.</td></tr>
+<tr><td><strong><code>page_min</code></strong></td><td><code>1</code></td><td>Hard lower limit on page count. Usually fine to leave at <code>1</code>.</td></tr>
 </tbody>
 </table>
 </div>
-<p><strong>Example:</strong> You want roughly 20 pages but you’re okay with up to 24 if
-the solver finds a better layout:</p>
+<p><strong>Example:</strong> You want roughly 20 pages but you’re okay with up to 24:</p>
 <pre><code class="language-yaml">config:
   book_layout_solver:
     page_target: 20
     page_max: 24
 </code></pre>
-<blockquote>
-<p><strong>Tip:</strong> If you have many photos per group and tight page limits, the solver
-might struggle. Increase <code>page_max</code> or <code>photos_per_page_max</code> to give it
-more room.</p>
-</blockquote>
-<h3 id="page-dimensions-and-margins-configbook"><a class="header" href="#page-dimensions-and-margins-configbook">Page dimensions and margins (<code>config.book</code>)</a></h3>
+<h3 id="page-dimensions-margins-and-bleed-configbook"><a class="header" href="#page-dimensions-margins-and-bleed-configbook">Page dimensions, margins and bleed (<code>config.book</code>)</a></h3>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Field</th><th>Default</th><th>What it does</th></tr>
+<tr><th>Field</th><th>Default</th><th>Description</th></tr>
 </thead>
 <tbody>
-<tr><td><code>page_width_mm</code></td><td>set at creation</td><td>Page width in millimetres (e.g. 297 for A4 landscape). This is the width of a <strong>single page</strong> or a <strong>double-page spread</strong>, depending on your layout.</td></tr>
-<tr><td><code>page_height_mm</code></td><td>set at creation</td><td>Page height in millimetres.</td></tr>
-<tr><td><code>bleed_mm</code></td><td><code>3.0</code></td><td>Extra area around each page that gets cut off by the printer. Most print services require 3 mm.</td></tr>
-<tr><td><code>margin_mm</code></td><td><code>0.0</code></td><td>Inset from the page edge — photos won’t extend into this zone. Set to <code>0</code> for edge-to-edge printing (photos bleed to the edge). Set to e.g. <code>10</code> for a white border around each page.</td></tr>
-<tr><td><code>gap_mm</code></td><td><code>5.0</code></td><td>Space between photos on the same page.</td></tr>
-<tr><td><code>bleed_threshold_mm</code></td><td><code>3.0</code></td><td>When <code>margin_mm</code> is <code>0</code>, photos that end up closer to the edge than this threshold are automatically extended into the bleed area so they don’t leave a thin white strip.</td></tr>
+<tr><td><strong><code>page_width_mm</code></strong></td><td>set at creation</td><td><strong>Page width in millimetres.</strong> This is the width of a single page or a double-page spread, depending on how your print service works. For double-page spreads (e.g. Saal Digital), use the full spread width (e.g. <code>420</code> for two A4 pages side by side). For single pages, use <code>210</code>.</td></tr>
+<tr><td><strong><code>page_height_mm</code></strong></td><td>set at creation</td><td><strong>Page height in millimetres.</strong></td></tr>
+<tr><td><strong><code>bleed_mm</code></strong></td><td><code>3.0</code></td><td><strong>Extra area around each page that gets cut off by the printer.</strong> Most print services (including Saal Digital) require 3 mm. Photos that touch the page edge are extended into the bleed area so no white strip appears after cutting.</td></tr>
+<tr><td><strong><code>margin_mm</code></strong></td><td><code>0.0</code></td><td><strong>Minimum distance from the page edge where photos are allowed.</strong> Set to <code>0</code> for edge-to-edge printing (photos may extend into the bleed). Set to e.g. <code>10</code> for a white border around each page. When <code>margin_mm &gt; 0</code>, bleed extension is disabled (photos never reach the edge).</td></tr>
+<tr><td><strong><code>gap_mm</code></strong></td><td><code>5.0</code></td><td><strong>Space between photos on the same page.</strong> Smaller values pack photos tighter; larger values give a more airy layout.</td></tr>
 </tbody>
 </table>
 </div>
-<p><strong>Single pages vs. double-page spreads:</strong> The <code>page_width_mm</code> you set at
-project creation determines whether fotobuch treats each page as one side or as
-a left-right spread. For example, if your print service expects double-page
-spreads of 420 × 297 mm, set <code>--width 420 --height 297</code> when creating
-the project. For single pages, use <code>--width 210 --height 297</code>.</p>
 <h3 id="cover-configbookcover"><a class="header" href="#cover-configbookcover">Cover (<code>config.book.cover</code>)</a></h3>
-<p>If you created your project with <code>--with-cover</code>, page 0 is the cover. The
-most important cover settings:</p>
+<p>If you created your project with <code>--with-cover</code>, page 0 is the cover.</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Field</th><th>Default</th><th>What it does</th></tr>
+<tr><th>Field</th><th>Default</th><th>Description</th></tr>
 </thead>
 <tbody>
-<tr><td><code>active</code></td><td><code>false</code></td><td>Enable or disable the cover page.</td></tr>
-<tr><td><code>front_back_width_mm</code></td><td>—</td><td>Total width of front + back panel (without spine).</td></tr>
-<tr><td><code>height_mm</code></td><td>—</td><td>Cover height.</td></tr>
-<tr><td><code>spine_text</code></td><td>book title</td><td>Text on the spine. Set to <code>~</code> (null) for no spine text.</td></tr>
-<tr><td><code>spine_mode</code></td><td><code>auto</code></td><td><code>auto</code> calculates spine width from page count; <code>fixed</code> uses a fixed value.</td></tr>
-<tr><td><code>spine_mm_per_10_pages</code></td><td><code>1.4</code></td><td>In auto mode: spine thickness per 10 inner pages.</td></tr>
+<tr><td><strong><code>active</code></strong></td><td><code>false</code></td><td><strong>Enable or disable the cover page.</strong> When <code>true</code>, the first page in the layout becomes the cover.</td></tr>
+<tr><td><strong><code>front_back_width_mm</code></strong></td><td>—</td><td><strong>Total width of front + back panel combined, without the spine.</strong> This is usually twice the single-page width (e.g. <code>594</code> for two A4 landscape panels).</td></tr>
+<tr><td><strong><code>height_mm</code></strong></td><td>—</td><td><strong>Cover height in millimetres.</strong></td></tr>
+<tr><td><strong><code>spine_text</code></strong></td><td>book title</td><td><strong>Text printed on the spine.</strong> Defaults to the book title. Set to <code>~</code> (YAML null) for no spine text.</td></tr>
 </tbody>
 </table>
 </div>
-<h3 id="solver-timeout-configbook_layout_solver"><a class="header" href="#solver-timeout-configbook_layout_solver">Solver timeout (<code>config.book_layout_solver</code>)</a></h3>
+<h3 id="solver-time-limit-configbook_layout_solver"><a class="header" href="#solver-time-limit-configbook_layout_solver">Solver time limit (<code>config.book_layout_solver</code>)</a></h3>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Field</th><th>Default</th><th>What it does</th></tr>
+<tr><th>Field</th><th>Default</th><th>Description</th></tr>
 </thead>
 <tbody>
-<tr><td><code>search_timeout</code></td><td><code>30s</code></td><td>Time limit for the layout optimisation. For large books (100+ photos), you may want to increase this to give the solver more time.</td></tr>
+<tr><td><strong><code>search_timeout</code></strong></td><td><code>30s</code></td><td><strong>Time limit for the book layout optimisation.</strong> For large books (100+ photos) you may want to increase this (e.g. <code>60s</code>) to give the solver more time to find a good distribution.</td></tr>
+</tbody>
+</table>
+</div>
+<blockquote>
+<p><strong>Tip:</strong> If the solver produces poor results, the most common fixes are:
+increase <code>page_max</code> (more room), increase <code>search_timeout</code> (more time),
+or increase <code>photos_per_page_max</code> (more photos per page allowed).</p>
+</blockquote>
+<hr>
+<h2 id="full-reference"><a class="header" href="#full-reference">Full reference</a></h2>
+<p>The YAML has this structure:</p>
+<pre><code class="language-yaml">config:
+  book:                  # page dimensions, margins, bleed, cover
+    cover:               # cover-specific settings (nested inside book)
+  book_layout_solver:    # photo-to-page distribution
+  page_layout_solver:    # single-page layout (genetic algorithm)
+    weights:             # fitness function weights (nested)
+  preview:               # preview rendering options
+</code></pre>
+<p>All fields below are optional unless marked otherwise. Defaults are applied
+automatically for any field you don’t set.</p>
+<hr>
+<h3 id="configbook--page-dimensions-and-layout"><a class="header" href="#configbook--page-dimensions-and-layout"><code>config.book</code> — Page dimensions and layout</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Field</th><th>Default</th><th>Description</th></tr>
+</thead>
+<tbody>
+<tr><td><code>title</code></td><td><code>"Untitled"</code></td><td>Book title. Used as the default spine text on the cover.</td></tr>
+<tr><td><code>page_width_mm</code></td><td><code>210.0</code></td><td>Page width in mm. Set at project creation with <code>--width</code>. For double-page spreads, use the combined width (e.g. <code>420</code>).</td></tr>
+<tr><td><code>page_height_mm</code></td><td><code>297.0</code></td><td>Page height in mm. Set at project creation with <code>--height</code>.</td></tr>
+<tr><td><code>bleed_mm</code></td><td><code>3.0</code></td><td>Bleed area in mm added around each page. Cut off by the printer. Most services require 3 mm.</td></tr>
+<tr><td><code>margin_mm</code></td><td><code>0.0</code></td><td>Minimum inset from the page edge. <code>0</code> = edge-to-edge (photos may bleed). <code>&gt; 0</code> = white border (bleed extension is disabled).</td></tr>
+<tr><td><code>gap_mm</code></td><td><code>5.0</code></td><td>Space in mm between photos on the same page.</td></tr>
+<tr><td><code>bleed_threshold_mm</code></td><td><code>3.0</code></td><td>Only active when <code>margin_mm</code> is <code>0</code>. If a photo’s edge is closer to the page edge than this value, the layout is scaled so the photo extends fully into the bleed area. Prevents thin white strips at the page edge after cutting.</td></tr>
+<tr><td><code>dpi</code></td><td><code>300.0</code></td><td>DPI for the final release PDF. Controls the resolution of cached images used in <code>fotobuch build release</code>.</td></tr>
 </tbody>
 </table>
 </div>
 <hr>
-<h2 id="all-configuration-sections"><a class="header" href="#all-configuration-sections">All configuration sections</a></h2>
-<p>The YAML has this structure:</p>
-<pre><code class="language-yaml">config:
-  book:           # page dimensions, margins, bleed, cover
-  book_layout_solver:  # photo-to-page distribution (page count, etc.)
-  page_layout_solver:  # single-page layout (genetic algorithm tuning)
-  preview:        # preview rendering options
-</code></pre>
-<h3 id="book-settings-configbook"><a class="header" href="#book-settings-configbook">Book settings (<code>config.book</code>)</a></h3>
+<h3 id="configbookcover--cover-page"><a class="header" href="#configbookcover--cover-page"><code>config.book.cover</code> — Cover page</a></h3>
+<p>All cover fields are optional. The cover is inactive by default. Enable it by
+setting <code>active: true</code> and providing dimensions.</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Field</th><th>Default</th><th>What it controls</th></tr>
+<tr><th>Field</th><th>Default</th><th>Description</th></tr>
 </thead>
 <tbody>
-<tr><td><code>title</code></td><td><code>"Untitled"</code></td><td>Book title (used as spine text if no explicit spine text is set)</td></tr>
-<tr><td><code>page_width_mm</code></td><td>set at creation</td><td>Page width in mm</td></tr>
-<tr><td><code>page_height_mm</code></td><td>set at creation</td><td>Page height in mm</td></tr>
-<tr><td><code>bleed_mm</code></td><td><code>3.0</code></td><td>Bleed area around each page (cut off by the printer)</td></tr>
-<tr><td><code>margin_mm</code></td><td><code>0.0</code></td><td>Inset from the page edge</td></tr>
-<tr><td><code>gap_mm</code></td><td><code>5.0</code></td><td>Space between photos on a page</td></tr>
-<tr><td><code>bleed_threshold_mm</code></td><td><code>3.0</code></td><td>Edge proximity threshold for bleed extension</td></tr>
-<tr><td><code>dpi</code></td><td><code>300</code></td><td>DPI for the final release PDF</td></tr>
+<tr><td><code>active</code></td><td><code>false</code></td><td>Enable the cover. When <code>true</code>, the first layout entry (page 0) becomes the cover page.</td></tr>
+<tr><td><code>front_back_width_mm</code></td><td><code>0.0</code></td><td>Total width of front + back panel combined, without the spine. Required when <code>active: true</code>.</td></tr>
+<tr><td><code>height_mm</code></td><td><code>0.0</code></td><td>Cover height in mm. Required when <code>active: true</code>.</td></tr>
+<tr><td><code>spine_text</code></td><td>book title</td><td>Text on the spine. Set to <code>~</code> (null) for no text. Font size is auto-calculated from the spine width (max 80% of spine width).</td></tr>
+<tr><td><code>spine_mode</code></td><td><code>auto</code></td><td>Spine width mode — see below.</td></tr>
+<tr><td><code>spine_mm_per_10_pages</code></td><td><code>1.4</code></td><td><strong>Auto mode only.</strong> Spine thickness per 10 inner pages. Spine width = <code>(inner_pages / 10) * spine_mm_per_10_pages</code>. In auto mode the spine width affects the total cover canvas width that the solver uses.</td></tr>
+<tr><td><code>spine_width_mm</code></td><td>—</td><td><strong>Fixed mode only.</strong> A fixed spine width in mm. In fixed mode the spine does <strong>not</strong> affect the cover canvas width in the solver — it is only used by the template for display and text sizing.</td></tr>
+<tr><td><code>bleed_mm</code></td><td><code>3.0</code></td><td>Bleed for the cover page (independent from inner-page bleed).</td></tr>
+<tr><td><code>margin_mm</code></td><td><code>0.0</code></td><td>Margin for the cover page. Same behaviour as the inner-page margin.</td></tr>
+<tr><td><code>gap_mm</code></td><td><code>5.0</code></td><td>Gap between photos on the cover.</td></tr>
+<tr><td><code>bleed_threshold_mm</code></td><td><code>3.0</code></td><td>Bleed threshold for the cover. Same behaviour as inner pages.</td></tr>
 </tbody>
 </table>
 </div>
-<h3 id="photo-distribution-configbook_layout_solver"><a class="header" href="#photo-distribution-configbook_layout_solver">Photo distribution (<code>config.book_layout_solver</code>)</a></h3>
-<p>These parameters control how the solver assigns photos to pages.</p>
+<p><strong>Spine modes explained:</strong></p>
+<ul>
+<li>
+<p><strong><code>auto</code></strong> (default): Spine width is calculated from the number of inner pages.
+The formula is <code>spine_width = (inner_pages / 10) * spine_mm_per_10_pages</code>.
+The spine width is <strong>added to <code>front_back_width_mm</code></strong> to form the total cover
+canvas — meaning the solver accounts for the spine. Use this when your print
+service calculates spine from page count (most common).</p>
+</li>
+<li>
+<p><strong><code>fixed</code></strong>: You provide <code>spine_width_mm</code> directly. The spine is <strong>not added</strong>
+to the canvas width — the solver uses <code>front_back_width_mm</code> as-is. The fixed
+spine width is only used by the template for positioning the spine text. Use
+this when you already know the exact spine width from your print service.</p>
+</li>
+</ul>
+<hr>
+<h3 id="configbook_layout_solver--photo-to-page-distribution"><a class="header" href="#configbook_layout_solver--photo-to-page-distribution"><code>config.book_layout_solver</code> — Photo-to-page distribution</a></h3>
+<p>The book layout solver distributes your photos across pages. It first runs a
+Mixed Integer Program (MIP) to find a globally optimal assignment, then refines
+it with a local search that evaluates actual layout quality per page.</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Field</th><th>Default</th><th>What it controls</th></tr>
+<tr><th>Field</th><th>Default</th><th>Description</th></tr>
 </thead>
 <tbody>
-<tr><td><code>page_target</code></td><td><code>12</code></td><td>Target page count</td></tr>
-<tr><td><code>page_min</code></td><td><code>1</code></td><td>Minimum page count</td></tr>
-<tr><td><code>page_max</code></td><td><code>26</code></td><td>Maximum page count</td></tr>
-<tr><td><code>photos_per_page_min</code></td><td><code>1</code></td><td>Minimum photos on any page</td></tr>
-<tr><td><code>photos_per_page_max</code></td><td><code>20</code></td><td>Maximum photos on any page</td></tr>
-<tr><td><code>group_max_per_page</code></td><td><code>5</code></td><td>Max distinct groups sharing a page</td></tr>
-<tr><td><code>group_min_photos</code></td><td><code>1</code></td><td>Min photos from a group when it’s split across pages</td></tr>
-<tr><td><code>search_timeout</code></td><td><code>30s</code></td><td>Solver time limit</td></tr>
+<tr><td><code>page_target</code></td><td><code>12</code></td><td>Target number of pages. The solver tries to hit this count.</td></tr>
+<tr><td><code>page_min</code></td><td><code>1</code></td><td>Hard minimum number of pages.</td></tr>
+<tr><td><code>page_max</code></td><td><code>26</code></td><td>Hard maximum number of pages. Setting this above <code>page_target</code> gives the solver room to add pages when that improves layout quality.</td></tr>
+<tr><td><code>photos_per_page_min</code></td><td><code>1</code></td><td>Minimum number of photos on any single page.</td></tr>
+<tr><td><code>photos_per_page_max</code></td><td><code>20</code></td><td>Maximum number of photos on any single page.</td></tr>
+<tr><td><code>group_max_per_page</code></td><td><code>5</code></td><td>Maximum number of different groups that may share a single page. Lower values keep groups more separated.</td></tr>
+<tr><td><code>group_min_photos</code></td><td><code>1</code></td><td>When a group is split across two pages, each part must have at least this many photos. Prevents a single “orphan” photo appearing alone on the next page.</td></tr>
+<tr><td><code>weight_even</code></td><td><code>1.0</code></td><td>MIP objective weight for even photo distribution across pages. Higher = more uniform page fill.</td></tr>
+<tr><td><code>weight_split</code></td><td><code>10.0</code></td><td>MIP objective weight penalising group splits. Higher = groups are less likely to be split across pages.</td></tr>
+<tr><td><code>weight_pages</code></td><td><code>5.0</code></td><td>MIP objective weight penalising deviation from <code>page_target</code>. Higher = result stays closer to the target.</td></tr>
+<tr><td><code>search_timeout</code></td><td><code>30s</code></td><td>Time budget for the entire solver (MIP + local search). Increase for large books. YAML format: <code>{secs: 60, nanos: 0}</code>.</td></tr>
+<tr><td><code>enable_local_search</code></td><td><code>true</code></td><td>Whether to run the local search after the MIP. The local search shifts page boundaries to improve per-page layout quality. Disable only for debugging.</td></tr>
+<tr><td><code>mip_rel_gap</code></td><td><code>0.01</code></td><td>Relative optimality gap for the MIP solver (0.0 = exact, 0.01 = accept solutions within 1% of optimal). Tightening this rarely helps and increases solve time.</td></tr>
+<tr><td><code>max_photos_for_split</code></td><td><code>300</code></td><td>When the total photo count exceeds this, the problem is automatically decomposed into smaller sub-problems solved sequentially. This avoids MIP timeouts on very large books.</td></tr>
+<tr><td><code>split_group_boundary_slack</code></td><td><code>5</code></td><td>When splitting into sub-problems, the split point may deviate by this many photos from the ideal boundary to prefer splitting at a group boundary.</td></tr>
+<tr><td><code>max_coverage_cost</code></td><td><code>0.95</code></td><td><strong>(Currently unused — will be removed in a future version.)</strong> Was intended as a threshold for the local search to identify “bad” pages, but is not read by the solver.</td></tr>
 </tbody>
 </table>
 </div>
-<h3 id="cover-settings-configbookcover"><a class="header" href="#cover-settings-configbookcover">Cover settings (<code>config.book.cover</code>)</a></h3>
+<hr>
+<h3 id="configpage_layout_solver--single-page-layout-genetic-algorithm"><a class="header" href="#configpage_layout_solver--single-page-layout-genetic-algorithm"><code>config.page_layout_solver</code> — Single-page layout (genetic algorithm)</a></h3>
+<p>The page layout solver arranges photos within a single page using a genetic
+algorithm with island-model parallelism. These are advanced tuning parameters —
+the defaults work well for most cases.</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Field</th><th>Default</th><th>What it controls</th></tr>
+<tr><th>Field</th><th>Default</th><th>Description</th></tr>
 </thead>
 <tbody>
-<tr><td><code>active</code></td><td><code>false</code></td><td>Enable cover page</td></tr>
-<tr><td><code>front_back_width_mm</code></td><td>—</td><td>Cover panel width</td></tr>
-<tr><td><code>height_mm</code></td><td>—</td><td>Cover height</td></tr>
-<tr><td><code>spine_mode</code></td><td><code>auto</code></td><td><code>auto</code> or <code>fixed</code></td></tr>
-<tr><td><code>spine_mm_per_10_pages</code></td><td><code>1.4</code></td><td>Spine thickness per 10 pages (auto mode)</td></tr>
-<tr><td><code>spine_width_mm</code></td><td>—</td><td>Fixed spine width (fixed mode)</td></tr>
-<tr><td><code>spine_text</code></td><td>book title</td><td>Text on the spine</td></tr>
-<tr><td><code>bleed_mm</code></td><td><code>3.0</code></td><td>Cover bleed</td></tr>
-<tr><td><code>margin_mm</code></td><td><code>0.0</code></td><td>Cover margin</td></tr>
-<tr><td><code>gap_mm</code></td><td><code>5.0</code></td><td>Gap between cover photos</td></tr>
-<tr><td><code>bleed_threshold_mm</code></td><td><code>3.0</code></td><td>Cover bleed threshold</td></tr>
+<tr><td><code>seed</code></td><td><code>42</code></td><td>Random seed for the genetic algorithm. Change this to get a different layout for the same input. <code>fotobuch rebuild</code> changes the seed automatically.</td></tr>
+<tr><td><code>population_size</code></td><td><code>750</code></td><td>Number of individuals (candidate layouts) per island. Larger = better results but slower.</td></tr>
+<tr><td><code>max_generations</code></td><td><code>100</code></td><td>Maximum number of generations the algorithm runs.</td></tr>
+<tr><td><code>mutation_rate</code></td><td><code>0.3</code></td><td>Probability that an individual is mutated per generation.</td></tr>
+<tr><td><code>crossover_rate</code></td><td><code>0.7</code></td><td>Probability that two individuals are recombined per generation.</td></tr>
+<tr><td><code>elite_count</code></td><td><code>20</code></td><td>Number of best individuals carried over unchanged to the next generation.</td></tr>
+<tr><td><code>no_improvement_limit</code></td><td><code>15</code></td><td>Stop early if no improvement is found for this many generations. Set to <code>~</code> (null) to disable early stopping.</td></tr>
+<tr><td><code>enforce_order</code></td><td><code>true</code></td><td>Enforce chronological reading order (top-left to bottom-right) via DFS-preorder assignment. When <code>true</code>, the mutator only swaps leaves with compatible aspect ratios to preserve order.</td></tr>
+<tr><td><code>islands_nr</code></td><td>CPU cores</td><td>Number of independent populations evolved in parallel. Defaults to the number of available CPU cores.</td></tr>
+<tr><td><code>islands_migration_interval</code></td><td><code>5</code></td><td>Generations between migration events (best individuals are copied between islands).</td></tr>
+<tr><td><code>islands_nr_migrants</code></td><td><code>2</code></td><td>Number of individuals migrated per island per migration event.</td></tr>
 </tbody>
 </table>
 </div>
-<h3 id="preview-settings-configpreview"><a class="header" href="#preview-settings-configpreview">Preview settings (<code>config.preview</code>)</a></h3>
+<h4 id="configpage_layout_solverweights--fitness-function"><a class="header" href="#configpage_layout_solverweights--fitness-function"><code>config.page_layout_solver.weights</code> — Fitness function</a></h4>
+<p>The fitness function evaluates how good a single-page layout is. It combines
+three cost components, each multiplied by its weight. Lower cost = better layout.</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Field</th><th>Default</th><th>What it controls</th></tr>
+<tr><th>Field</th><th>Default</th><th>Description</th></tr>
 </thead>
 <tbody>
-<tr><td><code>max_preview_px</code></td><td><code>800</code></td><td>Longest edge of cached preview images</td></tr>
-<tr><td><code>show_filenames</code></td><td><code>true</code></td><td>Show filename captions in preview PDF</td></tr>
-<tr><td><code>show_page_numbers</code></td><td><code>true</code></td><td>Show page numbers in preview PDF</td></tr>
+<tr><td><code>w_coverage</code></td><td><code>1.0</code></td><td>Weight for canvas coverage cost. Penalises unused white space on the page. This is the dominant term.</td></tr>
+<tr><td><code>w_size</code></td><td><code>0.2</code></td><td>Weight for size distribution cost. Penalises photos that deviate from their target size (determined by their <code>area_weight</code>).</td></tr>
+<tr><td><code>w_barycenter</code></td><td><code>0.0</code></td><td>Weight for barycenter centering cost. Penalises layouts whose visual centre of mass is far from the page centre. Disabled by default (<code>0.0</code>).</td></tr>
 </tbody>
 </table>
 </div>
-<h3 id="page-layout-solver-configpage_layout_solver"><a class="header" href="#page-layout-solver-configpage_layout_solver">Page layout solver (<code>config.page_layout_solver</code>)</a></h3>
-<p>These control the genetic algorithm that arranges photos within a single page.
-You rarely need to change these.</p>
+<hr>
+<h3 id="configpreview--preview-rendering"><a class="header" href="#configpreview--preview-rendering"><code>config.preview</code> — Preview rendering</a></h3>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Field</th><th>Default</th><th>What it controls</th></tr>
+<tr><th>Field</th><th>Default</th><th>Description</th></tr>
 </thead>
 <tbody>
-<tr><td><code>population_size</code></td><td><code>50</code></td><td>Individuals per island</td></tr>
-<tr><td><code>max_generations</code></td><td><code>500</code></td><td>Max generations</td></tr>
-<tr><td><code>mutation_rate</code></td><td><code>0.3</code></td><td>Probability of mutation</td></tr>
-<tr><td><code>islands_nr</code></td><td><code>4</code></td><td>Number of parallel islands</td></tr>
+<tr><td><code>show_filenames</code></td><td><code>true</code></td><td>Show the photo filename as a caption below each photo in the preview PDF. Useful for identifying photos when adjusting the layout. Automatically hidden in release builds.</td></tr>
+<tr><td><code>show_page_numbers</code></td><td><code>true</code></td><td>Show page numbers in the preview PDF.</td></tr>
+<tr><td><code>max_preview_px</code></td><td><code>800</code></td><td>Maximum pixel size (longest edge) of cached preview images. Lower = faster builds, less disk space, blurrier preview.</td></tr>
 </tbody>
 </table>
 </div>
-<blockquote>
-<p>Run <code>fotobuch config</code> for the complete list of fields and their current values.</p>
-</blockquote>
 <hr>
 <h2 id="example-a-typical-yaml"><a class="header" href="#example-a-typical-yaml">Example: a typical YAML</a></h2>
 <pre><code class="language-yaml">config:
@@ -381,6 +429,8 @@ You rarely need to change these.</p>
       active: true
       front_back_width_mm: 594.0
       height_mm: 297.0
+      spine_mode: auto
+      spine_mm_per_10_pages: 1.4
       spine_text: "Italy 2024"
   book_layout_solver:
     page_target: 20
@@ -389,6 +439,9 @@ You rarely need to change these.</p>
     search_timeout:
       secs: 60
       nanos: 0
+  preview:
+    show_filenames: true
+    max_preview_px: 800
 </code></pre>
 
                     </main>
