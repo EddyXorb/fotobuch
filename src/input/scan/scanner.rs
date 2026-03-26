@@ -173,10 +173,9 @@ impl Scanner {
         };
 
         let found_timestamp = enrich_photo_metadata(&mut photo);
-        if !found_timestamp
-            && let Some(dt) = fallback_dt {
-                photo.timestamp = dt;
-            }
+        if !found_timestamp && let Some(dt) = fallback_dt {
+            photo.timestamp = dt;
+        }
 
         Some(photo)
     }
