@@ -3,6 +3,9 @@
 //! Run with: `cargo run --example generate-cli-docs`
 //! Output:   `docs/book/src/cli/reference-generated.md`
 
+// Only `Cli` is used; the rest of the cli module is dead in this example context.
+#![allow(dead_code, unused_imports)]
+
 mod cli;
 
 use cli::Cli;
