@@ -18,29 +18,16 @@
 
 ## What is fotobuch?
 
-<!-- USER: please finalize this section. Draft below based on your notes. -->
-
-I am a passionate photographer. I document much of the things that happen around me. Taking a lot of pictures is easy, but it has no sense to me to just shot them without doing something with them later.
-So every year I sit down and group, rate, post-process and print my photos. In this workflow, the printing is done creating a photobook and that was always a pain: the commercial print offers normally come with some inhouse software solution that does not work well for me.
-The pain points normally are:
-
-- no option to export the photobook to pdf in full size
-- bad/restricted automation options for placing the photos on a page
-- to maintain a copy of the photobook you normally have to keep some proprietary files that contain all the photo you already have on you disk - wasted space
-- even if the automations respect the chronology of the photos when distributed across pages, they do not respect the timestamp in-page-wise often
-- it is often not possible to tell the automatic solver which photos should be bigger than others
-- bugs, crashes and loss of data happened to me more than one time
-
 Photobooks should be made a certain way. `fotobuch` is an opinionated tool that supports
 exactly one philosophy of what a great photobook looks like.
 
 **Why opinionated?** Every design decision in the layout algorithm reflects a deliberate
 aesthetic stance: photos are not cropped, not distorted, not squeezed to fill a gap.
 A photographer chooses a frame intentionally. `fotobuch` respects that choice.
-There are no colourful frames, smileys or other distracting objects in the photobook, only the 
-photos you chose to include, but those are handled with care.
+There are no splashy frames, overlays, smileys, or other distracting objects in the photobook —
+only the photos you chose to include, presented with care.
 
-Key principles:
+Further key principles:
 
 - **Full automation, full control.** Let the solver do all the work, or step in and
   adjust any page manually.
@@ -58,6 +45,21 @@ Key principles:
 - **Science-backed algorithms.** The layout engine is built on published research and
   novel unpublished extensions — the result is a solver that produces genuinely better
   layouts than off-the-shelf approaches. See [Technical Background](#technical-background).
+
+## Background
+
+I am a passionate photographer. I document many of the things that happen around me. Taking a lot of pictures is easy, but it makes no sense for me to just shoot them without doing something with them later.
+So every year I sit down and group, rate, post-process and print my photos. In my workflow, the printing is done by creating a photobook and that was always a pain: the commercial print services normally come with some in-house software solution that does not work well for me.
+The pain points normally are:
+
+- no option to export the photobook to pdf in full size
+- bad/restricted automation options for placing the photos on a page
+- to maintain a copy of the photobook you normally have to keep some proprietary files that contain all the photos you already have on your disk - wasted space
+- even if the automations respect the chronology of the photos when distributed across pages, they do not respect the chronological order within a page
+- it is often not possible to tell the automatic solver which photos should be bigger than others
+- bugs, crashes and loss of data have happened to me more than once
+
+So I decided to solve these problems, and I am happy if it works also for you.
 
 ---
 
@@ -114,24 +116,25 @@ Every project is described by a `fotobuch.yaml` in the project directory.
 Running `fotobuch config` prints the resolved configuration with all defaults applied.
 
 ```yaml
-# Example: key fields
-page:
-  width_mm: 297
-  height_mm: 210
-  bleed_mm: 3
-  margin_mm: 10
-  gap_mm: 3
-
-solver:
-  max_photos_per_page: 6
-  mip_timeout_secs: 30
-
-preview:
-  dpi: 150
-
-release:
-  dpi: 300
-  jpg_quality: 95
+config:
+  book:
+    title: my-book
+    page_width_mm: 297.0
+    page_height_mm: 210.0
+    bleed_mm: 3.0
+    margin_mm: 10.0
+    gap_mm: 3.0
+    dpi: 300.0
+  book_layout_solver:
+    photos_per_page_min: 1
+    photos_per_page_max: 6
+    search_timeout:
+      secs: 30
+      nanos: 0
+  preview:
+    show_filenames: true
+    show_page_numbers: true
+    max_preview_px: 800
 ```
 
 The layout itself is stored as a Typst (`.typ`) file alongside the YAML. Advanced users
@@ -167,6 +170,20 @@ ready to upload to print services such as Saal Digital.
 Only pages that have changed since the last build are recomputed. A change is detected
 by comparing image hashes and layout state. This makes iterative refinement fast even
 for large books.
+
+### PDF generation — Typst
+
+The final photobook is rendered to PDF by [Typst](https://typst.app/), a modern
+typesetting system that replaces LaTeX for programmatic document generation.
+`fotobuch` emits a `.typ` source file describing every page, and Typst compiles it
+into a print-ready PDF in (milli-)seconds.
+
+Typst deserves a special mention here: what would have been a nightmare of fragile
+LaTeX macros, broken package dependencies, and cryptic error messages turned out to be
+a breeze. Typst's clean scripting model, fast compile times, and first-class support
+for precise absolute positioning made it the ideal backend for a layout-heavy tool like
+`fotobuch`. A big thank-you to the Typst team and community for building something
+this good.
 
 ### Page layout solver — Genetic algorithm with exact gap handling
 
