@@ -24,6 +24,7 @@ pub fn generate_default_state(config: &NewConfig) -> ProjectState {
         cover_height_mm,
         spine_grow_per_10_pages_mm,
         spine_mm,
+        margin_mm,
         ..
     } = config;
 
@@ -67,7 +68,7 @@ pub fn generate_default_state(config: &NewConfig) -> ProjectState {
                 page_width_mm: *width_mm,
                 page_height_mm: *height_mm,
                 bleed_mm: *bleed_mm,
-                margin_mm: 10.0,
+                margin_mm: *margin_mm,
                 gap_mm: 5.0,
                 bleed_threshold_mm: 3.0,
                 dpi: 300.0,
@@ -110,6 +111,7 @@ mod tests {
             cover_height_mm: None,
             spine_grow_per_10_pages_mm: None,
             spine_mm: None,
+            margin_mm: 0.0,
         }
     }
 
