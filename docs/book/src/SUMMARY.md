@@ -9,7 +9,8 @@
 - [Welcome & Installation](installation.md)
 - [Your First Book](quickstart.md)
 - [Command Overview](commands.md)
-- [Printing & Known Limitations](printing.md)
+- [Printing](printing.md)
+- [Known limitations](known_limitations.md)
 
 ---
 
