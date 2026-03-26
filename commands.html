@@ -35,10 +35,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-34e43021.js";
+            window.path_to_searchindex_js = "searchindex-40322265.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-46d27161.js"></script>
+        <script src="toc-df0efecf.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -235,103 +235,14 @@ even if nothing changed. Useful when you’re not happy with a layout.</li>
 <h2 id="yaml-configuration"><a class="header" href="#yaml-configuration">YAML configuration</a></h2>
 <p>Every project contains a <code>{name}.yaml</code> file. Most settings have sensible
 defaults. Run <code>fotobuch config</code> to see the current values.</p>
-<p>Here are the fields you’re most likely to touch. The YAML nesting is shown
-as-is (e.g. <code>book.gap_mm</code> means the <code>gap_mm</code> key inside the <code>config.book</code>
-section).</p>
-<h3 id="book-settings-configbook"><a class="header" href="#book-settings-configbook">Book settings (<code>config.book</code>)</a></h3>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Field</th><th>Default</th><th>What it controls</th></tr>
-</thead>
-<tbody>
-<tr><td><code>title</code></td><td><code>"Untitled"</code></td><td>Book title (used as spine text if no explicit spine text is set)</td></tr>
-<tr><td><code>page_width_mm</code></td><td><code>210</code></td><td>Page width in mm</td></tr>
-<tr><td><code>page_height_mm</code></td><td><code>297</code></td><td>Page height in mm</td></tr>
-<tr><td><code>bleed_mm</code></td><td><code>3</code></td><td>Bleed area around each page (cut off by the printer)</td></tr>
-<tr><td><code>margin_mm</code></td><td><code>0</code></td><td>Inset from the page edge — photos won’t extend into this zone</td></tr>
-<tr><td><code>gap_mm</code></td><td><code>5</code></td><td>Space between photos on a page</td></tr>
-<tr><td><code>dpi</code></td><td><code>300</code></td><td>DPI for the final release PDF</td></tr>
-</tbody>
-</table>
-</div>
-<h3 id="page-distribution-configbook_layout_solver"><a class="header" href="#page-distribution-configbook_layout_solver">Page distribution (<code>config.book_layout_solver</code>)</a></h3>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Field</th><th>Default</th><th>What it controls</th></tr>
-</thead>
-<tbody>
-<tr><td><code>page_target</code></td><td><code>32</code></td><td>Target page count the solver aims for</td></tr>
-<tr><td><code>page_min</code></td><td><code>1</code></td><td>Hard minimum page count</td></tr>
-<tr><td><code>page_max</code></td><td><code>48</code></td><td>Hard maximum page count</td></tr>
-<tr><td><code>photos_per_page_min</code></td><td><code>2</code></td><td>Minimum photos on any page</td></tr>
-<tr><td><code>photos_per_page_max</code></td><td><code>20</code></td><td>Maximum photos on any page</td></tr>
-<tr><td><code>group_max_per_page</code></td><td><code>3</code></td><td>Max distinct groups per page</td></tr>
-<tr><td><code>group_min_photos</code></td><td><code>2</code></td><td>Min photos from a group if it’s split across pages</td></tr>
-</tbody>
-</table>
-</div>
-<h3 id="preview-configpreview"><a class="header" href="#preview-configpreview">Preview (<code>config.preview</code>)</a></h3>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Field</th><th>Default</th><th>What it controls</th></tr>
-</thead>
-<tbody>
-<tr><td><code>max_preview_px</code></td><td><code>800</code></td><td>Longest edge of cached preview images</td></tr>
-<tr><td><code>show_filenames</code></td><td><code>true</code></td><td>Show filename captions in preview PDF</td></tr>
-<tr><td><code>show_page_numbers</code></td><td><code>true</code></td><td>Show page numbers in preview PDF</td></tr>
-</tbody>
-</table>
-</div>
-<h3 id="cover-configbookcover"><a class="header" href="#cover-configbookcover">Cover (<code>config.book.cover</code>)</a></h3>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Field</th><th>Default</th><th>What it controls</th></tr>
-</thead>
-<tbody>
-<tr><td><code>active</code></td><td><code>false</code></td><td>Enable cover page (page 0)</td></tr>
-<tr><td><code>front_back_width_mm</code></td><td>—</td><td>Cover panel width (set via <code>--cover-width</code> on project creation)</td></tr>
-<tr><td><code>height_mm</code></td><td>—</td><td>Cover height (set via <code>--cover-height</code>)</td></tr>
-<tr><td><code>spine_mode</code></td><td><code>auto</code></td><td><code>auto</code> grows spine with page count; <code>fixed</code> uses a fixed width</td></tr>
-</tbody>
-</table>
-</div>
-<h3 id="example-yaml-snippet"><a class="header" href="#example-yaml-snippet">Example YAML snippet</a></h3>
-<pre><code class="language-yaml">config:
-  book:
-    title: "Italy 2024"
-    page_width_mm: 297.0
-    page_height_mm: 210.0
-    bleed_mm: 3.0
-    margin_mm: 0.0
-    gap_mm: 5.0
-    dpi: 300.0
-    cover:
-      active: false
-  book_layout_solver:
-    page_target: 32
-    page_min: 1
-    page_max: 48
-    photos_per_page_min: 2
-    photos_per_page_max: 20
-  preview:
-    show_filenames: true
-    show_page_numbers: true
-    max_preview_px: 800
-</code></pre>
-<blockquote>
-<p>The <code>page_layout_solver</code> section (genetic algorithm parameters) exists too but
-rarely needs tweaking. Run <code>fotobuch config</code> to see all fields.</p>
-</blockquote>
+<p>See <a href="configuration.html">Configuration</a> for a full reference of all settings,
+including page dimensions, margins, bleed, cover, and solver parameters.</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="quickstart.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="configuration.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
@@ -345,7 +256,7 @@ rarely needs tweaking. Run <code>fotobuch config</code> to see all fields.</p>
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="quickstart.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="configuration.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 

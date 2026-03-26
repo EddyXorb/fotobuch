@@ -36,10 +36,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-34e43021.js";
+            window.path_to_searchindex_js = "searchindex-40322265.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-46d27161.js"></script>
+        <script src="toc-df0efecf.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -369,7 +369,41 @@ Typst template. The <code>--width</code> and <code>--height</code> values are in
 or dashes.</p>
 </blockquote>
 <hr>
-<h2 id="step-2--add-photos"><a class="header" href="#step-2--add-photos">Step 2 — Add photos</a></h2>
+<h2 id="step-2--review-the-configuration"><a class="header" href="#step-2--review-the-configuration">Step 2 — Review the configuration</a></h2>
+<p>Before adding photos, open <code>Italy-2024.yaml</code> in a text editor and check the
+most important settings. The file already has sensible defaults, but you should
+set the <strong>page count</strong> to match the size of book you want:</p>
+<pre><code class="language-yaml">config:
+  book:
+    page_width_mm: 297.0
+    page_height_mm: 210.0
+    bleed_mm: 3.0        # required by most print services
+    margin_mm: 0.0       # 0 = edge-to-edge; set to e.g. 10 for a white border
+  book_layout_solver:
+    page_target: 20      # how many pages you want
+    page_max: 24         # upper limit — give the solver some room above the target
+</code></pre>
+<p>The <strong>book layout solver</strong> is the algorithm that decides how your photos are
+distributed across pages. <code>page_target</code> is your desired page count;
+<code>page_max</code> is the hard upper limit. Setting <code>page_max</code> a few pages above
+<code>page_target</code> gives the solver freedom to use an extra page when that produces
+a significantly better layout.</p>
+<p>If you plan to use a cover, also set:</p>
+<pre><code class="language-yaml">    cover:
+      active: true
+      front_back_width_mm: 594.0   # total width of front + back panel
+      height_mm: 297.0
+      spine_text: "Italy 2024"     # or ~ for no text
+</code></pre>
+<p>Other settings you might want to adjust: <code>gap_mm</code> (space between photos),
+<code>search_timeout</code> (solver time limit for large books).</p>
+<p>See <a href="#configuration">Configuration</a> for a full reference of all settings.</p>
+<blockquote>
+<p><strong>Tip:</strong> You can always change these later and re-run <code>fotobuch build</code>.
+The solver will redistribute photos according to the new settings.</p>
+</blockquote>
+<hr>
+<h2 id="step-3--add-photos"><a class="header" href="#step-3--add-photos">Step 3 — Add photos</a></h2>
 <p>Point fotobuch at one or more folders. Each folder becomes a
 <a href="#photos-and-groups">group</a> — photos from the same group are kept
 together on pages.</p>
@@ -397,7 +431,7 @@ fotobuch add /photos/2024-07-Italy --filter-xmp "Rating.*[3-5]" --weight 5
 <pre><code class="language-bash">fotobuch status
 </code></pre>
 <hr>
-<h2 id="step-3--build-a-preview"><a class="header" href="#step-3--build-a-preview">Step 3 — Build a preview</a></h2>
+<h2 id="step-4--build-a-preview"><a class="header" href="#step-4--build-a-preview">Step 4 — Build a preview</a></h2>
 <pre><code class="language-bash">fotobuch build
 </code></pre>
 <p>On the first run, fotobuch distributes all photos across pages automatically and
@@ -406,7 +440,7 @@ result — or open <code>Italy-2024.typ</code> in VS Code with
 <a href="https://marketplace.visualstudio.com/items?itemName=mgt19937.typst-preview">Typst Preview</a>
 for a live preview.</p>
 <hr>
-<h2 id="step-4--adjust-the-layout"><a class="header" href="#step-4--adjust-the-layout">Step 4 — Adjust the layout</a></h2>
+<h2 id="step-5--adjust-the-layout"><a class="header" href="#step-5--adjust-the-layout">Step 5 — Adjust the layout</a></h2>
 <p>You will almost certainly want to tweak a few things.</p>
 <p><strong>Swap two pages:</strong></p>
 <pre><code class="language-bash">fotobuch page swap 3 7
@@ -431,7 +465,7 @@ log, and <code>fotobuch undo N</code> rolls back N steps.</p>
 <pre><code class="language-bash">fotobuch build
 </code></pre>
 <hr>
-<h2 id="step-5--adding-more-photos-later"><a class="header" href="#step-5--adding-more-photos-later">Step 5 — Adding more photos later</a></h2>
+<h2 id="step-6--adding-more-photos-later"><a class="header" href="#step-6--adding-more-photos-later">Step 6 — Adding more photos later</a></h2>
 <p>After the first build, newly added photos start as <strong>unplaced</strong>. Place them
 before building:</p>
 <pre><code class="language-bash">fotobuch add /photos/bonus-shots
@@ -442,13 +476,224 @@ fotobuch build
 <pre><code class="language-bash">fotobuch place --into 4
 </code></pre>
 <hr>
-<h2 id="step-6--export-for-print"><a class="header" href="#step-6--export-for-print">Step 6 — Export for print</a></h2>
+<h2 id="step-7--export-for-print"><a class="header" href="#step-7--export-for-print">Step 7 — Export for print</a></h2>
 <p>When you’re happy with the layout:</p>
 <pre><code class="language-bash">fotobuch build release
 </code></pre>
 <p>This re-renders all images at 300 DPI and writes <code>Italy-2024_final.pdf</code>.
 The file is ready to upload to your print service (e.g. Saal Digital).</p>
 <p>See <a href="#printing--export">Printing</a> for Saal Digital-specific details.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="configuration"><a class="header" href="#configuration">Configuration</a></h1>
+<p>Every project has a <code>{project-name}.yaml</code> file that controls the entire book.
+You don’t need to write this file from scratch — <code>fotobuch project new</code> creates
+it with sensible defaults. You only edit the parts you want to change.</p>
+<p>Run <code>fotobuch config</code> at any time to see the full resolved configuration
+(including all defaults).</p>
+<hr>
+<h2 id="the-most-important-settings"><a class="header" href="#the-most-important-settings">The most important settings</a></h2>
+<p>Before your first <code>fotobuch build</code>, open the YAML and check these:</p>
+<h3 id="page-count-configbook_layout_solver"><a class="header" href="#page-count-configbook_layout_solver">Page count (<code>config.book_layout_solver</code>)</a></h3>
+<p>The <strong>book layout solver</strong> decides how your photos are distributed across pages.
+It uses a mathematical optimisation (Mixed Integer Programming) that balances
+three goals: keep pages evenly filled, keep photo groups together, and hit your
+target page count.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Field</th><th>Default</th><th>What it does</th></tr>
+</thead>
+<tbody>
+<tr><td><code>page_target</code></td><td><code>12</code></td><td>The page count the solver aims for. Set this to the number of pages you want your book to have.</td></tr>
+<tr><td><code>page_max</code></td><td><code>26</code></td><td>The maximum page count the solver is allowed to use. Set this <strong>higher</strong> than <code>page_target</code> to give the solver more freedom — it may use extra pages if that produces a better layout.</td></tr>
+<tr><td><code>page_min</code></td><td><code>1</code></td><td>The minimum page count. Usually fine to leave at <code>1</code>.</td></tr>
+</tbody>
+</table>
+</div>
+<p><strong>Example:</strong> You want roughly 20 pages but you’re okay with up to 24 if
+the solver finds a better layout:</p>
+<pre><code class="language-yaml">config:
+  book_layout_solver:
+    page_target: 20
+    page_max: 24
+</code></pre>
+<blockquote>
+<p><strong>Tip:</strong> If you have many photos per group and tight page limits, the solver
+might struggle. Increase <code>page_max</code> or <code>photos_per_page_max</code> to give it
+more room.</p>
+</blockquote>
+<h3 id="page-dimensions-and-margins-configbook"><a class="header" href="#page-dimensions-and-margins-configbook">Page dimensions and margins (<code>config.book</code>)</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Field</th><th>Default</th><th>What it does</th></tr>
+</thead>
+<tbody>
+<tr><td><code>page_width_mm</code></td><td>set at creation</td><td>Page width in millimetres (e.g. 297 for A4 landscape). This is the width of a <strong>single page</strong> or a <strong>double-page spread</strong>, depending on your layout.</td></tr>
+<tr><td><code>page_height_mm</code></td><td>set at creation</td><td>Page height in millimetres.</td></tr>
+<tr><td><code>bleed_mm</code></td><td><code>3.0</code></td><td>Extra area around each page that gets cut off by the printer. Most print services require 3 mm.</td></tr>
+<tr><td><code>margin_mm</code></td><td><code>0.0</code></td><td>Inset from the page edge — photos won’t extend into this zone. Set to <code>0</code> for edge-to-edge printing (photos bleed to the edge). Set to e.g. <code>10</code> for a white border around each page.</td></tr>
+<tr><td><code>gap_mm</code></td><td><code>5.0</code></td><td>Space between photos on the same page.</td></tr>
+<tr><td><code>bleed_threshold_mm</code></td><td><code>3.0</code></td><td>When <code>margin_mm</code> is <code>0</code>, photos that end up closer to the edge than this threshold are automatically extended into the bleed area so they don’t leave a thin white strip.</td></tr>
+</tbody>
+</table>
+</div>
+<p><strong>Single pages vs. double-page spreads:</strong> The <code>page_width_mm</code> you set at
+project creation determines whether fotobuch treats each page as one side or as
+a left-right spread. For example, if your print service expects double-page
+spreads of 420 × 297 mm, set <code>--width 420 --height 297</code> when creating
+the project. For single pages, use <code>--width 210 --height 297</code>.</p>
+<h3 id="cover-configbookcover"><a class="header" href="#cover-configbookcover">Cover (<code>config.book.cover</code>)</a></h3>
+<p>If you created your project with <code>--with-cover</code>, page 0 is the cover. The
+most important cover settings:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Field</th><th>Default</th><th>What it does</th></tr>
+</thead>
+<tbody>
+<tr><td><code>active</code></td><td><code>false</code></td><td>Enable or disable the cover page.</td></tr>
+<tr><td><code>front_back_width_mm</code></td><td>—</td><td>Total width of front + back panel (without spine).</td></tr>
+<tr><td><code>height_mm</code></td><td>—</td><td>Cover height.</td></tr>
+<tr><td><code>spine_text</code></td><td>book title</td><td>Text on the spine. Set to <code>~</code> (null) for no spine text.</td></tr>
+<tr><td><code>spine_mode</code></td><td><code>auto</code></td><td><code>auto</code> calculates spine width from page count; <code>fixed</code> uses a fixed value.</td></tr>
+<tr><td><code>spine_mm_per_10_pages</code></td><td><code>1.4</code></td><td>In auto mode: spine thickness per 10 inner pages.</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="solver-timeout-configbook_layout_solver"><a class="header" href="#solver-timeout-configbook_layout_solver">Solver timeout (<code>config.book_layout_solver</code>)</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Field</th><th>Default</th><th>What it does</th></tr>
+</thead>
+<tbody>
+<tr><td><code>search_timeout</code></td><td><code>30s</code></td><td>Time limit for the layout optimisation. For large books (100+ photos), you may want to increase this to give the solver more time.</td></tr>
+</tbody>
+</table>
+</div>
+<hr>
+<h2 id="all-configuration-sections"><a class="header" href="#all-configuration-sections">All configuration sections</a></h2>
+<p>The YAML has this structure:</p>
+<pre><code class="language-yaml">config:
+  book:           # page dimensions, margins, bleed, cover
+  book_layout_solver:  # photo-to-page distribution (page count, etc.)
+  page_layout_solver:  # single-page layout (genetic algorithm tuning)
+  preview:        # preview rendering options
+</code></pre>
+<h3 id="book-settings-configbook"><a class="header" href="#book-settings-configbook">Book settings (<code>config.book</code>)</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Field</th><th>Default</th><th>What it controls</th></tr>
+</thead>
+<tbody>
+<tr><td><code>title</code></td><td><code>"Untitled"</code></td><td>Book title (used as spine text if no explicit spine text is set)</td></tr>
+<tr><td><code>page_width_mm</code></td><td>set at creation</td><td>Page width in mm</td></tr>
+<tr><td><code>page_height_mm</code></td><td>set at creation</td><td>Page height in mm</td></tr>
+<tr><td><code>bleed_mm</code></td><td><code>3.0</code></td><td>Bleed area around each page (cut off by the printer)</td></tr>
+<tr><td><code>margin_mm</code></td><td><code>0.0</code></td><td>Inset from the page edge</td></tr>
+<tr><td><code>gap_mm</code></td><td><code>5.0</code></td><td>Space between photos on a page</td></tr>
+<tr><td><code>bleed_threshold_mm</code></td><td><code>3.0</code></td><td>Edge proximity threshold for bleed extension</td></tr>
+<tr><td><code>dpi</code></td><td><code>300</code></td><td>DPI for the final release PDF</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="photo-distribution-configbook_layout_solver"><a class="header" href="#photo-distribution-configbook_layout_solver">Photo distribution (<code>config.book_layout_solver</code>)</a></h3>
+<p>These parameters control how the solver assigns photos to pages.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Field</th><th>Default</th><th>What it controls</th></tr>
+</thead>
+<tbody>
+<tr><td><code>page_target</code></td><td><code>12</code></td><td>Target page count</td></tr>
+<tr><td><code>page_min</code></td><td><code>1</code></td><td>Minimum page count</td></tr>
+<tr><td><code>page_max</code></td><td><code>26</code></td><td>Maximum page count</td></tr>
+<tr><td><code>photos_per_page_min</code></td><td><code>1</code></td><td>Minimum photos on any page</td></tr>
+<tr><td><code>photos_per_page_max</code></td><td><code>20</code></td><td>Maximum photos on any page</td></tr>
+<tr><td><code>group_max_per_page</code></td><td><code>5</code></td><td>Max distinct groups sharing a page</td></tr>
+<tr><td><code>group_min_photos</code></td><td><code>1</code></td><td>Min photos from a group when it’s split across pages</td></tr>
+<tr><td><code>search_timeout</code></td><td><code>30s</code></td><td>Solver time limit</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="cover-settings-configbookcover"><a class="header" href="#cover-settings-configbookcover">Cover settings (<code>config.book.cover</code>)</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Field</th><th>Default</th><th>What it controls</th></tr>
+</thead>
+<tbody>
+<tr><td><code>active</code></td><td><code>false</code></td><td>Enable cover page</td></tr>
+<tr><td><code>front_back_width_mm</code></td><td>—</td><td>Cover panel width</td></tr>
+<tr><td><code>height_mm</code></td><td>—</td><td>Cover height</td></tr>
+<tr><td><code>spine_mode</code></td><td><code>auto</code></td><td><code>auto</code> or <code>fixed</code></td></tr>
+<tr><td><code>spine_mm_per_10_pages</code></td><td><code>1.4</code></td><td>Spine thickness per 10 pages (auto mode)</td></tr>
+<tr><td><code>spine_width_mm</code></td><td>—</td><td>Fixed spine width (fixed mode)</td></tr>
+<tr><td><code>spine_text</code></td><td>book title</td><td>Text on the spine</td></tr>
+<tr><td><code>bleed_mm</code></td><td><code>3.0</code></td><td>Cover bleed</td></tr>
+<tr><td><code>margin_mm</code></td><td><code>0.0</code></td><td>Cover margin</td></tr>
+<tr><td><code>gap_mm</code></td><td><code>5.0</code></td><td>Gap between cover photos</td></tr>
+<tr><td><code>bleed_threshold_mm</code></td><td><code>3.0</code></td><td>Cover bleed threshold</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="preview-settings-configpreview"><a class="header" href="#preview-settings-configpreview">Preview settings (<code>config.preview</code>)</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Field</th><th>Default</th><th>What it controls</th></tr>
+</thead>
+<tbody>
+<tr><td><code>max_preview_px</code></td><td><code>800</code></td><td>Longest edge of cached preview images</td></tr>
+<tr><td><code>show_filenames</code></td><td><code>true</code></td><td>Show filename captions in preview PDF</td></tr>
+<tr><td><code>show_page_numbers</code></td><td><code>true</code></td><td>Show page numbers in preview PDF</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="page-layout-solver-configpage_layout_solver"><a class="header" href="#page-layout-solver-configpage_layout_solver">Page layout solver (<code>config.page_layout_solver</code>)</a></h3>
+<p>These control the genetic algorithm that arranges photos within a single page.
+You rarely need to change these.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Field</th><th>Default</th><th>What it controls</th></tr>
+</thead>
+<tbody>
+<tr><td><code>population_size</code></td><td><code>50</code></td><td>Individuals per island</td></tr>
+<tr><td><code>max_generations</code></td><td><code>500</code></td><td>Max generations</td></tr>
+<tr><td><code>mutation_rate</code></td><td><code>0.3</code></td><td>Probability of mutation</td></tr>
+<tr><td><code>islands_nr</code></td><td><code>4</code></td><td>Number of parallel islands</td></tr>
+</tbody>
+</table>
+</div>
+<blockquote>
+<p>Run <code>fotobuch config</code> for the complete list of fields and their current values.</p>
+</blockquote>
+<hr>
+<h2 id="example-a-typical-yaml"><a class="header" href="#example-a-typical-yaml">Example: a typical YAML</a></h2>
+<pre><code class="language-yaml">config:
+  book:
+    title: "Italy 2024"
+    page_width_mm: 420.0    # double-page spread
+    page_height_mm: 297.0
+    bleed_mm: 3.0
+    margin_mm: 0.0
+    gap_mm: 5.0
+    cover:
+      active: true
+      front_back_width_mm: 594.0
+      height_mm: 297.0
+      spine_text: "Italy 2024"
+  book_layout_solver:
+    page_target: 20
+    page_max: 24
+    photos_per_page_max: 8
+    search_timeout:
+      secs: 60
+      nanos: 0
+</code></pre>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="command-overview"><a class="header" href="#command-overview">Command Overview</a></h1>
 <p>All commands follow the pattern <code>fotobuch &lt;command&gt; [options]</code>.
@@ -505,97 +750,8 @@ even if nothing changed. Useful when you’re not happy with a layout.</li>
 <h2 id="yaml-configuration"><a class="header" href="#yaml-configuration">YAML configuration</a></h2>
 <p>Every project contains a <code>{name}.yaml</code> file. Most settings have sensible
 defaults. Run <code>fotobuch config</code> to see the current values.</p>
-<p>Here are the fields you’re most likely to touch. The YAML nesting is shown
-as-is (e.g. <code>book.gap_mm</code> means the <code>gap_mm</code> key inside the <code>config.book</code>
-section).</p>
-<h3 id="book-settings-configbook"><a class="header" href="#book-settings-configbook">Book settings (<code>config.book</code>)</a></h3>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Field</th><th>Default</th><th>What it controls</th></tr>
-</thead>
-<tbody>
-<tr><td><code>title</code></td><td><code>"Untitled"</code></td><td>Book title (used as spine text if no explicit spine text is set)</td></tr>
-<tr><td><code>page_width_mm</code></td><td><code>210</code></td><td>Page width in mm</td></tr>
-<tr><td><code>page_height_mm</code></td><td><code>297</code></td><td>Page height in mm</td></tr>
-<tr><td><code>bleed_mm</code></td><td><code>3</code></td><td>Bleed area around each page (cut off by the printer)</td></tr>
-<tr><td><code>margin_mm</code></td><td><code>0</code></td><td>Inset from the page edge — photos won’t extend into this zone</td></tr>
-<tr><td><code>gap_mm</code></td><td><code>5</code></td><td>Space between photos on a page</td></tr>
-<tr><td><code>dpi</code></td><td><code>300</code></td><td>DPI for the final release PDF</td></tr>
-</tbody>
-</table>
-</div>
-<h3 id="page-distribution-configbook_layout_solver"><a class="header" href="#page-distribution-configbook_layout_solver">Page distribution (<code>config.book_layout_solver</code>)</a></h3>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Field</th><th>Default</th><th>What it controls</th></tr>
-</thead>
-<tbody>
-<tr><td><code>page_target</code></td><td><code>32</code></td><td>Target page count the solver aims for</td></tr>
-<tr><td><code>page_min</code></td><td><code>1</code></td><td>Hard minimum page count</td></tr>
-<tr><td><code>page_max</code></td><td><code>48</code></td><td>Hard maximum page count</td></tr>
-<tr><td><code>photos_per_page_min</code></td><td><code>2</code></td><td>Minimum photos on any page</td></tr>
-<tr><td><code>photos_per_page_max</code></td><td><code>20</code></td><td>Maximum photos on any page</td></tr>
-<tr><td><code>group_max_per_page</code></td><td><code>3</code></td><td>Max distinct groups per page</td></tr>
-<tr><td><code>group_min_photos</code></td><td><code>2</code></td><td>Min photos from a group if it’s split across pages</td></tr>
-</tbody>
-</table>
-</div>
-<h3 id="preview-configpreview"><a class="header" href="#preview-configpreview">Preview (<code>config.preview</code>)</a></h3>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Field</th><th>Default</th><th>What it controls</th></tr>
-</thead>
-<tbody>
-<tr><td><code>max_preview_px</code></td><td><code>800</code></td><td>Longest edge of cached preview images</td></tr>
-<tr><td><code>show_filenames</code></td><td><code>true</code></td><td>Show filename captions in preview PDF</td></tr>
-<tr><td><code>show_page_numbers</code></td><td><code>true</code></td><td>Show page numbers in preview PDF</td></tr>
-</tbody>
-</table>
-</div>
-<h3 id="cover-configbookcover"><a class="header" href="#cover-configbookcover">Cover (<code>config.book.cover</code>)</a></h3>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Field</th><th>Default</th><th>What it controls</th></tr>
-</thead>
-<tbody>
-<tr><td><code>active</code></td><td><code>false</code></td><td>Enable cover page (page 0)</td></tr>
-<tr><td><code>front_back_width_mm</code></td><td>—</td><td>Cover panel width (set via <code>--cover-width</code> on project creation)</td></tr>
-<tr><td><code>height_mm</code></td><td>—</td><td>Cover height (set via <code>--cover-height</code>)</td></tr>
-<tr><td><code>spine_mode</code></td><td><code>auto</code></td><td><code>auto</code> grows spine with page count; <code>fixed</code> uses a fixed width</td></tr>
-</tbody>
-</table>
-</div>
-<h3 id="example-yaml-snippet"><a class="header" href="#example-yaml-snippet">Example YAML snippet</a></h3>
-<pre><code class="language-yaml">config:
-  book:
-    title: "Italy 2024"
-    page_width_mm: 297.0
-    page_height_mm: 210.0
-    bleed_mm: 3.0
-    margin_mm: 0.0
-    gap_mm: 5.0
-    dpi: 300.0
-    cover:
-      active: false
-  book_layout_solver:
-    page_target: 32
-    page_min: 1
-    page_max: 48
-    photos_per_page_min: 2
-    photos_per_page_max: 20
-  preview:
-    show_filenames: true
-    show_page_numbers: true
-    max_preview_px: 800
-</code></pre>
-<blockquote>
-<p>The <code>page_layout_solver</code> section (genetic algorithm parameters) exists too but
-rarely needs tweaking. Run <code>fotobuch config</code> to see all fields.</p>
-</blockquote>
+<p>See <a href="#configuration">Configuration</a> for a full reference of all settings,
+including page dimensions, margins, bleed, cover, and solver parameters.</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="customizing-the-template"><a class="header" href="#customizing-the-template">Customizing the Template</a></h1>
 <p>Every project has a <code>{name}.typ</code> file — a <a href="https://typst.app/">Typst</a> template

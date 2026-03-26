@@ -35,10 +35,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-34e43021.js";
+            window.path_to_searchindex_js = "searchindex-40322265.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-46d27161.js"></script>
+        <script src="toc-df0efecf.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -202,7 +202,41 @@ Typst template. The <code>--width</code> and <code>--height</code> values are in
 or dashes.</p>
 </blockquote>
 <hr>
-<h2 id="step-2--add-photos"><a class="header" href="#step-2--add-photos">Step 2 — Add photos</a></h2>
+<h2 id="step-2--review-the-configuration"><a class="header" href="#step-2--review-the-configuration">Step 2 — Review the configuration</a></h2>
+<p>Before adding photos, open <code>Italy-2024.yaml</code> in a text editor and check the
+most important settings. The file already has sensible defaults, but you should
+set the <strong>page count</strong> to match the size of book you want:</p>
+<pre><code class="language-yaml">config:
+  book:
+    page_width_mm: 297.0
+    page_height_mm: 210.0
+    bleed_mm: 3.0        # required by most print services
+    margin_mm: 0.0       # 0 = edge-to-edge; set to e.g. 10 for a white border
+  book_layout_solver:
+    page_target: 20      # how many pages you want
+    page_max: 24         # upper limit — give the solver some room above the target
+</code></pre>
+<p>The <strong>book layout solver</strong> is the algorithm that decides how your photos are
+distributed across pages. <code>page_target</code> is your desired page count;
+<code>page_max</code> is the hard upper limit. Setting <code>page_max</code> a few pages above
+<code>page_target</code> gives the solver freedom to use an extra page when that produces
+a significantly better layout.</p>
+<p>If you plan to use a cover, also set:</p>
+<pre><code class="language-yaml">    cover:
+      active: true
+      front_back_width_mm: 594.0   # total width of front + back panel
+      height_mm: 297.0
+      spine_text: "Italy 2024"     # or ~ for no text
+</code></pre>
+<p>Other settings you might want to adjust: <code>gap_mm</code> (space between photos),
+<code>search_timeout</code> (solver time limit for large books).</p>
+<p>See <a href="configuration.html">Configuration</a> for a full reference of all settings.</p>
+<blockquote>
+<p><strong>Tip:</strong> You can always change these later and re-run <code>fotobuch build</code>.
+The solver will redistribute photos according to the new settings.</p>
+</blockquote>
+<hr>
+<h2 id="step-3--add-photos"><a class="header" href="#step-3--add-photos">Step 3 — Add photos</a></h2>
 <p>Point fotobuch at one or more folders. Each folder becomes a
 <a href="concepts.html#photos-and-groups">group</a> — photos from the same group are kept
 together on pages.</p>
@@ -230,7 +264,7 @@ fotobuch add /photos/2024-07-Italy --filter-xmp "Rating.*[3-5]" --weight 5
 <pre><code class="language-bash">fotobuch status
 </code></pre>
 <hr>
-<h2 id="step-3--build-a-preview"><a class="header" href="#step-3--build-a-preview">Step 3 — Build a preview</a></h2>
+<h2 id="step-4--build-a-preview"><a class="header" href="#step-4--build-a-preview">Step 4 — Build a preview</a></h2>
 <pre><code class="language-bash">fotobuch build
 </code></pre>
 <p>On the first run, fotobuch distributes all photos across pages automatically and
@@ -239,7 +273,7 @@ result — or open <code>Italy-2024.typ</code> in VS Code with
 <a href="https://marketplace.visualstudio.com/items?itemName=mgt19937.typst-preview">Typst Preview</a>
 for a live preview.</p>
 <hr>
-<h2 id="step-4--adjust-the-layout"><a class="header" href="#step-4--adjust-the-layout">Step 4 — Adjust the layout</a></h2>
+<h2 id="step-5--adjust-the-layout"><a class="header" href="#step-5--adjust-the-layout">Step 5 — Adjust the layout</a></h2>
 <p>You will almost certainly want to tweak a few things.</p>
 <p><strong>Swap two pages:</strong></p>
 <pre><code class="language-bash">fotobuch page swap 3 7
@@ -264,7 +298,7 @@ log, and <code>fotobuch undo N</code> rolls back N steps.</p>
 <pre><code class="language-bash">fotobuch build
 </code></pre>
 <hr>
-<h2 id="step-5--adding-more-photos-later"><a class="header" href="#step-5--adding-more-photos-later">Step 5 — Adding more photos later</a></h2>
+<h2 id="step-6--adding-more-photos-later"><a class="header" href="#step-6--adding-more-photos-later">Step 6 — Adding more photos later</a></h2>
 <p>After the first build, newly added photos start as <strong>unplaced</strong>. Place them
 before building:</p>
 <pre><code class="language-bash">fotobuch add /photos/bonus-shots
@@ -275,7 +309,7 @@ fotobuch build
 <pre><code class="language-bash">fotobuch place --into 4
 </code></pre>
 <hr>
-<h2 id="step-6--export-for-print"><a class="header" href="#step-6--export-for-print">Step 6 — Export for print</a></h2>
+<h2 id="step-7--export-for-print"><a class="header" href="#step-7--export-for-print">Step 7 — Export for print</a></h2>
 <p>When you’re happy with the layout:</p>
 <pre><code class="language-bash">fotobuch build release
 </code></pre>
@@ -291,7 +325,7 @@ The file is ready to upload to your print service (e.g. Saal Digital).</p>
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
-                            <a rel="next prefetch" href="commands.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="configuration.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                             </a>
 
@@ -305,7 +339,7 @@ The file is ready to upload to your print service (e.g. Saal Digital).</p>
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
-                    <a rel="next prefetch" href="commands.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="configuration.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                     </a>
             </nav>
