@@ -6,20 +6,17 @@ use tracing::{debug, warn};
 use crate::dto_models::{PhotoFile, PhotoGroup};
 use crate::input::xmp;
 
-use super::helper::{
-    get_all_dirs_recursive, is_supported_image, naive_to_utc, parse_timestamp_from_name,
-};
+use super::helper::{get_all_dirs_recursive, is_supported_image, naive_to_utc, parse_timestamp_from_name};
 use super::metadata::enrich_photo_metadata;
 use super::types::{ScanStats, ScannerFilters, ScannerInput};
 
-/// Internal scanner with filtering logic.
-pub struct Scanner {
-    filters: ScannerFilters,
-    pub stats: ScanStats,
+pub(super) struct Scanner {
+    pub(super) filters: ScannerFilters,
+    pub(super) stats: ScanStats,
 }
 
 impl Scanner {
-    pub fn new(input: &ScannerInput) -> Self {
+    pub(super) fn new(input: &ScannerInput) -> Self {
         Self {
             filters: ScannerFilters {
                 xmp_filters: input.xmp_filters.clone(),
@@ -29,11 +26,7 @@ impl Scanner {
         }
     }
 
-    /// Scans a single image file and returns it as a photo group.
-    ///
-    /// The group name is derived from the file's parent directory name.
-    /// If the file is unsupported or cannot be read, returns an empty vector.
-    pub fn scan_single_file_photo_group(&mut self, path: &Path) -> Result<Vec<PhotoGroup>> {
+    pub(super) fn scan_single_file_photo_group(&mut self, path: &Path) -> Result<Vec<PhotoGroup>> {
         if !is_supported_image(path) {
             return Ok(Vec::new());
         }
@@ -59,11 +52,7 @@ impl Scanner {
         }
     }
 
-    /// Scans directories and returns photo groups, sorted chronologically.
-    ///
-    /// Without `recursive`: only `root` itself is scanned (one group).
-    /// With `recursive`: `root` and all nested subdirectories are scanned (one group each).
-    pub fn scan_photo_group_dirs(
+    pub(super) fn scan_photo_group_dirs(
         &mut self,
         root: &Path,
         recursive: bool,
@@ -90,7 +79,6 @@ impl Scanner {
         Ok(groups)
     }
 
-    /// Loads all photos from a directory and attempts to parse the folder timestamp.
     fn scan_single_photo_group_dir(&mut self, dir: &Path) -> Result<PhotoGroup> {
         let group_name = dir
             .file_name()
@@ -107,11 +95,8 @@ impl Scanner {
         let folder_dt = folder_timestamp.map(naive_to_utc);
 
         let mut photo_files = self.scan_photos_from_dir(dir, &group_name, folder_dt)?;
-
-        // Sort photos within the group by timestamp.
         photo_files.sort_by(|a, b| a.timestamp.cmp(&b.timestamp));
 
-        // Determine sort_key from folder timestamp or earliest photo timestamp
         let sort_key = folder_dt
             .map(|dt| dt.to_rfc3339())
             .or_else(|| photo_files.first().map(|p| p.timestamp.to_rfc3339()))
@@ -124,7 +109,6 @@ impl Scanner {
         })
     }
 
-    /// Reads all supported image files from a directory (non-recursive).
     fn scan_photos_from_dir(
         &mut self,
         dir: &Path,
@@ -143,9 +127,6 @@ impl Scanner {
         Ok(photos)
     }
 
-    /// Builds a PhotoFile from a path, enriches it with metadata, applies fallback timestamp,
-    /// and applies filters. Returns None if photo is filtered out.
-    /// All filters must match (AND logic).
     fn scan_single_photo(
         &mut self,
         path: &Path,
@@ -160,7 +141,6 @@ impl Scanner {
 
         let full_path = path.to_str().unwrap_or("").to_string();
 
-        // Apply source filters (all must match)
         if !self.filters.source_filters.is_empty()
             && !self
                 .filters
@@ -172,7 +152,6 @@ impl Scanner {
             return None;
         }
 
-        // Apply XMP filters (all must match)
         if !self.filters.xmp_filters.is_empty()
             && !xmp::xmp_matches_all(Path::new(&full_path), &self.filters.xmp_filters)
                 .unwrap_or(true)
@@ -192,8 +171,10 @@ impl Scanner {
         };
 
         let found_timestamp = enrich_photo_metadata(&mut photo);
-        if !found_timestamp && let Some(dt) = fallback_dt {
-            photo.timestamp = dt;
+        if !found_timestamp {
+            if let Some(dt) = fallback_dt {
+                photo.timestamp = dt;
+            }
         }
 
         Some(photo)
