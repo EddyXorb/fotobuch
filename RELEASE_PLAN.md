@@ -40,9 +40,9 @@ Work happens on branch `claude/prepare-release-v1-w7cvz`.
 ### Phase 1 – Housekeeping
 
 - [x] Move Python dev tools to `tests/tools/` (`artificial_input_generator.py`, `pyproject.toml`, `uv.lock`)
-- [ ] Keep version at `0.1.0` in `Cargo.toml` (signals pre-stable API)
-- [ ] Add `LICENSE` file (AGPL v3)
-- [ ] Rewrite `README.md` in English (current one is outdated and German) + coverage badge at top
+- [x] Keep version at `0.1.0` in `Cargo.toml` (signals pre-stable API) — already was 0.1.0
+- [x] Add `LICENSE` file (AGPL v3)
+- [x] Rewrite `README.md` in English + coverage badge at top (skeleton done; placeholders for user)
 - [ ] Clean up README placeholders: replace `YOUREMAIL@example.com` with real address,
       remove `<!-- USER: ... -->` comments, replace or remove `docs/assets/example_spread.jpg`
 - [ ] Add `fotobuch init` as alias for `project new` (familiar pattern from git/cargo/npm)
@@ -54,21 +54,20 @@ Work happens on branch `claude/prepare-release-v1-w7cvz`.
 - [ ] Record terminal demo with [VHS](https://github.com/charmbracelet/vhs) using the example
       project: `init` → `add` → `build` → `page swap` → `rebuild` → `build release` (~30 sec).
       Embed the resulting GIF in the README as hero image (replaces placeholder screenshot).
-- [ ] `cliff.toml` – git-cliff config for Conventional Commits → CHANGELOG + release notes
-      (needed before CHANGELOG generation)
-- [ ] Generate initial `CHANGELOG.md` via git-cliff
+- [x] `cliff.toml` – git-cliff config for Conventional Commits → CHANGELOG + release notes
+- [ ] Generate initial `CHANGELOG.md` via git-cliff (run after merging to main)
 - [ ] Move out-of-scope items in `TODO.md` to new `## Out of Scope (post v1.0)` section
 - [ ] Ensure `cargo test` passes on the current codebase (green baseline before CI setup)
 
 ### Phase 2 – GitHub Actions
 
-- [ ] `ci.yml` – `cargo test` + `cargo clippy` + `cargo fmt --check` on push/PR + coverage report
-- [ ] `release.yml` – build Linux + Windows binaries on manual tag `v*`, run git-cliff,
-      generate SHA256 checksums, create GitHub Release draft with checksums as asset
-- [ ] Add smoke test in `release.yml`: run `./fotobuch --version` after build to verify binary works
-- [ ] `pages.yml` – build mdBook and deploy to GitHub Pages on push to `main`;
-      includes CI step to run `generate-cli-docs` before `mdbook build`
-- [ ] `audit.yml` – `cargo audit` (runs in CI, also usable locally)
+- [x] `ci.yml` – `cargo test` + `cargo clippy` + `cargo fmt --check` on push/PR + coverage report
+- [x] `release.yml` – build Linux + Windows binaries on tag `v*`, run git-cliff,
+      SHA256 checksums, create GitHub Release draft
+- [x] Smoke test in `release.yml`: runs `./fotobuch --version` after build
+- [x] `pages.yml` – build mdBook and deploy to GitHub Pages on push to `main`;
+      runs `generate-cli-docs` before `mdbook build`
+- [x] `audit.yml` – `cargo audit` (weekly + on push to main)
 
 ### Phase 3 – Documentation (mdBook)
 
@@ -77,25 +76,16 @@ programming experience. The auto-generated CLI flag reference provides completen
 the handwritten pages provide clarity and examples.
 
 **Setup**
-- [ ] Set up mdBook structure in `docs/book/`
-- [ ] Add `clap-markdown` as dev-dependency; write small `generate-cli-docs` helper binary
-      that dumps the full flag reference as `docs/book/src/cli/reference-generated.md`
+- [x] Set up mdBook structure in `docs/book/`
+- [x] Add `clap-markdown` as dev-dependency; `generate-cli-docs` example generates
+      `docs/book/src/cli/reference-generated.md` (tested and working)
 
 **Pages for v0.1.0**
 
-1. **Welcome & Installation** – What fotobuch is (2–3 sentences), how to install
-   (pre-built binary download + build from source), VS Code + Typst Preview setup
-2. **Your First Book (Quickstart)** – Step-by-step walkthrough:
-   `project new` → `add` → `build` → review → `rebuild` → `build release`.
-   Written as a single narrative a non-programmer can follow in ~10 minutes.
-   Includes: how groups/folders work, how to weight a photo, how to swap pages.
-3. **Command Overview** – One table with all commands, one-line description each,
-   link to the matching section in the auto-generated flag reference
-   (e.g. `[Full flags](cli/reference-generated.md#fotobuch-add)`).
-   Below the table: a short section on the YAML config (key fields, where to find it,
-   `fotobuch config` to inspect).
-4. **Printing & Known Limitations** – How to export for Saal Digital (bleed, DPI, upload).
-   Known limitations (cover workflow, etc.). What fotobuch deliberately does not do.
+1. [x] **Welcome & Installation** – written (`docs/book/src/installation.md`)
+2. [x] **Your First Book (Quickstart)** – written (`docs/book/src/quickstart.md`)
+3. [x] **Command Overview** – written (`docs/book/src/commands.md`) with YAML config table
+4. [x] **Printing & Known Limitations** – written (`docs/book/src/printing.md`)
 
 **Deferred to post-v0.1.0**
 - Detailed per-command CLI reference pages with extended examples
