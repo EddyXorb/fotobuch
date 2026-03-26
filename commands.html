@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-6fb82937.js";
+            window.path_to_searchindex_js = "searchindex-4ee6fcdf.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-df0efecf.js"></script>
@@ -184,6 +184,11 @@
 <p>All commands follow the pattern <code>fotobuch &lt;command&gt; [options]</code>.
 Run <code>fotobuch --help</code> or <code>fotobuch &lt;command&gt; --help</code> for details,
 or see the <a href="cli/reference-generated.html">Full Flag Reference</a>.</p>
+<blockquote>
+<p><strong>Your original photos are never modified.</strong> fotobuch only reads your source
+files to create cached copies at the configured DPI. Commands like <code>remove</code>
+delete photos from the project YAML — your originals on disk are untouched.</p>
+</blockquote>
 <h2 id="commands-at-a-glance"><a class="header" href="#commands-at-a-glance">Commands at a glance</a></h2>
 <div class="table-wrapper">
 <table>
@@ -231,12 +236,6 @@ last build. On the first run it solves everything.</li>
 even if nothing changed. Useful when you’re not happy with a layout.</li>
 <li><strong><code>rebuild --all</code></strong> re-solves every page.</li>
 </ul>
-<hr>
-<h2 id="yaml-configuration"><a class="header" href="#yaml-configuration">YAML configuration</a></h2>
-<p>Every project contains a <code>{name}.yaml</code> file. Most settings have sensible
-defaults. Run <code>fotobuch config</code> to see the current values.</p>
-<p>See <a href="configuration.html">Configuration</a> for a full reference of all settings,
-including page dimensions, margins, bleed, cover, and solver parameters.</p>
 
                     </main>
 

@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-6fb82937.js";
+            window.path_to_searchindex_js = "searchindex-4ee6fcdf.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-df0efecf.js"></script>
@@ -246,6 +246,45 @@ occupies a <strong>slot</strong> — a rectangular area with a specific position
 </tbody>
 </table>
 </div>
+<h2 id="two-ways-to-address-photos"><a class="header" href="#two-ways-to-address-photos">Two ways to address photos</a></h2>
+<p>fotobuch has two different ways to refer to photos, depending on whether they
+are placed in the layout or not:</p>
+<p><strong>By filename or pattern</strong> — used for photos that are not yet placed, or when
+you want to work with photos regardless of their layout position. Matches
+against the photo’s source path or XMP metadata.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Command</th><th>What it does</th></tr>
+</thead>
+<tbody>
+<tr><td><code>fotobuch add --filter "pattern"</code></td><td>Import only matching photos</td></tr>
+<tr><td><code>fotobuch add --filter-xmp "pattern"</code></td><td>Import only photos whose XMP metadata matches</td></tr>
+<tr><td><code>fotobuch place --filter "pattern"</code></td><td>Place only matching unplaced photos</td></tr>
+<tr><td><code>fotobuch remove "pattern"</code></td><td>Remove matching photos from the project</td></tr>
+</tbody>
+</table>
+</div>
+<p><strong>By slot address</strong> — used for photos that are already placed on a page. Each
+placed photo has a unique address like <code>3:2</code> (page 3, slot 2). See
+<a href="#pages-and-slots">Pages and slots</a> below for the full syntax.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Command</th><th>What it does</th></tr>
+</thead>
+<tbody>
+<tr><td><code>fotobuch page move 3:2 to 5</code></td><td>Move a placed photo to another page</td></tr>
+<tr><td><code>fotobuch page swap 3:2 5:1</code></td><td>Swap two placed photos</td></tr>
+<tr><td><code>fotobuch page weight 3:2 2.0</code></td><td>Change a placed photo’s weight</td></tr>
+<tr><td><code>fotobuch page info 3:2</code></td><td>Show metadata for a placed photo</td></tr>
+<tr><td><code>fotobuch unplace 3:2</code></td><td>Remove a placed photo from its slot</td></tr>
+</tbody>
+</table>
+</div>
+<p><strong>Rule of thumb:</strong> use filename patterns when working with <em>unplaced</em> photos
+(<code>add</code>, <code>place</code>, <code>remove</code>), and use slot addresses when working with <em>placed</em>
+photos (<code>page move</code>, <code>page swap</code>, <code>page weight</code>, <code>unplace</code>).</p>
 <h2 id="weights"><a class="header" href="#weights">Weights</a></h2>
 <p>Every photo has an <strong>area weight</strong> (default: 1.0). The solver uses weights to
 decide how much space each photo gets relative to its neighbours on the same

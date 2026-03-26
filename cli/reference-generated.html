@@ -35,7 +35,7 @@
             const path_to_root = "../";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../searchindex-6fb82937.js";
+            window.path_to_searchindex_js = "../searchindex-4ee6fcdf.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../toc-df0efecf.js"></script>
@@ -339,22 +339,12 @@
 </ul>
 <h2 id="fotobuch-page-move"><a class="header" href="#fotobuch-page-move"><code>fotobuch page move</code></a></h2>
 <p>Move or unplace photos between pages</p>
-<p>Two forms:
-SRC to DST    Move to another page (source page stays, even if empty)
-SRC out       Unplace: pages deleted, slots emptied</p>
-<p>Addressing:
-3             Whole page
-3,5  3..5     Multiple pages
-3:2           Single slot on page 3
-3:1..3,7      Slots 1-3 and 7 on page 3
-4+            New page after page 4 (move destination only)</p>
-<p>Move:
-3:2 to 5      Slot 2 from page 3 to page 5
-3,4 to 5      Merge pages 3 and 4 into page 5
-3:2 to 4+     Slot 2 onto a new page inserted after page 4</p>
-<p>Unplace:
-3 out         Delete page 3, photos become unplaced
-3:2 out       Unplace slot 2, page 3 stays (possibly empty)</p>
+<p>Two forms: “SRC to DST” (move) and “SRC out” (unplace).</p>
+<p>Addressing: 3 = whole page, 3:2 = slot 2 on page 3,
+3:1..3,7 = slots 1-3 and 7, 4+ = new page after 4.</p>
+<p>Move examples: “3:2 to 5”, “3,4 to 5”, “3:2 to 4+”.
+Unplace examples: “3 out”, “3:2 out”.</p>
+<p>See the documentation for the full addressing syntax.</p>
 <p><strong>Usage:</strong> <code>fotobuch page move [ARGS]...</code></p>
 <h6 id="arguments-2"><a class="header" href="#arguments-2"><strong>Arguments:</strong></a></h6>
 <ul>
@@ -362,7 +352,7 @@ SRC out       Unplace: pages deleted, slots emptied</p>
 </ul>
 <h2 id="fotobuch-page-split"><a class="header" href="#fotobuch-page-split"><code>fotobuch page split</code></a></h2>
 <p>Split a page at a slot: photos from that slot onwards move to a new page inserted after</p>
-<p>Shortcut for: page move PAGE:SLOT.. to PAGE+ Error if SLOT is the first slot (would leave the original page empty).</p>
+<p>Shortcut for <code>page move PAGE:SLOT.. to PAGE+</code>. Error if SLOT is the first slot (would leave the original page empty).</p>
 <p><strong>Usage:</strong> <code>fotobuch page split &lt;ADDRESS&gt;</code></p>
 <h6 id="arguments-3"><a class="header" href="#arguments-3"><strong>Arguments:</strong></a></h6>
 <ul>
@@ -378,16 +368,10 @@ SRC out       Unplace: pages deleted, slots emptied</p>
 </ul>
 <h2 id="fotobuch-page-swap"><a class="header" href="#fotobuch-page-swap"><code>fotobuch page swap</code></a></h2>
 <p>Swap photos between two addresses (only single numbers or ranges, no comma lists)</p>
-<p>Page swap — block transposition, pages between the blocks keep their relative order:
-3  5               Pages 3 and 5 swap positions
-1..2  5..9         Block [1,2] and block [5..9] swap; pages 3,4 stay between them
-before: [1,2,3,4,5,6,7,8,9]  after: [5,6,7,8,9,3,4,1,2]</p>
-<p>Slot swap — each block is inserted at the position of the swapped counterpart:
-3:2  5:6           Slot 2 on page 3 ↔ slot 6 on page 5
-3:2..4  5:6..9     Block [slots 2-4] ↔ block [slots 6-9], different sizes ok
-3:2..10  5         Slots 2-10 on page 3 ↔ all photos on page 5
-1:3..5  1:7..9     Swap within the same page (non-overlapping ranges)</p>
-<p>Errors: overlapping ranges, comma-separated list as operand.</p>
+<p>Page swap: “3 5” swaps pages, “1..2 5..9” swaps blocks.
+Slot swap: “3:2 5:6” swaps individual slots,
+“3:2..4 5:6..9” swaps slot ranges (different sizes ok).</p>
+<p>Errors on overlapping ranges or comma-separated lists as operands.</p>
 <p><strong>Usage:</strong> <code>fotobuch page swap &lt;LEFT&gt; &lt;RIGHT&gt;</code></p>
 <h6 id="arguments-5"><a class="header" href="#arguments-5"><strong>Arguments:</strong></a></h6>
 <ul>
@@ -396,12 +380,8 @@ before: [1,2,3,4,5,6,7,8,9]  after: [5,6,7,8,9,3,4,1,2]</p>
 </ul>
 <h2 id="fotobuch-page-info"><a class="header" href="#fotobuch-page-info"><code>fotobuch page info</code></a></h2>
 <p>Show photo metadata for slots on a page</p>
-<p>Address forms:
-3           All slots on page 3
-3:2         Single slot
-3:1..3,7    Slots 1-3 and 7</p>
-<p>Without flags: full table (or vertical view for a single slot).
-With a flag: machine-readable single-field output.</p>
+<p>Address forms: <code>3</code> (all slots), <code>3:2</code> (single slot), <code>3:1..3,7</code> (slots 1–3 and 7).</p>
+<p>Without flags: full table (or vertical view for a single slot). With a flag: machine-readable single-field output.</p>
 <p><strong>Usage:</strong> <code>fotobuch page info [OPTIONS] &lt;ADDRESS&gt;</code></p>
 <h6 id="arguments-6"><a class="header" href="#arguments-6"><strong>Arguments:</strong></a></h6>
 <ul>
@@ -415,7 +395,7 @@ With a flag: machine-readable single-field output.</p>
 </ul>
 <h2 id="fotobuch-page-weight"><a class="header" href="#fotobuch-page-weight"><code>fotobuch page weight</code></a></h2>
 <p>Set area_weight for one or more slots</p>
-<p>3:2 2.0        Single slot 3:1..3,7 2.0   Multiple slots, same weight 3 2.0          All slots on page 3</p>
+<p>Examples: <code>3:2 2.0</code> (single slot), <code>3:1..3,7 2.0</code> (multiple slots), <code>3 2.0</code> (whole page).</p>
 <p><strong>Usage:</strong> <code>fotobuch page weight &lt;ADDRESS&gt; &lt;WEIGHT&gt;</code></p>
 <h6 id="arguments-7"><a class="header" href="#arguments-7"><strong>Arguments:</strong></a></h6>
 <ul>
