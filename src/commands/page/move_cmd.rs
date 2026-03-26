@@ -250,7 +250,11 @@ fn execute_swap(
 
     swap_photos_in_layout(
         &mut mgr.state.layout,
-        SwapSide { page_idx: left_page_idx, slot_indices: &left_slot_indices, photos: &left_photos },
+        SwapSide {
+            page_idx: left_page_idx,
+            slot_indices: &left_slot_indices,
+            photos: &left_photos,
+        },
         SwapSide {
             page_idx: right_page_idx,
             slot_indices: &right_slot_indices,
