@@ -20,6 +20,7 @@ fn create_test_project(temp_dir: &TempDir) -> Result<PathBuf> {
         cover_height_mm: None,
         spine_grow_per_10_pages_mm: None,
         spine_mm: None,
+        margin_mm: 0.0,
     };
     let result = project_new(temp_dir.path(), &config)?;
     Ok(result.project_root)

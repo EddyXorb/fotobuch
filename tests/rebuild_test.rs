@@ -24,6 +24,7 @@ fn create_test_project_with_build(temp_dir: &TempDir) -> Result<PathBuf> {
         cover_height_mm: None,
         spine_grow_per_10_pages_mm: None,
         spine_mm: None,
+        margin_mm: 0.0,
     };
     let result = project_new(temp_dir.path(), &config)?;
     let project_root = result.project_root;
@@ -444,6 +445,7 @@ fn test_rebuild_without_layout_fails_except_all() -> Result<()> {
         cover_height_mm: None,
         spine_grow_per_10_pages_mm: None,
         spine_mm: None,
+        margin_mm: 0.0,
     };
     let result = project_new(temp_dir.path(), &config)?;
     let project_root = result.project_root;
