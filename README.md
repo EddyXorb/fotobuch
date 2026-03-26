@@ -8,13 +8,17 @@
 
 ---
 
-## Example layout
-
 ![Example two pages photo](docs/examples/example_two_pages.png)
 
-## Example workflow from scratch
+---
+
+
+
+<div align="center">
 
 ![Example photobook spread](docs/examples/fotobuch-example.gif)
+
+</div>
 
 ---
 
@@ -100,7 +104,7 @@ fotobuch build
 
 # 4. Adjust the layout
 fotobuch page swap 3 5            # swap pages 3 and 5
-fotobuch page move 3:2 4          # move slot 2 from page 3 to page 4
+fotobuch page move 3:2 to 4       # move slot 2 from page 3 to page 4
 fotobuch rebuild --page 6         # re-run solver on page 6 only
 fotobuch undo                     # undo last change
 
@@ -143,8 +147,6 @@ The layout itself is stored as a Typst (`.typ`) file alongside the YAML. Advance
 can edit it directly and recompile with `typst compile fotobuch.typ fotobuch.pdf`.
 
 Full configuration reference: **[see the documentation](https://eddyxorb.github.io/fotobuch)**
-
----
 
 ## Technical Background
 
