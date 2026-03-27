@@ -36,10 +36,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-93b9b192.js";
+            window.path_to_searchindex_js = "searchindex-afd89f27.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-df0efecf.js"></script>
+        <script src="toc-f7564f5f.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -600,6 +600,7 @@ setting <code>active: true</code> and providing dimensions.</p>
 <p>When <code>mode</code> is not <code>free</code>, the GA solver is bypassed and slot positions are
 calculated deterministically from the cover geometry.  A warning is printed if
 the number of photos on the cover does not match what the mode expects.</p>
+<p>See <a href="#cover-modes-1">Cover Modes — Visual Guide</a> for visual examples of each mode.</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -794,6 +795,45 @@ page-position reference.</p>
     max_preview_px: 800
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div>
+<h1 id="cover-modes-1"><a class="header" href="#cover-modes-1">Cover Modes</a></h1>
+<p>Each cover mode determines how photos are positioned and sized on the cover. The examples below show the result of each mode with a sample photo.</p>
+<hr>
+<h2 id="mode-front"><a class="header" href="#mode-front">Mode: <code>front</code></a></h2>
+<p>A single photo on the front panel, with its aspect ratio preserved and centred.</p>
+<p><img src="assets/cover-modes/front.svg" alt="front mode example"></p>
+<hr>
+<h2 id="mode-front-full"><a class="header" href="#mode-front-full">Mode: <code>front-full</code></a></h2>
+<p>A single photo fills the entire front panel (may crop to fit).</p>
+<p><img src="assets/cover-modes/front-full.svg" alt="front-full mode example"></p>
+<hr>
+<h2 id="mode-back"><a class="header" href="#mode-back">Mode: <code>back</code></a></h2>
+<p>A single photo on the back panel, with its aspect ratio preserved and centred.</p>
+<p><img src="assets/cover-modes/back.svg" alt="back mode example"></p>
+<hr>
+<h2 id="mode-back-full"><a class="header" href="#mode-back-full">Mode: <code>back-full</code></a></h2>
+<p>A single photo fills the entire back panel (may crop to fit).</p>
+<p><img src="assets/cover-modes/back-full.svg" alt="back-full mode example"></p>
+<hr>
+<h2 id="mode-spread"><a class="header" href="#mode-spread">Mode: <code>spread</code></a></h2>
+<p>A single photo spans the full spread (front, spine, and back), with its aspect ratio preserved and centred.</p>
+<p><img src="assets/cover-modes/spread.svg" alt="spread mode example"></p>
+<hr>
+<h2 id="mode-spread-full"><a class="header" href="#mode-spread-full">Mode: <code>spread-full</code></a></h2>
+<p>A single photo fills the full spread without cropping space for the spine (may crop the photo).</p>
+<p><img src="assets/cover-modes/spread-full.svg" alt="spread-full mode example"></p>
+<hr>
+<h2 id="mode-split"><a class="header" href="#mode-split">Mode: <code>split</code></a></h2>
+<p>Two photos: slot 0 goes on the front panel, slot 1 on the back panel. Both have their aspect ratios preserved and are centred.</p>
+<p><img src="assets/cover-modes/split.svg" alt="split mode example"></p>
+<hr>
+<h2 id="mode-split-full"><a class="header" href="#mode-split-full">Mode: <code>split-full</code></a></h2>
+<p>Two photos: slot 0 fills the front panel, slot 1 fills the back panel (each may crop independently).</p>
+<p><img src="assets/cover-modes/split-full.svg" alt="split-full mode example"></p>
+<hr>
+<h2 id="mode-free"><a class="header" href="#mode-free">Mode: <code>free</code></a></h2>
+<p>The genetic algorithm solver optimises photo placement freely without constraints. Use any number of photos.</p>
+<p><img src="assets/cover-modes/free.svg" alt="free mode example"></p>
+<div style="break-before: page; page-break-before: always;"></div>
 <h1 id="command-overview"><a class="header" href="#command-overview">Command Overview</a></h1>
 <p>All commands follow the pattern <code>fotobuch &lt;command&gt; [options]</code>.
 Run <code>fotobuch --help</code> or <code>fotobuch &lt;command&gt; --help</code> for details,
@@ -946,7 +986,7 @@ Preview images live in <code>.fotobuch/cache/{name}/preview/</code>, final image
 <h2 id="general-checklist"><a class="header" href="#general-checklist">General checklist</a></h2>
 <p>Before uploading your PDF, verify these things:</p>
 <ul>
-<li>Run <code>fotobuch build release</code> — only the release PDF has full 300 DPI</li>
+<li>Run <code>fotobuch build release</code> — only the release PDF has full 300 DPI, do <strong>NOT UPLOAD THE PREVIEW PDF</strong> to be printed, it will be ugly!</li>
 <li>Check the terminal output for <strong>DPI warnings</strong> (photos that are too small for
 their slot will be listed)</li>
 <li>Open the final PDF (<code>{name}_final.pdf</code>) and spot-check a few pages</li>
@@ -969,6 +1009,10 @@ what InDesign would produce</li>
 The default 3 mm works for the majority of European providers.</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="known-limitations"><a class="header" href="#known-limitations">Known Limitations</a></h1>
+<p>There are surely plenty of limitations I don’t mention here. Let’s start with that:</p>
+<ul>
+<li><strong>No GUI so far for user not used to a cli</strong> - will be adressed in future</li>
+</ul>
 <h2 id="what-fotobuch-deliberately-does-not-do"><a class="header" href="#what-fotobuch-deliberately-does-not-do">What fotobuch deliberately does not do</a></h2>
 <ul>
 <li><strong>No pixel-level placement.</strong> The solver decides where photos go; you
@@ -976,7 +1020,6 @@ influence it through weights, groups, and rebuild commands.</li>
 <li><strong>No mixed page sizes</strong> within one project.</li>
 <li><strong>No image editing</strong> (cropping, colour correction, rotation). Prepare your
 photos beforehand.</li>
-<li><strong>No upload integration</strong> with print services — fotobuch stops at the PDF.</li>
 </ul>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="full-flag-reference"><a class="header" href="#full-flag-reference">Full Flag Reference</a></h1>
