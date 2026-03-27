@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use super::CoverConfig;
+use super::{AppendixConfig, CoverConfig};
 
 /// Book-specific configuration (page dimensions, bleed, margins, gaps)
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -23,6 +23,9 @@ pub struct BookConfig {
     /// Cover configuration. Always present, defaults to inactive (active: false).
     #[serde(default)]
     pub cover: CoverConfig,
+    /// Photo index (appendix) configuration.
+    #[serde(default)]
+    pub appendix: AppendixConfig,
 }
 
 pub trait CanvasConfig {
@@ -83,6 +86,7 @@ impl Default for BookConfig {
             bleed_threshold_mm: default_bleed_threshold_mm(),
             dpi: default_dpi(),
             cover: CoverConfig::default(),
+            appendix: AppendixConfig::default(),
         }
     }
 }

@@ -174,8 +174,7 @@ config:
     max_generations: 1000        # default
     ...
   preview:
-    show_filenames: true         # default
-    show_page_numbers: true      # default
+    show_filenames: false         # default
     max_preview_px: 800          # default
   book_layout_solver:
     page_target: 20              # default
@@ -200,11 +199,11 @@ Alle Defaults via `#[serde(default = "...")]` in den Config-Structs — bereits 
 
 ## Implementierungsreihenfolge
 
-| #   | Schritt | Abhängig von |
-| --- | ------- | ------------ |
-| 1 | `config()` — zwei Deserialisierungen, `ConfigResult` zurückgeben | — |
-| 2 | `render_annotated` — rekursive YAML-Generierung mit `# default` | 1 |
-| 3 | CLI-Integration: `fotobuch config` Subcommand verdrahten | 1, 2 |
+| #   | Schritt                                                          | Abhängig von |
+| --- | ---------------------------------------------------------------- | ------------ |
+| 1   | `config()` — zwei Deserialisierungen, `ConfigResult` zurückgeben | —            |
+| 2   | `render_annotated` — rekursive YAML-Generierung mit `# default`  | 1            |
+| 3   | CLI-Integration: `fotobuch config` Subcommand verdrahten         | 1, 2         |
 
 Jeder Schritt = ein Commit.
 
@@ -216,11 +215,11 @@ Jeder Schritt = ein Commit.
 
 ## Tests
 
-| Test | Prüft |
-| ---- | ----- |
-| Minimale YAML (nur Pflichtfelder) → alle optionalen Felder als `# default` markiert | Default-Erkennung |
-| Vollständige YAML → keine `# default`-Markierungen | Explizite Werte |
-| Teilweise überschriebene Defaults → nur fehlende als `# default` | Mischung |
+| Test                                                                                 | Prüft                   |
+| ------------------------------------------------------------------------------------ | ----------------------- |
+| Minimale YAML (nur Pflichtfelder) → alle optionalen Felder als `# default` markiert  | Default-Erkennung       |
+| Vollständige YAML → keine `# default`-Markierungen                                   | Explizite Werte         |
+| Teilweise überschriebene Defaults → nur fehlende als `# default`                     | Mischung                |
 | Verschachtelte Defaults (z.B. `weights` in `page_layout_solver`) → korrekt annotiert | Rekursive Traversierung |
-| Ungültige YAML → sinnvoller Fehler | Fehlerbehandlung |
-| Ausgabe ist gültiges YAML (re-parse möglich) | Format-Korrektheit |
+| Ungültige YAML → sinnvoller Fehler                                                   | Fehlerbehandlung        |
+| Ausgabe ist gültiges YAML (re-parse möglich)                                         | Format-Korrektheit      |

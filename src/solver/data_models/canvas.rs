@@ -137,6 +137,7 @@ mod tests {
                 bleed_threshold_mm: 3.0,
                 dpi: 300.0,
                 cover: Default::default(),
+                appendix: Default::default(),
             }
         }
 
