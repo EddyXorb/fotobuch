@@ -72,7 +72,9 @@ Work happens on branch `claude/prepare-release-v1-w7cvz`.
 - [ ] Add `clap-markdown` as dev-dependency; write small `generate-cli-docs` helper binary
       that dumps the full flag reference as `docs/book/src/cli/reference-generated.md`
 - [ ] Add CI step in `pages.yml`: run `generate-cli-docs` before `mdbook build`
-- [ ] Write: CLI Reference (one page per command, with examples; links to auto-generated flag reference)
+- [ ] Write: CLI Reference (one handwritten page per command with examples;
+      each page links to its section in the auto-generated flag reference via anchor,
+      e.g. `[Full flag reference](../reference.md#fotobuch-add)`)
   - [ ] project (new, list, switch)
   - [ ] add (--filter, --recursive, --weight, --update, --dry)
   - [ ] build (preview vs. release, --pages)
