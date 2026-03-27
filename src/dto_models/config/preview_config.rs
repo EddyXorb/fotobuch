@@ -30,7 +30,7 @@ impl Default for PreviewConfig {
 }
 
 fn default_show_filenames() -> bool {
-    true
+    false
 }
 
 fn default_show_page_numbers() -> bool {
