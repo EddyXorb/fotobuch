@@ -17,20 +17,33 @@
 
 // Preview overlay flags (all suppressed in final mode)
 #let show_image_captions_on_preview = data.config.preview.at("show_filenames", default: false) and not is_final
-#let show_borders_on_preview        = data.config.preview.at("show_borders",   default: true)  and not is_final
-#let show_slot_info_on_preview      = data.config.preview.at("show_slot_info", default: true)  and not is_final
+#let show_borders_on_preview = data.config.preview.at("show_borders", default: true) and not is_final
+#let show_slot_info_on_preview = data.config.preview.at("show_slot_info", default: true) and not is_final
 
 // Appendix settings
-#let appendix_cfg            = data.config.book.at("appendix", default: (:))
-#let appendix_show           = appendix_cfg.at("active",           default: false)
-#let appendix_nr_columns     = appendix_cfg.at("columns",          default: 7)
-#let appendix_ref_mode       = appendix_cfg.at("ref_mode",         default: "positions")
+#let appendix_cfg = data.config.book.at("appendix", default: (:))
+#let appendix_show = appendix_cfg.at("active", default: false)
+#let appendix_nr_columns = appendix_cfg.at("columns", default: 7)
+#let appendix_ref_mode = appendix_cfg.at("ref_mode", default: "positions")
 #let appendix_show_page_nr_separator = appendix_cfg.at("page_separator", default: false)
 #let appendix_try_strip_datetimes_from_photo_name = appendix_cfg.at("strip_timestamps", default: true)
-#let appendix_label_title    = appendix_cfg.at("label_title",      default: "Photo Index")
-#let appendix_label_page     = appendix_cfg.at("label_page",       default: "Page")
-#let appendix_date_format    = appendix_cfg.at("date_format",      default: "{day}. {month} {year} {hour}:{min}")
-#let appendix_date_months    = appendix_cfg.at("date_months",      default: ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"))
+#let appendix_label_title = appendix_cfg.at("label_title", default: "Photo Index")
+#let appendix_label_page = appendix_cfg.at("label_page", default: "Page")
+#let appendix_date_format = appendix_cfg.at("date_format", default: "{day}. {month} {year} {hour}:{min}")
+#let appendix_date_months = appendix_cfg.at("date_months", default: (
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+))
 
 // Image path prefix depending on output mode
 #let cache_prefix = if is_final {
@@ -66,17 +79,17 @@
 #let fmt_ts(ts, fmt, months) = {
   let s = str(ts)
   if s.len() < 16 { return s }
-  let year  = s.slice(0, 4)
-  let day   = str(int(s.slice(8, 10)))
+  let year = s.slice(0, 4)
+  let day = str(int(s.slice(8, 10)))
   let month = months.at(int(s.slice(5, 7)) - 1)
-  let hour  = s.slice(11, 13)
-  let min   = s.slice(14, 16)
+  let hour = s.slice(11, 13)
+  let min = s.slice(14, 16)
   fmt
-    .replace("{day}",   day)
+    .replace("{day}", day)
     .replace("{month}", month)
-    .replace("{year}",  year)
-    .replace("{hour}",  hour)
-    .replace("{min}",   min)
+    .replace("{year}", year)
+    .replace("{hour}", hour)
+    .replace("{min}", min)
 }
 
 // Builds a map photo_id → reference label (counter: "1","2",… / positions: "2.3")
@@ -185,7 +198,9 @@
       box(
         width: slot.width_mm * 1mm,
         height: slot.height_mm * 1mm,
-        align(center + horizon, text(size: slot.width_mm * 1mm / 4, weight: "bold", fill: if photo_id == none { black } else { white })[
+        align(center + horizon, text(size: slot.width_mm * 1mm / 4, weight: "bold", fill: if photo_id == none {
+          black
+        } else { white })[
           #page_index:#slot_nr
           #if photo_id != none [ \(#str(calc.round(photo_weight.at(photo_id, default: 1.0), digits: 1))\)]
         ]),
@@ -270,7 +285,7 @@
             #box(width: 6mm, inset: (x: 1mm, y: 0mm), align(left, text(fill: black, weight: "bold")[#ref_label])) #h(
               0.5mm,
             )
-           #fmt_ts(ts, appendix_date_format, appendix_date_months)
+            #fmt_ts(ts, appendix_date_format, appendix_date_months)
             #if ts != none [#text(fill: rgb("#888888"))[ · #try_strip_datetime_from(name)]]
           ],
         ))
@@ -336,7 +351,7 @@
       width: spine_w * 1mm,
       height: cover_h * 1mm,
       align(horizon + center, rotate(-90deg, box(
-        stroke: if is_final { none } else { green },
+        stroke: if is_final or not show_borders_on_preview { none } else { green },
         width: cover_h * 1mm,
         align(left, text(
           size: calc.min(20mm, spine_w * 0.9 * 1mm),
