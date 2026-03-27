@@ -2,7 +2,7 @@
 
 use crate::cache::common::{is_cache_fresh, preview_path, resize_and_save};
 use crate::dto_models::{PhotoFile, ProjectState};
-use crate::input::scanner::enrich_photo_metadata;
+use crate::input::scan::enrich_photo_metadata;
 use anyhow::Result;
 use rayon::prelude::*;
 use std::path::Path;
@@ -117,6 +117,7 @@ mod tests {
                 bleed_threshold_mm: 3.0,
                 dpi: 300.0,
                 cover: Default::default(),
+                appendix: Default::default(),
             },
             page_layout_solver: GaConfig::default(),
             preview: PreviewConfig {

@@ -37,7 +37,7 @@ pub struct BookLayoutSolverConfig {
     /// Weight for page count deviation (w_3 in MIP).
     #[serde(default = "default_weight_pages")]
     pub weight_pages: f64,
-    /// Timeout for local search.
+    /// Timeout for book layout solver.
     #[serde(default = "default_search_timeout")]
     pub search_timeout: Duration,
     /// Maximum coverage cost threshold (pages above this are considered "bad").
@@ -59,7 +59,7 @@ pub struct BookLayoutSolverConfig {
 
 // Default functions for serde
 fn default_page_target() -> usize {
-    32
+    12
 }
 
 fn default_page_min() -> usize {
@@ -67,11 +67,11 @@ fn default_page_min() -> usize {
 }
 
 fn default_page_max() -> usize {
-    48
+    26
 }
 
 fn default_photos_per_page_min() -> usize {
-    2
+    1
 }
 
 fn default_photos_per_page_max() -> usize {
@@ -79,11 +79,11 @@ fn default_photos_per_page_max() -> usize {
 }
 
 fn default_group_max_per_page() -> usize {
-    3
+    5
 }
 
 fn default_group_min_photos() -> usize {
-    2
+    1
 }
 
 fn default_weight_even() -> f64 {
@@ -115,7 +115,7 @@ fn default_mip_rel_gap() -> f64 {
 }
 
 fn default_max_photos_for_split() -> usize {
-    100
+    300
 }
 
 fn default_split_group_boundary_slack() -> usize {
@@ -287,13 +287,13 @@ mod tests {
     fn test_default_values() {
         let config = BookLayoutSolverConfig::default();
 
-        assert_eq!(config.page_target, 32);
+        assert_eq!(config.page_target, 12);
         assert_eq!(config.page_min, 1);
-        assert_eq!(config.page_max, 48);
-        assert_eq!(config.photos_per_page_min, 2);
+        assert_eq!(config.page_max, 26);
+        assert_eq!(config.photos_per_page_min, 1);
         assert_eq!(config.photos_per_page_max, 20);
-        assert_eq!(config.group_max_per_page, 3);
-        assert_eq!(config.group_min_photos, 2);
+        assert_eq!(config.group_max_per_page, 5);
+        assert_eq!(config.group_min_photos, 1);
         assert_eq!(config.weight_even, 1.0);
         assert_eq!(config.weight_split, 10.0);
         assert_eq!(config.weight_pages, 5.0);
@@ -301,7 +301,7 @@ mod tests {
         assert_eq!(config.max_coverage_cost, 0.95);
         assert!(config.enable_local_search);
         assert_eq!(config.mip_rel_gap, 0.01);
-        assert_eq!(config.max_photos_for_split, 100);
+        assert_eq!(config.max_photos_for_split, 300);
         assert_eq!(config.split_group_boundary_slack, 5);
     }
 
@@ -311,9 +311,9 @@ mod tests {
         let yaml = "{}";
         let config: BookLayoutSolverConfig = serde_yaml::from_str(yaml).unwrap();
 
-        assert_eq!(config.page_target, 32);
+        assert_eq!(config.page_target, 12);
         assert_eq!(config.page_min, 1);
-        assert_eq!(config.page_max, 48);
+        assert_eq!(config.page_max, 26);
     }
 
     #[test]
@@ -328,7 +328,7 @@ weight_even: 2.0
         assert_eq!(config.page_target, 25); // Specified
         assert_eq!(config.weight_even, 2.0); // Specified
         assert_eq!(config.page_min, 1); // Default
-        assert_eq!(config.page_max, 48); // Default
+        assert_eq!(config.page_max, 26); // Default
         assert_eq!(config.weight_split, 10.0); // Default
     }
 }

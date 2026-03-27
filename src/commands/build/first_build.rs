@@ -1,5 +1,5 @@
 use super::BuildResult;
-use super::multipage_build::{MultiPageParams, multipage_build};
+use super::core::multipage_build::{MultiPageParams, multipage_build};
 use crate::state_manager::StateManager;
 use anyhow::Result;
 use std::path::Path;

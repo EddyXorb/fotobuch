@@ -76,16 +76,25 @@ impl Parser {
             let item = if let Some(Token::Range) = self.peek() {
                 self.advance(); // consume ".."
                 let end = self.expect_number("slot number after '..'")?;
-                SlotItem::Range { from: None, to: Some(end) }
+                SlotItem::Range {
+                    from: None,
+                    to: Some(end),
+                }
             } else {
                 let first = self.expect_number("slot number")?;
                 if let Some(Token::Range) = self.peek() {
                     self.advance(); // consume ".."
                     if matches!(self.peek(), Some(Token::Number(_))) {
                         let last = self.expect_number("slot number after '..'")?;
-                        SlotItem::Range { from: Some(first), to: Some(last) }
+                        SlotItem::Range {
+                            from: Some(first),
+                            to: Some(last),
+                        }
                     } else {
-                        SlotItem::Range { from: Some(first), to: None }
+                        SlotItem::Range {
+                            from: Some(first),
+                            to: None,
+                        }
                     }
                 } else {
                     SlotItem::Single(first)
@@ -179,7 +188,10 @@ impl Parser {
                 let dst = self.parse_dst_move()?;
                 Ok(PageMoveCmd::Move { src, dst })
             }
-            Some(Token::Out) => Ok(PageMoveCmd::Move { src, dst: DstMove::Unplace }),
+            Some(Token::Out) => Ok(PageMoveCmd::Move {
+                src,
+                dst: DstMove::Unplace,
+            }),
             Some(t) => Err(ParseError::UnexpectedToken {
                 got: format!("{t:?}"),
                 expected: "'to' or 'out'",

@@ -1,9 +1,11 @@
 //! Detection of outdated pages when project state changes.
 
-use crate::dto_models::ProjectState;
+use tracing::debug;
+
+use crate::dto_models::{ProjectState, SpineConfig};
 use std::collections::{BTreeSet, HashMap, HashSet};
 
-const ASPECT_RATIO_THRESHOLD: f64 = 0.001;
+const ASPECT_RATIO_THRESHOLD: f64 = 0.005;
 const WEIGHT_THRESHOLD: f64 = 0.01;
 
 /// Metadata for a single photo used in change detection.
@@ -34,79 +36,84 @@ pub fn compute_outdated_pages(reference: &ProjectState, new: &ProjectState) -> V
     let page_hashes = build_page_hashes(&reference.layout);
 
     // Find photos with changed metadata
-    let changed_photos = find_changed_photos(reference, new, &ref_photo_metadata);
+    let changed_photos = find_metadata_changed_photos(reference, new, &ref_photo_metadata);
+
+    let cover = &new.config.book.cover;
+    let cover_skips_ar = cover.active && cover.mode.allows_ar_mismatch();
+    let inner_canvas_outdated = inner_canvas_changed(reference, new);
+    let cover_canvas_outdated = cover.active && cover_canvas_changed(reference, new);
 
     // Phase 2: Evaluate each new page
     for (page_index, new_page) in new.layout.iter().enumerate() {
-        // 1. Check if any photo is in changed_photos
-        if new_page.photos.iter().any(|id| changed_photos.contains(id)) {
-            outdated.push(page_index);
-            continue;
-        }
-
-        // 2. Find matching old page by slot structure
-        let photo_set = new_page.photos.iter().cloned().collect::<BTreeSet<_>>();
-        let candidate_indices = match page_hashes.get(&photo_set) {
-            Some(indices) => indices,
-            None => {
-                // Page's photo set doesn't exist in reference
-                outdated.push(page_index);
-                continue;
-            }
+        let is_cover = cover.active && page_index == 0;
+        let canvas_outdated = if is_cover {
+            cover_canvas_outdated
+        } else {
+            inner_canvas_outdated
         };
-
-        // Try to find a candidate with matching slot structure
-        let matching_ref_page = candidate_indices.iter().find_map(|&idx| {
-            let ref_page = &reference.layout[idx];
-            if ref_page.slots == new_page.slots {
-                Some(ref_page)
-            } else {
-                None
-            }
-        });
-
-        if matching_ref_page.is_none() {
+        let skip_ar_check = cover_skips_ar && is_cover;
+        let reasons: &[(&str, &dyn Fn() -> bool)] = &[
+            ("canvas outdated", &|| canvas_outdated),
+            ("metadata changed", &|| {
+                page_is_outdated_by_metadata(&changed_photos, new_page)
+            }),
+            ("slot structure changed", &|| {
+                page_is_outdated_by_slot_structure(new_page, &reference.layout, &page_hashes)
+            }),
+            ("AR violation", &|| {
+                !skip_ar_check
+                    && page_is_outdated_by_aspect_ratio_violation(new_page, &ref_photo_metadata)
+            }),
+        ];
+        if let Some((reason, _)) = reasons.iter().find(|(_, cond)| cond()) {
+            debug!("page {page_index} outdated: {reason}");
             outdated.push(page_index);
-            continue;
         }
-
-        // 3. Validate slot count matches photo count
-        if new_page.slots.len() != new_page.photos.len() {
-            outdated.push(page_index);
-            continue;
-        }
-
-        // 4. Validate each slot's aspect ratio matches its photo's aspect ratio
-        let mut page_valid = true;
-        for (i, photo_id) in new_page.photos.iter().enumerate() {
-            let slot_ar = new_page.slots[i].width_mm / new_page.slots[i].height_mm;
-
-            // Get photo's aspect ratio from metadata map
-            let photo_ar = match ref_photo_metadata.get(photo_id.as_str()) {
-                Some(meta) => meta.aspect_ratio,
-                None => {
-                    // Photo not in reference metadata - conservative: mark as outdated
-                    page_valid = false;
-                    break;
-                }
-            };
-
-            if (slot_ar - photo_ar).abs() > ASPECT_RATIO_THRESHOLD {
-                page_valid = false;
-                break;
-            }
-        }
-
-        // If any AR validation failed, mark page as outdated
-        if !page_valid {
-            outdated.push(page_index);
-            continue;
-        }
-
-        // If we reach here, page is unchanged
     }
 
     outdated
+}
+
+fn page_is_outdated_by_metadata(
+    changed_photos: &HashSet<String>,
+    new_page: &crate::dto_models::LayoutPage,
+) -> bool {
+    new_page.photos.iter().any(|id| changed_photos.contains(id))
+}
+
+fn page_is_outdated_by_slot_structure(
+    new_page: &crate::dto_models::LayoutPage,
+    reference_layout: &[crate::dto_models::LayoutPage],
+    page_hashes: &HashMap<BTreeSet<String>, Vec<usize>>,
+) -> bool {
+    let photo_set = new_page.photos.iter().cloned().collect::<BTreeSet<_>>();
+    let candidate_indices = match page_hashes.get(&photo_set) {
+        Some(indices) => indices,
+        None => return true,
+    };
+
+    let found_match = candidate_indices
+        .iter()
+        .any(|&idx| reference_layout[idx].slots == new_page.slots);
+
+    if !found_match {
+        return true;
+    }
+
+    new_page.slots.len() != new_page.photos.len()
+}
+
+fn page_is_outdated_by_aspect_ratio_violation(
+    new_page: &crate::dto_models::LayoutPage,
+    ref_photo_metadata: &HashMap<String, PhotoMetadata>,
+) -> bool {
+    new_page.photos.iter().enumerate().any(|(i, photo_id)| {
+        let slot_ar = new_page.slots[i].width_mm / new_page.slots[i].height_mm;
+        match ref_photo_metadata.get(photo_id.as_str()) {
+            Some(meta) => (slot_ar - meta.aspect_ratio).abs() > ASPECT_RATIO_THRESHOLD,
+            None => true,
+        }
+    })
 }
 
 /// Build a map of photo ID -> metadata from a photo collection.
@@ -143,7 +150,7 @@ fn build_page_hashes(
 
 /// Find photo IDs whose metadata changed between reference and new state.
 /// Includes newly added photos and removed photos.
-fn find_changed_photos(
+fn find_metadata_changed_photos(
     _reference: &ProjectState,
     new: &ProjectState,
     ref_metadata: &HashMap<String, PhotoMetadata>,
@@ -180,6 +187,54 @@ fn find_changed_photos(
     changed
 }
 
+fn inner_canvas_changed(reference: &ProjectState, new: &ProjectState) -> bool {
+    let r = &reference.config.book;
+    let n = &new.config.book;
+    r.page_width_mm != n.page_width_mm
+        || r.page_height_mm != n.page_height_mm
+        || r.bleed_mm != n.bleed_mm
+        || r.margin_mm != n.margin_mm
+        || r.gap_mm != n.gap_mm
+        || r.bleed_threshold_mm != n.bleed_threshold_mm
+}
+
+fn inner_page_count(state: &ProjectState) -> usize {
+    if state.config.book.cover.active {
+        state.layout.len().saturating_sub(1)
+    } else {
+        state.layout.len()
+    }
+}
+
+fn cover_canvas_changed(reference: &ProjectState, new: &ProjectState) -> bool {
+    let r = &reference.config.book.cover;
+    let n = &new.config.book.cover;
+    let inner_count_changed = inner_page_count(reference) != inner_page_count(new);
+    r != n || spine_changed(&r.spine, &n.spine, inner_count_changed)
+}
+
+fn spine_changed(r: &SpineConfig, n: &SpineConfig, inner_count_changed: bool) -> bool {
+    match (r, n) {
+        (
+            SpineConfig::Auto {
+                spine_mm_per_10_pages: r_rate,
+            },
+            SpineConfig::Auto {
+                spine_mm_per_10_pages: n_rate,
+            },
+        ) => r_rate != n_rate || inner_count_changed,
+        (
+            SpineConfig::Fixed {
+                spine_width_mm: r_w,
+            },
+            SpineConfig::Fixed {
+                spine_width_mm: n_w,
+            },
+        ) => r_w != n_w,
+        _ => true, // variant changed (Auto ↔ Fixed)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -187,6 +242,7 @@ mod tests {
         BookConfig, BookLayoutSolverConfig, LayoutPage, PhotoFile, PhotoGroup, ProjectConfig,
         ProjectState, Slot,
     };
+    use crate::dto_models::{CoverConfig, CoverMode};
 
     fn make_state(title: &str, pages: Vec<LayoutPage>) -> ProjectState {
         ProjectState {
@@ -201,6 +257,7 @@ mod tests {
                     bleed_threshold_mm: 3.0,
                     dpi: 300.0,
                     cover: Default::default(),
+                    appendix: Default::default(),
                 },
                 page_layout_solver: Default::default(),
                 preview: Default::default(),
@@ -644,5 +701,251 @@ mod tests {
 
         let outdated = compute_outdated_pages(&reference, &new);
         assert_eq!(outdated, Vec::<usize>::new()); // No pages to check
+    }
+
+    fn make_state_with_cover(
+        title: &str,
+        pages: Vec<LayoutPage>,
+        cover_mode: CoverMode,
+    ) -> ProjectState {
+        let mut state = make_state(title, pages);
+        state.config.book.cover = CoverConfig {
+            active: true,
+            mode: cover_mode,
+            ..CoverConfig::default()
+        };
+        state
+    }
+
+    #[test]
+    fn test_cover_full_mode_ignores_ar_mismatch_on_cover_page() {
+        // In FrontFull the cover solver fills the slot to canvas dimensions (crops).
+        // Slot AR = 1.5, photo AR = 1.0 — mismatch is intentional and must not trigger re-solve.
+        // Slots are identical in ref and new (canvas unchanged), so slot-structure check passes.
+        let cover_slot = make_slot(0.0, 0.0, 150.0, 100.0); // AR = 1.5
+        let cover_ref = make_page(0, vec!["A".to_string()], vec![cover_slot.clone()]);
+        let cover_new = make_page(0, vec!["A".to_string()], vec![cover_slot]);
+
+        let mut reference = make_state_with_cover("ref", vec![cover_ref], CoverMode::FrontFull);
+        reference.photos = vec![PhotoGroup {
+            group: "test".to_string(),
+            sort_key: "2024-01-01T00:00:00Z".to_string(),
+            files: vec![make_photo("A", 100, 100, 1.0)], // photo AR = 1.0
+        }];
+
+        let mut new = make_state_with_cover("new", vec![cover_new], CoverMode::FrontFull);
+        new.photos = reference.photos.clone();
+
+        let outdated = compute_outdated_pages(&reference, &new);
+        assert_eq!(outdated, Vec::<usize>::new()); // AR mismatch tolerated in FrontFull
+    }
+
+    #[test]
+    fn test_cover_non_full_mode_still_checks_ar() {
+        // Front mode preserves AR — slot AR mismatch with photo must still trigger re-solve.
+        let cover_slot = make_slot(0.0, 0.0, 150.0, 100.0); // AR = 1.5
+        let cover_ref = make_page(0, vec!["A".to_string()], vec![cover_slot.clone()]);
+        let cover_new = make_page(0, vec!["A".to_string()], vec![cover_slot]);
+
+        let mut reference = make_state_with_cover("ref", vec![cover_ref], CoverMode::Front);
+        reference.photos = vec![PhotoGroup {
+            group: "test".to_string(),
+            sort_key: "2024-01-01T00:00:00Z".to_string(),
+            files: vec![make_photo("A", 100, 100, 1.0)], // photo AR = 1.0
+        }];
+
+        let mut new = make_state_with_cover("new", vec![cover_new], CoverMode::Front);
+        new.photos = reference.photos.clone();
+
+        let outdated = compute_outdated_pages(&reference, &new);
+        assert_eq!(outdated, vec![0]); // AR mismatch still triggers re-solve
+    }
+
+    #[test]
+    fn test_cover_full_mode_ar_skip_does_not_affect_inner_pages() {
+        // Cover AR mismatch is tolerated (FrontFull), inner page AR mismatch must still trigger.
+        let cover_slot = make_slot(0.0, 0.0, 150.0, 100.0); // AR = 1.5, photo AR = 1.0 — OK
+        let inner_slot = make_slot(0.0, 0.0, 150.0, 100.0); // AR = 1.5, photo AR = 1.0 — NOT OK
+        let cover_ref = make_page(0, vec!["A".to_string()], vec![cover_slot.clone()]);
+        let cover_new = make_page(0, vec!["A".to_string()], vec![cover_slot]);
+        let inner_ref = make_page(1, vec!["B".to_string()], vec![inner_slot.clone()]);
+        let inner_new = make_page(1, vec!["B".to_string()], vec![inner_slot]);
+
+        let mut reference =
+            make_state_with_cover("ref", vec![cover_ref, inner_ref], CoverMode::FrontFull);
+        reference.photos = vec![PhotoGroup {
+            group: "test".to_string(),
+            sort_key: "2024-01-01T00:00:00Z".to_string(),
+            files: vec![
+                make_photo("A", 100, 100, 1.0),
+                make_photo("B", 100, 100, 1.0),
+            ],
+        }];
+
+        let mut new =
+            make_state_with_cover("new", vec![cover_new, inner_new], CoverMode::FrontFull);
+        new.photos = reference.photos.clone();
+
+        let outdated = compute_outdated_pages(&reference, &new);
+        assert_eq!(outdated, vec![1]); // Only inner page is outdated
+    }
+
+    #[test]
+    fn test_inner_canvas_change_marks_all_inner_pages_outdated() {
+        let slot = make_slot(0.0, 0.0, 100.0, 100.0);
+        let pages = vec![
+            make_page(0, vec!["A".to_string()], vec![slot.clone()]),
+            make_page(1, vec!["B".to_string()], vec![slot.clone()]),
+        ];
+
+        let mut reference = make_state("ref", pages.clone());
+        reference.photos = vec![PhotoGroup {
+            group: "g".to_string(),
+            sort_key: "2024-01-01T00:00:00Z".to_string(),
+            files: vec![
+                make_photo("A", 100, 100, 1.0),
+                make_photo("B", 100, 100, 1.0),
+            ],
+        }];
+        let mut new = make_state("new", pages);
+        new.photos = reference.photos.clone();
+        new.config.book.page_width_mm = 500.0; // canvas changed
+
+        let outdated = compute_outdated_pages(&reference, &new);
+        assert_eq!(outdated, vec![0, 1]);
+    }
+
+    #[test]
+    fn test_cover_canvas_change_marks_only_cover_outdated() {
+        let slot = make_slot(0.0, 0.0, 100.0, 100.0);
+        let cover_page = make_page(0, vec!["A".to_string()], vec![slot.clone()]);
+        let inner_page = make_page(1, vec!["B".to_string()], vec![slot.clone()]);
+
+        let mut reference = make_state_with_cover(
+            "ref",
+            vec![cover_page.clone(), inner_page.clone()],
+            CoverMode::Free,
+        );
+        reference.photos = vec![PhotoGroup {
+            group: "g".to_string(),
+            sort_key: "2024-01-01T00:00:00Z".to_string(),
+            files: vec![
+                make_photo("A", 100, 100, 1.0),
+                make_photo("B", 100, 100, 1.0),
+            ],
+        }];
+        let mut new = make_state_with_cover("new", vec![cover_page, inner_page], CoverMode::Free);
+        new.photos = reference.photos.clone();
+        new.config.book.cover.height_mm = 350.0; // cover canvas changed
+
+        let outdated = compute_outdated_pages(&reference, &new);
+        assert_eq!(outdated, vec![0]); // only cover page
+    }
+
+    #[test]
+    fn test_spine_rate_change_marks_cover_outdated() {
+        use crate::dto_models::SpineConfig;
+        let slot = make_slot(0.0, 0.0, 100.0, 100.0);
+        let cover_page = make_page(0, vec!["A".to_string()], vec![slot.clone()]);
+
+        let mut reference = make_state_with_cover("ref", vec![cover_page.clone()], CoverMode::Free);
+        reference.photos = vec![PhotoGroup {
+            group: "g".to_string(),
+            sort_key: "2024-01-01T00:00:00Z".to_string(),
+            files: vec![make_photo("A", 100, 100, 1.0)],
+        }];
+        let mut new = make_state_with_cover("new", vec![cover_page], CoverMode::Free);
+        new.photos = reference.photos.clone();
+        new.config.book.cover.spine = SpineConfig::Auto {
+            spine_mm_per_10_pages: 2.0,
+        };
+
+        let outdated = compute_outdated_pages(&reference, &new);
+        assert_eq!(outdated, vec![0]);
+    }
+
+    #[test]
+    fn test_inner_page_count_change_marks_cover_outdated_in_auto_spine() {
+        // Auto spine: more inner pages → wider spine → cover canvas changed.
+        use crate::dto_models::SpineConfig;
+        let slot = make_slot(0.0, 0.0, 100.0, 100.0);
+        let cover_page = make_page(0, vec!["A".to_string()], vec![slot.clone()]);
+        let inner1 = make_page(1, vec!["B".to_string()], vec![slot.clone()]);
+        let inner2 = make_page(2, vec!["C".to_string()], vec![slot.clone()]);
+
+        let mut reference = make_state_with_cover(
+            "ref",
+            vec![cover_page.clone(), inner1.clone()],
+            CoverMode::Free,
+        );
+        reference.config.book.cover.spine = SpineConfig::Auto {
+            spine_mm_per_10_pages: 1.4,
+        };
+        reference.photos = vec![PhotoGroup {
+            group: "g".to_string(),
+            sort_key: "2024-01-01T00:00:00Z".to_string(),
+            files: vec![
+                make_photo("A", 100, 100, 1.0),
+                make_photo("B", 100, 100, 1.0),
+                make_photo("C", 100, 100, 1.0),
+            ],
+        }];
+
+        let mut new =
+            make_state_with_cover("new", vec![cover_page, inner1, inner2], CoverMode::Free);
+        new.config.book.cover.spine = SpineConfig::Auto {
+            spine_mm_per_10_pages: 1.4,
+        };
+        new.photos = reference.photos.clone();
+
+        let outdated = compute_outdated_pages(&reference, &new);
+        assert!(
+            outdated.contains(&0),
+            "cover must be outdated when inner page count changes with Auto spine"
+        );
+    }
+
+    #[test]
+    fn test_inner_page_count_change_does_not_affect_fixed_spine() {
+        // Fixed spine: page count is irrelevant, cover width stays the same.
+        use crate::dto_models::SpineConfig;
+        let slot = make_slot(0.0, 0.0, 150.0, 100.0); // AR=1.5 — FrontFull crops, so AR skip applies
+        let cover_page = make_page(0, vec!["A".to_string()], vec![slot.clone()]);
+        let inner1 = make_page(1, vec!["B".to_string()], vec![slot.clone()]);
+        let inner2 = make_page(2, vec!["C".to_string()], vec![slot.clone()]);
+
+        let mut reference = make_state_with_cover(
+            "ref",
+            vec![cover_page.clone(), inner1.clone()],
+            CoverMode::FrontFull,
+        );
+        reference.config.book.cover.spine = SpineConfig::Fixed {
+            spine_width_mm: 3.0,
+        };
+        reference.photos = vec![PhotoGroup {
+            group: "g".to_string(),
+            sort_key: "2024-01-01T00:00:00Z".to_string(),
+            files: vec![
+                make_photo("A", 100, 100, 1.0),
+                make_photo("B", 150, 100, 1.0),
+                make_photo("C", 150, 100, 1.0),
+            ],
+        }];
+
+        let mut new = make_state_with_cover(
+            "new",
+            vec![cover_page, inner1, inner2],
+            CoverMode::FrontFull,
+        );
+        new.config.book.cover.spine = SpineConfig::Fixed {
+            spine_width_mm: 3.0,
+        };
+        new.photos = reference.photos.clone();
+
+        let outdated = compute_outdated_pages(&reference, &new);
+        assert!(
+            !outdated.contains(&0),
+            "cover must not be outdated when inner page count changes with Fixed spine"
+        );
     }
 }

@@ -39,6 +39,7 @@ pub fn make_state_with_layout(pages: Vec<Vec<&str>>) -> ProjectState {
                 bleed_threshold_mm: 3.0,
                 dpi: 300.0,
                 cover: Default::default(),
+                appendix: Default::default(),
             },
             page_layout_solver: Default::default(),
             preview: Default::default(),
@@ -70,11 +71,7 @@ pub fn setup_repo(tmp: &TempDir, state: &ProjectState) {
     config.set_str("user.email", "test@example.com").unwrap();
     drop(config);
 
-    std::fs::write(
-        tmp.path().join(".gitignore"),
-        ".fotobuch/\n*.pdf\nlog*\n",
-    )
-    .unwrap();
+    std::fs::write(tmp.path().join(".gitignore"), ".fotobuch/\n*.pdf\nlog*\n").unwrap();
     state.save(&tmp.path().join("urlaub.yaml")).unwrap();
     git::stage_and_commit(&repo, &[".gitignore", "urlaub.yaml"], "init").unwrap();
     git::create_branch(&repo, "fotobuch/urlaub").unwrap();

@@ -9,9 +9,12 @@ pub fn open_repo(dir: &Path) -> Result<Repository> {
     Repository::open(dir).with_context(|| format!("Failed to open git repo at {}", dir.display()))
 }
 
-/// Initialize a new git repository at the given directory.
+/// Initialize a new git repository at the given directory with `main` as the initial branch.
 pub fn init_repo(dir: &Path) -> Result<Repository> {
-    Repository::init(dir).with_context(|| format!("Failed to init git repo at {}", dir.display()))
+    let mut opts = git2::RepositoryInitOptions::new();
+    opts.initial_head("main");
+    Repository::init_opts(dir, &opts)
+        .with_context(|| format!("Failed to init git repo at {}", dir.display()))
 }
 
 /// Return the current branch name (short name, e.g. `fotobuch/urlaub`).

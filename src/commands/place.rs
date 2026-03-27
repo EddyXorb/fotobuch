@@ -399,7 +399,11 @@ mod tests {
     }
 
     /// Build a minimal ProjectState with an optional active cover.
-    fn make_state_with_cover(cover_active: bool, layout: Vec<LayoutPage>, photos: Vec<PhotoGroup>) -> ProjectState {
+    fn make_state_with_cover(
+        cover_active: bool,
+        layout: Vec<LayoutPage>,
+        photos: Vec<PhotoGroup>,
+    ) -> ProjectState {
         use crate::dto_models::{BookConfig, CoverConfig, ProjectConfig};
         ProjectState {
             config: ProjectConfig {
@@ -412,7 +416,11 @@ mod tests {
                     gap_mm: 5.0,
                     bleed_threshold_mm: 3.0,
                     dpi: 300.0,
-                    cover: CoverConfig { active: cover_active, ..Default::default() },
+                    cover: CoverConfig {
+                        active: cover_active,
+                        ..Default::default()
+                    },
+                    appendix: Default::default(),
                 },
                 ..Default::default()
             },
@@ -436,8 +444,16 @@ mod tests {
             ],
         }];
         let layout = vec![
-            LayoutPage { page: 0, photos: vec!["cover.jpg".into()], slots: vec![] },
-            LayoutPage { page: 1, photos: vec!["content.jpg".into()], slots: vec![] },
+            LayoutPage {
+                page: 0,
+                photos: vec!["cover.jpg".into()],
+                slots: vec![],
+            },
+            LayoutPage {
+                page: 1,
+                photos: vec!["content.jpg".into()],
+                slots: vec![],
+            },
         ];
         let state = make_state_with_cover(true, layout, photos);
         let photo_index = crate::commands::build::build_photo_index(&state.photos);
@@ -462,8 +478,16 @@ mod tests {
             ],
         }];
         let layout = vec![
-            LayoutPage { page: 0, photos: vec!["p0.jpg".into()], slots: vec![] },
-            LayoutPage { page: 1, photos: vec!["p1.jpg".into()], slots: vec![] },
+            LayoutPage {
+                page: 0,
+                photos: vec!["p0.jpg".into()],
+                slots: vec![],
+            },
+            LayoutPage {
+                page: 1,
+                photos: vec!["p1.jpg".into()],
+                slots: vec![],
+            },
         ];
         let state = make_state_with_cover(false, layout, photos);
         let photo_index = crate::commands::build::build_photo_index(&state.photos);
@@ -490,8 +514,16 @@ mod tests {
             ],
         }];
         let layout = vec![
-            LayoutPage { page: 0, photos: vec!["cover.jpg".into()], slots: vec![] },
-            LayoutPage { page: 1, photos: vec!["content.jpg".into()], slots: vec![] },
+            LayoutPage {
+                page: 0,
+                photos: vec!["cover.jpg".into()],
+                slots: vec![],
+            },
+            LayoutPage {
+                page: 1,
+                photos: vec!["content.jpg".into()],
+                slots: vec![],
+            },
         ];
         let mut state = make_state_with_cover(true, layout, photos);
 

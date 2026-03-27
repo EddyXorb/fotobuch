@@ -107,7 +107,14 @@ fn format_scalar(value: &Value) -> String {
     match value {
         Value::Bool(b) => b.to_string(),
         Value::Number(n) => n.to_string(),
-        Value::String(s) => s.clone(),
+        Value::String(_) => {
+            // Delegate to serde_yaml so strings with special chars (e.g. `{`, `[`)
+            // are quoted correctly and produce valid YAML.
+            serde_yaml::to_string(value)
+                .unwrap_or_default()
+                .trim()
+                .to_string()
+        }
         Value::Null => "null".to_string(),
         _ => serde_yaml::to_string(value)
             .unwrap_or_default()

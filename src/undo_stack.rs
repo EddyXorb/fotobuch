@@ -19,7 +19,11 @@ fn read_stack(project_root: &Path) -> Result<Vec<String>> {
     }
     let content = fs::read_to_string(&path)
         .with_context(|| format!("Failed to read redo stack at {}", path.display()))?;
-    Ok(content.lines().filter(|l| !l.is_empty()).map(str::to_owned).collect())
+    Ok(content
+        .lines()
+        .filter(|l| !l.is_empty())
+        .map(str::to_owned)
+        .collect())
 }
 
 fn write_stack(project_root: &Path, entries: &[String]) -> Result<()> {

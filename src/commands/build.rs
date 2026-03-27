@@ -1,16 +1,15 @@
 //! `fotobuch build` command - Calculate layout and generate preview PDF
+mod core;
 mod first_build;
 mod helpers;
 mod incremental_build;
-mod multipage_build;
-mod rebuild_single_page;
 mod release_build;
 
+pub use core::multipage_build::{MultiPageParams, multipage_build};
+pub use core::rebuild_single_page::rebuild_single_page;
 use first_build::first_build;
 pub use helpers::{build_photo_index, collect_photos_as_groups};
 use incremental_build::incremental_build;
-pub use multipage_build::{MultiPageParams, multipage_build};
-pub use rebuild_single_page::rebuild_single_page;
 use release_build::release_build;
 
 use crate::state_manager::StateManager;

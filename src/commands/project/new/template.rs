@@ -61,7 +61,9 @@ mod tests {
         // Verify that include_str! worked and we have content
         assert!(!TEMPLATE_BASE.is_empty());
         assert!(TEMPLATE_BASE.contains("#let is_final = false"));
-        assert!(TEMPLATE_BASE.contains("#let appendix_show = false"));
-        assert!(TEMPLATE_BASE.contains("#let appendix_ref_mode = \"positions\""));
+        // Settings are now read from YAML config, not hardcoded #let declarations
+        assert!(TEMPLATE_BASE.contains("data.config.preview.at(\"show_borders\""));
+        assert!(TEMPLATE_BASE.contains("appendix_cfg.at(\"active\""));
+        assert!(TEMPLATE_BASE.contains("appendix_cfg.at(\"ref_mode\""));
     }
 }

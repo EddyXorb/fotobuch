@@ -66,12 +66,10 @@ pub fn project_switch(project_root: &Path, name: &str) -> Result<()> {
         return Ok(());
     }
 
-    // Switch to the branch
+    // Switch to the branch: update working tree first, then point HEAD
     let object = repo.revparse_single(&branch_name)?;
-    repo.set_head(&format!("refs/heads/{}", branch_name))?;
-
-    // Use checkout_tree with the object
     repo.checkout_tree(&object, None)?;
+    repo.set_head(&format!("refs/heads/{}", branch_name))?;
 
     Ok(())
 }

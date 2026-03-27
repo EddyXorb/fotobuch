@@ -21,6 +21,7 @@ fn create_test_project_with_layout(temp_dir: &TempDir) -> Result<PathBuf> {
         cover_height_mm: None,
         spine_grow_per_10_pages_mm: None,
         spine_mm: None,
+        margin_mm: 0.0,
     };
     let result = project_new(temp_dir.path(), &config)?;
     let project_root = result.project_root;
@@ -291,7 +292,10 @@ fn test_remove_empty_pages_are_deleted() -> Result<()> {
 
         // Verify pages are renumbered sequentially
         for (i, page) in state_after.layout.iter().enumerate() {
-            assert_eq!(page.page, i, "Pages should be renumbered by array index (0-based)");
+            assert_eq!(
+                page.page, i,
+                "Pages should be renumbered by array index (0-based)"
+            );
         }
     }
 

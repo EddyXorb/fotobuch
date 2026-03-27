@@ -1,7 +1,8 @@
 //! Command-line interface for the photobook solver.
 
 use anyhow::Result;
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand};
+use clap_complete::Shell;
 use std::path::PathBuf;
 
 // Handler modules for each command
@@ -175,6 +176,63 @@ pub enum Commands {
         #[command(subcommand)]
         command: ProjectCommands,
     },
+
+    /// Create a new photobook project (alias for `project new`)
+    Init {
+        /// Project name
+        name: String,
+        /// Page width in millimeters
+        #[arg(long)]
+        width: f64,
+        /// Page height in millimeters
+        #[arg(long)]
+        height: f64,
+        /// Bleed margin in millimeters
+        #[arg(long, default_value = "3")]
+        bleed: f64,
+        /// Parent directory where project will be created (default: current directory)
+        #[arg(long)]
+        parent_dir: Option<PathBuf>,
+        /// Suppress welcome message
+        #[arg(long, default_value_t = false)]
+        quiet: bool,
+        /// Create project with an active cover page
+        #[arg(long, default_value_t = false)]
+        with_cover: bool,
+        /// Cover width in millimeters
+        #[arg(long, requires = "with_cover")]
+        cover_width: Option<f64>,
+        /// Cover height in millimeters
+        #[arg(long, requires = "with_cover")]
+        cover_height: Option<f64>,
+        /// Spine width growth per 10 inner pages in mm
+        #[arg(long, requires = "with_cover", conflicts_with = "spine_mm")]
+        spine_grow_per_10_pages_mm: Option<f64>,
+        /// Fixed spine width in mm
+        #[arg(
+            long,
+            requires = "with_cover",
+            conflicts_with = "spine_grow_per_10_pages_mm"
+        )]
+        spine_mm: Option<f64>,
+        /// Inner margin in millimeters (default: 0)
+        #[arg(long, default_value_t = 0.0)]
+        margin_mm: f64,
+    },
+
+    /// Print shell completion script to stdout
+    ///
+    /// Usage:
+    ///   fotobuch completions --shell bash   >> ~/.bash_completion
+    ///   fotobuch completions --shell zsh    >> ~/.zshrc
+    ///   fotobuch completions --shell fish   > ~/.config/fish/completions/fotobuch.fish
+    ///   fotobuch completions --shell powershell >> $PROFILE
+    #[command(verbatim_doc_comment)]
+    Completions {
+        /// Shell to generate completions for
+        #[arg(long, value_enum)]
+        shell: Shell,
+    },
 }
 
 /// Build subcommands
@@ -193,34 +251,24 @@ pub enum BuildCommands {
 pub enum PageCommands {
     /// Move or unplace photos between pages
     ///
-    /// Two forms:
-    ///   SRC to DST    Move to another page (source page stays, even if empty)
-    ///   SRC out       Unplace: pages deleted, slots emptied
+    /// Two forms: "SRC to DST" (move) and "SRC out" (unplace).
     ///
-    /// Addressing:
-    ///   3             Whole page
-    ///   3,5  3..5     Multiple pages
-    ///   3:2           Single slot on page 3
-    ///   3:1..3,7      Slots 1-3 and 7 on page 3
-    ///   4+            New page after page 4 (move destination only)
+    /// Addressing: 3 = whole page, 3:2 = slot 2 on page 3,
+    /// 3:1..3,7 = slots 1-3 and 7, 4+ = new page after 4.
     ///
-    /// Move:
-    ///   3:2 to 5      Slot 2 from page 3 to page 5
-    ///   3,4 to 5      Merge pages 3 and 4 into page 5
-    ///   3:2 to 4+     Slot 2 onto a new page inserted after page 4
+    /// Move examples: "3:2 to 5", "3,4 to 5", "3:2 to 4+".
+    /// Unplace examples: "3 out", "3:2 out".
     ///
-    /// Unplace:
-    ///   3 out         Delete page 3, photos become unplaced
-    ///   3:2 out       Unplace slot 2, page 3 stays (possibly empty)
+    /// See the documentation for the full addressing syntax.
     #[command(verbatim_doc_comment)]
     Move {
-        /// Expression passed as space-separated tokens, e.g.: 3:2 -> 5
+        /// Expression passed as space-separated tokens, e.g.: 3:2 to 5
         #[arg(num_args = 1..)]
         args: Vec<String>,
     },
     /// Split a page at a slot: photos from that slot onwards move to a new page inserted after
     ///
-    /// Shortcut for: page move PAGE:SLOT.. to PAGE+
+    /// Shortcut for `page move PAGE:SLOT.. to PAGE+`.
     /// Error if SLOT is the first slot (would leave the original page empty).
     Split {
         /// Address "PAGE:SLOT", e.g. "3:4" splits page 3 at slot 4
@@ -235,18 +283,11 @@ pub enum PageCommands {
     },
     /// Swap photos between two addresses (only single numbers or ranges, no comma lists)
     ///
-    /// Page swap — block transposition, pages between the blocks keep their relative order:
-    ///   3  5               Pages 3 and 5 swap positions
-    ///   1..2  5..9         Block [1,2] and block [5..9] swap; pages 3,4 stay between them
-    ///                      before: [1,2,3,4,5,6,7,8,9]  after: [5,6,7,8,9,3,4,1,2]
+    /// Page swap: "3 5" swaps pages, "1..2 5..9" swaps blocks.
+    /// Slot swap: "3:2 5:6" swaps individual slots,
+    /// "3:2..4 5:6..9" swaps slot ranges (different sizes ok).
     ///
-    /// Slot swap — each block is inserted at the position of the swapped counterpart:
-    ///   3:2  5:6           Slot 2 on page 3 ↔ slot 6 on page 5
-    ///   3:2..4  5:6..9     Block [slots 2-4] ↔ block [slots 6-9], different sizes ok
-    ///   3:2..10  5         Slots 2-10 on page 3 ↔ all photos on page 5
-    ///   1:3..5  1:7..9     Swap within the same page (non-overlapping ranges)
-    ///
-    /// Errors: overlapping ranges, comma-separated list as operand.
+    /// Errors on overlapping ranges or comma-separated lists as operands.
     #[command(verbatim_doc_comment)]
     Swap {
         /// Left address: "3:2", "3:1..3", "3", "3..6"
@@ -256,14 +297,10 @@ pub enum PageCommands {
     },
     /// Show photo metadata for slots on a page
     ///
-    /// Address forms:
-    ///   3           All slots on page 3
-    ///   3:2         Single slot
-    ///   3:1..3,7    Slots 1-3 and 7
+    /// Address forms: `3` (all slots), `3:2` (single slot), `3:1..3,7` (slots 1–3 and 7).
     ///
     /// Without flags: full table (or vertical view for a single slot).
     /// With a flag: machine-readable single-field output.
-    #[command(verbatim_doc_comment)]
     Info {
         /// Address: "3", "3:2", "3:1..3,7"
         address: String,
@@ -279,9 +316,7 @@ pub enum PageCommands {
     },
     /// Set area_weight for one or more slots
     ///
-    ///   3:2 2.0        Single slot
-    ///   3:1..3,7 2.0   Multiple slots, same weight
-    ///   3 2.0          All slots on page 3
+    /// Examples: `3:2 2.0` (single slot), `3:1..3,7 2.0` (multiple slots), `3 2.0` (whole page).
     Weight {
         /// Address: "3", "3:2", "3:1..3,7"
         address: String,
@@ -335,8 +370,15 @@ pub enum ProjectCommands {
         spine_grow_per_10_pages_mm: Option<f64>,
 
         /// Fixed spine width in mm (conflicts with --spine-grow-per-10-pages-mm)
-        #[arg(long, requires = "with_cover", conflicts_with = "spine_grow_per_10_pages_mm")]
+        #[arg(
+            long,
+            requires = "with_cover",
+            conflicts_with = "spine_grow_per_10_pages_mm"
+        )]
         spine_mm: Option<f64>,
+        /// Inner margin in millimeters (default: 0)
+        #[arg(long, default_value_t = 0.0)]
+        margin_mm: f64,
     },
 
     /// List all photobook projects
@@ -361,22 +403,20 @@ impl Execute for Commands {
                 update,
                 recursive,
                 weight,
-            } => add::handle(
-                paths.clone(),
-                *allow_duplicates,
-                filter_xmp.to_vec(),
-                filter.to_vec(),
-                *dry,
-                *update,
-                *recursive,
-                *weight,
-            ),
-            Commands::Build { command, pages } => {
-                match command {
-                    Some(BuildCommands::Release { force }) => build::handle_release(*force),
-                    None => build::handle(false, pages.clone()),
-                }
-            }
+            } => add::handle(add::AddArgs {
+                paths: paths.clone(),
+                allow_duplicates: *allow_duplicates,
+                filter_xmp: filter_xmp.to_vec(),
+                filter: filter.to_vec(),
+                dry: *dry,
+                update: *update,
+                recursive: *recursive,
+                weight: *weight,
+            }),
+            Commands::Build { command, pages } => match command {
+                Some(BuildCommands::Release { force }) => build::handle_release(*force),
+                None => build::handle(false, pages.clone()),
+            },
             Commands::Rebuild {
                 page,
                 range_start,
@@ -398,6 +438,42 @@ impl Execute for Commands {
             Commands::Undo { steps } => undo::handle_undo(*steps),
             Commands::Redo { steps } => undo::handle_redo(*steps),
             Commands::Project { command } => command.execute(),
+            Commands::Init {
+                name,
+                width,
+                height,
+                bleed,
+                parent_dir,
+                quiet,
+                with_cover,
+                cover_width,
+                cover_height,
+                spine_grow_per_10_pages_mm,
+                spine_mm,
+                margin_mm,
+            } => project::handle(project::ProjectSubcommand::New {
+                name: name.clone(),
+                width: *width,
+                height: *height,
+                bleed: *bleed,
+                parent_dir: parent_dir.clone(),
+                quiet: *quiet,
+                with_cover: *with_cover,
+                cover_width: *cover_width,
+                cover_height: *cover_height,
+                spine_grow_per_10_pages_mm: *spine_grow_per_10_pages_mm,
+                spine_mm: *spine_mm,
+                margin_mm: *margin_mm,
+            }),
+            Commands::Completions { shell } => {
+                clap_complete::generate(
+                    *shell,
+                    &mut Cli::command(),
+                    "fotobuch",
+                    &mut std::io::stdout(),
+                );
+                Ok(())
+            }
         }
     }
 }
@@ -409,9 +485,21 @@ impl Execute for PageCommands {
             PageCommands::Split { address } => page::handle_split(address),
             PageCommands::Combine { pages } => page::handle_combine(pages),
             PageCommands::Swap { left, right } => page::handle_swap(left, right),
-            PageCommands::Info { address, weights, ids, pixels } => {
+            PageCommands::Info {
+                address,
+                weights,
+                ids,
+                pixels,
+            } => {
                 use fotobuch::commands::page::InfoFilter;
-                page::handle_info(address, InfoFilter { weights: *weights, ids: *ids, pixels: *pixels })
+                page::handle_info(
+                    address,
+                    InfoFilter {
+                        weights: *weights,
+                        ids: *ids,
+                        pixels: *pixels,
+                    },
+                )
             }
             PageCommands::Weight { address, weight } => page::handle_weight(address, *weight),
         }
@@ -433,6 +521,7 @@ impl Execute for ProjectCommands {
                 cover_height,
                 spine_grow_per_10_pages_mm,
                 spine_mm,
+                margin_mm,
             } => project::handle(project::ProjectSubcommand::New {
                 name: name.clone(),
                 width: *width,
@@ -445,6 +534,7 @@ impl Execute for ProjectCommands {
                 cover_height: *cover_height,
                 spine_grow_per_10_pages_mm: *spine_grow_per_10_pages_mm,
                 spine_mm: *spine_mm,
+                margin_mm: *margin_mm,
             }),
             ProjectCommands::List => project::handle(project::ProjectSubcommand::List),
             ProjectCommands::Switch { name } => {

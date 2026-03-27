@@ -61,9 +61,9 @@ pub fn execute_combine(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::test_fixtures::{make_state_with_layout, setup_repo};
     use super::super::types::{PagesExpr, ValidationError};
+    use super::*;
     use crate::state_manager::StateManager;
     use tempfile::TempDir;
 
@@ -97,7 +97,9 @@ mod tests {
         let result = execute_combine(tmp.path(), pages);
         assert!(matches!(
             result,
-            Err(PageMoveError::Validation(ValidationError::CombineSinglePage(0)))
+            Err(PageMoveError::Validation(
+                ValidationError::CombineSinglePage(0)
+            ))
         ));
     }
 }

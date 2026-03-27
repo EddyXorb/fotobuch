@@ -25,6 +25,7 @@ fn create_test_project_with_photos(temp_dir: &TempDir) -> Result<PathBuf> {
         cover_height_mm: None,
         spine_grow_per_10_pages_mm: None,
         spine_mm: None,
+        margin_mm: 0.0,
     };
     let result = project_new(temp_dir.path(), &config)?;
     let project_root = result.project_root;
@@ -71,6 +72,7 @@ fn create_test_project_with_artificial_photos_3(temp_dir: &TempDir) -> Result<Pa
         cover_height_mm: None,
         spine_grow_per_10_pages_mm: None,
         spine_mm: None,
+        margin_mm: 0.0,
     };
     let result = project_new(temp_dir.path(), &config)?;
     let project_root = result.project_root;
@@ -391,18 +393,19 @@ fn test_pages_filter_limits_scope() -> Result<()> {
     }
     state.save(&yaml_path)?;
 
-    // Build with page filter (only page 1)
+    // Build with page filter (only first page that was created)
+    let first_page = *result1.pages_rebuilt.first().unwrap_or(&0);
     let filtered_config = BuildConfig {
         release: false,
         force: false,
-        pages: Some(vec![1]),
+        pages: Some(vec![first_page]),
     };
     let result2 = build(&project_root, &filtered_config)?;
 
-    // Should only rebuild page 1 (even if other pages have changes)
+    // Should rebuild the specified page
     assert!(
-        result2.pages_rebuilt.contains(&0) || !result2.pages_rebuilt.is_empty(),
-        "At least one page should be rebuilt"
+        result2.pages_rebuilt.contains(&first_page),
+        "Should rebuild the specified page"
     );
 
     // In a real scenario with multiple affected pages, we'd verify
@@ -428,6 +431,7 @@ fn test_build_handles_empty_photo_list() -> Result<()> {
         cover_height_mm: None,
         spine_grow_per_10_pages_mm: None,
         spine_mm: None,
+        margin_mm: 0.0,
     };
     let result = project_new(temp_dir.path(), &config)?;
     let project_root = result.project_root;

@@ -24,6 +24,7 @@ fn create_test_project_with_build(temp_dir: &TempDir) -> Result<PathBuf> {
         cover_height_mm: None,
         spine_grow_per_10_pages_mm: None,
         spine_mm: None,
+        margin_mm: 0.0,
     };
     let result = project_new(temp_dir.path(), &config)?;
     let project_root = result.project_root;
@@ -158,7 +159,12 @@ fn test_rebuild_single_page_invalid_page_index() -> Result<()> {
 
     // Test index >= len (invalid — 0-based, so len is out of bounds)
     let result = rebuild(&project_root, RebuildScope::SinglePage(page_count));
-    assert!(result.is_err(), "Page index {} should be invalid (len={})", page_count, page_count);
+    assert!(
+        result.is_err(),
+        "Page index {} should be invalid (len={})",
+        page_count,
+        page_count
+    );
     let err = result.unwrap_err();
     assert!(
         err.to_string().contains("Invalid page"),
@@ -334,8 +340,7 @@ fn test_rebuild_range_preserves_groups() -> Result<()> {
     );
 
     // Verify the same photos are still in the new pages (possibly redistributed)
-    let photos_after_rebuild: Vec<String> = state_after.layout
-        [start..start + result_pages_len]
+    let photos_after_rebuild: Vec<String> = state_after.layout[start..start + result_pages_len]
         .iter()
         .flat_map(|p| p.photos.iter().cloned())
         .collect();
@@ -440,6 +445,7 @@ fn test_rebuild_without_layout_fails_except_all() -> Result<()> {
         cover_height_mm: None,
         spine_grow_per_10_pages_mm: None,
         spine_mm: None,
+        margin_mm: 0.0,
     };
     let result = project_new(temp_dir.path(), &config)?;
     let project_root = result.project_root;

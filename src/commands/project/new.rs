@@ -39,6 +39,8 @@ pub struct NewConfig {
     pub spine_grow_per_10_pages_mm: Option<f64>,
     /// Spine fixed mode: fixed width in mm
     pub spine_mm: Option<f64>,
+    /// Inner margin in millimeters
+    pub margin_mm: f64,
 }
 
 /// Result of project creation
@@ -147,17 +149,7 @@ log*
 
     // 4. Write YAML
     let yaml_path = project_root.join(format!("{}.yaml", config.name));
-    let state = yaml::generate_default_state(
-        &config.name,
-        config.width_mm,
-        config.height_mm,
-        config.bleed_mm,
-        config.with_cover,
-        config.cover_width_mm,
-        config.cover_height_mm,
-        config.spine_grow_per_10_pages_mm,
-        config.spine_mm,
-    );
+    let state = yaml::generate_default_state(config);
     yaml::write_yaml(&yaml_path, &state)?;
 
     // 5. Write Typst template
@@ -223,17 +215,7 @@ fn create_additional_project(repo_root: &Path, config: &NewConfig) -> Result<New
 
     // 3. Write YAML
     let yaml_path = repo_root.join(format!("{}.yaml", config.name));
-    let state = yaml::generate_default_state(
-        &config.name,
-        config.width_mm,
-        config.height_mm,
-        config.bleed_mm,
-        config.with_cover,
-        config.cover_width_mm,
-        config.cover_height_mm,
-        config.spine_grow_per_10_pages_mm,
-        config.spine_mm,
-    );
+    let state = yaml::generate_default_state(config);
     yaml::write_yaml(&yaml_path, &state)?;
 
     // 4. Write Typst template
@@ -304,6 +286,7 @@ mod tests {
             cover_height_mm: None,
             spine_grow_per_10_pages_mm: None,
             spine_mm: None,
+            margin_mm: 0.0,
         };
 
         let result = project_new(temp_dir.path(), &config).unwrap();
@@ -342,6 +325,7 @@ mod tests {
             cover_height_mm: None,
             spine_grow_per_10_pages_mm: None,
             spine_mm: None,
+            margin_mm: 0.0,
         };
 
         let result = project_new(temp_dir.path(), &config).unwrap();
@@ -366,6 +350,7 @@ mod tests {
             cover_height_mm: None,
             spine_grow_per_10_pages_mm: None,
             spine_mm: None,
+            margin_mm: 0.0,
         };
 
         let result = project_new(temp_dir.path(), &config).unwrap();
@@ -389,6 +374,7 @@ mod tests {
             cover_height_mm: None,
             spine_grow_per_10_pages_mm: None,
             spine_mm: None,
+            margin_mm: 0.0,
         };
 
         let result = project_new(temp_dir.path(), &config);
@@ -409,6 +395,7 @@ mod tests {
             cover_height_mm: None,
             spine_grow_per_10_pages_mm: None,
             spine_mm: None,
+            margin_mm: 0.0,
         };
 
         // Create first project
