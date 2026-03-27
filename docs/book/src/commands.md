@@ -15,7 +15,7 @@ or see the [Full Flag Reference](cli/reference-generated.md).
 | `remove` | Remove photos or groups from the project |
 | `place` | Place unplaced photos into the layout |
 | `unplace` | Remove photos from the layout (photos stay in the project) |
-| `build` | Solve layout and render preview PDF (150 DPI) |
+| `build` | Solve layout and render preview PDF (low DPI for faster browsing) |
 | `build release` | Render final PDF at full resolution (300 DPI) |
 | `rebuild` | Re-run the solver on specific pages |
 | `page move` | Move or swap photos between pages |

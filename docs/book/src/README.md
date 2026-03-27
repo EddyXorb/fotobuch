@@ -1,7 +1,7 @@
 # fotobuch
 
 **fotobuch** automatically distributes your photos across photobook pages and generates
-a print-ready PDF — without ever cropping or distorting a single image.
+a print-ready PDF — without ever (automatically) cropping or distorting a single image.
 
 The solver places photos using an opinionated layout philosophy: aspect ratios are
 always preserved, reading order flows naturally from top-left to bottom-right, and
