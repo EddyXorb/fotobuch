@@ -34,79 +34,61 @@ pub fn compute_outdated_pages(reference: &ProjectState, new: &ProjectState) -> V
     let page_hashes = build_page_hashes(&reference.layout);
 
     // Find photos with changed metadata
-    let changed_photos = find_changed_photos(reference, new, &ref_photo_metadata);
+    let changed_photos = find_metadata_changed_photos(reference, new, &ref_photo_metadata);
 
     // Phase 2: Evaluate each new page
     for (page_index, new_page) in new.layout.iter().enumerate() {
-        // 1. Check if any photo is in changed_photos
-        if new_page.photos.iter().any(|id| changed_photos.contains(id)) {
+        if page_is_outdated_by_metadata(&changed_photos, new_page)
+            || page_is_outdated_by_slot_structure(new_page, &reference.layout, &page_hashes)
+            || page_is_outdated_by_aspect_ratio_violation(new_page, &ref_photo_metadata)
+        {
             outdated.push(page_index);
-            continue;
         }
-
-        // 2. Find matching old page by slot structure
-        let photo_set = new_page.photos.iter().cloned().collect::<BTreeSet<_>>();
-        let candidate_indices = match page_hashes.get(&photo_set) {
-            Some(indices) => indices,
-            None => {
-                // Page's photo set doesn't exist in reference
-                outdated.push(page_index);
-                continue;
-            }
-        };
-
-        // Try to find a candidate with matching slot structure
-        let matching_ref_page = candidate_indices.iter().find_map(|&idx| {
-            let ref_page = &reference.layout[idx];
-            if ref_page.slots == new_page.slots {
-                Some(ref_page)
-            } else {
-                None
-            }
-        });
-
-        if matching_ref_page.is_none() {
-            outdated.push(page_index);
-            continue;
-        }
-
-        // 3. Validate slot count matches photo count
-        if new_page.slots.len() != new_page.photos.len() {
-            outdated.push(page_index);
-            continue;
-        }
-
-        // 4. Validate each slot's aspect ratio matches its photo's aspect ratio
-        let mut page_valid = true;
-        for (i, photo_id) in new_page.photos.iter().enumerate() {
-            let slot_ar = new_page.slots[i].width_mm / new_page.slots[i].height_mm;
-
-            // Get photo's aspect ratio from metadata map
-            let photo_ar = match ref_photo_metadata.get(photo_id.as_str()) {
-                Some(meta) => meta.aspect_ratio,
-                None => {
-                    // Photo not in reference metadata - conservative: mark as outdated
-                    page_valid = false;
-                    break;
-                }
-            };
-
-            if (slot_ar - photo_ar).abs() > ASPECT_RATIO_THRESHOLD {
-                page_valid = false;
-                break;
-            }
-        }
-
-        // If any AR validation failed, mark page as outdated
-        if !page_valid {
-            outdated.push(page_index);
-            continue;
-        }
-
-        // If we reach here, page is unchanged
     }
 
     outdated
+}
+
+fn page_is_outdated_by_metadata(
+    changed_photos: &HashSet<String>,
+    new_page: &crate::dto_models::LayoutPage,
+) -> bool {
+    new_page.photos.iter().any(|id| changed_photos.contains(id))
+}
+
+fn page_is_outdated_by_slot_structure(
+    new_page: &crate::dto_models::LayoutPage,
+    reference_layout: &[crate::dto_models::LayoutPage],
+    page_hashes: &HashMap<BTreeSet<String>, Vec<usize>>,
+) -> bool {
+    let photo_set = new_page.photos.iter().cloned().collect::<BTreeSet<_>>();
+    let candidate_indices = match page_hashes.get(&photo_set) {
+        Some(indices) => indices,
+        None => return true,
+    };
+
+    let found_match = candidate_indices
+        .iter()
+        .any(|&idx| reference_layout[idx].slots == new_page.slots);
+
+    if !found_match {
+        return true;
+    }
+
+    new_page.slots.len() != new_page.photos.len()
+}
+
+fn page_is_outdated_by_aspect_ratio_violation(
+    new_page: &crate::dto_models::LayoutPage,
+    ref_photo_metadata: &HashMap<String, PhotoMetadata>,
+) -> bool {
+    new_page.photos.iter().enumerate().any(|(i, photo_id)| {
+        let slot_ar = new_page.slots[i].width_mm / new_page.slots[i].height_mm;
+        match ref_photo_metadata.get(photo_id.as_str()) {
+            Some(meta) => (slot_ar - meta.aspect_ratio).abs() > ASPECT_RATIO_THRESHOLD,
+            None => true,
+        }
+    })
 }
 
 /// Build a map of photo ID -> metadata from a photo collection.
@@ -143,7 +125,7 @@ fn build_page_hashes(
 
 /// Find photo IDs whose metadata changed between reference and new state.
 /// Includes newly added photos and removed photos.
-fn find_changed_photos(
+fn find_metadata_changed_photos(
     _reference: &ProjectState,
     new: &ProjectState,
     ref_metadata: &HashMap<String, PhotoMetadata>,
