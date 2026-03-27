@@ -107,3 +107,9 @@ on a fresh project.
 Every command that changes the layout creates a **Git commit** automatically.
 Use `fotobuch undo` / `fotobuch redo` to navigate the history, and
 `fotobuch history` to see the log.
+
+## The `.fotobuch` cache
+
+fotobuch stores resized preview and final images in a `.fotobuch/` directory
+inside your project. This is purely a cache — you can delete it at any time
+without losing data. The next `build` will regenerate whatever it needs.
