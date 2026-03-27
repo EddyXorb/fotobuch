@@ -10,10 +10,18 @@ Work happens on branch `claude/prepare-release-v1-w7cvz`.
 | Topic | Decision |
 |---|---|
 | Language (README/Docs) | English |
-| Release binaries | Linux + Windows |
+| Release binaries | Linux + Windows (`.zip` with `.exe` for Windows) |
 | Documentation site | mdBook on GitHub Pages |
-| Python dev tools | Move to `tests/tools/` |
-| License | **TBD** – see below |
+| Python dev tools | Moved to `tests/tools/` ✅ |
+| cargo doc in Pages | Skip for now – not needed for v1.0 |
+| Distribution | Only self-build for now; crates.io easy to add later (needs license first) |
+| Windows installer | `.exe` as `.zip` only, no `.msi` for v1.0 |
+| cargo audit | Yes – in CI and runnable locally (`cargo install cargo-audit && cargo audit`) |
+| Code coverage | Yes – report in CI + badge in README |
+| Release drafts | Yes – auto-draft via `release-drafter` action; manually publish when ready |
+| TODO.md | Keep as-is; move out-of-scope items to new `## Out of Scope (post v1.0)` section |
+| Release trigger | Manual (you push the tag / click publish) |
+| License | **TBD** – discuss after all other points are settled |
 
 ---
 
@@ -26,27 +34,9 @@ Options discussed:
 - **GPL v3** – copyleft, requires derivatives to stay open
 
 Key question: Should commercial services be allowed to embed `fotobuch` without giving back?
-→ **Decision needed**
+→ **Decision needed** (to be discussed last)
 
-### Out-of-scope items (TODO.md)
-Pending TODO items that will NOT be in v1.0.0 – move to GitHub Issues or keep in TODO.md?
-→ **Decision needed**
-
-### crates.io
-Publish to crates.io (`cargo install fotobuch`) in addition to GitHub Releases?
-→ **Decision needed**
-
-### Windows installer
-Pre-built `.exe` in ZIP, or also an `.msi` installer?
-→ **Decision needed**
-
-### cargo audit
-Run dependency security audit in CI?
-→ **Decision needed**
-
-### Code coverage
-Report coverage (e.g. via codecov.io) in CI?
-→ **Decision needed**
+Note: License is also required before publishing to crates.io.
 
 ---
 
@@ -54,19 +44,20 @@ Report coverage (e.g. via codecov.io) in CI?
 
 ### Phase 1 – Housekeeping
 
+- [x] Move Python dev tools to `tests/tools/` (`artificial_input_generator.py`, `pyproject.toml`, `uv.lock`)
 - [ ] Bump version `Cargo.toml`: `0.1.0` → `1.0.0`
 - [ ] Add `LICENSE` file (depends on license decision)
-- [ ] Move Python dev tools to `tests/tools/` (generator + `pyproject.toml` + `uv.lock`)
-- [ ] Rewrite `README.md` in English (current one is outdated and German)
+- [ ] Rewrite `README.md` in English (current one is outdated and German) + coverage badge at top
 - [ ] Create `CHANGELOG.md`
-- [ ] Clean up `TODO.md` (mark v1.0 scope clearly)
+- [ ] Move out-of-scope items in `TODO.md` to new `## Out of Scope (post v1.0)` section
 
 ### Phase 2 – GitHub Actions
 
-- [ ] `ci.yml` – `cargo test` + `cargo clippy` + `cargo fmt --check` on push/PR
-- [ ] `release.yml` – build Linux + Windows binaries on tag `v*`, create GitHub Release
+- [ ] `ci.yml` – `cargo test` + `cargo clippy` + `cargo fmt --check` on push/PR + coverage report
+- [ ] `release.yml` – build Linux + Windows binaries on manual tag `v*`, create GitHub Release
 - [ ] `pages.yml` – build mdBook and deploy to GitHub Pages on push to `main`
-- [ ] (Optional) `audit.yml` – `cargo audit` for dependency security
+- [ ] `audit.yml` – `cargo audit` (runs in CI, also usable locally)
+- [ ] `release-drafter.yml` – auto-generate release draft from commits
 
 ### Phase 3 – Documentation (mdBook)
 
@@ -77,13 +68,15 @@ Report coverage (e.g. via codecov.io) in CI?
 - [ ] Write: CLI Reference (all 15+ subcommands)
 - [ ] Write: Configuration (YAML schema)
 - [ ] Write: Saal Digital / Print settings
-- [ ] (Optional) Internals – recycle the 27 existing design docs
+- [ ] (Optional) Internals – recycle the 27 existing design docs in `docs/design/`
 
 ### Phase 4 – Release
 
+- [ ] Decide and set license
+- [ ] (Optional) Publish to crates.io
 - [ ] Final review of all changes
-- [ ] Tag `v1.0.0`
-- [ ] Verify GitHub Release with binaries
+- [ ] Push tag `v1.0.0` manually → triggers release workflow
+- [ ] Review and publish the auto-generated release draft
 - [ ] Verify GitHub Pages deployment
 
 ---
@@ -93,5 +86,6 @@ Report coverage (e.g. via codecov.io) in CI?
 - Binary name: `fotobuch`
 - Current Cargo.toml version: `0.1.0`
 - Existing design docs: `docs/design/` (27 markdown files) – good source material for mdBook
-- Python component: `pyproject.toml` uses Pillow + pypdf + typer for generating artificial test images
+- Python dev tools now in `tests/tools/` – run from that directory with `uv run python artificial_input_generator.py`
 - No existing CI/CD, no LICENSE file, no CHANGELOG
+- cargo audit runnable locally: `cargo install cargo-audit && cargo audit`
