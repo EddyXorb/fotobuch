@@ -71,7 +71,7 @@ fn rebuild_cover_free(
 ) -> Result<()> {
     let cover = &state.config.book.cover;
     let inner_page_count = state.layout.len() - 1;
-    let spread_config = CoverSpreadConfig {
+    let spread_config = CoverCanvasConfig {
         cover,
         inner_page_count,
     };
@@ -157,12 +157,12 @@ fn apply_result(
 // ── CoverSpreadConfig ─────────────────────────────────────────────────────────
 
 /// Presents the full cover spread (front + back + spine) as `page_width_mm` to the GA solver.
-struct CoverSpreadConfig<'a> {
+struct CoverCanvasConfig<'a> {
     cover: &'a crate::dto_models::CoverConfig,
     inner_page_count: usize,
 }
 
-impl crate::dto_models::CanvasConfig for CoverSpreadConfig<'_> {
+impl crate::dto_models::CanvasConfig for CoverCanvasConfig<'_> {
     fn page_width_mm(&self) -> f64 {
         self.cover.spread_width_mm(self.inner_page_count)
     }

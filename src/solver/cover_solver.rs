@@ -86,8 +86,7 @@ pub fn warn_slot_count_mismatch(mode: CoverMode, photo_count: usize) {
         warn!(
             "Cover mode `{mode:?}` expects {expected} photo(s), \
              but page 0 has {photo_count}. \
-             Use `fotobuch place <photo> --into 0` to assign the right photos, \
-             then `fotobuch rebuild --page 0`."
+             Assign the correct number of photos to page 0, or switch to Free mode."
         );
     }
 }
