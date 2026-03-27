@@ -18,8 +18,8 @@ Work happens on branch `claude/prepare-release-v1-w7cvz`.
 | Windows installer | `.exe` as `.zip` only, no `.msi` |
 | cargo audit | Yes – in CI and runnable locally (`cargo install cargo-audit && cargo audit`) |
 | Code coverage | Yes – report in CI + badge in README |
-| Changelog | Auto-generated via **git-cliff** from Conventional Commits (commits already use this format) |
-| Release drafts | Yes – git-cliff generates release notes → auto-draft on tag; manually publish when ready |
+| Changelog | **git-cliff** – generated on tag only, grouped by type (`feat`, `fix`, etc.) |
+| Release drafts | Yes – git-cliff generates grouped release notes on tag → auto-draft; manually publish when ready |
 | TODO.md | Keep as-is; move out-of-scope items to new `## Out of Scope (post v1.0)` section |
 | Release trigger | Manual (push tag → CI builds + drafts release → you review + publish) |
 | First release version | **`0.1.0`** – signals no stable API guarantee yet; `1.0.0` when CLI/YAML format is stable |
