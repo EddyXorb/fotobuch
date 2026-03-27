@@ -6,11 +6,12 @@
 
 # User Guide
 
-- [Welcome & Installation](installation.md)
+- [Installation](installation.md)
+- [Core Concepts](concepts.md)
 - [Your First Book](quickstart.md)
 - [Command Overview](commands.md)
-- [Printing](printing.md)
-- [Known limitations](known_limitations.md)
+- [Printing & Export](printing.md)
+- [Known Limitations](known_limitations.md)
 
 ---
 
