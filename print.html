@@ -36,7 +36,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-3245fe9e.js";
+            window.path_to_searchindex_js = "searchindex-93b9b192.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-df0efecf.js"></script>
@@ -583,6 +583,8 @@ setting <code>active: true</code> and providing dimensions.</p>
 <tr><td><strong><code>active</code></strong></td><td><code>false</code></td><td><strong>Enable the cover.</strong> When <code>true</code>, the first layout entry (page 0) becomes the cover page.</td></tr>
 <tr><td><strong><code>front_back_width_mm</code></strong></td><td><code>0.0</code></td><td><strong>Total width of front + back panel combined, without the spine.</strong> Required when <code>active: true</code>.</td></tr>
 <tr><td><strong><code>height_mm</code></strong></td><td><code>0.0</code></td><td><strong>Cover height in mm.</strong> Required when <code>active: true</code>.</td></tr>
+<tr><td><code>mode</code></td><td><code>split</code></td><td><strong>Cover layout mode.</strong> Controls how page 0 is solved. <code>split</code> = deterministic solver optimises the cover (default). See <a href="#cover-modes">Cover modes</a> below.</td></tr>
+<tr><td><code>spine_clearance_mm</code></td><td><code>5.0</code></td><td>Gap in mm between the photo edge and the spine for <code>front</code>, <code>back</code>, and <code>split</code> modes. Ignored for <code>spread</code> modes.</td></tr>
 <tr><td><strong><code>spine_text</code></strong></td><td>book title</td><td><strong>Text on the spine.</strong> Set to <code>~</code> (null) for no text. Font size is auto-calculated from the spine width (max 80% of spine width).</td></tr>
 <tr><td><code>spine_mode</code></td><td><code>auto</code></td><td>Spine width mode — see below.</td></tr>
 <tr><td><code>spine_mm_per_10_pages</code></td><td><code>1.4</code></td><td><strong>Auto mode only.</strong> Spine thickness per 10 inner pages. Spine width = <code>(inner_pages / 10) * spine_mm_per_10_pages</code>. In auto mode the spine width affects the total cover canvas width that the solver uses.</td></tr>
@@ -594,6 +596,44 @@ setting <code>active: true</code> and providing dimensions.</p>
 </tbody>
 </table>
 </div>
+<h4 id="cover-modes"><a class="header" href="#cover-modes">Cover modes</a></h4>
+<p>When <code>mode</code> is not <code>free</code>, the GA solver is bypassed and slot positions are
+calculated deterministically from the cover geometry.  A warning is printed if
+the number of photos on the cover does not match what the mode expects.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Mode</th><th>Photos</th><th>Behaviour</th></tr>
+</thead>
+<tbody>
+<tr><td><code>free</code></td><td>any</td><td>GA solver optimises freely (default)</td></tr>
+<tr><td><code>front</code></td><td>1</td><td>Photo on the front panel, aspect ratio preserved and centred</td></tr>
+<tr><td><code>front-full</code></td><td>1</td><td>Photo fills the entire front panel (may crop)</td></tr>
+<tr><td><code>back</code></td><td>1</td><td>Photo on the back panel, aspect ratio preserved and centred</td></tr>
+<tr><td><code>back-full</code></td><td>1</td><td>Photo fills the entire back panel (may crop)</td></tr>
+<tr><td><code>spread</code></td><td>1</td><td>Photo spans the full spread (over spine), aspect ratio preserved and centred</td></tr>
+<tr><td><code>spread-full</code></td><td>1</td><td>Photo fills the full spread (may crop)</td></tr>
+<tr><td><code>split</code></td><td>2</td><td>Slot 0 → front, slot 1 → back, aspect ratio preserved and centred</td></tr>
+<tr><td><code>split-full</code></td><td>2</td><td>Slot 0 → front, slot 1 → back, each half fully filled (may crop)</td></tr>
+</tbody>
+</table>
+</div>
+<p><strong>Workflow example — single photo on the front:</strong></p>
+<pre><code class="language-bash"># 1. Place the photo onto the cover
+fotobuch place cover.jpg --into 0
+
+# 2. Set the mode in the YAML
+#    cover:
+#      mode: front
+
+# 3. Rebuild only the cover
+fotobuch rebuild --page 0
+</code></pre>
+<p><strong>Workflow example — panorama across full spread:</strong></p>
+<pre><code class="language-bash">fotobuch place panorama.jpg --into 0
+# cover: { mode: spread-full }
+fotobuch rebuild --page 0
+</code></pre>
 <p><strong>Spine modes explained:</strong></p>
 <ul>
 <li>
@@ -929,23 +969,6 @@ what InDesign would produce</li>
 The default 3 mm works for the majority of European providers.</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="known-limitations"><a class="header" href="#known-limitations">Known Limitations</a></h1>
-<h2 id="cover-page"><a class="header" href="#cover-page">Cover page</a></h2>
-<p>Cover support exists but is still rough around the edges. The solver treats the
-cover as a regular page during the first build, so it places multiple photos on
-it.</p>
-<p><strong>Workaround</strong> to get a single cover photo:</p>
-<pre><code class="language-bash"># 1. After first build, move all but one photo off the cover (page 0)
-fotobuch page move 0:1.. to 0+
-
-# 2. Swap the remaining photo for one you actually want as the cover
-fotobuch page swap 0:0 4:2   # swap with slot 2 on page 4, for example
-
-# 3. Or add a fresh photo and place it directly onto the cover
-fotobuch add ../cover-photo.jpg
-fotobuch place --into 0
-
-# 4. Edit the YAML to fine-tune slot positions if needed
-</code></pre>
 <h2 id="what-fotobuch-deliberately-does-not-do"><a class="header" href="#what-fotobuch-deliberately-does-not-do">What fotobuch deliberately does not do</a></h2>
 <ul>
 <li><strong>No pixel-level placement.</strong> The solver decides where photos go; you
