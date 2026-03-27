@@ -23,22 +23,13 @@ Work happens on branch `claude/prepare-release-v1-w7cvz`.
 | TODO.md | Keep as-is; move out-of-scope items to new `## Out of Scope (post v1.0)` section |
 | Release trigger | Manual (push tag → CI builds + drafts release → you review + publish) |
 | First release version | **`0.1.0`** – signals no stable API guarantee yet; `1.0.0` when CLI/YAML format is stable |
-| License | **TBD** – discuss after all other points are settled |
+| License | **AGPL v3** + commercial contact in README ("For commercial use, contact [email]") |
 
 ---
 
 ## Open Decisions
 
-### License
-Options discussed:
-- **MIT** – simplest, most permissive, standard in Rust ecosystem
-- **MIT OR Apache-2.0** – Rust standard, adds patent protection
-- **GPL v3** – copyleft, requires derivatives to stay open
-
-Key question: Should commercial services be allowed to embed `fotobuch` without giving back?
-→ **Decision needed** (to be discussed last)
-
-Note: License is also required before publishing to crates.io.
+*(none so far)*
 
 ---
 
@@ -74,7 +65,6 @@ Note: License is also required before publishing to crates.io.
 
 ### Phase 4 – Release
 
-- [ ] Decide and set license
 - [ ] Final review of all changes
 - [ ] Push tag `v0.1.0` manually → triggers release workflow → git-cliff generates notes → draft created
 - [ ] Review and publish the auto-generated release draft
