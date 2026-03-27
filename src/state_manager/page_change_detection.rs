@@ -205,6 +205,7 @@ fn cover_canvas_changed(reference: &ProjectState, new: &ProjectState) -> bool {
         || r.margin_mm != n.margin_mm
         || r.gap_mm != n.gap_mm
         || r.bleed_threshold_mm != n.bleed_threshold_mm
+        || r.mode != n.mode
         || spine_changed(&r.spine, &n.spine, inner_count_changed)
 }
 
