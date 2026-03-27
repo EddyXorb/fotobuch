@@ -8,11 +8,13 @@
 
 ---
 
-<!-- EXAMPLE IMAGE: replace with a side-by-side screenshot of a cover + first inner double page spread
-     showing a real layout produced by fotobuch. Aim for something visually striking –
-     similar in style to https://github.com/masse/collage-solver
-     Suggested filename: docs/assets/example_spread.jpg -->
-![Example photobook spread](docs/assets/example_spread.jpg)
+## Example layout
+
+![Example two pages photo](docs/examples/example_two_pages.png)
+
+## Example workflow from scratch
+
+![Example photobook spread](docs/examples/fotobuch-example.gif)
 
 ---
 
