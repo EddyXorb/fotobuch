@@ -3,7 +3,7 @@
 This walkthrough takes you from zero to a print-ready PDF.
 Prerequisites: `fotobuch` installed, a folder of photos on your machine.
 
-> **Prefer learning by example?** Check out the complete project in `examples/`
+> **Prefer learning by example?** Check out the complete project in `docs/examples/`
 > — it has sample images, YAML config, template, and generated PDFs.
 
 ---
