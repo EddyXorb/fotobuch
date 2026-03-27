@@ -187,31 +187,45 @@ fn inner_canvas_changed(reference: &ProjectState, new: &ProjectState) -> bool {
         || r.bleed_threshold_mm != n.bleed_threshold_mm
 }
 
+fn inner_page_count(state: &ProjectState) -> usize {
+    if state.config.book.cover.active {
+        state.layout.len().saturating_sub(1)
+    } else {
+        state.layout.len()
+    }
+}
+
 fn cover_canvas_changed(reference: &ProjectState, new: &ProjectState) -> bool {
     let r = &reference.config.book.cover;
     let n = &new.config.book.cover;
+    let inner_count_changed = inner_page_count(reference) != inner_page_count(new);
     r.height_mm != n.height_mm
         || r.front_back_width_mm != n.front_back_width_mm
         || r.bleed_mm != n.bleed_mm
         || r.margin_mm != n.margin_mm
         || r.gap_mm != n.gap_mm
         || r.bleed_threshold_mm != n.bleed_threshold_mm
-        || spine_changed(&r.spine, &n.spine)
+        || spine_changed(&r.spine, &n.spine, inner_count_changed)
 }
 
-fn spine_changed(r: &SpineConfig, n: &SpineConfig) -> bool {
+fn spine_changed(r: &SpineConfig, n: &SpineConfig, inner_count_changed: bool) -> bool {
     match (r, n) {
         (
             SpineConfig::Auto {
-                spine_mm_per_10_pages: r,
+                spine_mm_per_10_pages: r_rate,
             },
             SpineConfig::Auto {
-                spine_mm_per_10_pages: n,
+                spine_mm_per_10_pages: n_rate,
             },
-        ) => r != n,
-        (SpineConfig::Fixed { spine_width_mm: r }, SpineConfig::Fixed { spine_width_mm: n }) => {
-            r != n
-        }
+        ) => r_rate != n_rate || inner_count_changed,
+        (
+            SpineConfig::Fixed {
+                spine_width_mm: r_w,
+            },
+            SpineConfig::Fixed {
+                spine_width_mm: n_w,
+            },
+        ) => r_w != n_w,
         _ => true, // variant changed (Auto ↔ Fixed)
     }
 }
@@ -824,7 +838,7 @@ mod tests {
     }
 
     #[test]
-    fn test_spine_change_marks_cover_outdated() {
+    fn test_spine_rate_change_marks_cover_outdated() {
         use crate::dto_models::SpineConfig;
         let slot = make_slot(0.0, 0.0, 100.0, 100.0);
         let cover_page = make_page(0, vec!["A".to_string()], vec![slot.clone()]);
@@ -839,9 +853,94 @@ mod tests {
         new.photos = reference.photos.clone();
         new.config.book.cover.spine = SpineConfig::Auto {
             spine_mm_per_10_pages: 2.0,
-        }; // was default 1.4
+        };
 
         let outdated = compute_outdated_pages(&reference, &new);
         assert_eq!(outdated, vec![0]);
+    }
+
+    #[test]
+    fn test_inner_page_count_change_marks_cover_outdated_in_auto_spine() {
+        // Auto spine: more inner pages → wider spine → cover canvas changed.
+        use crate::dto_models::SpineConfig;
+        let slot = make_slot(0.0, 0.0, 100.0, 100.0);
+        let cover_page = make_page(0, vec!["A".to_string()], vec![slot.clone()]);
+        let inner1 = make_page(1, vec!["B".to_string()], vec![slot.clone()]);
+        let inner2 = make_page(2, vec!["C".to_string()], vec![slot.clone()]);
+
+        let mut reference = make_state_with_cover(
+            "ref",
+            vec![cover_page.clone(), inner1.clone()],
+            CoverMode::Free,
+        );
+        reference.config.book.cover.spine = SpineConfig::Auto {
+            spine_mm_per_10_pages: 1.4,
+        };
+        reference.photos = vec![PhotoGroup {
+            group: "g".to_string(),
+            sort_key: "2024-01-01T00:00:00Z".to_string(),
+            files: vec![
+                make_photo("A", 100, 100, 1.0),
+                make_photo("B", 100, 100, 1.0),
+                make_photo("C", 100, 100, 1.0),
+            ],
+        }];
+
+        let mut new =
+            make_state_with_cover("new", vec![cover_page, inner1, inner2], CoverMode::Free);
+        new.config.book.cover.spine = SpineConfig::Auto {
+            spine_mm_per_10_pages: 1.4,
+        };
+        new.photos = reference.photos.clone();
+
+        let outdated = compute_outdated_pages(&reference, &new);
+        assert!(
+            outdated.contains(&0),
+            "cover must be outdated when inner page count changes with Auto spine"
+        );
+    }
+
+    #[test]
+    fn test_inner_page_count_change_does_not_affect_fixed_spine() {
+        // Fixed spine: page count is irrelevant, cover width stays the same.
+        use crate::dto_models::SpineConfig;
+        let slot = make_slot(0.0, 0.0, 150.0, 100.0); // AR=1.5 — FrontFull crops, so AR skip applies
+        let cover_page = make_page(0, vec!["A".to_string()], vec![slot.clone()]);
+        let inner1 = make_page(1, vec!["B".to_string()], vec![slot.clone()]);
+        let inner2 = make_page(2, vec!["C".to_string()], vec![slot.clone()]);
+
+        let mut reference = make_state_with_cover(
+            "ref",
+            vec![cover_page.clone(), inner1.clone()],
+            CoverMode::FrontFull,
+        );
+        reference.config.book.cover.spine = SpineConfig::Fixed {
+            spine_width_mm: 3.0,
+        };
+        reference.photos = vec![PhotoGroup {
+            group: "g".to_string(),
+            sort_key: "2024-01-01T00:00:00Z".to_string(),
+            files: vec![
+                make_photo("A", 100, 100, 1.0),
+                make_photo("B", 150, 100, 1.0),
+                make_photo("C", 150, 100, 1.0),
+            ],
+        }];
+
+        let mut new = make_state_with_cover(
+            "new",
+            vec![cover_page, inner1, inner2],
+            CoverMode::FrontFull,
+        );
+        new.config.book.cover.spine = SpineConfig::Fixed {
+            spine_width_mm: 3.0,
+        };
+        new.photos = reference.photos.clone();
+
+        let outdated = compute_outdated_pages(&reference, &new);
+        assert!(
+            !outdated.contains(&0),
+            "cover must not be outdated when inner page count changes with Fixed spine"
+        );
     }
 }
