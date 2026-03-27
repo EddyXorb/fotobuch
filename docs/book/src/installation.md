@@ -25,7 +25,7 @@ fotobuch --version
 
 ## Build from source
 
-Requirements: [Rust (stable)](https://rustup.rs) and `cmake`.
+Requirements: [Rust (stable)](https://rustup.rs) and `cmake` for Highs.
 
 ```bash
 git clone https://github.com/EddyXorb/fotobuch.git

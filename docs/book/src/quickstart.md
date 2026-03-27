@@ -9,25 +9,26 @@ The whole process takes about 10 minutes the first time.
 
 ## Step 1 — Create a project
 
-A fotobuch project is a regular folder containing a `fotobuch.yaml` config file
-and a Git repository that tracks every change you make.
+A fotobuch project is a regular folder containing a `[project-name].yaml` config file
+and a Git repository that tracks every change you make. Multiple projects can be tracked within the same folder.
+When creating a new project, the name chosen needs to
+
+- start with a letter
+- contain only numbers or letters or "-"
 
 ```bash
-fotobuch project new "Italy 2024" --width 297 --height 210
+fotobuch project new "Italy-2024" --width 297 --height 210
 ```
 
-This creates a folder called `Italy 2024` in the current directory and
+This creates a folder called `Italy-2024` in the current directory and
 initialises a Git repo inside it. The `--width` and `--height` values are in
-millimetres (297 × 210 mm = A4 landscape).
+millimeters (297 × 210 mm = A4 landscape).
 
 Switch into the project folder:
 
 ```bash
-cd "Italy 2024"
+cd "Italy-2024"
 ```
-
-> **Tip:** Run `fotobuch config` at any time to see the full resolved
-> configuration with all default values.
 
 ---
 
@@ -42,7 +43,7 @@ fotobuch add /photos/2024-08-Hiking
 ```
 
 Folder names that contain a date (`2024-07-Italy`, `20240715_Rome`) are sorted
-chronologically. Folders without a date go at the end.
+chronologically according to the given timestamp. Folders without a timestamp are sorted according to the timestamp of the oldest photo within the folder.
 
 You can also add a single file, or add recursively (each subfolder becomes its
 own group):
@@ -50,6 +51,13 @@ own group):
 ```bash
 fotobuch add /photos/2024-07-Italy/DSC_0042.jpg
 fotobuch add --recursive /photos/2024-summer
+```
+
+You can also add photos selectively by filtering filenames and **xmp**-Data:
+
+```bash
+fotobuch add /photos/2024-07-Italy --filter "DSC_00*.jpg"
+fotobuch add /photos/2024-07-Italy --filter-xmp "Rating.*[3-5]" --weight 5 # adds photos with a rating of 3, 4 ,or 5 stars giving them a higher weight (more space) in the layout (5, whereas 1 is the default weight)
 ```
 
 Check what was imported:
@@ -66,8 +74,8 @@ fotobuch status
 fotobuch build
 ```
 
-fotobuch solves the layout and renders a preview PDF at 150 DPI (fast).
-Open `preview.pdf` (or the `.typ` file in VS Code with Typst Preview) to
+fotobuch solves the layout and renders a preview PDF at lower DPI (fast).
+Open `[project-name].pdf` (or the `.typ` file in VS Code with Typst Preview) to
 review the result.
 
 ---
