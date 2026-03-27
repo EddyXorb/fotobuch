@@ -1,6 +1,6 @@
 //! Detection of outdated pages when project state changes.
 
-use crate::dto_models::{CoverMode, ProjectState, SpineConfig};
+use crate::dto_models::{ProjectState, SpineConfig};
 use std::collections::{BTreeSet, HashMap, HashSet};
 
 const ASPECT_RATIO_THRESHOLD: f64 = 0.001;
