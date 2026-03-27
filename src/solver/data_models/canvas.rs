@@ -67,8 +67,8 @@ impl Default for Canvas {
 mod tests {
     use super::super::test_fixtures::*;
     use super::*;
-    use approx::assert_relative_eq;
     use crate::dto_models::BookConfig;
+    use approx::assert_relative_eq;
 
     #[test]
     fn test_new_canvas() {
@@ -120,7 +120,13 @@ mod tests {
     mod converter_tests {
         use super::*;
 
-        fn create_book_config(width: f64, height: f64, margin: f64, bleed: f64, gap: f64) -> BookConfig {
+        fn create_book_config(
+            width: f64,
+            height: f64,
+            margin: f64,
+            bleed: f64,
+            gap: f64,
+        ) -> BookConfig {
             BookConfig {
                 title: "Test".to_string(),
                 page_width_mm: width,

@@ -7,7 +7,11 @@ use fotobuch::commands;
 pub fn handle(release: bool, pages: Option<Vec<usize>>) -> Result<()> {
     let project_root = std::env::current_dir().context("Failed to determine current directory")?;
 
-    let config = commands::build::BuildConfig { release, force: false, pages };
+    let config = commands::build::BuildConfig {
+        release,
+        force: false,
+        pages,
+    };
 
     let result = commands::build::build(&project_root, &config)?;
 
@@ -19,7 +23,11 @@ pub fn handle(release: bool, pages: Option<Vec<usize>>) -> Result<()> {
 pub fn handle_release(force: bool) -> Result<()> {
     let project_root = std::env::current_dir().context("Failed to determine current directory")?;
 
-    let config = commands::build::BuildConfig { release: true, force, pages: None };
+    let config = commands::build::BuildConfig {
+        release: true,
+        force,
+        pages: None,
+    };
 
     let result = commands::build::build(&project_root, &config)?;
 

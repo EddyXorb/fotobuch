@@ -48,7 +48,11 @@ pub fn undo(project_root: &Path, steps: usize) -> Result<UndoResult> {
 
     let current_message = target.summary().unwrap_or("").to_string();
 
-    Ok(UndoResult { wip_committed, undone_message, current_message })
+    Ok(UndoResult {
+        wip_committed,
+        undone_message,
+        current_message,
+    })
 }
 
 /// Redo `steps` commits that were previously undone.
@@ -71,7 +75,12 @@ pub fn redo(project_root: &Path, steps: usize) -> Result<UndoResult> {
         bail!("Only {available} redo step(s) available, cannot redo {steps}.");
     }
 
-    let undone_message = repo.head()?.peel_to_commit()?.summary().unwrap_or("").to_string();
+    let undone_message = repo
+        .head()?
+        .peel_to_commit()?
+        .summary()
+        .unwrap_or("")
+        .to_string();
 
     // popped[0] = first popped = was top = last undo's origin (1 step ahead)
     // popped[steps-1] = `steps` steps ahead
@@ -79,26 +88,32 @@ pub fn redo(project_root: &Path, steps: usize) -> Result<UndoResult> {
     let target_sha = &popped[steps - 1];
 
     let oid = git2::Oid::from_str(target_sha).context("Invalid SHA in redo stack")?;
-    let commit = repo.find_commit(oid).context("Redo commit not found — was the repo rewritten?")?;
+    let commit = repo
+        .find_commit(oid)
+        .context("Redo commit not found — was the repo rewritten?")?;
 
     repo.reset(commit.as_object(), ResetType::Hard, None)
         .context("Failed to reset working tree")?;
 
     let current_message = commit.summary().unwrap_or("").to_string();
 
-    Ok(UndoResult { wip_committed: false, undone_message, current_message })
+    Ok(UndoResult {
+        wip_committed: false,
+        undone_message,
+        current_message,
+    })
 }
 
 fn is_dirty(repo: &Repository) -> Result<bool> {
-    let statuses = repo.statuses(None).context("Failed to read repository status")?;
+    let statuses = repo
+        .statuses(None)
+        .context("Failed to read repository status")?;
     Ok(statuses.iter().any(|s| {
         let st = s.status();
         // Ignore unmodified, ignored, and purely untracked files.
         // Untracked files (WT_NEW) are not affected by `git reset --hard` and in
         // production they live in .fotobuch/ (gitignored) anyway.
-        !st.is_empty()
-            && !st.intersects(Status::IGNORED)
-            && st != Status::WT_NEW
+        !st.is_empty() && !st.intersects(Status::IGNORED) && st != Status::WT_NEW
     }))
 }
 
@@ -132,8 +147,15 @@ fn commit_wip(repo: &Repository) -> Result<()> {
 
     // Commit directly without going through stage_and_commit to avoid clearing
     // the redo stack (which would prevent redo after an undo of a WIP state).
-    repo.commit(Some("HEAD"), &sig, &sig, "wip: before undo", &tree, &[&parent])
-        .context("Failed to create WIP commit")?;
+    repo.commit(
+        Some("HEAD"),
+        &sig,
+        &sig,
+        "wip: before undo",
+        &tree,
+        &[&parent],
+    )
+    .context("Failed to create WIP commit")?;
     Ok(())
 }
 

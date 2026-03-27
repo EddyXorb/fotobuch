@@ -45,7 +45,10 @@ pub fn rebuild_single_page(
     let result = if page_idx == 0 && state.has_cover() {
         let cover = &state.config.book.cover;
         let inner_page_count = state.layout.len() - 1;
-        let spread_config = CoverSpreadConfig { cover, inner_page_count };
+        let spread_config = CoverSpreadConfig {
+            cover,
+            inner_page_count,
+        };
         let request = Request {
             request_type: RequestType::SinglePage,
             groups: &[group],

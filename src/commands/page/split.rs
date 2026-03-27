@@ -63,16 +63,15 @@ pub fn execute_split(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::test_fixtures::{make_state_with_layout, setup_repo};
     use super::super::types::ValidationError;
+    use super::*;
     use crate::state_manager::StateManager;
     use tempfile::TempDir;
 
     #[test]
     fn test_execute_split_creates_new_page() {
-        let state =
-            make_state_with_layout(vec![vec!["p0.jpg", "p1.jpg", "p2.jpg", "p3.jpg"]]);
+        let state = make_state_with_layout(vec![vec!["p0.jpg", "p1.jpg", "p2.jpg", "p3.jpg"]]);
         let tmp = TempDir::new().unwrap();
         setup_repo(&tmp, &state);
 
@@ -95,7 +94,9 @@ mod tests {
         let result = execute_split(tmp.path(), 0, 0);
         assert!(matches!(
             result,
-            Err(PageMoveError::Validation(ValidationError::SplitAtFirstSlot(0)))
+            Err(PageMoveError::Validation(
+                ValidationError::SplitAtFirstSlot(0)
+            ))
         ));
     }
 }

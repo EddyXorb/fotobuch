@@ -111,7 +111,10 @@ fn test_parse_range_slots_to_page() {
                 page: 3,
                 slots: SlotExpr {
                     items: vec![
-                        SlotItem::Range { from: Some(1), to: Some(3) },
+                        SlotItem::Range {
+                            from: Some(1),
+                            to: Some(3)
+                        },
                         SlotItem::Single(7),
                     ],
                 },
@@ -227,31 +230,55 @@ fn test_parse_unplace_single_slot() {
 fn test_parse_unplace_slot_range() {
     let (page, slots) = parse_unplace_addr("3:2..5").unwrap();
     assert_eq!(page, 3);
-    assert_eq!(slots.items, vec![SlotItem::Range { from: Some(2), to: Some(5) }]);
+    assert_eq!(
+        slots.items,
+        vec![SlotItem::Range {
+            from: Some(2),
+            to: Some(5)
+        }]
+    );
 }
 
 #[test]
 fn test_parse_unplace_combined() {
     let (page, slots) = parse_unplace_addr("3:2..5,7").unwrap();
     assert_eq!(page, 3);
-    assert_eq!(slots.items, vec![
-        SlotItem::Range { from: Some(2), to: Some(5) },
-        SlotItem::Single(7),
-    ]);
+    assert_eq!(
+        slots.items,
+        vec![
+            SlotItem::Range {
+                from: Some(2),
+                to: Some(5)
+            },
+            SlotItem::Single(7),
+        ]
+    );
 }
 
 #[test]
 fn test_parse_open_end_slot_range() {
     let (page, slots) = parse_unplace_addr("1:2..").unwrap();
     assert_eq!(page, 1);
-    assert_eq!(slots.items, vec![SlotItem::Range { from: Some(2), to: None }]);
+    assert_eq!(
+        slots.items,
+        vec![SlotItem::Range {
+            from: Some(2),
+            to: None
+        }]
+    );
 }
 
 #[test]
 fn test_parse_open_start_slot_range() {
     let (page, slots) = parse_unplace_addr("1:..4").unwrap();
     assert_eq!(page, 1);
-    assert_eq!(slots.items, vec![SlotItem::Range { from: None, to: Some(4) }]);
+    assert_eq!(
+        slots.items,
+        vec![SlotItem::Range {
+            from: None,
+            to: Some(4)
+        }]
+    );
 }
 
 // ── parse_pages_expr ──────────────────────────────────────────────────────────
@@ -273,4 +300,3 @@ fn test_parse_pages_range() {
     let pe = parse_pages_expr("3..5").unwrap();
     assert_eq!(pe.pages, vec![3, 4, 5]);
 }
-

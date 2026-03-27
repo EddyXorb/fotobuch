@@ -19,8 +19,8 @@ fn project_root() -> Result<PathBuf> {
 pub fn handle_unplace(address: &str) -> Result<()> {
     let (page, slots) = parse_unplace_addr(address)
         .map_err(|e| anyhow::anyhow!("Invalid address '{}': {}", address, e))?;
-    let result = execute_unplace(&project_root()?, page, slots)
-        .map_err(|e| anyhow::anyhow!("{}", e))?;
+    let result =
+        execute_unplace(&project_root()?, page, slots).map_err(|e| anyhow::anyhow!("{}", e))?;
     if result.pages_modified.is_empty() {
         println!("Nothing to unplace.");
     } else {
@@ -34,8 +34,8 @@ pub fn handle_move(args: &[String]) -> Result<()> {
     let raw = args.join(" ");
     let cmd = parse_move_cmd(&raw)
         .map_err(|e| anyhow::anyhow!("Invalid move expression '{}': {}", raw, e))?;
-    let result = page_cmd::execute_move(&project_root()?, cmd)
-        .map_err(|e| anyhow::anyhow!("{}", e))?;
+    let result =
+        page_cmd::execute_move(&project_root()?, cmd).map_err(|e| anyhow::anyhow!("{}", e))?;
     if result.pages_deleted.is_empty() {
         println!(
             "Moved photos. Modified pages: {}",
@@ -81,8 +81,8 @@ pub fn handle_split(address: &str) -> Result<()> {
 pub fn handle_combine(pages_str: &str) -> Result<()> {
     let pages = parse_pages_expr(pages_str)
         .map_err(|e| anyhow::anyhow!("Invalid pages expression '{}': {}", pages_str, e))?;
-    let result = page_cmd::execute_combine(&project_root()?, pages)
-        .map_err(|e| anyhow::anyhow!("{}", e))?;
+    let result =
+        page_cmd::execute_combine(&project_root()?, pages).map_err(|e| anyhow::anyhow!("{}", e))?;
     println!(
         "Combined onto page {}. Deleted pages: {}",
         result.pages_modified.first().copied().unwrap_or(0),
@@ -99,8 +99,8 @@ pub fn handle_swap(left: &str, right: &str) -> Result<()> {
         left: left_src,
         right: right_dst,
     };
-    let result = page_cmd::execute_move(&project_root()?, cmd)
-        .map_err(|e| anyhow::anyhow!("{}", e))?;
+    let result =
+        page_cmd::execute_move(&project_root()?, cmd).map_err(|e| anyhow::anyhow!("{}", e))?;
     println!(
         "Swapped photos. Modified pages: {}",
         format_page_list(&result.pages_modified)
@@ -158,7 +158,10 @@ fn print_vertical(s: &SlotInfo) {
     println!("  pixels:  {}x{}", s.width_px, s.height_px);
     println!("  ratio:   {ratio:.2}");
     println!("  weight:  {}", s.area_weight);
-    println!("  canvas:  {:.1}mm × {:.1}mm", s.page_width_mm, s.page_height_mm);
+    println!(
+        "  canvas:  {:.1}mm × {:.1}mm",
+        s.page_width_mm, s.page_height_mm
+    );
     if let Some(sl) = &s.placement {
         println!(
             "  placed:  x={:.1}mm y={:.1}mm w={:.1}mm h={:.1}mm",
@@ -203,9 +206,24 @@ fn print_table(slots: &[SlotInfo]) {
     // Column widths: max of header and all row values.
     let w_slot = rows.iter().map(|r| r.slot.len()).max().unwrap_or(0).max(4);
     let w_ratio = rows.iter().map(|r| r.ratio.len()).max().unwrap_or(0).max(5);
-    let w_weight = rows.iter().map(|r| r.weight.len()).max().unwrap_or(0).max(6);
-    let w_pixels = rows.iter().map(|r| r.pixels.len()).max().unwrap_or(0).max(6);
-    let w_placed = rows.iter().map(|r| r.placed.len()).max().unwrap_or(0).max(6);
+    let w_weight = rows
+        .iter()
+        .map(|r| r.weight.len())
+        .max()
+        .unwrap_or(0)
+        .max(6);
+    let w_pixels = rows
+        .iter()
+        .map(|r| r.pixels.len())
+        .max()
+        .unwrap_or(0)
+        .max(6);
+    let w_placed = rows
+        .iter()
+        .map(|r| r.placed.len())
+        .max()
+        .unwrap_or(0)
+        .max(6);
 
     let mut current_page: Option<u32> = None;
     for (s, row) in slots.iter().zip(rows.iter()) {
@@ -216,7 +234,10 @@ fn print_table(slots: &[SlotInfo]) {
             if shown == s.total_page_slots {
                 println!("page {}{cover_tag}{dims}", s.page);
             } else {
-                println!("page {}{cover_tag}  ({}/{} slots shown){dims}", s.page, shown, s.total_page_slots);
+                println!(
+                    "page {}{cover_tag}  ({}/{} slots shown){dims}",
+                    s.page, shown, s.total_page_slots
+                );
             }
             println!(
                 "  {:<w_slot$}  {:<w_ratio$}  {:<w_weight$}  {:<w_pixels$}  {:<w_placed$}  id",
