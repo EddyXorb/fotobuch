@@ -1,0 +1,14 @@
+[book]
+title = "fotobuch"
+authors = ["EddyXorb"]
+language = "en"
+src = "src"
+
+[output.html]
+site-url = "/fotobuch/"
+git-repository-url = "https://github.com/EddyXorb/fotobuch"
+git-repository-icon = "fa-github"
+edit-url-template = "https://github.com/EddyXorb/fotobuch/edit/main/docs/book/src/{path}"
+
+[output.html.search]
+enable = true
