@@ -6,7 +6,9 @@ use tracing::{debug, warn};
 use crate::dto_models::{PhotoFile, PhotoGroup};
 use crate::input::xmp;
 
-use super::helper::{get_all_dirs_recursive, is_supported_image, naive_to_utc, parse_timestamp_from_name};
+use super::helper::{
+    get_all_dirs_recursive, is_supported_image, naive_to_utc, parse_timestamp_from_name,
+};
 use super::metadata::enrich_photo_metadata;
 use super::types::{ScanStats, ScannerFilters, ScannerInput};
 

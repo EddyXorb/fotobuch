@@ -94,8 +94,8 @@ pub fn write_yaml(path: &Path, state: &ProjectState) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::NewConfig;
+    use super::*;
     use tempfile::TempDir;
 
     fn test_config() -> NewConfig {
