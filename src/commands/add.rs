@@ -16,7 +16,7 @@ use regex::Regex;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
-use crate::input::scanner::{self, ScannerInput};
+use crate::input::scan::{self as scanner, ScannerInput};
 use crate::state_manager::StateManager;
 
 /// Configuration for adding photos

@@ -3,31 +3,23 @@ mod metadata;
 mod scanner;
 mod types;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use std::path::Path;
 
 use crate::dto_models::PhotoGroup;
 
+use scanner::Scanner;
+
 // Re-export public API
 pub use helper::parse_timestamp_from_name;
 pub use metadata::enrich_photo_metadata;
-pub use scanner::Scanner;
-pub use types::{ScanStats, ScannerInput, ScannerOutput};
+pub use types::{ScanStats, ScannerFilters, ScannerInput, ScannerOutput};
 
-// For tests
 #[cfg(test)]
-use {crate::dto_models::PhotoFile, chrono::Utc, regex::Regex, std::path::PathBuf};
+use {chrono::Utc, regex::Regex, std::path::PathBuf};
 
 /// Scans photos from given paths, applies filters, and returns groups with statistics.
-///
-/// # Steps
-/// 1. Create Scanner with filters
-/// 2. For each path: dispatch to file or directory scanner
-/// 3. Filtering happens inside scan methods (early filtering)
-/// 4. Return all groups + stats
 pub fn scan_photos(input: ScannerInput) -> Result<ScannerOutput> {
-    use anyhow::Context;
-
     let mut scanner = Scanner::new(&input);
     let mut groups = Vec::new();
 
@@ -73,6 +65,7 @@ pub fn scan_photo_group_dirs(root: &Path) -> Result<Vec<PhotoGroup>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::dto_models::PhotoFile;
 
     #[test]
     fn test_parse_timestamp_basic() {
@@ -96,8 +89,6 @@ mod tests {
 
     #[test]
     fn test_exif_orientation_swaps_dimensions() {
-        // Test that a portrait photo with EXIF orientation tag 6 (90° CW)
-        // has its width and height swapped to match display orientation.
         let portrait_path = PathBuf::from("tests/fixtures/rotated/portrait.jpg");
 
         if !portrait_path.exists() {
@@ -117,9 +108,6 @@ mod tests {
 
         enrich_photo_metadata(&mut photo);
 
-        // After reading EXIF with orientation 6, dimensions should be swapped.
-        // Original pixels are read, then swapped because orientation tag says "rotate 90°".
-        // Portrait photo dimensions should have width < height after orientation handling.
         assert!(photo.width_px > 0, "width should be set");
         assert!(photo.height_px > 0, "height should be set");
         assert!(
@@ -149,13 +137,10 @@ mod tests {
         let output = scan_photos(input).expect("scan_single_file should succeed");
         assert_eq!(output.groups.len(), 1, "should return exactly one group");
         let group = &output.groups[0];
-        assert_eq!(
-            group.group, "rotated",
-            "group name should be parent dir name"
-        );
+        assert_eq!(group.group, "rotated", "group name should be parent dir name");
         assert_eq!(group.files.len(), 1, "should contain exactly one photo");
 
-        let photo = &group.files[0];
+        let photo = &output.groups[0].files[0];
         assert!(photo.source.ends_with("portrait.jpg"));
         assert_eq!(photo.area_weight, 1.0);
         assert!(photo.width_px > 0 && photo.height_px > 0);
@@ -163,27 +148,18 @@ mod tests {
 
     #[test]
     fn test_scan_single_file_unsupported() {
-        // Test with a path that has an unsupported extension
-        // Even if file doesn't exist, the extension check happens first
         let unsupported_path = PathBuf::from("tests/fixtures/unsupported.txt");
 
         let input = ScannerInput {
-            paths: vec![unsupported_path.clone()],
+            paths: vec![unsupported_path],
             xmp_filters: vec![],
             source_filters: vec![],
             recursive: false,
         };
 
-        // This should either skip the path (if no exist check) or bail (if file doesn't exist)
-        // For now, just verify it doesn't panic with correct behavior
         match scan_photos(input) {
-            Ok(output) => {
-                // If file doesn't exist, extension is checked first and returns empty
-                assert_eq!(output.groups.len(), 0);
-            }
-            Err(_) => {
-                // File doesn't exist - that's fine for this test
-            }
+            Ok(output) => assert_eq!(output.groups.len(), 0),
+            Err(_) => {}
         }
     }
 
@@ -211,7 +187,6 @@ mod tests {
             return;
         }
 
-        // Filter that matches the path
         let matching_filter = Regex::new("portrait").unwrap();
         let input = ScannerInput {
             paths: vec![portrait_path.clone()],
@@ -225,7 +200,6 @@ mod tests {
         assert_eq!(output.groups[0].files.len(), 1);
         assert_eq!(output.stats.source_filtered, 0);
 
-        // Filter that doesn't match
         let non_matching_filter = Regex::new("landscape").unwrap();
         let input = ScannerInput {
             paths: vec![portrait_path],
