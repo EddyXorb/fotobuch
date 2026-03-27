@@ -1,4 +1,4 @@
-# Cover Modes — Visual Guide
+# Cover Modes
 
 Each cover mode determines how photos are positioned and sized on the cover. The examples below show the result of each mode with a sample photo.
 
