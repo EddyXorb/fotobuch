@@ -1,9 +1,11 @@
 //! Detection of outdated pages when project state changes.
 
+use tracing::debug;
+
 use crate::dto_models::{ProjectState, SpineConfig};
 use std::collections::{BTreeSet, HashMap, HashSet};
 
-const ASPECT_RATIO_THRESHOLD: f64 = 0.001;
+const ASPECT_RATIO_THRESHOLD: f64 = 0.005;
 const WEIGHT_THRESHOLD: f64 = 0.01;
 
 /// Metadata for a single photo used in change detection.
@@ -50,12 +52,21 @@ pub fn compute_outdated_pages(reference: &ProjectState, new: &ProjectState) -> V
             inner_canvas_outdated
         };
         let skip_ar_check = cover_skips_ar && is_cover;
-        if canvas_outdated
-            || page_is_outdated_by_metadata(&changed_photos, new_page)
-            || page_is_outdated_by_slot_structure(new_page, &reference.layout, &page_hashes)
-            || (!skip_ar_check
-                && page_is_outdated_by_aspect_ratio_violation(new_page, &ref_photo_metadata))
-        {
+        let reasons: &[(&str, &dyn Fn() -> bool)] = &[
+            ("canvas outdated", &|| canvas_outdated),
+            ("metadata changed", &|| {
+                page_is_outdated_by_metadata(&changed_photos, new_page)
+            }),
+            ("slot structure changed", &|| {
+                page_is_outdated_by_slot_structure(new_page, &reference.layout, &page_hashes)
+            }),
+            ("AR violation", &|| {
+                !skip_ar_check
+                    && page_is_outdated_by_aspect_ratio_violation(new_page, &ref_photo_metadata)
+            }),
+        ];
+        if let Some((reason, _)) = reasons.iter().find(|(_, cond)| cond()) {
+            debug!("page {page_index} outdated: {reason}");
             outdated.push(page_index);
         }
     }
