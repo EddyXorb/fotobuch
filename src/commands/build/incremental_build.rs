@@ -5,7 +5,7 @@ use crate::cache::preview;
 use crate::state_manager::StateManager;
 use anyhow::Result;
 use std::path::Path;
-use tracing::{info, warn};
+use tracing::info;
 
 /// Performs incremental build: updates only modified pages.
 pub fn incremental_build(
@@ -27,19 +27,9 @@ pub fn incremental_build(
     }
 
     // 2. Detect which pages need rebuilding
-    let mut page_indices_needing_rebuild = mgr.outdated_pages_indices();
+    let page_indices_needing_rebuild = mgr.outdated_pages_indices();
 
-    // 3. If cover is active and index 0 is outdated, skip it and warn the user
-    let has_cover = mgr.state.config.book.cover.active;
-    if has_cover && page_indices_needing_rebuild.contains(&0) {
-        warn!(
-            "Cover page (index 0) has changes but will not be rebuilt automatically. \
-             Use `rebuild --page 0` to rebuild it explicitly."
-        );
-        page_indices_needing_rebuild.retain(|&idx| idx != 0);
-    }
-
-    // 4. Apply page filter if specified
+    // 3. Apply page filter if specified
     let pages_needing_rebuild = apply_page_filter(page_indices_needing_rebuild, page_filter);
 
     if pages_needing_rebuild.is_empty() {

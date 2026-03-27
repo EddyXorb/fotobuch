@@ -2,24 +2,19 @@
 
 ## Cover page
 
-Cover support exists but is still rough around the edges. The solver treats the
-cover as a regular page during the first build, so it places multiple photos on
-it.
+Set `config.book.cover.mode` to a structured value (e.g. `front`, `spread-full`,
+`split`) to get a deterministic, photo-count-aware cover layout without touching
+the GA solver.  See [Cover modes](configuration.md#cover-modes) in the
+configuration reference.
 
-**Workaround** to get a single cover photo:
+The default mode is `free`, which lets the GA solver treat the cover like any
+other page.  If you use `free` mode after the first build you may need to
+manually reassign photos:
 
 ```bash
-# 1. After first build, move all but one photo off the cover (page 0)
+# Move all but one photo off the cover (page 0)
 fotobuch page move 0:1.. to 0+
-
-# 2. Swap the remaining photo for one you actually want as the cover
-fotobuch page swap 0:0 4:2   # swap with slot 2 on page 4, for example
-
-# 3. Or add a fresh photo and place it directly onto the cover
-fotobuch add ../cover-photo.jpg
-fotobuch place --into 0
-
-# 4. Edit the YAML to fine-tune slot positions if needed
+fotobuch rebuild --page 0
 ```
 
 ## What fotobuch deliberately does not do

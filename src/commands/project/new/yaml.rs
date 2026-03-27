@@ -48,6 +48,8 @@ pub fn generate_default_state(config: &NewConfig) -> ProjectState {
         };
         CoverConfig {
             active: true,
+            mode: Default::default(),
+            spine_clearance_mm: 5.0,
             spine: spine_config,
             front_back_width_mm: cw,
             height_mm: ch,

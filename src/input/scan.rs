@@ -160,9 +160,8 @@ mod tests {
             recursive: false,
         };
 
-        match scan_photos(input) {
-            Ok(output) => assert_eq!(output.groups.len(), 0),
-            Err(_) => {}
+        if let Ok(output) = scan_photos(input) {
+            assert_eq!(output.groups.len(), 0)
         }
     }
 

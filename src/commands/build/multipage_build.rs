@@ -1,5 +1,6 @@
 use super::BuildResult;
-use super::helpers::update_preview_pdf;
+use super::helpers::{build_photo_index, update_preview_pdf};
+use super::rebuild_single_page::rebuild_single_page;
 use crate::cache::preview;
 use crate::dto_models::{BookLayoutSolverConfig, PhotoGroup};
 use crate::solver::{Request, RequestType, run_solver};
@@ -73,6 +74,15 @@ pub fn multipage_build(
         mgr.state.layout = new_pages;
         pages_rebuilt
     };
+
+    // 4b. When the cover is active, re-solve page 0 with the correct cover dimensions.
+    //     The MultiPage solver used inner-page canvas dimensions for all pages including
+    //     the cover — this step fixes that using the appropriate solver (GA for Free mode,
+    //     deterministic cover solver for all other modes).
+    if params.range.is_none() && mgr.state.config.book.cover.active {
+        let photo_index = build_photo_index(&mgr.state.photos);
+        rebuild_single_page(&mut mgr.state, 0, &photo_index)?;
+    }
 
     let bleed_mm = mgr.state.config.book.bleed_mm; // need to backup these before mgr gets consumed
     let project_name = mgr.project_name().to_string();

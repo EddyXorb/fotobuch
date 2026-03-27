@@ -20,6 +20,11 @@ fn init_git_repo(temp_dir: &TempDir) -> Result<()> {
         .args(["config", "user.name", "Test User"])
         .current_dir(dir)
         .output()?;
+    // Disable commit signing so tests work in environments with gpgsign=true
+    Command::new("git")
+        .args(["config", "commit.gpgsign", "false"])
+        .current_dir(dir)
+        .output()?;
 
     std::fs::write(dir.join("README.md"), "# Test Project\n")?;
     Command::new("git")

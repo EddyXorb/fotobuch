@@ -41,21 +41,22 @@ pub enum RebuildScope {
 /// # Behavior by scope:
 ///
 /// ## Single page: `rebuild --page 0`
-/// - Page-Layout-Solver on the given page, forced even if clean
-/// - Photo assignment stays the same, only layout[idx].slots is rewritten
-/// - Does not trigger Book-Layout-Solver
-/// - **Cover page (index 0) can only be rebuilt via this form.**
+/// - Slots are recomputed for the given page (GA or deterministic cover solver).
+/// - Photo assignment stays the same, only layout[idx].slots is rewritten.
+/// - Does not trigger Book-Layout-Solver.
+/// - This is the recommended way to refresh the cover after changing cover photos.
 ///
 /// ## Page range: `rebuild --range 3-7`
-/// - Book-Layout-Solver on subset, then Page-Layout-Solver for each page
-/// - Surrounding pages unchanged
-/// - Page count stays the same (unless --flex is used)
-/// - If range starts at 0 (cover active): cover is skipped with a warning; range becomes 1..end
+/// - Book-Layout-Solver on subset, then Page-Layout-Solver for each page.
+/// - Surrounding pages unchanged.
+/// - Page count stays the same (unless --flex is used).
+/// - If range starts at 0 (cover active): cover is skipped; range becomes 1..end
+///   (use `rebuild --page 0` to rebuild the cover explicitly).
 ///
 /// ## All: `rebuild` (no arguments)
-/// - All inner photos redistributed fresh via Book-Layout-Solver + Page-Layout-Solver
-/// - If cover is active: cover is skipped with a warning (use `rebuild --page 0` explicitly)
-/// - Manual changes in layout are lost (but git-recoverable)
+/// - All inner photos redistributed fresh via Book-Layout-Solver + Page-Layout-Solver.
+/// - If cover is active: cover is skipped (use `rebuild --page 0` explicitly).
+/// - Manual changes in layout are lost (but git-recoverable).
 pub fn rebuild(project_root: &Path, scope: RebuildScope) -> Result<BuildResult> {
     let mgr = StateManager::open(project_root)?;
 
