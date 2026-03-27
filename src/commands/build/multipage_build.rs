@@ -46,31 +46,22 @@ pub fn multipage_build(
     let cache_result = preview::ensure_previews(&mut mgr.state, &preview_cache_dir)?;
 
     // 2. Determine solver config
-    let config = if let Some(custom) = params.custom_config {
-        custom
+    let config = if let Some(ref custom) = params.custom_config {
+        &custom
     } else {
-        mgr.state.config.book_layout_solver.clone()
+        &mgr.state.config.book_layout_solver
     };
 
     // 3. For full rebuilds with a structured cover (non-Free mode): peel off the first N
     //    photos and solve the cover separately so the multipage solver only sees inner pages.
-    let cover_cfg = mgr.state.config.book.cover.clone();
-    let is_structured_cover =
-        params.range.is_none() && cover_cfg.active && !cover_cfg.mode.is_free();
-
-    let (cover_files_opt, inner_groups) = if is_structured_cover {
-        let n = cover_cfg.mode.required_slots().unwrap();
-        let (cover_files, remaining) = split_cover_photos(params.groups, n);
-        (Some(cover_files), remaining)
-    } else {
-        (None, params.groups.to_vec())
-    };
+    let cover_cfg = &mgr.state.config.book.cover;
+    let (cover_files_opt, inner_groups) = split_cover_files(&params, &cover_cfg);
 
     // 4. Run MultiPage solver (inner pages only when structured cover is active)
     let mut new_pages = run_solver(&Request {
         request_type: RequestType::MultiPage,
         groups: &inner_groups,
-        config: &config,
+        config: config,
         ga_config: &mgr.state.config.page_layout_solver,
         canvas_config: &mgr.state.config.book,
     })?;
@@ -102,7 +93,7 @@ pub fn multipage_build(
     // 7. For Free mode cover: re-solve page 0 with the correct cover spread dimensions
     //    (the MultiPage solver used inner-page canvas dimensions for all pages including
     //    the cover — this step fixes that using the GA solver).
-    if params.range.is_none()
+    if params.range.is_none_or(|r| r.0 == 0)
         && mgr.state.config.book.cover.active
         && mgr.state.config.book.cover.mode.is_free()
     {
@@ -132,6 +123,23 @@ pub fn multipage_build(
         dpi_warnings: Vec::new(),
         nothing_to_do: false,
     })
+}
+
+fn split_cover_files(
+    params: &MultiPageParams<'_>,
+    cover_cfg: &CoverConfig,
+) -> (Option<Vec<PhotoFile>>, Vec<PhotoGroup>) {
+    let is_structured_cover =
+        params.range.is_none() && cover_cfg.active && !cover_cfg.mode.is_free();
+
+    let (cover_files_opt, inner_groups) = if is_structured_cover {
+        let n = cover_cfg.mode.required_slots().unwrap();
+        let (cover_files, remaining) = split_cover_photos(params.groups, n);
+        (Some(cover_files), remaining)
+    } else {
+        (None, params.groups.to_vec())
+    };
+    (cover_files_opt, inner_groups)
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────
