@@ -35,8 +35,7 @@ config:
     islands_nr_migrants: 2
     enforce_order: true
   preview:
-    show_filenames: true
-    show_page_numbers: true
+    show_filenames: false
     max_preview_px: 800
   book_layout_solver:
     page_target: 6

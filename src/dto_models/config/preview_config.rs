@@ -5,8 +5,6 @@ use serde::{Deserialize, Serialize};
 pub struct PreviewConfig {
     #[serde(default = "default_show_filenames")]
     pub show_filenames: bool,
-    #[serde(default = "default_show_page_numbers")]
-    pub show_page_numbers: bool,
     #[serde(default = "default_max_preview_px")]
     pub max_preview_px: u32,
     /// Show red bleed border and blue margin border overlays
@@ -21,7 +19,6 @@ impl Default for PreviewConfig {
     fn default() -> Self {
         Self {
             show_filenames: default_show_filenames(),
-            show_page_numbers: default_show_page_numbers(),
             max_preview_px: default_max_preview_px(),
             show_borders: default_show_borders(),
             show_slot_info: default_show_slot_info(),
@@ -31,10 +28,6 @@ impl Default for PreviewConfig {
 
 fn default_show_filenames() -> bool {
     false
-}
-
-fn default_show_page_numbers() -> bool {
-    true
 }
 
 fn default_max_preview_px() -> u32 {

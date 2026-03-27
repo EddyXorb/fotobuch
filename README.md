@@ -138,8 +138,7 @@ config:
       secs: 30
       nanos: 0
   preview:
-    show_filenames: true
-    show_page_numbers: true
+    show_filenames: false
     max_preview_px: 800
 ```
 
