@@ -10,29 +10,29 @@ or see the [Full Flag Reference](cli/reference-generated.md).
 
 ## Commands at a glance
 
-| Command | What it does |
-|---|---|
-| `project new` | Create a new photobook project |
-| `project list` | List all projects in the current repo |
-| `project switch` | Switch to another project (checks out its Git branch) |
-| `add` | Import photos or folders into the project |
-| `remove` | Delete photos from the project entirely |
-| `place` | Assign unplaced photos to pages |
-| `unplace` | Remove photos from their page slots (they stay in the project) |
-| `build` | Solve layout and render preview PDF |
-| `build release` | Render final PDF at full resolution (300 DPI) |
-| `rebuild` | Re-run the solver on specific pages |
-| `page move` | Move photos between pages |
-| `page swap` | Swap pages or slots |
-| `page split` | Split a page at a slot |
-| `page combine` | Merge pages together |
-| `page info` | Show photo metadata for slots on a page |
-| `page weight` | Set the area weight for one or more slots |
-| `status` | Show project overview (or single-page detail) |
-| `config` | Print the resolved configuration with all defaults |
-| `history` | Show the project change log |
-| `undo` | Undo the last N changes |
-| `redo` | Redo N undone changes |
+| Command          | What it does                                                   |
+| ---------------- | -------------------------------------------------------------- |
+| `project new`    | Create a new photobook project                                 |
+| `project list`   | List all projects in the current repo                          |
+| `project switch` | Switch to another project (checks out its Git branch)          |
+| `add`            | Import photos or folders into the project                      |
+| `remove`         | Delete photos from the project entirely                        |
+| `place`          | Assign unplaced photos to pages                                |
+| `unplace`        | Remove photos from their page slots (they stay in the project) |
+| `build`          | Solve layout and render preview PDF                            |
+| `build release`  | Render final PDF at full resolution (300 DPI)                  |
+| `rebuild`        | Re-run the solver on specific pages                            |
+| `page move`      | Move photos between pages                                      |
+| `page swap`      | Swap pages or slots                                            |
+| `page split`     | Split a page at a slot                                         |
+| `page combine`   | Merge pages together                                           |
+| `page info`      | Show photo metadata for slots on a page                        |
+| `page weight`    | Set the area weight for one or more slots                      |
+| `status`         | Show project overview (or single-page detail)                  |
+| `config`         | Print the resolved configuration with all defaults             |
+| `history`        | Show the project change log                                    |
+| `undo`           | Undo the last N changes                                        |
+| `redo`           | Redo N undone changes                                          |
 
 ### `remove` vs. `unplace`
 
