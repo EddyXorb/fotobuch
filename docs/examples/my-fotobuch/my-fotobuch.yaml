@@ -1,23 +1,47 @@
 config:
   book:
     title: my-fotobuch
-    page_width_mm: 500.0
+    page_width_mm: 200.0
     page_height_mm: 300.0
-    bleed_mm: 3.0
+    bleed_mm: 0.0
     margin_mm: 0.0
     gap_mm: 5.0
-    bleed_threshold_mm: 3.0
-    dpi: 100.0
+    bleed_threshold_mm: 0.0
+    dpi: 300.0
     cover:
-      active: false
-      spine_mode: auto
-      spine_mm_per_10_pages: 1.4
-      front_back_width_mm: 0.0
-      height_mm: 0.0
-      bleed_mm: 3.0
+      active: true
+      mode: split-full
+      spine_clearance_mm: 5.0
+      spine_mode: fixed
+      spine_width_mm: 50.0
+      front_back_width_mm: 600.0
+      height_mm: 300.0
+      bleed_mm: 0.3
       margin_mm: 0.0
       gap_mm: 5.0
       bleed_threshold_mm: 3.0
+    appendix:
+      active: false
+      columns: 7
+      ref_mode: positions
+      page_separator: false
+      strip_timestamps: true
+      label_title: Photo Index
+      label_page: Page
+      date_format: '{day}. {month} {year} {hour}:{min}'
+      date_months:
+      - Jan
+      - Feb
+      - Mar
+      - Apr
+      - May
+      - Jun
+      - Jul
+      - Aug
+      - Sep
+      - Oct
+      - Nov
+      - Dec
   page_layout_solver:
     seed: 42
     population_size: 750
@@ -36,11 +60,13 @@ config:
     enforce_order: true
   preview:
     show_filenames: false
-    max_preview_px: 800
+    max_preview_px: 300
+    show_borders: false
+    show_slot_info: false
   book_layout_solver:
-    page_target: 6
+    page_target: 10
     page_min: 1
-    page_max: 12
+    page_max: 26
     photos_per_page_min: 1
     photos_per_page_max: 20
     group_max_per_page: 5
@@ -52,622 +78,622 @@ config:
       secs: 30
       nanos: 0
     max_coverage_cost: 0.95
-    enable_local_search: false
+    enable_local_search: true
     mip_rel_gap: 0.01
     max_photos_for_split: 300
     split_group_boundary_slack: 5
 photos:
 - group: source-images
-  sort_key: 2026-03-26T18:41:51.070794201+00:00
+  sort_key: 2026-03-27 14:37:23.317695+00:00
   files:
   - id: source-images/image-from-rawpixel-id-3259474-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-3259474-jpeg.jpg
     width_px: 1200
     height_px: 797
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.070794201Z
+    timestamp: 2026-03-27T14:37:23.317695Z
     hash: f1d831fa9ad43b621c172fc2eb6d74aadcafee5d468c471972787f9c0df1bb17
   - id: source-images/image-from-rawpixel-id-3282414-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-3282414-jpeg.jpg
     width_px: 1200
     height_px: 799
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.070970802Z
+    timestamp: 2026-03-27T14:37:23.319941Z
     hash: 78cf9d4ef89b54ab4d20d99f68965f3ea736529a36a1069163672d39a9136242
   - id: source-images/image-from-rawpixel-id-6032936-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-6032936-jpeg.jpg
     width_px: 900
     height_px: 1200
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.071035464Z
+    timestamp: 2026-03-27T14:37:23.320150Z
     hash: 98e3537e534044e9d87b6840fd8c20f68ce3628786614945946ff1046ba81918
   - id: source-images/image-from-rawpixel-id-6034843-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-6034843-jpeg.jpg
     width_px: 795
     height_px: 1200
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.071098090Z
+    timestamp: 2026-03-27T14:37:23.320415Z
     hash: 48f1b1a1fc7fc1d2c8c9571f25974cbc66df8c40872f955a67e597ace14b04b6
   - id: source-images/image-from-rawpixel-id-3298048-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-3298048-jpeg.jpg
     width_px: 1200
     height_px: 800
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.071184618Z
+    timestamp: 2026-03-27T14:37:23.320734Z
     hash: a3bbe605a579d86b236d91755843c73a74fa78dcd43455dfef31c6187c2ac976
   - id: source-images/image-from-rawpixel-id-5926623-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-5926623-jpeg.jpg
     width_px: 1200
     height_px: 800
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.071233044Z
+    timestamp: 2026-03-27T14:37:23.320894Z
     hash: 11739d0c24d7dadbc69e0c9839460eb5ef2794ce164efdecbf2b671c5104e996
   - id: source-images/image-from-rawpixel-id-6035464-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-6035464-jpeg.jpg
     width_px: 799
     height_px: 1201
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.071307956Z
+    timestamp: 2026-03-27T14:37:23.321255Z
     hash: eac4526fbf92d4f98b020852c7f03e1339e41ec49d0c1fb05db58bb739a6423c
   - id: source-images/image-from-rawpixel-id-3286475-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-3286475-jpeg.jpg
     width_px: 1200
     height_px: 797
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.071359921Z
+    timestamp: 2026-03-27T14:37:23.321474Z
     hash: 9150f70bc72d7c17ab131aa69af0b9ac2ed0cfd38f66a5c321e44ca7e392b931
   - id: source-images/image-from-rawpixel-id-5926008-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-5926008-jpeg.jpg
     width_px: 3500
     height_px: 1149
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.071417199Z
+    timestamp: 2026-03-27T14:37:23.321704Z
     hash: 9c96cb7898b3d7bdddb1b57b833888cf869726eb544f41332037f18dd0dd008f
   - id: source-images/image-from-rawpixel-id-4021278-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-4021278-jpeg.jpg
     width_px: 1200
     height_px: 807
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.071859381Z
+    timestamp: 2026-03-27T14:37:23.322691Z
     hash: 081ea6d1f7e39618d510583d50b12eb79c54515de915127b99c2a4c36a922d29
   - id: source-images/image-from-rawpixel-id-6041477-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-6041477-jpeg.jpg
     width_px: 800
     height_px: 1200
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.071931443Z
+    timestamp: 2026-03-27T14:37:23.322990Z
     hash: a37484cdb3b6571cff6de0a29ee9a7d889f161aea159bef6108773d9186250d9
   - id: source-images/image-from-rawpixel-id-6081836-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-6081836-jpeg.jpg
     width_px: 1200
     height_px: 927
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.071994550Z
+    timestamp: 2026-03-27T14:37:23.323198Z
     hash: 05f7a3d5d45c98b6a7daedc32de5504e583fad6c186fe7bb545a34b1beb3cfae
   - id: source-images/image-from-rawpixel-id-3285868-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-3285868-jpeg.jpg
     width_px: 1200
     height_px: 800
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.072054342Z
+    timestamp: 2026-03-27T14:37:23.323420Z
     hash: 2c7574ef30c2576b62bb47faee8bc21954daa6ca29f20fd9689e994af0565acb
   - id: source-images/image-from-rawpixel-id-5924543-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-5924543-jpeg.jpg
     width_px: 1200
     height_px: 800
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.072102832Z
+    timestamp: 2026-03-27T14:37:23.323583Z
     hash: 5c5ec4806d3cf72ee221701ec462cab5b4f96a4f18d5164dd9e80002563ff66c
   - id: source-images/image-from-rawpixel-id-6038098-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-6038098-jpeg.jpg
     width_px: 795
     height_px: 1200
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.072152543Z
+    timestamp: 2026-03-27T14:37:23.323741Z
     hash: 5a684a976bcabe31172ee54a7b55e81b26e2a0a0d62fb38d9da10a5595db0b42
   - id: source-images/image-from-rawpixel-id-5919997-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-5919997-jpeg.jpg
     width_px: 1200
     height_px: 774
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.072206814Z
+    timestamp: 2026-03-27T14:37:23.323938Z
     hash: 1ac614efa59532da98b0dd647fa037a130af1878cd7c0b7e356aef787d8b3fda
   - id: source-images/image-from-rawpixel-id-5925722-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-5925722-jpeg.jpg
     width_px: 1200
     height_px: 795
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.072261306Z
+    timestamp: 2026-03-27T14:37:23.324133Z
     hash: 27f52cd3f7b05d8ab9b3c73b3a3b8947c959a20567fa2a3d841614ce4e06a902
   - id: source-images/image-from-rawpixel-id-3282448-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-3282448-jpeg.jpg
     width_px: 1200
     height_px: 750
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.072316632Z
+    timestamp: 2026-03-27T14:37:23.324333Z
     hash: 65806b6d18516a9925e56e70405b8f0af2e3d3db7e2af219bf8de15fd87bbf2c
   - id: source-images/image-from-rawpixel-id-6035685-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-6035685-jpeg.jpg
     width_px: 800
     height_px: 1200
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.072369536Z
+    timestamp: 2026-03-27T14:37:23.324497Z
     hash: 9a5e3731346f2a8ea922531ab7d9dd3a100ca372318e1b006878ebc7e82e1bc2
   - id: source-images/image-from-rawpixel-id-5925600-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-5925600-jpeg.jpg
     width_px: 1200
     height_px: 792
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.072417855Z
+    timestamp: 2026-03-27T14:37:23.324670Z
     hash: eec102a25f41769dbee5b8416a866587f841da63f2103b363483aa1df755df69
   - id: source-images/image-from-rawpixel-id-3285065-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-3285065-jpeg.jpg
     width_px: 800
     height_px: 1200
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.072470688Z
+    timestamp: 2026-03-27T14:37:23.324837Z
     hash: d55258f657cf2178363c06103b78727cc5eb2db8aaaa0ebd0e8ad8dc12a7331f
   - id: source-images/image-from-rawpixel-id-8720119-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-8720119-jpeg.jpg
     width_px: 1200
     height_px: 793
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.072526551Z
+    timestamp: 2026-03-27T14:37:23.325030Z
     hash: 96f8131fb3089e1c79f593d6cc3c8b965e974aa9a7362f4252f91f4794bb2b8a
   - id: source-images/image-from-rawpixel-id-3060356-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-3060356-jpeg.jpg
     width_px: 1200
     height_px: 773
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.072582962Z
+    timestamp: 2026-03-27T14:37:23.325232Z
     hash: 72207732ac6d1b00709768750c9686f84a43c14e6fa353f0223fd826cd713b72
   - id: source-images/image-from-rawpixel-id-5925144-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-5925144-jpeg.jpg
     width_px: 797
     height_px: 1200
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.072644191Z
+    timestamp: 2026-03-27T14:37:23.325447Z
     hash: e1a5ee628b37e62dec5c6c08f28c2423bd9b1b3887a397ea9567a6626ead1d1c
   - id: source-images/image-from-rawpixel-id-5924616-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-5924616-jpeg.jpg
     width_px: 1200
     height_px: 800
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.072694358Z
+    timestamp: 2026-03-27T14:37:23.325636Z
     hash: 52b1e85111a29f65083dc9f7691660ed1f8a887e2d75cb2c07d8172c3b61c451
   - id: source-images/image-from-rawpixel-id-5949929-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-5949929-jpeg.jpg
     width_px: 1200
     height_px: 447
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.072741543Z
+    timestamp: 2026-03-27T14:37:23.325802Z
     hash: a06abcde6b87aafccf089ae7ce3dbfdf024d807000ed95c269670562dc2abe29
   - id: source-images/image-from-rawpixel-id-5967303-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-5967303-jpeg.jpg
     width_px: 797
     height_px: 1200
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.072790895Z
+    timestamp: 2026-03-27T14:37:23.325943Z
     hash: c1b342687ba3081f7586168a289ba80b4e1059f9c6440305fe71bf0d2ce9303a
   - id: source-images/image-from-rawpixel-id-6024147-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-6024147-jpeg.jpg
     width_px: 900
     height_px: 1200
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.072834007Z
+    timestamp: 2026-03-27T14:37:23.326063Z
     hash: d2e69509db97424a106d06bc4f6c3994333da86301e668daabbbcda6b6a1529f
   - id: source-images/image-from-rawpixel-id-6033571-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-6033571-jpeg.jpg
     width_px: 795
     height_px: 1200
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.072934649Z
+    timestamp: 2026-03-27T14:37:23.326531Z
     hash: 9587d129530182e9225bbb0936dc2fdd595554de6b6487fbe89e49f074d4fbe0
   - id: source-images/image-from-rawpixel-id-3284423-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-3284423-jpeg.jpg
     width_px: 800
     height_px: 1200
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.073008674Z
+    timestamp: 2026-03-27T14:37:23.326879Z
     hash: bebb55a59a09a9d00b538f95b0ba7d8b900826a12dd13d5b8091a57e3e61d7de
   - id: source-images/image-from-rawpixel-id-8719949-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-8719949-jpeg.jpg
     width_px: 1200
     height_px: 794
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.073060631Z
+    timestamp: 2026-03-27T14:37:23.327058Z
     hash: 216bdab2f48777d0649c84e3767d52bab9a1beb5042c53f406a8f6f3ed094cf6
   - id: source-images/image-from-rawpixel-id-5921238-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-5921238-jpeg.jpg
     width_px: 1200
     height_px: 820
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.073115524Z
+    timestamp: 2026-03-27T14:37:23.327260Z
     hash: aa2b6b49125a149f93274793a50032f32d667306ec4193a1a3c613c5d3d92e62
   - id: source-images/image-from-rawpixel-id-3338246-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-3338246-jpeg.jpg
     width_px: 1200
     height_px: 801
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.073176647Z
+    timestamp: 2026-03-27T14:37:23.327486Z
     hash: 29b8a748709391b40cd1f80dc568401edb4749d8374476f56018c310587f7167
   - id: source-images/image-from-rawpixel-id-3299699-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-3299699-jpeg.jpg
     width_px: 1200
     height_px: 900
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.073226941Z
+    timestamp: 2026-03-27T14:37:23.327616Z
     hash: 9736b3da67d504dec4d7c171ff57cafe6033765d03fddac313fe8698d05b5be6
   - id: source-images/image-from-rawpixel-id-4021204-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-4021204-jpeg.jpg
     width_px: 1200
     height_px: 878
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.073288747Z
+    timestamp: 2026-03-27T14:37:23.327827Z
     hash: 0847fe9c33465a1547f5b58878475201e3ec3c449c7360a4f1bf4fb3e8943b66
   - id: source-images/image-from-rawpixel-id-6035361-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-6035361-jpeg.jpg
     width_px: 795
     height_px: 1200
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.073347016Z
+    timestamp: 2026-03-27T14:37:23.327982Z
     hash: 369ec61f045d331f6a2964f7f1b494e47134078bbcb8f1fcf68d078a7e029e2c
   - id: source-images/image-from-rawpixel-id-6035929-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-6035929-jpeg.jpg
     width_px: 1080
     height_px: 1921
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.073424131Z
+    timestamp: 2026-03-27T14:37:23.328269Z
     hash: 26f89169d239685f9d8d8fcff27626be20c5491f46b6b1c2557aed84f529dbbe
   - id: source-images/image-from-rawpixel-id-6041428-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-6041428-jpeg.jpg
     width_px: 800
     height_px: 1200
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.073481309Z
+    timestamp: 2026-03-27T14:37:23.328464Z
     hash: 736d27e29ee5cde09428f3e7b3d7f167385c36a0ead0b9a54e5c5b847956c2ea
   - id: source-images/image-from-rawpixel-id-3286567-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-3286567-jpeg.jpg
     width_px: 1200
     height_px: 800
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.073534941Z
+    timestamp: 2026-03-27T14:37:23.328643Z
     hash: eff9ed538beb7ceeebd4e038b984f91dd57c3f15ff16e738307cb4fb1a0612dd
   - id: source-images/image-from-rawpixel-id-5912413-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-5912413-jpeg.jpg
     width_px: 896
     height_px: 1200
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.073601763Z
+    timestamp: 2026-03-27T14:37:23.328833Z
     hash: 51400ab2158ad11089577c4316887121ba4cd1273032e47f4b400a99228c5918
   - id: source-images/image-from-rawpixel-id-6129183-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-6129183-jpeg.jpg
     width_px: 1200
     height_px: 800
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.073667649Z
+    timestamp: 2026-03-27T14:37:23.329044Z
     hash: 3d0cbf6febc6c012f8ae4f5263f193a4097f537d0fff9b5f09e3e272aecad8c8
   - id: source-images/image-from-rawpixel-id-3864426-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-3864426-jpeg.jpg
     width_px: 1080
     height_px: 1920
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.073727742Z
+    timestamp: 2026-03-27T14:37:23.329243Z
     hash: acc6759b7270bc2344c67d162fdc1a64c2b0d7abafcf3817821aa68883498194
   - id: source-images/image-from-rawpixel-id-4021339-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-4021339-jpeg.jpg
     width_px: 1200
     height_px: 809
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.073811853Z
+    timestamp: 2026-03-27T14:37:23.329634Z
     hash: 3976dd905e1a296b36bb14430aeaa1b8c39565cf07bfc5c698de65c0fbb3dbdb
   - id: source-images/image-from-rawpixel-id-6037294-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-6037294-jpeg.jpg
     width_px: 1200
     height_px: 802
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.073929561Z
+    timestamp: 2026-03-27T14:37:23.330008Z
     hash: 1dcbff861af346dd4e3d14a51a79e5b00fd4d0d8d632b84d09b1d217ad4c3273
   - id: source-images/image-from-rawpixel-id-447850-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-447850-jpeg.jpg
     width_px: 800
     height_px: 1200
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.073981085Z
+    timestamp: 2026-03-27T14:37:23.330155Z
     hash: 52124e0c6c746c7554b9a4723d34f37c2f9b4bd4b77035e8beae290cc2d60dff
   - id: source-images/image-from-rawpixel-id-5920504-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-5920504-jpeg.jpg
     width_px: 1200
     height_px: 800
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.074034004Z
+    timestamp: 2026-03-27T14:37:23.330317Z
     hash: 32cbd471fc5824f7f1a2ec580b5303008e5f11fd6f6fe93dd935c0145972997a
   - id: source-images/image-from-rawpixel-id-6036629-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-6036629-jpeg.jpg
     width_px: 1200
     height_px: 800
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.074091792Z
+    timestamp: 2026-03-27T14:37:23.330492Z
     hash: d39bdbd607e4551ad6abcc544193a87ee29bb7f609dcfdea1611810732cec1ad
   - id: source-images/image-from-rawpixel-id-3337874-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-3337874-jpeg.jpg
     width_px: 2000
     height_px: 1414
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.074142909Z
+    timestamp: 2026-03-27T14:37:23.330674Z
     hash: a0470ad84f6d09c76dee9e65cc5efd0ddbf68e22e5775bee174173eb13265ff1
   - id: source-images/image-from-rawpixel-id-3311308-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-3311308-jpeg.jpg
     width_px: 1200
     height_px: 515
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.074241252Z
+    timestamp: 2026-03-27T14:37:23.331017Z
     hash: c0b7e8637f272f6bcfb3ba459e9ee4e29d8f5613dccd8c7ece214a4ea3a76d7f
   - id: source-images/image-from-rawpixel-id-5909091-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-5909091-jpeg.jpg
     width_px: 800
     height_px: 1200
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.074293527Z
+    timestamp: 2026-03-27T14:37:23.331158Z
     hash: 3dca079e16e7c203c5f642d4b4b55fe6a6a92db7756a69b06e3119069b4dca07
   - id: source-images/image-from-rawpixel-id-3060031-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-3060031-jpeg.jpg
     width_px: 1200
     height_px: 800
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.074352631Z
+    timestamp: 2026-03-27T14:37:23.331333Z
     hash: 933a88cd55051b08eb2068e45a78d7255d3d933b9d7cb953da147c484756968e
   - id: source-images/image-from-rawpixel-id-5922245-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-5922245-jpeg.jpg
     width_px: 1200
     height_px: 476
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.074409350Z
+    timestamp: 2026-03-27T14:37:23.331494Z
     hash: 7642d87306d3aaa79560846bc7f105bcfc6d19fd830ea133dc0fdd1806a5d017
   - id: source-images/image-from-rawpixel-id-3283024-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-3283024-jpeg.jpg
     width_px: 1200
     height_px: 800
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.074474633Z
+    timestamp: 2026-03-27T14:37:23.331692Z
     hash: 7a01ae0b9818844c7160eeab1129efa0a8d0af9dc59f397a176f0e5b3b918c02
   - id: source-images/image-from-rawpixel-id-3304152-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-3304152-jpeg.jpg
     width_px: 1200
     height_px: 800
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.074544809Z
+    timestamp: 2026-03-27T14:37:23.331906Z
     hash: 66b01eb87fc1ddd80c99e8955c1f3a5797a7dbbba667486adfb9e4c851d83a7b
   - id: source-images/image-from-rawpixel-id-3283049-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-3283049-jpeg.jpg
     width_px: 1200
     height_px: 800
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.074595897Z
+    timestamp: 2026-03-27T14:37:23.332047Z
     hash: 7b487665c974e356842dfaf507c25c1cb09fc5aa37f9e86f1abe2779cb21930a
   - id: source-images/image-from-rawpixel-id-8944621-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-8944621-jpeg.jpg
     width_px: 946
     height_px: 1200
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.074665966Z
+    timestamp: 2026-03-27T14:37:23.332260Z
     hash: 34bdfa96f3a2e82dfbb2699a6c8383898f732bb35e54d5a27af237c9c975fb2a
   - id: source-images/image-from-rawpixel-id-5925674-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-5925674-jpeg.jpg
     width_px: 1080
     height_px: 1080
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.074723374Z
+    timestamp: 2026-03-27T14:37:23.332439Z
     hash: 125ad9fde2ba0d1a2b815729f0ef51767f034eb2b2ff102fcd0e394bcdea191d
   - id: source-images/image-from-rawpixel-id-5927484-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-5927484-jpeg.jpg
     width_px: 1200
     height_px: 586
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.074807261Z
+    timestamp: 2026-03-27T14:37:23.332771Z
     hash: 05839675d11302a2bf10393b05c295c07671713d852119b9fda3937860fe416e
   - id: source-images/image-from-rawpixel-id-5926854-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-5926854-jpeg.jpg
     width_px: 1200
     height_px: 801
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.074874682Z
+    timestamp: 2026-03-27T14:37:23.332930Z
     hash: a85a5c13dc311934571d1db0ae716acfe62b388ea6c94228191c915a75430c23
   - id: source-images/image-from-rawpixel-id-3305676-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-3305676-jpeg.jpg
     width_px: 1200
     height_px: 795
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.074936064Z
+    timestamp: 2026-03-27T14:37:23.333066Z
     hash: f7254b0a9dd1bc8837c48f787306230c990923b5947c753e2af7e15cdac1f45f
   - id: source-images/image-from-rawpixel-id-3282316-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-3282316-jpeg.jpg
     width_px: 800
     height_px: 1200
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.075013690Z
+    timestamp: 2026-03-27T14:37:23.333315Z
     hash: 677da2b0cbaa3cfee764c7189a804c4cbb18dfb62e3b268f1f7ee6cf8d29efa1
   - id: source-images/image-from-rawpixel-id-6041306-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-6041306-jpeg.jpg
     width_px: 1200
     height_px: 800
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.075109376Z
+    timestamp: 2026-03-27T14:37:23.333660Z
     hash: b4c4978d6785dfb6ae18efce6e2b3ad472ea2df73168d9bce89176a7c4cfe4da
   - id: source-images/image-from-rawpixel-id-3286584-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-3286584-jpeg.jpg
     width_px: 1200
     height_px: 800
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.075177026Z
+    timestamp: 2026-03-27T14:37:23.333819Z
     hash: 2ac7a1067424cd6d109743c589d5580a0879eefcab9cee43d4cc7556fef8d480
   - id: source-images/image-from-rawpixel-id-422049-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-422049-jpeg.jpg
     width_px: 1200
     height_px: 806
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.075240665Z
+    timestamp: 2026-03-27T14:37:23.333982Z
     hash: 7930f553487d544bee2660d923bc8104f5559aec2a9222d925e5762957bcaaab
   - id: source-images/meerkat.jpg
     source: ../source-images/meerkat.jpg
     width_px: 800
     height_px: 1200
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.075305761Z
+    timestamp: 2026-03-27T14:37:23.334155Z
     hash: fe0338f097cb88dd3ef4f93ae01c35c411de51ed061b96a246b8025bfa759b53
   - id: source-images/image-from-rawpixel-id-527330-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-527330-jpeg.jpg
     width_px: 800
     height_px: 1200
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.075374313Z
+    timestamp: 2026-03-27T14:37:23.334369Z
     hash: 9a47be10a790710e64b26f1631e1818549eb34db6963b87967dc95242cf18e1e
   - id: source-images/image-from-rawpixel-id-3338177-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-3338177-jpeg.jpg
     width_px: 1200
     height_px: 640
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.075436189Z
+    timestamp: 2026-03-27T14:37:23.334529Z
     hash: 04ba0d4749ff71dc8a3e91ba31157aea62217b93517215798ce68989f2357c4e
   - id: source-images/image-from-rawpixel-id-3298578-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-3298578-jpeg.jpg
     width_px: 1200
     height_px: 801
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.075494937Z
+    timestamp: 2026-03-27T14:37:23.334676Z
     hash: 9e6f59211f1876d2dc9feb4bcf7f0d643163e94d21f7276e8bf7b23aed11a52b
   - id: source-images/image-from-rawpixel-id-3338300-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-3338300-jpeg.jpg
     width_px: 1200
     height_px: 800
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.075550792Z
+    timestamp: 2026-03-27T14:37:23.334861Z
     hash: 48f073670841e6d47b7b51ee2c9902ddee2941609a8dab7d75fb71e8c6c5ee10
   - id: source-images/image-from-rawpixel-id-3282288-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-3282288-jpeg.jpg
     width_px: 1200
     height_px: 741
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.075603046Z
+    timestamp: 2026-03-27T14:37:23.335011Z
     hash: fab151902b772eaa4133c3ce4093cbe01c4fac02459bee682b1e9099aa844899
   - id: source-images/image-from-rawpixel-id-3282633-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-3282633-jpeg.jpg
     width_px: 1200
     height_px: 797
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.075662486Z
+    timestamp: 2026-03-27T14:37:23.335186Z
     hash: 016ba5af7b6a4b693712798dc5d6e96091096fd1632f2bbeffecafd241641e2e
   - id: source-images/image-from-rawpixel-id-3310050-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-3310050-jpeg.jpg
     width_px: 800
     height_px: 1200
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.075729194Z
+    timestamp: 2026-03-27T14:37:23.335512Z
     hash: 5814a5f7bfb4027c15ba961c8b3cc8b898b880ae9926c80e506f8007e3861752
   - id: source-images/image-from-rawpixel-id-3284279-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-3284279-jpeg.jpg
     width_px: 1200
     height_px: 795
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.075783849Z
+    timestamp: 2026-03-27T14:37:23.335668Z
     hash: c92e576ceb16124b5229c6923e526a36ae2b2743768c0831b718d79c68c39fc0
   - id: source-images/image-from-rawpixel-id-4021258-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-4021258-jpeg.jpg
     width_px: 1200
     height_px: 787
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.075855991Z
+    timestamp: 2026-03-27T14:37:23.336028Z
     hash: 0232ed81098bd289abfb1338f22f1cf840cbf10bbb0c4f93815371de96e83e09
   - id: source-images/image-from-rawpixel-id-3237379-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-3237379-jpeg.jpg
     width_px: 1200
     height_px: 795
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.075915954Z
+    timestamp: 2026-03-27T14:37:23.336278Z
     hash: 8a64fe0990956e9478d3e4cf427fb032a6c6822636c6392dd29cd15797cd75be
   - id: source-images/image-from-rawpixel-id-6042451-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-6042451-jpeg.jpg
     width_px: 1920
     height_px: 1080
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.076001720Z
+    timestamp: 2026-03-27T14:37:23.336571Z
     hash: c23842272d3b2a5e5b0cd7c1a0fdc3ebaa55df25b9991048c0e900d8ab5df622
   - id: source-images/image-from-rawpixel-id-3339414-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-3339414-jpeg.jpg
     width_px: 1200
     height_px: 709
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.076089818Z
+    timestamp: 2026-03-27T14:37:23.337266Z
     hash: ed75eeb2b59dad53ce137764248a6c28d6b3c609134c383c69971b617d5f7fea
   - id: source-images/image-from-rawpixel-id-3282400-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-3282400-jpeg.jpg
     width_px: 1200
     height_px: 779
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.076148400Z
+    timestamp: 2026-03-27T14:37:23.337516Z
     hash: 825d2706115989ffa5fa19f7f05145f16c5ff70d43120fb077578e299094b20d
   - id: source-images/image-from-rawpixel-id-6028961-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-6028961-jpeg.jpg
     width_px: 1200
     height_px: 900
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.076207666Z
+    timestamp: 2026-03-27T14:37:23.337736Z
     hash: 418d9d3926b9c4005544d409907dd473fc21bfceadce209caddaa062ca9cbcb4
   - id: source-images/image-from-rawpixel-id-6083533-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-6083533-jpeg.jpg
     width_px: 1200
     height_px: 822
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.076265391Z
+    timestamp: 2026-03-27T14:37:23.338006Z
     hash: ba0b3cf633b0ce712c7600475f4fde057ba40a33a4ca430131b14fba2f8a1ff4
   - id: source-images/image-from-rawpixel-id-3282755-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-3282755-jpeg.jpg
     width_px: 900
     height_px: 1200
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.076321346Z
+    timestamp: 2026-03-27T14:37:23.338218Z
     hash: 788ccb918166b22f253c81d9ddb586817483aaa3a5c9251320be3a09c6dca2b2
   - id: source-images/image-from-rawpixel-id-3284117-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-3284117-jpeg.jpg
     width_px: 1200
     height_px: 800
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.076380089Z
+    timestamp: 2026-03-27T14:37:23.338487Z
     hash: d4ad7dc4f39ce05ad817af98ebe2b31dd1cb66c70f8d9780ef3852d1589bfb26
   - id: source-images/image-from-rawpixel-id-5926436-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-5926436-jpeg.jpg
     width_px: 1200
     height_px: 798
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.076427230Z
+    timestamp: 2026-03-27T14:37:23.338673Z
     hash: b6d3bdda1b6b6d95fa77d23515dcb041c374c462bc5e8ee111b120ea1dfc51f9
   - id: source-images/image-from-rawpixel-id-3305359-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-3305359-jpeg.jpg
     width_px: 900
     height_px: 1200
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.076488970Z
+    timestamp: 2026-03-27T14:37:23.339058Z
     hash: 3e2c964a4c506500caee3ed3950b0838d5bd5bc190df874f373837c4609c024f
   - id: source-images/image-from-rawpixel-id-3282333-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-3282333-jpeg.jpg
     width_px: 1200
     height_px: 800
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.076549450Z
+    timestamp: 2026-03-27T14:37:23.339244Z
     hash: 87800025d0d7d16db55e81dbf6e2a9639e4c49f0f34459f6cbedc762a0cf1aa0
   - id: source-images/image-from-rawpixel-id-6037879-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-6037879-jpeg.jpg
     width_px: 1200
     height_px: 798
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.076600912Z
+    timestamp: 2026-03-27T14:37:23.339418Z
     hash: fa8ed2b46bed6090801e984ad5c90561a0f32c781f1b75dcf80feb8e7abfb702
   - id: source-images/image-from-rawpixel-id-6042154-jpeg.jpg
     source: ../source-images/image-from-rawpixel-id-6042154-jpeg.jpg
     width_px: 960
     height_px: 1200
     area_weight: 1.0
-    timestamp: 2026-03-26T18:41:51.076659064Z
+    timestamp: 2026-03-27T14:37:23.339616Z
     hash: c3a19f0110b6696a68c67d0abc2f85a422af8f1da5b556a61b2d44a0f411c211
 layout:
 - page: 0
@@ -682,234 +708,227 @@ layout:
   - source-images/image-from-rawpixel-id-3286475-jpeg.jpg
   - source-images/image-from-rawpixel-id-5926008-jpeg.jpg
   - source-images/image-from-rawpixel-id-4021278-jpeg.jpg
+  slots:
+  - x_mm: 330.0
+    y_mm: 0.0
+    width_mm: 270.0
+    height_mm: 300.0
+  - x_mm: 0.0
+    y_mm: 0.0
+    width_mm: 270.0
+    height_mm: 300.0
+- page: 1
+  photos:
   - source-images/image-from-rawpixel-id-6041477-jpeg.jpg
   - source-images/image-from-rawpixel-id-6081836-jpeg.jpg
   - source-images/image-from-rawpixel-id-3285868-jpeg.jpg
   - source-images/image-from-rawpixel-id-5924543-jpeg.jpg
   - source-images/image-from-rawpixel-id-6038098-jpeg.jpg
-  slots:
-  - x_mm: -5.27
-    y_mm: -3.0
-    width_mm: 98.42
-    height_mm: 65.36
-  - x_mm: 98.25
-    y_mm: -3.0
-    width_mm: 98.17
-    height_mm: 65.36
-  - x_mm: 201.53
-    y_mm: -3.0
-    width_mm: 49.02
-    height_mm: 65.36
-  - x_mm: 255.66
-    y_mm: -3.0
-    width_mm: 43.3
-    height_mm: 65.36
-  - x_mm: 304.07
-    y_mm: -3.0
-    width_mm: 98.05
-    height_mm: 65.36
-  - x_mm: 407.22
-    y_mm: -3.0
-    width_mm: 98.05
-    height_mm: 65.36
-  - x_mm: -5.27
-    y_mm: 67.47
-    width_mm: 65.67
-    height_mm: 98.72
-  - x_mm: 65.51
-    y_mm: 67.47
-    width_mm: 148.63
-    height_mm: 98.72
-  - x_mm: -5.27
-    y_mm: 171.29
-    width_mm: 126.5
-    height_mm: 41.53
-  - x_mm: -5.27
-    y_mm: 217.93
-    width_mm: 126.5
-    height_mm: 85.07
-  - x_mm: 126.34
-    y_mm: 171.29
-    width_mm: 87.8
-    height_mm: 131.71
-  - x_mm: 219.25
-    y_mm: 67.47
-    width_mm: 130.13
-    height_mm: 100.52
-  - x_mm: 354.48
-    y_mm: 67.47
-    width_mm: 150.78
-    height_mm: 100.52
-  - x_mm: 219.25
-    y_mm: 173.1
-    width_mm: 194.85
-    height_mm: 129.9
-  - x_mm: 419.21
-    y_mm: 173.1
-    width_mm: 86.06
-    height_mm: 129.9
-- page: 1
-  photos:
   - source-images/image-from-rawpixel-id-5919997-jpeg.jpg
   - source-images/image-from-rawpixel-id-5925722-jpeg.jpg
   - source-images/image-from-rawpixel-id-3282448-jpeg.jpg
+  slots:
+  - x_mm: 9.36
+    y_mm: -0.0
+    width_mm: 59.92
+    height_mm: 89.89
+  - x_mm: 74.28
+    y_mm: -0.0
+    width_mm: 116.36
+    height_mm: 89.89
+  - x_mm: 9.36
+    y_mm: 94.89
+    width_mm: 88.14
+    height_mm: 58.76
+  - x_mm: 102.5
+    y_mm: 94.89
+    width_mm: 88.14
+    height_mm: 58.76
+  - x_mm: 9.36
+    y_mm: 158.65
+    width_mm: 52.78
+    height_mm: 79.66
+  - x_mm: 67.13
+    y_mm: 158.65
+    width_mm: 123.51
+    height_mm: 79.66
+  - x_mm: 9.36
+    y_mm: 243.31
+    width_mm: 85.57
+    height_mm: 56.69
+  - x_mm: 99.93
+    y_mm: 243.31
+    width_mm: 90.71
+    height_mm: 56.69
+- page: 2
+  photos:
   - source-images/image-from-rawpixel-id-6035685-jpeg.jpg
   - source-images/image-from-rawpixel-id-5925600-jpeg.jpg
   - source-images/image-from-rawpixel-id-3285065-jpeg.jpg
   - source-images/image-from-rawpixel-id-8720119-jpeg.jpg
   - source-images/image-from-rawpixel-id-3060356-jpeg.jpg
   - source-images/image-from-rawpixel-id-5925144-jpeg.jpg
+  slots:
+  - x_mm: 0.0
+    y_mm: 11.6
+    width_mm: 59.58
+    height_mm: 89.38
+  - x_mm: 64.58
+    y_mm: 11.6
+    width_mm: 135.42
+    height_mm: 89.38
+  - x_mm: 0.0
+    y_mm: 105.97
+    width_mm: 59.64
+    height_mm: 89.45
+  - x_mm: 64.64
+    y_mm: 105.97
+    width_mm: 135.36
+    height_mm: 89.45
+  - x_mm: 0.0
+    y_mm: 200.43
+    width_mm: 136.57
+    height_mm: 87.97
+  - x_mm: 141.57
+    y_mm: 200.43
+    width_mm: 58.43
+    height_mm: 87.97
+- page: 3
+  photos:
   - source-images/image-from-rawpixel-id-5924616-jpeg.jpg
   - source-images/image-from-rawpixel-id-5949929-jpeg.jpg
   - source-images/image-from-rawpixel-id-5967303-jpeg.jpg
   - source-images/image-from-rawpixel-id-6024147-jpeg.jpg
   - source-images/image-from-rawpixel-id-6033571-jpeg.jpg
   - source-images/image-from-rawpixel-id-3284423-jpeg.jpg
-  slots:
-  - x_mm: -3.0
-    y_mm: -3.46
-    width_mm: 142.82
-    height_mm: 92.12
-  - x_mm: 144.93
-    y_mm: -3.46
-    width_mm: 139.04
-    height_mm: 92.12
-  - x_mm: 289.09
-    y_mm: -3.46
-    width_mm: 147.39
-    height_mm: 92.12
-  - x_mm: 441.59
-    y_mm: -3.46
-    width_mm: 61.41
-    height_mm: 92.12
-  - x_mm: -3.0
-    y_mm: 93.77
-    width_mm: 141.67
-    height_mm: 93.5
-  - x_mm: 143.79
-    y_mm: 93.77
-    width_mm: 62.34
-    height_mm: 93.5
-  - x_mm: 211.24
-    y_mm: 93.77
-    width_mm: 141.49
-    height_mm: 93.5
-  - x_mm: 357.85
-    y_mm: 93.77
-    width_mm: 145.15
-    height_mm: 93.5
-  - x_mm: -3.0
-    y_mm: 192.39
-    width_mm: 73.77
-    height_mm: 111.07
-  - x_mm: 75.88
-    y_mm: 192.39
-    width_mm: 101.96
-    height_mm: 67.97
-  - x_mm: 75.88
-    y_mm: 265.48
-    width_mm: 101.96
-    height_mm: 37.98
-  - x_mm: 182.96
-    y_mm: 192.39
-    width_mm: 73.77
-    height_mm: 111.07
-  - x_mm: 261.84
-    y_mm: 192.39
-    width_mm: 83.3
-    height_mm: 111.07
-  - x_mm: 350.26
-    y_mm: 192.39
-    width_mm: 73.58
-    height_mm: 111.07
-  - x_mm: 428.95
-    y_mm: 192.39
-    width_mm: 74.05
-    height_mm: 111.07
-- page: 2
-  photos:
   - source-images/image-from-rawpixel-id-8719949-jpeg.jpg
   - source-images/image-from-rawpixel-id-5921238-jpeg.jpg
   - source-images/image-from-rawpixel-id-3338246-jpeg.jpg
   - source-images/image-from-rawpixel-id-3299699-jpeg.jpg
   - source-images/image-from-rawpixel-id-4021204-jpeg.jpg
   - source-images/image-from-rawpixel-id-6035361-jpeg.jpg
+  slots:
+  - x_mm: 0.0
+    y_mm: 3.95
+    width_mm: 69.9
+    height_mm: 46.6
+  - x_mm: 74.9
+    y_mm: 3.95
+    width_mm: 125.1
+    height_mm: 46.6
+  - x_mm: 0.0
+    y_mm: 55.55
+    width_mm: 60.29
+    height_mm: 90.77
+  - x_mm: 65.29
+    y_mm: 55.55
+    width_mm: 68.08
+    height_mm: 90.77
+  - x_mm: 0.0
+    y_mm: 151.32
+    width_mm: 63.98
+    height_mm: 96.58
+  - x_mm: 68.98
+    y_mm: 151.32
+    width_mm: 64.38
+    height_mm: 96.58
+  - x_mm: 0.0
+    y_mm: 252.9
+    width_mm: 65.22
+    height_mm: 43.15
+  - x_mm: 70.22
+    y_mm: 252.9
+    width_mm: 63.15
+    height_mm: 43.15
+  - x_mm: 138.36
+    y_mm: 55.55
+    width_mm: 61.64
+    height_mm: 41.14
+  - x_mm: 138.36
+    y_mm: 101.69
+    width_mm: 61.64
+    height_mm: 46.23
+  - x_mm: 138.36
+    y_mm: 152.92
+    width_mm: 61.64
+    height_mm: 45.1
+  - x_mm: 138.36
+    y_mm: 203.01
+    width_mm: 61.64
+    height_mm: 93.03
+- page: 4
+  photos:
   - source-images/image-from-rawpixel-id-6035929-jpeg.jpg
   - source-images/image-from-rawpixel-id-6041428-jpeg.jpg
   - source-images/image-from-rawpixel-id-3286567-jpeg.jpg
   - source-images/image-from-rawpixel-id-5912413-jpeg.jpg
   - source-images/image-from-rawpixel-id-6129183-jpeg.jpg
+  slots:
+  - x_mm: 0.0
+    y_mm: 2.56
+    width_mm: 88.41
+    height_mm: 157.26
+  - x_mm: 0.0
+    y_mm: 164.82
+    width_mm: 88.41
+    height_mm: 132.62
+  - x_mm: 93.41
+    y_mm: 2.56
+    width_mm: 106.59
+    height_mm: 71.06
+  - x_mm: 93.41
+    y_mm: 78.62
+    width_mm: 106.59
+    height_mm: 142.75
+  - x_mm: 93.41
+    y_mm: 226.38
+    width_mm: 106.59
+    height_mm: 71.06
+- page: 5
+  photos:
   - source-images/image-from-rawpixel-id-3864426-jpeg.jpg
   - source-images/image-from-rawpixel-id-4021339-jpeg.jpg
   - source-images/image-from-rawpixel-id-6037294-jpeg.jpg
   - source-images/image-from-rawpixel-id-447850-jpeg.jpg
-  slots:
-  - x_mm: -3.38
-    y_mm: -3.0
-    width_mm: 102.48
-    height_mm: 67.8
-  - x_mm: 104.2
-    y_mm: -3.0
-    width_mm: 99.23
-    height_mm: 67.8
-  - x_mm: 208.52
-    y_mm: -3.0
-    width_mm: 101.58
-    height_mm: 67.8
-  - x_mm: 315.2
-    y_mm: -3.0
-    width_mm: 90.41
-    height_mm: 67.8
-  - x_mm: 410.71
-    y_mm: -3.0
-    width_mm: 92.67
-    height_mm: 67.8
-  - x_mm: -3.38
-    y_mm: 69.9
-    width_mm: 69.34
-    height_mm: 104.66
-  - x_mm: -3.38
-    y_mm: 179.67
-    width_mm: 69.34
-    height_mm: 123.33
-  - x_mm: 71.06
-    y_mm: 69.9
-    width_mm: 105.23
-    height_mm: 157.84
-  - x_mm: 71.06
-    y_mm: 232.85
-    width_mm: 105.23
-    height_mm: 70.15
-  - x_mm: 181.39
-    y_mm: 69.9
-    width_mm: 113.66
-    height_mm: 152.22
-  - x_mm: 181.39
-    y_mm: 227.23
-    width_mm: 113.66
-    height_mm: 75.77
-  - x_mm: 300.15
-    y_mm: 69.9
-    width_mm: 92.99
-    height_mm: 165.31
-  - x_mm: 300.15
-    y_mm: 240.31
-    width_mm: 92.99
-    height_mm: 62.69
-  - x_mm: 398.23
-    y_mm: 69.9
-    width_mm: 105.15
-    height_mm: 70.27
-  - x_mm: 398.23
-    y_mm: 145.28
-    width_mm: 105.15
-    height_mm: 157.72
-- page: 3
-  photos:
   - source-images/image-from-rawpixel-id-5920504-jpeg.jpg
   - source-images/image-from-rawpixel-id-6036629-jpeg.jpg
   - source-images/image-from-rawpixel-id-3337874-jpeg.jpg
   - source-images/image-from-rawpixel-id-3311308-jpeg.jpg
+  slots:
+  - x_mm: 6.42
+    y_mm: -0.0
+    width_mm: 50.08
+    height_mm: 89.04
+  - x_mm: 61.51
+    y_mm: -0.0
+    width_mm: 132.07
+    height_mm: 89.04
+  - x_mm: 6.42
+    y_mm: 94.04
+    width_mm: 126.01
+    height_mm: 84.22
+  - x_mm: 137.43
+    y_mm: 94.04
+    width_mm: 56.15
+    height_mm: 84.22
+  - x_mm: 6.42
+    y_mm: 183.26
+    width_mm: 83.81
+    height_mm: 55.87
+  - x_mm: 6.42
+    y_mm: 244.13
+    width_mm: 83.81
+    height_mm: 55.87
+  - x_mm: 95.23
+    y_mm: 183.26
+    width_mm: 98.35
+    height_mm: 69.53
+  - x_mm: 95.23
+    y_mm: 257.79
+    width_mm: 98.35
+    height_mm: 42.21
+- page: 6
+  photos:
   - source-images/image-from-rawpixel-id-5909091-jpeg.jpg
   - source-images/image-from-rawpixel-id-3060031-jpeg.jpg
   - source-images/image-from-rawpixel-id-5922245-jpeg.jpg
@@ -917,75 +936,93 @@ layout:
   - source-images/image-from-rawpixel-id-3304152-jpeg.jpg
   - source-images/image-from-rawpixel-id-3283049-jpeg.jpg
   - source-images/image-from-rawpixel-id-8944621-jpeg.jpg
+  slots:
+  - x_mm: 0.0
+    y_mm: 3.83
+    width_mm: 110.15
+    height_mm: 165.22
+  - x_mm: 0.0
+    y_mm: 174.05
+    width_mm: 110.15
+    height_mm: 73.43
+  - x_mm: 0.0
+    y_mm: 252.48
+    width_mm: 110.15
+    height_mm: 43.69
+  - x_mm: 115.15
+    y_mm: 3.83
+    width_mm: 84.85
+    height_mm: 56.57
+  - x_mm: 115.15
+    y_mm: 65.4
+    width_mm: 84.85
+    height_mm: 56.57
+  - x_mm: 115.15
+    y_mm: 126.97
+    width_mm: 84.85
+    height_mm: 56.57
+  - x_mm: 115.15
+    y_mm: 188.54
+    width_mm: 84.85
+    height_mm: 107.64
+- page: 7
+  photos:
   - source-images/image-from-rawpixel-id-5925674-jpeg.jpg
   - source-images/image-from-rawpixel-id-5927484-jpeg.jpg
   - source-images/image-from-rawpixel-id-5926854-jpeg.jpg
-  slots:
-  - x_mm: -5.21
-    y_mm: -3.0
-    width_mm: 103.7
-    height_mm: 69.13
-  - x_mm: -5.21
-    y_mm: 71.24
-    width_mm: 103.7
-    height_mm: 69.13
-  - x_mm: 103.59
-    y_mm: -3.0
-    width_mm: 121.7
-    height_mm: 86.04
-  - x_mm: 103.59
-    y_mm: 88.14
-    width_mm: 121.7
-    height_mm: 52.23
-  - x_mm: 230.39
-    y_mm: -3.0
-    width_mm: 95.58
-    height_mm: 143.37
-  - x_mm: -5.21
-    y_mm: 145.47
-    width_mm: 121.64
-    height_mm: 81.09
-  - x_mm: 121.53
-    y_mm: 145.47
-    width_mm: 204.44
-    height_mm: 81.09
-  - x_mm: -5.21
-    y_mm: 231.67
-    width_mm: 106.99
-    height_mm: 71.33
-  - x_mm: 106.88
-    y_mm: 231.67
-    width_mm: 106.99
-    height_mm: 71.33
-  - x_mm: 218.98
-    y_mm: 231.67
-    width_mm: 106.99
-    height_mm: 71.33
-  - x_mm: 331.08
-    y_mm: -3.0
-    width_mm: 74.51
-    height_mm: 94.52
-  - x_mm: 410.69
-    y_mm: -3.0
-    width_mm: 94.52
-    height_mm: 94.52
-  - x_mm: 331.08
-    y_mm: 96.62
-    width_mm: 174.14
-    height_mm: 85.04
-  - x_mm: 331.08
-    y_mm: 186.76
-    width_mm: 174.14
-    height_mm: 116.24
-- page: 4
-  photos:
   - source-images/image-from-rawpixel-id-3305676-jpeg.jpg
   - source-images/image-from-rawpixel-id-3282316-jpeg.jpg
   - source-images/image-from-rawpixel-id-6041306-jpeg.jpg
   - source-images/image-from-rawpixel-id-3286584-jpeg.jpg
+  slots:
+  - x_mm: 0.0
+    y_mm: 5.99
+    width_mm: 96.87
+    height_mm: 96.87
+  - x_mm: 0.0
+    y_mm: 107.86
+    width_mm: 96.87
+    height_mm: 47.31
+  - x_mm: 0.0
+    y_mm: 160.17
+    width_mm: 96.87
+    height_mm: 64.66
+  - x_mm: 0.0
+    y_mm: 229.83
+    width_mm: 96.87
+    height_mm: 64.18
+  - x_mm: 101.87
+    y_mm: 5.99
+    width_mm: 98.13
+    height_mm: 147.19
+  - x_mm: 101.87
+    y_mm: 158.18
+    width_mm: 98.13
+    height_mm: 65.42
+  - x_mm: 101.87
+    y_mm: 228.59
+    width_mm: 98.13
+    height_mm: 65.42
+- page: 8
+  photos:
   - source-images/image-from-rawpixel-id-422049-jpeg.jpg
   - source-images/meerkat.jpg
   - source-images/image-from-rawpixel-id-527330-jpeg.jpg
+  slots:
+  - x_mm: 0.0
+    y_mm: 7.21
+    width_mm: 200.0
+    height_mm: 134.33
+  - x_mm: 0.0
+    y_mm: 146.54
+    width_mm: 97.5
+    height_mm: 146.25
+  - x_mm: 102.5
+    y_mm: 146.54
+    width_mm: 97.5
+    height_mm: 146.25
+- page: 9
+  photos:
   - source-images/image-from-rawpixel-id-3338177-jpeg.jpg
   - source-images/image-from-rawpixel-id-3298578-jpeg.jpg
   - source-images/image-from-rawpixel-id-3338300-jpeg.jpg
@@ -993,65 +1030,6 @@ layout:
   - source-images/image-from-rawpixel-id-3282633-jpeg.jpg
   - source-images/image-from-rawpixel-id-3310050-jpeg.jpg
   - source-images/image-from-rawpixel-id-3284279-jpeg.jpg
-  slots:
-  - x_mm: -3.0
-    y_mm: -4.78
-    width_mm: 105.77
-    height_mm: 70.07
-  - x_mm: -3.0
-    y_mm: 70.45
-    width_mm: 105.77
-    height_mm: 158.65
-  - x_mm: -3.0
-    y_mm: 234.26
-    width_mm: 105.77
-    height_mm: 70.51
-  - x_mm: 107.93
-    y_mm: -4.78
-    width_mm: 125.33
-    height_mm: 83.55
-  - x_mm: 107.93
-    y_mm: 83.93
-    width_mm: 125.33
-    height_mm: 84.18
-  - x_mm: 238.41
-    y_mm: -4.78
-    width_mm: 64.28
-    height_mm: 96.41
-  - x_mm: 307.85
-    y_mm: -4.78
-    width_mm: 64.28
-    height_mm: 96.41
-  - x_mm: 238.41
-    y_mm: 96.8
-    width_mm: 133.71
-    height_mm: 71.31
-  - x_mm: 377.28
-    y_mm: -4.78
-    width_mm: 125.72
-    height_mm: 83.92
-  - x_mm: 377.28
-    y_mm: 84.3
-    width_mm: 125.72
-    height_mm: 83.81
-  - x_mm: 107.93
-    y_mm: 173.27
-    width_mm: 98.58
-    height_mm: 60.87
-  - x_mm: 107.93
-    y_mm: 239.3
-    width_mm: 98.58
-    height_mm: 65.47
-  - x_mm: 211.67
-    y_mm: 173.27
-    width_mm: 87.67
-    height_mm: 131.51
-  - x_mm: 304.5
-    y_mm: 173.27
-    width_mm: 198.5
-    height_mm: 131.51
-- page: 5
-  photos:
   - source-images/image-from-rawpixel-id-4021258-jpeg.jpg
   - source-images/image-from-rawpixel-id-3237379-jpeg.jpg
   - source-images/image-from-rawpixel-id-6042451-jpeg.jpg
@@ -1059,6 +1037,65 @@ layout:
   - source-images/image-from-rawpixel-id-3282400-jpeg.jpg
   - source-images/image-from-rawpixel-id-6028961-jpeg.jpg
   - source-images/image-from-rawpixel-id-6083533-jpeg.jpg
+  slots:
+  - x_mm: -0.0
+    y_mm: 0.51
+    width_mm: 108.39
+    height_mm: 57.81
+  - x_mm: 113.39
+    y_mm: 0.51
+    width_mm: 86.61
+    height_mm: 57.81
+  - x_mm: -0.0
+    y_mm: 63.32
+    width_mm: 61.62
+    height_mm: 41.08
+  - x_mm: 66.62
+    y_mm: 63.32
+    width_mm: 66.53
+    height_mm: 41.08
+  - x_mm: 138.15
+    y_mm: 63.32
+    width_mm: 61.85
+    height_mm: 41.08
+  - x_mm: -0.0
+    y_mm: 109.4
+    width_mm: 38.16
+    height_mm: 57.23
+  - x_mm: 43.16
+    y_mm: 109.4
+    width_mm: 86.39
+    height_mm: 57.23
+  - x_mm: -0.0
+    y_mm: 171.64
+    width_mm: 129.55
+    height_mm: 84.96
+  - x_mm: -0.0
+    y_mm: 261.6
+    width_mm: 57.19
+    height_mm: 37.89
+  - x_mm: 62.19
+    y_mm: 261.6
+    width_mm: 67.36
+    height_mm: 37.89
+  - x_mm: 134.55
+    y_mm: 109.4
+    width_mm: 65.45
+    height_mm: 38.67
+  - x_mm: 134.55
+    y_mm: 153.07
+    width_mm: 65.45
+    height_mm: 42.49
+  - x_mm: 134.55
+    y_mm: 200.56
+    width_mm: 65.45
+    height_mm: 49.09
+  - x_mm: 134.55
+    y_mm: 254.65
+    width_mm: 65.45
+    height_mm: 44.83
+- page: 10
+  photos:
   - source-images/image-from-rawpixel-id-3282755-jpeg.jpg
   - source-images/image-from-rawpixel-id-3284117-jpeg.jpg
   - source-images/image-from-rawpixel-id-5926436-jpeg.jpg
@@ -1067,59 +1104,31 @@ layout:
   - source-images/image-from-rawpixel-id-6037879-jpeg.jpg
   - source-images/image-from-rawpixel-id-6042154-jpeg.jpg
   slots:
-  - x_mm: -5.37
-    y_mm: -3.0
-    width_mm: 92.93
-    height_mm: 60.95
-  - x_mm: 92.67
-    y_mm: -3.0
-    width_mm: 91.99
-    height_mm: 60.95
-  - x_mm: 189.77
-    y_mm: -3.0
-    width_mm: 108.35
-    height_mm: 60.95
-  - x_mm: 303.23
-    y_mm: -3.0
-    width_mm: 103.15
-    height_mm: 60.95
-  - x_mm: 411.49
-    y_mm: -3.0
-    width_mm: 93.88
-    height_mm: 60.95
-  - x_mm: -5.37
-    y_mm: 63.05
-    width_mm: 163.65
-    height_mm: 122.74
-  - x_mm: -5.37
-    y_mm: 190.9
-    width_mm: 163.65
-    height_mm: 112.1
-  - x_mm: 163.39
-    y_mm: 63.05
-    width_mm: 106.42
-    height_mm: 141.89
-  - x_mm: 274.91
-    y_mm: 63.05
-    width_mm: 102.72
-    height_mm: 68.48
-  - x_mm: 274.91
-    y_mm: 136.64
-    width_mm: 102.72
-    height_mm: 68.31
-  - x_mm: 163.39
-    y_mm: 210.05
-    width_mm: 69.71
-    height_mm: 92.95
-  - x_mm: 238.21
-    y_mm: 210.05
-    width_mm: 139.42
-    height_mm: 92.95
-  - x_mm: 382.74
-    y_mm: 63.05
-    width_mm: 122.63
-    height_mm: 81.55
-  - x_mm: 382.74
-    y_mm: 149.71
-    width_mm: 122.63
-    height_mm: 153.29
+  - x_mm: 3.7
+    y_mm: 0.0
+    width_mm: 62.53
+    height_mm: 83.38
+  - x_mm: 71.23
+    y_mm: 0.0
+    width_mm: 125.07
+    height_mm: 83.38
+  - x_mm: 3.7
+    y_mm: 88.38
+    width_mm: 125.17
+    height_mm: 83.24
+  - x_mm: 133.87
+    y_mm: 88.38
+    width_mm: 62.43
+    height_mm: 83.24
+  - x_mm: 3.7
+    y_mm: 176.62
+    width_mm: 88.9
+    height_mm: 59.26
+  - x_mm: 3.7
+    y_mm: 240.88
+    width_mm: 88.9
+    height_mm: 59.12
+  - x_mm: 97.6
+    y_mm: 176.62
+    width_mm: 98.71
+    height_mm: 123.38
