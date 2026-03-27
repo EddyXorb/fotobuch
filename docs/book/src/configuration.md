@@ -62,6 +62,8 @@ setting `active: true` and providing dimensions.
 | **`active`** | `false` | **Enable the cover.** When `true`, the first layout entry (page 0) becomes the cover page. |
 | **`front_back_width_mm`** | `0.0` | **Total width of front + back panel combined, without the spine.** Required when `active: true`. |
 | **`height_mm`** | `0.0` | **Cover height in mm.** Required when `active: true`. |
+| `mode` | `split` | **Cover layout mode.** Controls how page 0 is solved. `split` = deterministic solver optimises the cover (default). See [Cover modes](#cover-modes) below. |
+| `spine_clearance_mm` | `5.0` | Gap in mm between the photo edge and the spine for `front`, `back`, and `split` modes. Ignored for `spread` modes. |
 | **`spine_text`** | book title | **Text on the spine.** Set to `~` (null) for no text. Font size is auto-calculated from the spine width (max 80% of spine width). |
 | `spine_mode` | `auto` | Spine width mode — see below. |
 | `spine_mm_per_10_pages` | `1.4` | **Auto mode only.** Spine thickness per 10 inner pages. Spine width = `(inner_pages / 10) * spine_mm_per_10_pages`. In auto mode the spine width affects the total cover canvas width that the solver uses. |
@@ -70,6 +72,46 @@ setting `active: true` and providing dimensions.
 | `margin_mm` | `0.0` | Margin for the cover page. Same behaviour as the inner-page margin. |
 | `gap_mm` | `5.0` | Gap between photos on the cover. |
 | `bleed_threshold_mm` | `3.0` | Bleed threshold for the cover. Same behaviour as inner pages. |
+
+#### Cover modes
+
+When `mode` is not `free`, the GA solver is bypassed and slot positions are
+calculated deterministically from the cover geometry.  A warning is printed if
+the number of photos on the cover does not match what the mode expects.
+
+| Mode | Photos | Behaviour |
+|------|--------|-----------|
+| `free` | any | GA solver optimises freely (default) |
+| `front` | 1 | Photo on the front panel, aspect ratio preserved and centred |
+| `front-full` | 1 | Photo fills the entire front panel (may crop) |
+| `back` | 1 | Photo on the back panel, aspect ratio preserved and centred |
+| `back-full` | 1 | Photo fills the entire back panel (may crop) |
+| `spread` | 1 | Photo spans the full spread (over spine), aspect ratio preserved and centred |
+| `spread-full` | 1 | Photo fills the full spread (may crop) |
+| `split` | 2 | Slot 0 → front, slot 1 → back, aspect ratio preserved and centred |
+| `split-full` | 2 | Slot 0 → front, slot 1 → back, each half fully filled (may crop) |
+
+**Workflow example — single photo on the front:**
+
+```bash
+# 1. Place the photo onto the cover
+fotobuch place cover.jpg --into 0
+
+# 2. Set the mode in the YAML
+#    cover:
+#      mode: front
+
+# 3. Rebuild only the cover
+fotobuch rebuild --page 0
+```
+
+**Workflow example — panorama across full spread:**
+
+```bash
+fotobuch place panorama.jpg --into 0
+# cover: { mode: spread-full }
+fotobuch rebuild --page 0
+```
 
 **Spine modes explained:**
 

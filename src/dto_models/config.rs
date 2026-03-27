@@ -15,7 +15,7 @@ mod project_config;
 pub use appendix_config::AppendixConfig;
 pub use book_config::{BookConfig, CanvasConfig};
 pub use book_layout_solver_config::{BookLayoutSolverConfig, ValidationError};
-pub use cover_config::{CoverConfig, SpineConfig};
+pub use cover_config::{CoverConfig, CoverMode, SpineConfig};
 pub use fitness_weights::FitnessWeights;
 pub use ga_config::GaConfig;
 pub use preview_config::PreviewConfig;
