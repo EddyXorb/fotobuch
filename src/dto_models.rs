@@ -11,8 +11,8 @@ mod photos;
 mod state;
 
 pub use config::{
-    BookConfig, BookLayoutSolverConfig, CanvasConfig, CoverConfig, FitnessWeights, GaConfig,
-    PreviewConfig, ProjectConfig, SpineConfig, ValidationError,
+    AppendixConfig, BookConfig, BookLayoutSolverConfig, CanvasConfig, CoverConfig, FitnessWeights,
+    GaConfig, PreviewConfig, ProjectConfig, SpineConfig, ValidationError,
 };
 pub use layout::{LayoutPage, Slot};
 pub use photos::{PhotoFile, PhotoGroup};

@@ -52,8 +52,7 @@ It should stay implicit — not exposed in config.
 config:
   preview:
     # Existing fields
-    show_filenames: true         # renamed from show_image_captions_on_preview
-    show_page_numbers: true
+    show_filenames: false         # renamed from show_image_captions_on_preview
     max_preview_px: 800
     # New fields
     show_borders: true           # was: show_borders_on_preview (bleed + margin)

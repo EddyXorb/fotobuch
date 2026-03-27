@@ -420,6 +420,7 @@ mod tests {
                         active: cover_active,
                         ..Default::default()
                     },
+                    appendix: Default::default(),
                 },
                 ..Default::default()
             },

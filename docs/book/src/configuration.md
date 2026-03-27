@@ -148,11 +148,34 @@ three cost components, each multiplied by its weight. Lower cost = better layout
 
 ### `config.preview` — Preview rendering
 
+All preview overlay settings are automatically suppressed in `build release`.
+
 | Field | Default | Description |
 |---|---|---|
-| `show_filenames` | `true` | Show the photo filename as a caption below each photo in the preview PDF. Useful for identifying photos when adjusting the layout. Automatically hidden in release builds. |
-| `show_page_numbers` | `true` | Show page numbers in the preview PDF. |
+| `show_filenames` | `false` | Show the photo filename as a caption on each photo. Useful for identifying photos when adjusting the layout. |
 | `max_preview_px` | `800` | Maximum pixel size (longest edge) of cached preview images. Lower = faster builds, less disk space, blurrier preview. |
+| `show_borders` | `true` | Show red bleed border and blue margin border overlays on each page. |
+| `show_slot_info` | `true` | Show slot address and area weight on each photo (e.g. `3:2 (1.5)`). |
+
+---
+
+### `config.book.appendix` — Photo index
+
+The appendix is a compact photo index appended at the end of both the preview
+and release PDFs, listing every photo with its group, timestamp, and a
+page-position reference.
+
+| Field | Default | Description |
+|---|---|---|
+| `active` | `false` | Enable the photo index. |
+| `columns` | `7` | Number of columns in the listing. |
+| `ref_mode` | `"positions"` | Reference style: `"positions"` (page.slot, e.g. `2.3`) or `"counter"` (sequential number badge on each photo). |
+| `page_separator` | `false` | Show a page-number header between pages in the listing. |
+| `strip_timestamps` | `true` | Strip leading ISO timestamps from filenames in the listing. |
+| `label_title` | `"Photo Index"` | Title text of the appendix. |
+| `label_page` | `"Page"` | "Page" label used in the cross-reference legend and page separators. |
+| `date_format` | `"{day}. {month} {year} {hour}:{min}"` | Format string for timestamps. Placeholders: `{day}`, `{month}`, `{year}`, `{hour}`, `{min}`. |
+| `date_months` | `["Jan", …, "Dec"]` | Month abbreviations (12 entries, January–December). |
 
 ---
 
@@ -174,6 +197,10 @@ config:
       spine_mode: auto
       spine_mm_per_10_pages: 1.4
       spine_text: "Italy 2024"
+    appendix:
+      active: true
+      label_title: "Photo Index"
+      label_page: "Page"
   book_layout_solver:
     page_target: 20
     page_max: 24
@@ -183,5 +210,7 @@ config:
       nanos: 0
   preview:
     show_filenames: true
+    show_borders: true
+    show_slot_info: true
     max_preview_px: 800
 ```
