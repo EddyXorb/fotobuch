@@ -210,14 +210,7 @@ fn cover_canvas_changed(reference: &ProjectState, new: &ProjectState) -> bool {
     let r = &reference.config.book.cover;
     let n = &new.config.book.cover;
     let inner_count_changed = inner_page_count(reference) != inner_page_count(new);
-    r.height_mm != n.height_mm
-        || r.front_back_width_mm != n.front_back_width_mm
-        || r.bleed_mm != n.bleed_mm
-        || r.margin_mm != n.margin_mm
-        || r.gap_mm != n.gap_mm
-        || r.bleed_threshold_mm != n.bleed_threshold_mm
-        || r.mode != n.mode
-        || spine_changed(&r.spine, &n.spine, inner_count_changed)
+    r != n || spine_changed(&r.spine, &n.spine, inner_count_changed)
 }
 
 fn spine_changed(r: &SpineConfig, n: &SpineConfig, inner_count_changed: bool) -> bool {
