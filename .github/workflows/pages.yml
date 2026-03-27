@@ -2,7 +2,7 @@ name: Deploy Docs
 
 on:
   push:
-    branches: [main]
+    branches: [main,claude/prepare-release-v1-w7cvz]
 
 jobs:
   deploy:
