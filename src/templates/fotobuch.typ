@@ -185,7 +185,7 @@
       box(
         width: slot.width_mm * 1mm,
         height: slot.height_mm * 1mm,
-        align(center + horizon, text(size: 20pt, weight: "bold", fill: if photo_id == none { black } else { white })[
+        align(center + horizon, text(size: slot.width_mm * 1mm / 4, weight: "bold", fill: if photo_id == none { black } else { white })[
           #page_index:#slot_nr
           #if photo_id != none [ \(#str(calc.round(photo_weight.at(photo_id, default: 1.0), digits: 1))\)]
         ]),
