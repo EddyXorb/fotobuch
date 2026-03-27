@@ -47,27 +47,9 @@ To be done in this order
   - Saal Digital unterstützt sRGB, AdobeRGB, ProPhoto RGB mit ICC-Farbmanagement; sRGB ist der sichere Default
   - Rust: `img_parts` für ICC-Chunks lesen/schreiben, image crate mit decoder und für EXIF-Tag, ICC-Profile als statische Bytes einbetten (~3KB) -> klären
 
+## Workflow improvements
 
-## `page` / `unplace` commands
-
-> Design: [docs/design/cli/page.md](docs/design/cli/page.md)
-
-- [x] Implement lib types: `PagesExpr`, `SlotExpr`, `Src`, `DstMove`, `DstSwap`, `PageMoveCmd` in `src/commands/page.rs`
-- [x] Implement `ValidationError`, `PageMoveError`, `PageMoveResult` types
-- [x] Implement `execute_unplace` (removes photos by slot from layout)
-- [x] Implement `execute_move` — Move variant (`->`)
-- [x] Implement `execute_move` — Swap variant (`<>`)
-- [x] Implement `execute_split` (shortcut: move PAGE:SLOT.. -> PAGE+)
-- [x] Implement `execute_combine` (shortcut: merge pages, delete empties)
-- [x] Implement Lexer in `src/cli/page.rs` (Token enum + tokenize fn)
-- [x] Implement Parser in `src/cli/page.rs` (builds AST from tokens)
-- [x] Wire up CLI: add `Unplace` and `Page` subcommands to `src/cli.rs`
-- [x] Tests for all lib execute_* functions
-- [x] Tests for lexer and parser
-
-## Workflow improvements (found during book review)
-
-- [ ] Cover setup is too manual (3–4 commands + YAML edit). Solution: a `mode`
+- [x] Cover setup is too manual (3–4 commands + YAML edit). Solution: a `mode`
       field in `config.book.cover` with fixed slot layouts — see `COVER_WORKFLOW_IMPROVEMENT.md`.
 - [ ] **Generalise page layout modes to inner pages.** The cover `mode` concept
       (fixed slot positions instead of GA-solver) could apply to any page via
@@ -77,7 +59,7 @@ To be done in this order
       into the binding on double-page spreads. Modes for inner pages `spread-free`, `spread-single`, `split-single`
       , `gutter:<mm>` (solver respects a keep-out zone on the spine side).
 - [ ] First `build` auto-places all photos, but subsequent builds require
-      explicit `fotobuch place`. This asymmetry is surprising. Consider
+      explicit `fotobuch place`. This asymmetry is surprising. consider
       auto-placing in `build` or warning loudly about unplaced photos.
 - [ ] `build --pages` (limit rendering) vs `rebuild --page` (re-solve) have
       confusingly similar names. Consider unifying or renaming.
