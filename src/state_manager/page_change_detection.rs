@@ -1,6 +1,6 @@
 //! Detection of outdated pages when project state changes.
 
-use crate::dto_models::{CoverMode, ProjectState};
+use crate::dto_models::{CoverMode, ProjectState, SpineConfig};
 use std::collections::{BTreeSet, HashMap, HashSet};
 
 const ASPECT_RATIO_THRESHOLD: f64 = 0.001;
@@ -38,11 +38,20 @@ pub fn compute_outdated_pages(reference: &ProjectState, new: &ProjectState) -> V
 
     let cover = &new.config.book.cover;
     let cover_skips_ar = cover.active && cover.mode.allows_ar_mismatch();
+    let inner_canvas_outdated = inner_canvas_changed(reference, new);
+    let cover_canvas_outdated = cover.active && cover_canvas_changed(reference, new);
 
     // Phase 2: Evaluate each new page
     for (page_index, new_page) in new.layout.iter().enumerate() {
-        let skip_ar_check = cover_skips_ar && page_index == 0;
-        if page_is_outdated_by_metadata(&changed_photos, new_page)
+        let is_cover = cover.active && page_index == 0;
+        let canvas_outdated = if is_cover {
+            cover_canvas_outdated
+        } else {
+            inner_canvas_outdated
+        };
+        let skip_ar_check = cover_skips_ar && is_cover;
+        if canvas_outdated
+            || page_is_outdated_by_metadata(&changed_photos, new_page)
             || page_is_outdated_by_slot_structure(new_page, &reference.layout, &page_hashes)
             || (!skip_ar_check
                 && page_is_outdated_by_aspect_ratio_violation(new_page, &ref_photo_metadata))
@@ -165,6 +174,46 @@ fn find_metadata_changed_photos(
     }
 
     changed
+}
+
+fn inner_canvas_changed(reference: &ProjectState, new: &ProjectState) -> bool {
+    let r = &reference.config.book;
+    let n = &new.config.book;
+    r.page_width_mm != n.page_width_mm
+        || r.page_height_mm != n.page_height_mm
+        || r.bleed_mm != n.bleed_mm
+        || r.margin_mm != n.margin_mm
+        || r.gap_mm != n.gap_mm
+        || r.bleed_threshold_mm != n.bleed_threshold_mm
+}
+
+fn cover_canvas_changed(reference: &ProjectState, new: &ProjectState) -> bool {
+    let r = &reference.config.book.cover;
+    let n = &new.config.book.cover;
+    r.height_mm != n.height_mm
+        || r.front_back_width_mm != n.front_back_width_mm
+        || r.bleed_mm != n.bleed_mm
+        || r.margin_mm != n.margin_mm
+        || r.gap_mm != n.gap_mm
+        || r.bleed_threshold_mm != n.bleed_threshold_mm
+        || spine_changed(&r.spine, &n.spine)
+}
+
+fn spine_changed(r: &SpineConfig, n: &SpineConfig) -> bool {
+    match (r, n) {
+        (
+            SpineConfig::Auto {
+                spine_mm_per_10_pages: r,
+            },
+            SpineConfig::Auto {
+                spine_mm_per_10_pages: n,
+            },
+        ) => r != n,
+        (SpineConfig::Fixed { spine_width_mm: r }, SpineConfig::Fixed { spine_width_mm: n }) => {
+            r != n
+        }
+        _ => true, // variant changed (Auto ↔ Fixed)
+    }
 }
 
 #[cfg(test)]
@@ -720,5 +769,79 @@ mod tests {
 
         let outdated = compute_outdated_pages(&reference, &new);
         assert_eq!(outdated, vec![1]); // Only inner page is outdated
+    }
+
+    #[test]
+    fn test_inner_canvas_change_marks_all_inner_pages_outdated() {
+        let slot = make_slot(0.0, 0.0, 100.0, 100.0);
+        let pages = vec![
+            make_page(0, vec!["A".to_string()], vec![slot.clone()]),
+            make_page(1, vec!["B".to_string()], vec![slot.clone()]),
+        ];
+
+        let mut reference = make_state("ref", pages.clone());
+        reference.photos = vec![PhotoGroup {
+            group: "g".to_string(),
+            sort_key: "2024-01-01T00:00:00Z".to_string(),
+            files: vec![
+                make_photo("A", 100, 100, 1.0),
+                make_photo("B", 100, 100, 1.0),
+            ],
+        }];
+        let mut new = make_state("new", pages);
+        new.photos = reference.photos.clone();
+        new.config.book.page_width_mm = 500.0; // canvas changed
+
+        let outdated = compute_outdated_pages(&reference, &new);
+        assert_eq!(outdated, vec![0, 1]);
+    }
+
+    #[test]
+    fn test_cover_canvas_change_marks_only_cover_outdated() {
+        let slot = make_slot(0.0, 0.0, 100.0, 100.0);
+        let cover_page = make_page(0, vec!["A".to_string()], vec![slot.clone()]);
+        let inner_page = make_page(1, vec!["B".to_string()], vec![slot.clone()]);
+
+        let mut reference = make_state_with_cover(
+            "ref",
+            vec![cover_page.clone(), inner_page.clone()],
+            CoverMode::Free,
+        );
+        reference.photos = vec![PhotoGroup {
+            group: "g".to_string(),
+            sort_key: "2024-01-01T00:00:00Z".to_string(),
+            files: vec![
+                make_photo("A", 100, 100, 1.0),
+                make_photo("B", 100, 100, 1.0),
+            ],
+        }];
+        let mut new = make_state_with_cover("new", vec![cover_page, inner_page], CoverMode::Free);
+        new.photos = reference.photos.clone();
+        new.config.book.cover.height_mm = 350.0; // cover canvas changed
+
+        let outdated = compute_outdated_pages(&reference, &new);
+        assert_eq!(outdated, vec![0]); // only cover page
+    }
+
+    #[test]
+    fn test_spine_change_marks_cover_outdated() {
+        use crate::dto_models::SpineConfig;
+        let slot = make_slot(0.0, 0.0, 100.0, 100.0);
+        let cover_page = make_page(0, vec!["A".to_string()], vec![slot.clone()]);
+
+        let mut reference = make_state_with_cover("ref", vec![cover_page.clone()], CoverMode::Free);
+        reference.photos = vec![PhotoGroup {
+            group: "g".to_string(),
+            sort_key: "2024-01-01T00:00:00Z".to_string(),
+            files: vec![make_photo("A", 100, 100, 1.0)],
+        }];
+        let mut new = make_state_with_cover("new", vec![cover_page], CoverMode::Free);
+        new.photos = reference.photos.clone();
+        new.config.book.cover.spine = SpineConfig::Auto {
+            spine_mm_per_10_pages: 2.0,
+        }; // was default 1.4
+
+        let outdated = compute_outdated_pages(&reference, &new);
+        assert_eq!(outdated, vec![0]);
     }
 }
