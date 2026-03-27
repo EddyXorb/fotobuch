@@ -7,65 +7,14 @@ it with sensible defaults. You only edit the parts you want to change.
 Run `fotobuch config` at any time to see the full resolved configuration
 (including all defaults).
 
----
-
-## The most important settings
-
-Before your first `fotobuch build`, open the YAML and check these settings.
-They have the biggest impact on your result.
-
-### Page count and distribution (`config.book_layout_solver`)
-
-The **book layout solver** decides how your photos are distributed across pages.
-It uses a mathematical optimisation (Mixed Integer Programming) that balances
-three goals: keep pages evenly filled, keep photo groups together, and hit your
-target page count.
-
-| Field | Default | Description |
-|---|---|---|
-| **`page_target`** | `12` | **The page count the solver aims for.** Set this to the number of pages you want your book to have. This is the most important setting — get it right first. |
-| **`page_max`** | `26` | **Hard upper limit on page count.** Set this a few pages above `page_target` to give the solver freedom to use extra pages when that produces a significantly better layout. If `page_max` equals `page_target`, the solver has no room to optimise. |
-| **`page_min`** | `1` | Hard lower limit on page count. Usually fine to leave at `1`. |
-
-**Example:** You want roughly 20 pages but you're okay with up to 24:
-
-```yaml
-config:
-  book_layout_solver:
-    page_target: 20
-    page_max: 24
-```
-
-### Page dimensions, margins and bleed (`config.book`)
-
-| Field | Default | Description |
-|---|---|---|
-| **`page_width_mm`** | set at creation | **Page width in millimetres.** This is the width of a single page or a double-page spread, depending on how your print service works. For double-page spreads (e.g. Saal Digital), use the full spread width (e.g. `420` for two A4 pages side by side). For single pages, use `210`. |
-| **`page_height_mm`** | set at creation | **Page height in millimetres.** |
-| **`bleed_mm`** | `3.0` | **Extra area around each page that gets cut off by the printer.** Most print services (including Saal Digital) require 3 mm. Photos that touch the page edge are extended into the bleed area so no white strip appears after cutting. |
-| **`margin_mm`** | `0.0` | **Minimum distance from the page edge where photos are allowed.** Set to `0` for edge-to-edge printing (photos may extend into the bleed). Set to e.g. `10` for a white border around each page. When `margin_mm > 0`, bleed extension is disabled (photos never reach the edge). |
-| **`gap_mm`** | `5.0` | **Space between photos on the same page.** Smaller values pack photos tighter; larger values give a more airy layout. |
-
-### Cover (`config.book.cover`)
-
-If you created your project with `--with-cover`, page 0 is the cover.
-
-| Field | Default | Description |
-|---|---|---|
-| **`active`** | `false` | **Enable or disable the cover page.** When `true`, the first page in the layout becomes the cover. |
-| **`front_back_width_mm`** | — | **Total width of front + back panel combined, without the spine.** This is usually twice the single-page width (e.g. `594` for two A4 landscape panels). |
-| **`height_mm`** | — | **Cover height in millimetres.** |
-| **`spine_text`** | book title | **Text printed on the spine.** Defaults to the book title. Set to `~` (YAML null) for no spine text. |
-
-### Solver time limit (`config.book_layout_solver`)
-
-| Field | Default | Description |
-|---|---|---|
-| **`search_timeout`** | `30s` | **Time limit for the book layout optimisation.** For large books (100+ photos) you may want to increase this (e.g. `60s`) to give the solver more time to find a good distribution. |
+For a quick overview of the most important settings to check before your first
+build, see [Step 2 in Your First Book](quickstart.md#step-2--review-the-configuration).
 
 > **Tip:** If the solver produces poor results, the most common fixes are:
-> increase `page_max` (more room), increase `search_timeout` (more time),
-> or increase `photos_per_page_max` (more photos per page allowed).
+> increase `search_timeout` (more time), or disable `enable_local_search`.
+> You may also want to tweak the solver weights according to your needs
+> (e.g. increase `weight_split` if you want groups to be respected more
+> strictly).
 
 ---
 
@@ -93,11 +42,11 @@ automatically for any field you don't set.
 | Field | Default | Description |
 |---|---|---|
 | `title` | `"Untitled"` | Book title. Used as the default spine text on the cover. |
-| `page_width_mm` | `210.0` | Page width in mm. Set at project creation with `--width`. For double-page spreads, use the combined width (e.g. `420`). |
-| `page_height_mm` | `297.0` | Page height in mm. Set at project creation with `--height`. |
-| `bleed_mm` | `3.0` | Bleed area in mm added around each page. Cut off by the printer. Most services require 3 mm. |
-| `margin_mm` | `0.0` | Minimum inset from the page edge. `0` = edge-to-edge (photos may bleed). `> 0` = white border (bleed extension is disabled). |
-| `gap_mm` | `5.0` | Space in mm between photos on the same page. |
+| **`page_width_mm`** | `210.0` | **Page width in mm.** Set at project creation with `--width`. For double-page spreads, use the combined width (e.g. `420`). |
+| **`page_height_mm`** | `297.0` | **Page height in mm.** Set at project creation with `--height`. |
+| **`bleed_mm`** | `3.0` | **Bleed area in mm** added around each page. Cut off by the printer. Most services require 3 mm. |
+| **`margin_mm`** | `0.0` | **Minimum inset from the page edge.** `0` = edge-to-edge (photos may bleed). `> 0` = white border (bleed extension is disabled). |
+| **`gap_mm`** | `5.0` | **Space in mm between photos** on the same page. |
 | `bleed_threshold_mm` | `3.0` | Only active when `margin_mm` is `0`. If a photo's edge is closer to the page edge than this value, the layout is scaled so the photo extends fully into the bleed area. Prevents thin white strips at the page edge after cutting. |
 | `dpi` | `300.0` | DPI for the final release PDF. Controls the resolution of cached images used in `fotobuch build release`. |
 
@@ -110,10 +59,10 @@ setting `active: true` and providing dimensions.
 
 | Field | Default | Description |
 |---|---|---|
-| `active` | `false` | Enable the cover. When `true`, the first layout entry (page 0) becomes the cover page. |
-| `front_back_width_mm` | `0.0` | Total width of front + back panel combined, without the spine. Required when `active: true`. |
-| `height_mm` | `0.0` | Cover height in mm. Required when `active: true`. |
-| `spine_text` | book title | Text on the spine. Set to `~` (null) for no text. Font size is auto-calculated from the spine width (max 80% of spine width). |
+| **`active`** | `false` | **Enable the cover.** When `true`, the first layout entry (page 0) becomes the cover page. |
+| **`front_back_width_mm`** | `0.0` | **Total width of front + back panel combined, without the spine.** Required when `active: true`. |
+| **`height_mm`** | `0.0` | **Cover height in mm.** Required when `active: true`. |
+| **`spine_text`** | book title | **Text on the spine.** Set to `~` (null) for no text. Font size is auto-calculated from the spine width (max 80% of spine width). |
 | `spine_mode` | `auto` | Spine width mode — see below. |
 | `spine_mm_per_10_pages` | `1.4` | **Auto mode only.** Spine thickness per 10 inner pages. Spine width = `(inner_pages / 10) * spine_mm_per_10_pages`. In auto mode the spine width affects the total cover canvas width that the solver uses. |
 | `spine_width_mm` | — | **Fixed mode only.** A fixed spine width in mm. In fixed mode the spine does **not** affect the cover canvas width in the solver — it is only used by the template for display and text sizing. |
@@ -145,9 +94,9 @@ it with a local search that evaluates actual layout quality per page.
 
 | Field | Default | Description |
 |---|---|---|
-| `page_target` | `12` | Target number of pages. The solver tries to hit this count. |
+| **`page_target`** | `12` | **Target number of pages.** The solver tries to hit this count. This is the most important solver setting. |
 | `page_min` | `1` | Hard minimum number of pages. |
-| `page_max` | `26` | Hard maximum number of pages. Setting this above `page_target` gives the solver room to add pages when that improves layout quality. |
+| **`page_max`** | `26` | **Hard maximum number of pages.** Setting this above `page_target` gives the solver room to add pages when that improves layout quality. |
 | `photos_per_page_min` | `1` | Minimum number of photos on any single page. |
 | `photos_per_page_max` | `20` | Maximum number of photos on any single page. |
 | `group_max_per_page` | `5` | Maximum number of different groups that may share a single page. Lower values keep groups more separated. |
@@ -155,8 +104,8 @@ it with a local search that evaluates actual layout quality per page.
 | `weight_even` | `1.0` | MIP objective weight for even photo distribution across pages. Higher = more uniform page fill. |
 | `weight_split` | `10.0` | MIP objective weight penalising group splits. Higher = groups are less likely to be split across pages. |
 | `weight_pages` | `5.0` | MIP objective weight penalising deviation from `page_target`. Higher = result stays closer to the target. |
-| `search_timeout` | `30s` | Time budget for the entire solver (MIP + local search). Increase for large books. YAML format: `{secs: 60, nanos: 0}`. |
-| `enable_local_search` | `true` | Whether to run the local search after the MIP. The local search shifts page boundaries to improve per-page layout quality. Disable only for debugging. |
+| **`search_timeout`** | `30s` | **Time budget for the entire solver** (MIP + local search). Increase for large books. YAML format: `{secs: 60, nanos: 0}`. |
+| `enable_local_search` | `true` | Whether to run the local search after the MIP. The local search shifts page boundaries to improve per-page layout quality. |
 | `mip_rel_gap` | `0.01` | Relative optimality gap for the MIP solver (0.0 = exact, 0.01 = accept solutions within 1% of optimal). Tightening this rarely helps and increases solve time. |
 | `max_photos_for_split` | `300` | When the total photo count exceeds this, the problem is automatically decomposed into smaller sub-problems solved sequentially. This avoids MIP timeouts on very large books. |
 | `split_group_boundary_slack` | `5` | When splitting into sub-problems, the split point may deviate by this many photos from the ideal boundary to prefer splitting at a group boundary. |
@@ -179,7 +128,7 @@ the defaults work well for most cases.
 | `crossover_rate` | `0.7` | Probability that two individuals are recombined per generation. |
 | `elite_count` | `20` | Number of best individuals carried over unchanged to the next generation. |
 | `no_improvement_limit` | `15` | Stop early if no improvement is found for this many generations. Set to `~` (null) to disable early stopping. |
-| `enforce_order` | `true` | Enforce chronological reading order (top-left to bottom-right) via DFS-preorder assignment. When `true`, the mutator only swaps leaves with compatible aspect ratios to preserve order. |
+| `enforce_order` | `true` | Enforce chronological reading order (top-left to bottom-right) on each page. When `true`, photos are arranged so earlier photos appear before later ones in natural reading direction. Set to `false` if you don't care about photo order and want the solver to optimise purely for visual quality — this often produces tighter layouts. |
 | `islands_nr` | CPU cores | Number of independent populations evolved in parallel. Defaults to the number of available CPU cores. |
 | `islands_migration_interval` | `5` | Generations between migration events (best individuals are copied between islands). |
 | `islands_nr_migrants` | `2` | Number of individuals migrated per island per migration event. |

@@ -73,6 +73,38 @@ A **slot address** identifies one or more photos:
 | `3:2..5,7` | Slots 2–5 and slot 7 on page 3 |
 | `4+` | New page inserted after page 4 (move destination only) |
 
+## Two ways to address photos
+
+fotobuch has two different ways to refer to photos, depending on whether they
+are placed in the layout or not:
+
+**By filename or pattern** — used for photos that are not yet placed, or when
+you want to work with photos regardless of their layout position. Matches
+against the photo's source path or XMP metadata.
+
+| Command | What it does |
+|---|---|
+| `fotobuch add --filter "pattern"` | Import only matching photos |
+| `fotobuch add --filter-xmp "pattern"` | Import only photos whose XMP metadata matches |
+| `fotobuch place --filter "pattern"` | Place only matching unplaced photos |
+| `fotobuch remove "pattern"` | Remove matching photos from the project |
+
+**By slot address** — used for photos that are already placed on a page. Each
+placed photo has a unique address like `3:2` (page 3, slot 2). See
+[Pages and slots](#pages-and-slots) below for the full syntax.
+
+| Command | What it does |
+|---|---|
+| `fotobuch page move 3:2 to 5` | Move a placed photo to another page |
+| `fotobuch page swap 3:2 5:1` | Swap two placed photos |
+| `fotobuch page weight 3:2 2.0` | Change a placed photo's weight |
+| `fotobuch page info 3:2` | Show metadata for a placed photo |
+| `fotobuch unplace 3:2` | Remove a placed photo from its slot |
+
+**Rule of thumb:** use filename patterns when working with *unplaced* photos
+(`add`, `place`, `remove`), and use slot addresses when working with *placed*
+photos (`page move`, `page swap`, `page weight`, `unplace`).
+
 ## Weights
 
 Every photo has an **area weight** (default: 1.0). The solver uses weights to

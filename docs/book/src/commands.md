@@ -4,6 +4,10 @@ All commands follow the pattern `fotobuch <command> [options]`.
 Run `fotobuch --help` or `fotobuch <command> --help` for details,
 or see the [Full Flag Reference](cli/reference-generated.md).
 
+> **Your original photos are never modified.** fotobuch only reads your source
+> files to create cached copies at the configured DPI. Commands like `remove`
+> delete photos from the project YAML — your originals on disk are untouched.
+
 ## Commands at a glance
 
 | Command | What it does |
@@ -47,12 +51,3 @@ unplace-like behaviour (photos stay, just lose their page assignment).
   even if nothing changed. Useful when you're not happy with a layout.
 - **`rebuild --all`** re-solves every page.
 
----
-
-## YAML configuration
-
-Every project contains a `{name}.yaml` file. Most settings have sensible
-defaults. Run `fotobuch config` to see the current values.
-
-See [Configuration](configuration.md) for a full reference of all settings,
-including page dimensions, margins, bleed, cover, and solver parameters.
