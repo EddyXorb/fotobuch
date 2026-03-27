@@ -37,7 +37,7 @@ pub struct BookLayoutSolverConfig {
     /// Weight for page count deviation (w_3 in MIP).
     #[serde(default = "default_weight_pages")]
     pub weight_pages: f64,
-    /// Timeout for local search.
+    /// Timeout for book layout solver.
     #[serde(default = "default_search_timeout")]
     pub search_timeout: Duration,
     /// Maximum coverage cost threshold (pages above this are considered "bad").
@@ -115,7 +115,7 @@ fn default_mip_rel_gap() -> f64 {
 }
 
 fn default_max_photos_for_split() -> usize {
-    100
+    300
 }
 
 fn default_split_group_boundary_slack() -> usize {
