@@ -29,7 +29,51 @@ cd "Italy-2024"
 
 ---
 
-## Step 2 — Add photos
+## Step 2 — Review the configuration
+
+Before adding photos, open `Italy-2024.yaml` in a text editor and check the
+most important settings. The file already has sensible defaults, but you should
+set the **page count** to match the size of book you want:
+
+```yaml
+config:
+  book:
+    page_width_mm: 297.0
+    page_height_mm: 210.0
+    bleed_mm: 3.0        # required by most print services
+    margin_mm: 0.0       # 0 = edge-to-edge; set to e.g. 10 for a white border
+  book_layout_solver:
+    page_target: 20      # how many pages you want
+    page_max: 24         # upper limit — give the solver some room above the target
+```
+
+The **book layout solver** is the algorithm that decides how your photos are
+distributed across pages. `page_target` is your desired page count;
+`page_max` is the hard upper limit. Setting `page_max` a few pages above
+`page_target` gives the solver freedom to use an extra page when that produces
+a significantly better layout.
+
+If you plan to use a cover, also set:
+
+```yaml
+    cover:
+      active: true
+      front_back_width_mm: 594.0   # total width of front + back panel
+      height_mm: 297.0
+      spine_text: "Italy 2024"     # or ~ for no text
+```
+
+Other settings you might want to adjust: `gap_mm` (space between photos),
+`search_timeout` (solver time limit for large books).
+
+See [Configuration](configuration.md) for a full reference of all settings.
+
+> **Tip:** You can always change these later and re-run `fotobuch build`.
+> The solver will redistribute photos according to the new settings.
+
+---
+
+## Step 3 — Add photos
 
 Point fotobuch at one or more folders. Each folder becomes a
 [group](concepts.md#photos-and-groups) — photos from the same group are kept
@@ -69,7 +113,7 @@ fotobuch status
 
 ---
 
-## Step 3 — Build a preview
+## Step 4 — Build a preview
 
 ```bash
 fotobuch build
@@ -83,7 +127,7 @@ for a live preview.
 
 ---
 
-## Step 4 — Adjust the layout
+## Step 5 — Adjust the layout
 
 You will almost certainly want to tweak a few things.
 
@@ -124,7 +168,7 @@ fotobuch build
 
 ---
 
-## Step 5 — Adding more photos later
+## Step 6 — Adding more photos later
 
 After the first build, newly added photos start as **unplaced**. Place them
 before building:
@@ -143,7 +187,7 @@ fotobuch place --into 4
 
 ---
 
-## Step 6 — Export for print
+## Step 7 — Export for print
 
 When you're happy with the layout:
 
