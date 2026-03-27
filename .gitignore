@@ -13,3 +13,4 @@ profile.json.gz
 fb_test*
 MEMORY.md
 .claude*
+.venv
