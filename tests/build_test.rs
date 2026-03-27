@@ -393,18 +393,19 @@ fn test_pages_filter_limits_scope() -> Result<()> {
     }
     state.save(&yaml_path)?;
 
-    // Build with page filter (only page 1)
+    // Build with page filter (only first page that was created)
+    let first_page = *result1.pages_rebuilt.first().unwrap_or(&0);
     let filtered_config = BuildConfig {
         release: false,
         force: false,
-        pages: Some(vec![1]),
+        pages: Some(vec![first_page]),
     };
     let result2 = build(&project_root, &filtered_config)?;
 
-    // Should only rebuild page 1 (even if other pages have changes)
+    // Should rebuild the specified page
     assert!(
-        result2.pages_rebuilt.contains(&0) || !result2.pages_rebuilt.is_empty(),
-        "At least one page should be rebuilt"
+        result2.pages_rebuilt.contains(&first_page),
+        "Should rebuild the specified page"
     );
 
     // In a real scenario with multiple affected pages, we'd verify
