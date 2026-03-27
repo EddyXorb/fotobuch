@@ -10,6 +10,7 @@
 - [Core Concepts](concepts.md)
 - [Your First Book](quickstart.md)
 - [Command Overview](commands.md)
+- [Customizing the Template](template.md)
 - [Printing & Export](printing.md)
 - [Known Limitations](known_limitations.md)
 
