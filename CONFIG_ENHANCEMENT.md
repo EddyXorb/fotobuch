@@ -56,7 +56,7 @@ config:
     show_page_numbers: true
     max_preview_px: 800
     # New fields
-    show_bleed_borders: true     # was: show_borders_on_preview
+    show_borders: true           # was: show_borders_on_preview (bleed + margin)
     show_slot_info: true         # was: show_slot_info_on_preview
 ```
 
@@ -75,6 +75,9 @@ config:
       strip_timestamps: true     # was: appendix_try_strip_datetimes_from_photo_name
       label_title: "Photo Index" # was: appendix_label_title (switch default to English)
       label_page: "Page"         # was: appendix_label_page (switch default to English)
+      date_format: "{day}. {month} {year} {hour}:{min} Uhr"
+      date_months: ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun",
+                    "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"]
 ```
 
 The appendix is part of the book output (it appears in both preview and
@@ -112,7 +115,7 @@ release), so it belongs under `config.book` rather than `config.preview`.
 ## Implementation steps
 
 - [ ] Add `AppendixConfig` struct to `src/dto_models/config/`
-- [ ] Add `show_bleed_borders` and `show_slot_info` fields to `PreviewConfig`
+- [ ] Add `show_borders` and `show_slot_info` fields to `PreviewConfig`
 - [ ] Nest `AppendixConfig` under `BookConfig` as `appendix`
 - [ ] Ensure `fotobuch config` prints the new fields
 - [ ] Update template generator (`new/template.rs`) to emit config-aware
@@ -123,3 +126,6 @@ release), so it belongs under `config.book` rather than `config.preview`.
 - [ ] Add new fields to `configuration.md`
 - [ ] Default `appendix_label_title` and `appendix_label_page` to English
       (breaking change for existing German defaults — acceptable for v0.1.0)
+- [ ] Add `date_format` and `date_months` fields to `AppendixConfig`
+- [ ] Update template `fmt_ts_de()` to read format string and month names from
+      `data.config.book.appendix` instead of hardcoded German values
