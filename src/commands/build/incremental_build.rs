@@ -1,6 +1,6 @@
 use super::super::BuildResult;
+use super::core::rebuild_single_page::rebuild_single_page;
 use super::helpers::{build_photo_index, update_preview_pdf};
-use super::rebuild_single_page::rebuild_single_page;
 use crate::cache::preview;
 use crate::state_manager::StateManager;
 use anyhow::Result;
