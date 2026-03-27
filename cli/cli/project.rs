@@ -19,6 +19,7 @@ pub enum ProjectSubcommand {
         cover_height: Option<f64>,
         spine_grow_per_10_pages_mm: Option<f64>,
         spine_mm: Option<f64>,
+        margin_mm: f64,
     },
     List,
     Switch {
@@ -40,6 +41,7 @@ pub fn handle(command: ProjectSubcommand) -> Result<()> {
             cover_height,
             spine_grow_per_10_pages_mm,
             spine_mm,
+            margin_mm,
         } => {
             // Validate spine args if cover is requested
             if with_cover && spine_grow_per_10_pages_mm.is_none() && spine_mm.is_none() {
@@ -63,6 +65,7 @@ pub fn handle(command: ProjectSubcommand) -> Result<()> {
                 cover_height_mm: cover_height,
                 spine_grow_per_10_pages_mm,
                 spine_mm,
+                margin_mm,
             };
 
             let result = commands::project_new(parent, &config)?;

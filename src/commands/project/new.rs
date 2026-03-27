@@ -39,6 +39,8 @@ pub struct NewConfig {
     pub spine_grow_per_10_pages_mm: Option<f64>,
     /// Spine fixed mode: fixed width in mm
     pub spine_mm: Option<f64>,
+    /// Inner margin in millimeters
+    pub margin_mm: f64,
 }
 
 /// Result of project creation
@@ -284,6 +286,7 @@ mod tests {
             cover_height_mm: None,
             spine_grow_per_10_pages_mm: None,
             spine_mm: None,
+            margin_mm: 0.0,
         };
 
         let result = project_new(temp_dir.path(), &config).unwrap();
@@ -322,6 +325,7 @@ mod tests {
             cover_height_mm: None,
             spine_grow_per_10_pages_mm: None,
             spine_mm: None,
+            margin_mm: 0.0,
         };
 
         let result = project_new(temp_dir.path(), &config).unwrap();
@@ -346,6 +350,7 @@ mod tests {
             cover_height_mm: None,
             spine_grow_per_10_pages_mm: None,
             spine_mm: None,
+            margin_mm: 0.0,
         };
 
         let result = project_new(temp_dir.path(), &config).unwrap();
@@ -369,6 +374,7 @@ mod tests {
             cover_height_mm: None,
             spine_grow_per_10_pages_mm: None,
             spine_mm: None,
+            margin_mm: 0.0,
         };
 
         let result = project_new(temp_dir.path(), &config);
@@ -389,6 +395,7 @@ mod tests {
             cover_height_mm: None,
             spine_grow_per_10_pages_mm: None,
             spine_mm: None,
+            margin_mm: 0.0,
         };
 
         // Create first project

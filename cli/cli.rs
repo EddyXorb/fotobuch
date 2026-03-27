@@ -215,6 +215,9 @@ pub enum Commands {
             conflicts_with = "spine_grow_per_10_pages_mm"
         )]
         spine_mm: Option<f64>,
+        /// Inner margin in millimeters (default: 0)
+        #[arg(long, default_value_t = 0.0)]
+        margin_mm: f64,
     },
 
     /// Print shell completion script to stdout
@@ -396,6 +399,9 @@ pub enum ProjectCommands {
             conflicts_with = "spine_grow_per_10_pages_mm"
         )]
         spine_mm: Option<f64>,
+        /// Inner margin in millimeters (default: 0)
+        #[arg(long, default_value_t = 0.0)]
+        margin_mm: f64,
     },
 
     /// List all photobook projects
@@ -467,6 +473,7 @@ impl Execute for Commands {
                 cover_height,
                 spine_grow_per_10_pages_mm,
                 spine_mm,
+                margin_mm,
             } => project::handle(project::ProjectSubcommand::New {
                 name: name.clone(),
                 width: *width,
@@ -479,6 +486,7 @@ impl Execute for Commands {
                 cover_height: *cover_height,
                 spine_grow_per_10_pages_mm: *spine_grow_per_10_pages_mm,
                 spine_mm: *spine_mm,
+                margin_mm: *margin_mm,
             }),
             Commands::Completions { shell } => {
                 clap_complete::generate(
@@ -536,6 +544,7 @@ impl Execute for ProjectCommands {
                 cover_height,
                 spine_grow_per_10_pages_mm,
                 spine_mm,
+                margin_mm,
             } => project::handle(project::ProjectSubcommand::New {
                 name: name.clone(),
                 width: *width,
@@ -548,6 +557,7 @@ impl Execute for ProjectCommands {
                 cover_height: *cover_height,
                 spine_grow_per_10_pages_mm: *spine_grow_per_10_pages_mm,
                 spine_mm: *spine_mm,
+                margin_mm: *margin_mm,
             }),
             ProjectCommands::List => project::handle(project::ProjectSubcommand::List),
             ProjectCommands::Switch { name } => {
