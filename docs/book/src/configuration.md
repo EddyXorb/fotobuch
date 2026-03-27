@@ -79,6 +79,8 @@ When `mode` is not `free`, the GA solver is bypassed and slot positions are
 calculated deterministically from the cover geometry.  A warning is printed if
 the number of photos on the cover does not match what the mode expects.
 
+See [Cover Modes — Visual Guide](cover-modes.md) for visual examples of each mode.
+
 | Mode | Photos | Behaviour |
 |------|--------|-----------|
 | `free` | any | GA solver optimises freely (default) |

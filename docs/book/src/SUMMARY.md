@@ -10,6 +10,7 @@
 - [Core Concepts](concepts.md)
 - [Your First Book](quickstart.md)
 - [Configuration](configuration.md)
+- [Cover Modes — Visual Guide](cover-modes.md)
 - [Command Overview](commands.md)
 - [Customizing the Template](template.md)
 - [Printing & Export](printing.md)
