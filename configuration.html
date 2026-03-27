@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-4ee6fcdf.js";
+            window.path_to_searchindex_js = "searchindex-3245fe9e.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-df0efecf.js"></script>
@@ -339,15 +339,40 @@ three cost components, each multiplied by its weight. Lower cost = better layout
 </div>
 <hr>
 <h3 id="configpreview--preview-rendering"><a class="header" href="#configpreview--preview-rendering"><code>config.preview</code> — Preview rendering</a></h3>
+<p>All preview overlay settings are automatically suppressed in <code>build release</code>.</p>
 <div class="table-wrapper">
 <table>
 <thead>
 <tr><th>Field</th><th>Default</th><th>Description</th></tr>
 </thead>
 <tbody>
-<tr><td><code>show_filenames</code></td><td><code>true</code></td><td>Show the photo filename as a caption below each photo in the preview PDF. Useful for identifying photos when adjusting the layout. Automatically hidden in release builds.</td></tr>
-<tr><td><code>show_page_numbers</code></td><td><code>true</code></td><td>Show page numbers in the preview PDF.</td></tr>
+<tr><td><code>show_filenames</code></td><td><code>false</code></td><td>Show the photo filename as a caption on each photo. Useful for identifying photos when adjusting the layout.</td></tr>
 <tr><td><code>max_preview_px</code></td><td><code>800</code></td><td>Maximum pixel size (longest edge) of cached preview images. Lower = faster builds, less disk space, blurrier preview.</td></tr>
+<tr><td><code>show_borders</code></td><td><code>true</code></td><td>Show red bleed border and blue margin border overlays on each page.</td></tr>
+<tr><td><code>show_slot_info</code></td><td><code>true</code></td><td>Show slot address and area weight on each photo (e.g. <code>3:2 (1.5)</code>).</td></tr>
+</tbody>
+</table>
+</div>
+<hr>
+<h3 id="configbookappendix--photo-index"><a class="header" href="#configbookappendix--photo-index"><code>config.book.appendix</code> — Photo index</a></h3>
+<p>The appendix is a compact photo index appended at the end of both the preview
+and release PDFs, listing every photo with its group, timestamp, and a
+page-position reference.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Field</th><th>Default</th><th>Description</th></tr>
+</thead>
+<tbody>
+<tr><td><code>active</code></td><td><code>false</code></td><td>Enable the photo index.</td></tr>
+<tr><td><code>columns</code></td><td><code>7</code></td><td>Number of columns in the listing.</td></tr>
+<tr><td><code>ref_mode</code></td><td><code>"positions"</code></td><td>Reference style: <code>"positions"</code> (page.slot, e.g. <code>2.3</code>) or <code>"counter"</code> (sequential number badge on each photo).</td></tr>
+<tr><td><code>page_separator</code></td><td><code>false</code></td><td>Show a page-number header between pages in the listing.</td></tr>
+<tr><td><code>strip_timestamps</code></td><td><code>true</code></td><td>Strip leading ISO timestamps from filenames in the listing.</td></tr>
+<tr><td><code>label_title</code></td><td><code>"Photo Index"</code></td><td>Title text of the appendix.</td></tr>
+<tr><td><code>label_page</code></td><td><code>"Page"</code></td><td>“Page” label used in the cross-reference legend and page separators.</td></tr>
+<tr><td><code>date_format</code></td><td><code>"{day}. {month} {year} {hour}:{min}"</code></td><td>Format string for timestamps. Placeholders: <code>{day}</code>, <code>{month}</code>, <code>{year}</code>, <code>{hour}</code>, <code>{min}</code>.</td></tr>
+<tr><td><code>date_months</code></td><td><code>["Jan", …, "Dec"]</code></td><td>Month abbreviations (12 entries, January–December).</td></tr>
 </tbody>
 </table>
 </div>
@@ -368,6 +393,10 @@ three cost components, each multiplied by its weight. Lower cost = better layout
       spine_mode: auto
       spine_mm_per_10_pages: 1.4
       spine_text: "Italy 2024"
+    appendix:
+      active: true
+      label_title: "Photo Index"
+      label_page: "Page"
   book_layout_solver:
     page_target: 20
     page_max: 24
@@ -377,6 +406,8 @@ three cost components, each multiplied by its weight. Lower cost = better layout
       nanos: 0
   preview:
     show_filenames: true
+    show_borders: true
+    show_slot_info: true
     max_preview_px: 800
 </code></pre>
 

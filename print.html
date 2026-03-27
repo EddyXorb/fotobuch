@@ -36,7 +36,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-4ee6fcdf.js";
+            window.path_to_searchindex_js = "searchindex-3245fe9e.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-df0efecf.js"></script>
@@ -682,15 +682,40 @@ three cost components, each multiplied by its weight. Lower cost = better layout
 </div>
 <hr>
 <h3 id="configpreview--preview-rendering"><a class="header" href="#configpreview--preview-rendering"><code>config.preview</code> — Preview rendering</a></h3>
+<p>All preview overlay settings are automatically suppressed in <code>build release</code>.</p>
 <div class="table-wrapper">
 <table>
 <thead>
 <tr><th>Field</th><th>Default</th><th>Description</th></tr>
 </thead>
 <tbody>
-<tr><td><code>show_filenames</code></td><td><code>true</code></td><td>Show the photo filename as a caption below each photo in the preview PDF. Useful for identifying photos when adjusting the layout. Automatically hidden in release builds.</td></tr>
-<tr><td><code>show_page_numbers</code></td><td><code>true</code></td><td>Show page numbers in the preview PDF.</td></tr>
+<tr><td><code>show_filenames</code></td><td><code>false</code></td><td>Show the photo filename as a caption on each photo. Useful for identifying photos when adjusting the layout.</td></tr>
 <tr><td><code>max_preview_px</code></td><td><code>800</code></td><td>Maximum pixel size (longest edge) of cached preview images. Lower = faster builds, less disk space, blurrier preview.</td></tr>
+<tr><td><code>show_borders</code></td><td><code>true</code></td><td>Show red bleed border and blue margin border overlays on each page.</td></tr>
+<tr><td><code>show_slot_info</code></td><td><code>true</code></td><td>Show slot address and area weight on each photo (e.g. <code>3:2 (1.5)</code>).</td></tr>
+</tbody>
+</table>
+</div>
+<hr>
+<h3 id="configbookappendix--photo-index"><a class="header" href="#configbookappendix--photo-index"><code>config.book.appendix</code> — Photo index</a></h3>
+<p>The appendix is a compact photo index appended at the end of both the preview
+and release PDFs, listing every photo with its group, timestamp, and a
+page-position reference.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Field</th><th>Default</th><th>Description</th></tr>
+</thead>
+<tbody>
+<tr><td><code>active</code></td><td><code>false</code></td><td>Enable the photo index.</td></tr>
+<tr><td><code>columns</code></td><td><code>7</code></td><td>Number of columns in the listing.</td></tr>
+<tr><td><code>ref_mode</code></td><td><code>"positions"</code></td><td>Reference style: <code>"positions"</code> (page.slot, e.g. <code>2.3</code>) or <code>"counter"</code> (sequential number badge on each photo).</td></tr>
+<tr><td><code>page_separator</code></td><td><code>false</code></td><td>Show a page-number header between pages in the listing.</td></tr>
+<tr><td><code>strip_timestamps</code></td><td><code>true</code></td><td>Strip leading ISO timestamps from filenames in the listing.</td></tr>
+<tr><td><code>label_title</code></td><td><code>"Photo Index"</code></td><td>Title text of the appendix.</td></tr>
+<tr><td><code>label_page</code></td><td><code>"Page"</code></td><td>“Page” label used in the cross-reference legend and page separators.</td></tr>
+<tr><td><code>date_format</code></td><td><code>"{day}. {month} {year} {hour}:{min}"</code></td><td>Format string for timestamps. Placeholders: <code>{day}</code>, <code>{month}</code>, <code>{year}</code>, <code>{hour}</code>, <code>{min}</code>.</td></tr>
+<tr><td><code>date_months</code></td><td><code>["Jan", …, "Dec"]</code></td><td>Month abbreviations (12 entries, January–December).</td></tr>
 </tbody>
 </table>
 </div>
@@ -711,6 +736,10 @@ three cost components, each multiplied by its weight. Lower cost = better layout
       spine_mode: auto
       spine_mm_per_10_pages: 1.4
       spine_text: "Italy 2024"
+    appendix:
+      active: true
+      label_title: "Photo Index"
+      label_page: "Page"
   book_layout_solver:
     page_target: 20
     page_max: 24
@@ -720,6 +749,8 @@ three cost components, each multiplied by its weight. Lower cost = better layout
       nanos: 0
   preview:
     show_filenames: true
+    show_borders: true
+    show_slot_info: true
     max_preview_px: 800
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div>
@@ -784,8 +815,10 @@ even if nothing changed. Useful when you’re not happy with a layout.</li>
 <p>Every project has a <code>{name}.typ</code> file — a <a href="https://typst.app/">Typst</a> template
 that controls how the PDF looks. fotobuch generates this file for you, but you
 are free (and encouraged) to edit it.</p>
-<p>The top of the template has a clearly marked <strong>USER SETTINGS</strong> section. These
-are the knobs you can turn without understanding the rest of the template.</p>
+<p>Preview overlay settings (borders, slot info, filenames) and the appendix are
+configured in your <strong>YAML config file</strong>, not in the template. Run
+<code>fotobuch config</code> to see all available options, or see the
+<a href="#configpreview--preview-rendering">Configuration reference</a>.</p>
 <blockquote>
 <p><strong>Important:</strong> Always edit <code>{name}.typ</code>, never <code>final.typ</code>. The final
 template is auto-generated from yours during <code>build release</code> (with
@@ -794,44 +827,57 @@ template is auto-generated from yours during <code>build release</code> (with
 <hr>
 <h2 id="preview-overlays"><a class="header" href="#preview-overlays">Preview overlays</a></h2>
 <p>These settings only affect the preview PDF. They are automatically disabled in
-the release build.</p>
+the release build. Configure them in <code>{name}.yaml</code>:</p>
+<pre><code class="language-yaml">config:
+  preview:
+    show_filenames: false    # show filename caption on each photo
+    show_borders: true       # red bleed border + blue margin border
+    show_slot_info: true     # slot address and weight on each photo
+</code></pre>
 <div class="table-wrapper">
 <table>
 <thead>
 <tr><th>Setting</th><th>Default</th><th>Effect</th></tr>
 </thead>
 <tbody>
-<tr><td><code>show_image_captions_on_preview</code></td><td><code>false</code></td><td>Show the filename on each photo</td></tr>
-<tr><td><code>show_borders_on_preview</code></td><td><code>true</code></td><td>Red bleed border + blue margin border</td></tr>
-<tr><td><code>show_slot_info_on_preview</code></td><td><code>true</code></td><td>Slot address and weight on each photo (e.g. <code>3:2 (1.5)</code>)</td></tr>
+<tr><td><code>show_filenames</code></td><td><code>false</code></td><td>Show the filename on each photo</td></tr>
+<tr><td><code>show_borders</code></td><td><code>true</code></td><td>Red bleed border + blue margin border</td></tr>
+<tr><td><code>show_slot_info</code></td><td><code>true</code></td><td>Slot address and weight on each photo (e.g. <code>3:2 (1.5)</code>)</td></tr>
 </tbody>
 </table>
 </div>
-<pre><code class="language-typ">#let show_image_captions_on_preview = false
-#let show_borders_on_preview = true
-#let show_slot_info_on_preview = true
-</code></pre>
-<p>Turn on <code>show_image_captions_on_preview</code> when you’re trying to identify which
-photo is where. Turn off <code>show_slot_info_on_preview</code> once you’re happy with the
-layout and just want a clean preview.</p>
+<p>Turn on <code>show_filenames</code> when you’re trying to identify which photo is where.
+Turn off <code>show_slot_info</code> once you’re happy with the layout and just want a
+clean preview.</p>
 <hr>
 <h2 id="photo-index-appendix"><a class="header" href="#photo-index-appendix">Photo index (appendix)</a></h2>
 <p>The template can append a photo index at the end of the book — a compact
 reference listing every photo with its group, timestamp, and a reference back to
-its page position.</p>
+its page position. Configure it under <code>config.book.appendix</code> in <code>{name}.yaml</code>:</p>
+<pre><code class="language-yaml">config:
+  book:
+    appendix:
+      active: true
+      columns: 7
+      ref_mode: "positions"   # or "counter"
+      label_title: "Photo Index"
+      label_page: "Page"
+</code></pre>
 <div class="table-wrapper">
 <table>
 <thead>
 <tr><th>Setting</th><th>Default</th><th>Effect</th></tr>
 </thead>
 <tbody>
-<tr><td><code>appendix_show</code></td><td><code>false</code></td><td>Enable the appendix</td></tr>
-<tr><td><code>appendix_nr_columns</code></td><td><code>7</code></td><td>Number of columns in the listing</td></tr>
-<tr><td><code>appendix_ref_mode</code></td><td><code>"positions"</code></td><td>How photos are referenced (see below)</td></tr>
-<tr><td><code>appendix_show_page_nr_separator</code></td><td><code>false</code></td><td>Show a page-number header between pages</td></tr>
-<tr><td><code>appendix_try_strip_datetimes_from_photo_name</code></td><td><code>true</code></td><td>Strip leading timestamps from filenames</td></tr>
-<tr><td><code>appendix_label_title</code></td><td><code>"Bildverzeichnis"</code></td><td>Title text (change for your language)</td></tr>
-<tr><td><code>appendix_label_page</code></td><td><code>"Seite"</code></td><td>“Page” label (change for your language)</td></tr>
+<tr><td><code>active</code></td><td><code>false</code></td><td>Enable the appendix</td></tr>
+<tr><td><code>columns</code></td><td><code>7</code></td><td>Number of columns in the listing</td></tr>
+<tr><td><code>ref_mode</code></td><td><code>"positions"</code></td><td>How photos are referenced (see below)</td></tr>
+<tr><td><code>page_separator</code></td><td><code>false</code></td><td>Show a page-number header between pages</td></tr>
+<tr><td><code>strip_timestamps</code></td><td><code>true</code></td><td>Strip leading timestamps from filenames</td></tr>
+<tr><td><code>label_title</code></td><td><code>"Photo Index"</code></td><td>Title text</td></tr>
+<tr><td><code>label_page</code></td><td><code>"Page"</code></td><td>“Page” label</td></tr>
+<tr><td><code>date_format</code></td><td><code>"{day}. {month} {year} {hour}:{min}"</code></td><td>Timestamp format</td></tr>
+<tr><td><code>date_months</code></td><td><code>["Jan", …, "Dec"]</code></td><td>Month abbreviations</td></tr>
 </tbody>
 </table>
 </div>
@@ -841,21 +887,12 @@ its page position.</p>
 <p><strong><code>"counter"</code></strong> — Photos are numbered sequentially (1, 2, 3, …) and a small
 badge with the number appears in the bottom-right corner of each photo in the
 PDF.</p>
-<pre><code class="language-typ">#let appendix_show = true
-#let appendix_ref_mode = "counter"
-#let appendix_label_title = "Photo Index"
-#let appendix_label_page = "Page"
-</code></pre>
 <hr>
 <h2 id="going-further"><a class="header" href="#going-further">Going further</a></h2>
-<p>Everything below the <code>USER SETTINGS</code> block is the full Typst template: page
-setup, slot rendering, cover logic, watermarks, and the appendix renderer. If
-you know Typst, you can customize anything — fonts, colours, page numbering,
-decorative elements, or the layout structure itself.</p>
+<p>The template reads layout data from <code>{name}.yaml</code> via <code>#let data = yaml(…)</code>.
+The YAML structure is stable, so your customizations won’t break on updates.</p>
 <p>A few things to keep in mind:</p>
 <ul>
-<li>The template reads layout data from <code>{name}.yaml</code> via <code>#let data = yaml(…)</code>.
-The YAML structure is stable, so your customizations won’t break on updates.</li>
 <li><code>is_final</code> controls preview vs. release mode. Use it to conditionally show or
 hide elements: <code>#if not is_final [Draft watermark]</code>.</li>
 <li>Image paths are resolved relative to the project root via <code>cache_prefix</code>.
