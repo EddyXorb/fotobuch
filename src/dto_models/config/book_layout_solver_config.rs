@@ -59,7 +59,7 @@ pub struct BookLayoutSolverConfig {
 
 // Default functions for serde
 fn default_page_target() -> usize {
-    32
+    12
 }
 
 fn default_page_min() -> usize {
@@ -67,11 +67,11 @@ fn default_page_min() -> usize {
 }
 
 fn default_page_max() -> usize {
-    48
+    26
 }
 
 fn default_photos_per_page_min() -> usize {
-    2
+    1
 }
 
 fn default_photos_per_page_max() -> usize {
@@ -79,11 +79,11 @@ fn default_photos_per_page_max() -> usize {
 }
 
 fn default_group_max_per_page() -> usize {
-    3
+    5
 }
 
 fn default_group_min_photos() -> usize {
-    2
+    1
 }
 
 fn default_weight_even() -> f64 {
