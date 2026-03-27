@@ -138,7 +138,6 @@ fn remove_empty_pages(layout: &mut Vec<LayoutPage>) {
     layout.retain(|p| !p.photos.is_empty());
 }
 
-
 /// Entfernt gematchte Fotos aus state.photos.
 /// Leere Gruppen werden komplett entfernt.
 /// Gibt die Anzahl entfernter Fotos zurück.
@@ -390,8 +389,16 @@ mod tests {
     #[test]
     fn test_renumber_pages() {
         let mut layout = vec![
-            LayoutPage { page: 5, photos: vec!["a.jpg".to_string()], slots: vec![] },
-            LayoutPage { page: 7, photos: vec!["b.jpg".to_string()], slots: vec![] },
+            LayoutPage {
+                page: 5,
+                photos: vec!["a.jpg".to_string()],
+                slots: vec![],
+            },
+            LayoutPage {
+                page: 7,
+                photos: vec!["b.jpg".to_string()],
+                slots: vec![],
+            },
         ];
 
         renumber_pages(&mut layout, false);
@@ -402,9 +409,21 @@ mod tests {
     #[test]
     fn test_renumber_pages_with_cover() {
         let mut layout = vec![
-            LayoutPage { page: 99, photos: vec!["cover.jpg".to_string()], slots: vec![] },
-            LayoutPage { page: 99, photos: vec!["a.jpg".to_string()], slots: vec![] },
-            LayoutPage { page: 99, photos: vec!["b.jpg".to_string()], slots: vec![] },
+            LayoutPage {
+                page: 99,
+                photos: vec!["cover.jpg".to_string()],
+                slots: vec![],
+            },
+            LayoutPage {
+                page: 99,
+                photos: vec!["a.jpg".to_string()],
+                slots: vec![],
+            },
+            LayoutPage {
+                page: 99,
+                photos: vec!["b.jpg".to_string()],
+                slots: vec![],
+            },
         ];
 
         renumber_pages(&mut layout, true);

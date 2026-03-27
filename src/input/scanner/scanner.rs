@@ -6,7 +6,9 @@ use tracing::{debug, warn};
 use crate::dto_models::{PhotoFile, PhotoGroup};
 use crate::input::xmp;
 
-use super::helper::{get_all_dirs_recursive, is_supported_image, naive_to_utc, parse_timestamp_from_name};
+use super::helper::{
+    get_all_dirs_recursive, is_supported_image, naive_to_utc, parse_timestamp_from_name,
+};
 use super::metadata::enrich_photo_metadata;
 use super::types::{ScanStats, ScannerFilters, ScannerInput};
 
@@ -61,7 +63,11 @@ impl Scanner {
     ///
     /// Without `recursive`: only `root` itself is scanned (one group).
     /// With `recursive`: `root` and all nested subdirectories are scanned (one group each).
-    pub fn scan_photo_group_dirs(&mut self, root: &Path, recursive: bool) -> Result<Vec<PhotoGroup>> {
+    pub fn scan_photo_group_dirs(
+        &mut self,
+        root: &Path,
+        recursive: bool,
+    ) -> Result<Vec<PhotoGroup>> {
         let dirs = if recursive {
             get_all_dirs_recursive(root)?
         } else {

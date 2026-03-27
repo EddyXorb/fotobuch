@@ -94,7 +94,8 @@ mod tests {
 
     #[test]
     fn test_generate_default_state() {
-        let state = generate_default_state("test", 210.0, 297.0, 3.0, false, None, None, None, None);
+        let state =
+            generate_default_state("test", 210.0, 297.0, 3.0, false, None, None, None, None);
 
         assert_eq!(state.config.book.page_width_mm, 210.0);
         assert_eq!(state.config.book.page_height_mm, 297.0);
@@ -109,7 +110,8 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let yaml_path = temp_dir.path().join("test.yaml");
 
-        let state = generate_default_state("test", 210.0, 297.0, 3.0, false, None, None, None, None);
+        let state =
+            generate_default_state("test", 210.0, 297.0, 3.0, false, None, None, None, None);
         write_yaml(&yaml_path, &state).unwrap();
 
         assert!(yaml_path.exists());

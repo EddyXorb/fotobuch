@@ -16,10 +16,7 @@ fn create_project(dir: &TempDir, name: &str) -> std::path::PathBuf {
     cmd()
         .current_dir(dir.path())
         .args([
-            "project", "new", name,
-            "--width", "210",
-            "--height", "148",
-            "--quiet",
+            "project", "new", name, "--width", "210", "--height", "148", "--quiet",
         ])
         .assert()
         .success();
@@ -49,7 +46,10 @@ fn unknown_subcommand_fails() {
 fn project_new_creates_directory() {
     let dir = TempDir::new().unwrap();
     let project = create_project(&dir, "my-book");
-    assert!(project.is_dir(), "project directory must exist after creation");
+    assert!(
+        project.is_dir(),
+        "project directory must exist after creation"
+    );
 }
 
 #[test]

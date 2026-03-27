@@ -5,8 +5,8 @@ use std::path::Path;
 use crate::state_manager::StateManager;
 
 use crate::commands::page::{
-    delete_empty_pages, page_idx, remove_slots, resolve_slots, PageMoveError, PageMoveResult,
-    SlotExpr,
+    PageMoveError, PageMoveResult, SlotExpr, delete_empty_pages, page_idx, remove_slots,
+    resolve_slots,
 };
 
 /// Remove photos from the layout at the given page:slot address.
@@ -32,7 +32,11 @@ pub fn execute_unplace(
     let page_idx_val = page_idx(page, &mgr.state.layout)?;
     remove_slots(&mut mgr.state.layout, page_idx_val, slot_indices);
     let deleted = delete_empty_pages(&mut mgr.state.layout);
-    let modified = if deleted.contains(&page) { vec![] } else { vec![page] };
+    let modified = if deleted.contains(&page) {
+        vec![]
+    } else {
+        vec![page]
+    };
 
     mgr.finish(&format!("unplace: page {page}"))?;
 

@@ -181,15 +181,19 @@ pub(super) fn format_src_desc(src: &Src) -> String {
 }
 
 fn format_slot_expr(slots: &SlotExpr) -> String {
-    let parts: Vec<String> = slots.items.iter().map(|item| match item {
-        SlotItem::Single(n) => n.to_string(),
-        SlotItem::Range { from, to } => match (from, to) {
-            (Some(a), Some(b)) => format!("{a}..{b}"),
-            (Some(a), None) => format!("{a}.."),
-            (None, Some(b)) => format!("..{b}"),
-            (None, None) => "..".to_string(),
-        },
-    }).collect();
+    let parts: Vec<String> = slots
+        .items
+        .iter()
+        .map(|item| match item {
+            SlotItem::Single(n) => n.to_string(),
+            SlotItem::Range { from, to } => match (from, to) {
+                (Some(a), Some(b)) => format!("{a}..{b}"),
+                (Some(a), None) => format!("{a}.."),
+                (None, Some(b)) => format!("..{b}"),
+                (None, None) => "..".to_string(),
+            },
+        })
+        .collect();
     parts.join(",")
 }
 
@@ -202,9 +206,9 @@ pub(super) fn format_pages_list(pages: &[u32]) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use super::super::types::{SlotExpr, ValidationError};
     use super::super::test_fixtures::make_state_with_layout;
+    use super::super::types::{SlotExpr, ValidationError};
+    use super::*;
 
     #[test]
     fn test_page_idx_valid() {
@@ -230,11 +234,20 @@ mod tests {
     fn test_resolve_slots_valid() {
         let state = make_state_with_layout(vec![vec!["p0.jpg", "p1.jpg", "p2.jpg"]]);
         // bounded range
-        assert_eq!(resolve_slots(0, &SlotExpr::from_range(0, 2), &state.layout).unwrap(), vec![0, 1, 2]);
+        assert_eq!(
+            resolve_slots(0, &SlotExpr::from_range(0, 2), &state.layout).unwrap(),
+            vec![0, 1, 2]
+        );
         // open end: 1.. → slots 1 and 2
-        assert_eq!(resolve_slots(0, &SlotExpr::from_open_end(1), &state.layout).unwrap(), vec![1, 2]);
+        assert_eq!(
+            resolve_slots(0, &SlotExpr::from_open_end(1), &state.layout).unwrap(),
+            vec![1, 2]
+        );
         // open start: ..1 → slots 0 and 1
-        assert_eq!(resolve_slots(0, &SlotExpr::from_open_start(1), &state.layout).unwrap(), vec![0, 1]);
+        assert_eq!(
+            resolve_slots(0, &SlotExpr::from_open_start(1), &state.layout).unwrap(),
+            vec![0, 1]
+        );
     }
 
     #[test]

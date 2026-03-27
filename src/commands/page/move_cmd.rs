@@ -9,8 +9,9 @@ use super::helpers::{
     collect_dst_swap_photos_with_indices, collect_src_photos, collect_src_photos_with_indices,
     delete_empty_pages, format_pages_list, format_src_desc, page_idx, remove_slots, resolve_slots,
 };
-use super::types::{DstMove, DstSwap, PageMoveCmd, PageMoveError, PageMoveResult, Src,
-    ValidationError};
+use super::types::{
+    DstMove, DstSwap, PageMoveCmd, PageMoveError, PageMoveResult, Src, ValidationError,
+};
 
 /// Execute a `page move` command (either Move or Swap variant).
 pub fn execute_move(
@@ -38,7 +39,11 @@ fn execute_move_to(
                 let slot_indices = resolve_slots(page, &slots, &mgr.state.layout)?;
                 remove_slots(&mut mgr.state.layout, idx, slot_indices);
                 let deleted = delete_empty_pages(&mut mgr.state.layout);
-                let modified = if deleted.contains(&page) { vec![] } else { vec![page] };
+                let modified = if deleted.contains(&page) {
+                    vec![]
+                } else {
+                    vec![page]
+                };
                 mgr.finish(&format!("page move: page {page}:... -> (unplace)"))?;
                 Ok(PageMoveResult {
                     pages_modified: modified,
@@ -300,7 +305,11 @@ fn block_transpose_pages(layout: &mut Vec<LayoutPage>, left_pages: &[u32], right
     let r1 = page_idx(*right_pages.last().unwrap(), layout).unwrap();
 
     // Normalize so that (l0..=l1) comes before (r0..=r1).
-    let (l0, l1, r0, r1) = if l0 <= r0 { (l0, l1, r0, r1) } else { (r0, r1, l0, l1) };
+    let (l0, l1, r0, r1) = if l0 <= r0 {
+        (l0, l1, r0, r1)
+    } else {
+        (r0, r1, l0, l1)
+    };
 
     // Drain the full segment [l0..=r1] and reassemble as right + middle + left.
     let segment: Vec<LayoutPage> = layout.drain(l0..=r1).collect();
@@ -364,18 +373,16 @@ fn swap_photos_in_layout(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::test_fixtures::{make_state_with_layout, setup_repo};
     use super::super::types::{DstMove, PageMoveCmd, PagesExpr, SlotExpr, Src};
+    use super::*;
     use crate::state_manager::StateManager;
     use tempfile::TempDir;
 
     #[test]
     fn test_execute_move_pages_to_page() {
-        let state = make_state_with_layout(vec![
-            vec!["p0.jpg", "p1.jpg"],
-            vec!["p2.jpg", "p3.jpg"],
-        ]);
+        let state =
+            make_state_with_layout(vec![vec!["p0.jpg", "p1.jpg"], vec!["p2.jpg", "p3.jpg"]]);
         let tmp = TempDir::new().unwrap();
         setup_repo(&tmp, &state);
 
@@ -396,10 +403,7 @@ mod tests {
 
     #[test]
     fn test_execute_move_unplace_page() {
-        let state = make_state_with_layout(vec![
-            vec!["p0.jpg", "p1.jpg"],
-            vec!["p2.jpg"],
-        ]);
+        let state = make_state_with_layout(vec![vec!["p0.jpg", "p1.jpg"], vec!["p2.jpg"]]);
         let tmp = TempDir::new().unwrap();
         setup_repo(&tmp, &state);
 
@@ -441,10 +445,7 @@ mod tests {
 
     #[test]
     fn test_execute_move_to_new_page() {
-        let state = make_state_with_layout(vec![
-            vec!["p0.jpg", "p1.jpg"],
-            vec!["p2.jpg"],
-        ]);
+        let state = make_state_with_layout(vec![vec!["p0.jpg", "p1.jpg"], vec!["p2.jpg"]]);
         let tmp = TempDir::new().unwrap();
         setup_repo(&tmp, &state);
 
@@ -468,10 +469,7 @@ mod tests {
         // Regression: "page move 2:1 to 1+" must not fail with SlotNotFound.
         // Inserting the new page after page 1 shifts page 2 from index 1 to index 2;
         // slot resolution must happen before the insert.
-        let state = make_state_with_layout(vec![
-            vec!["p0.jpg"],
-            vec!["p1.jpg", "p2.jpg"],
-        ]);
+        let state = make_state_with_layout(vec![vec!["p0.jpg"], vec!["p1.jpg", "p2.jpg"]]);
         let tmp = TempDir::new().unwrap();
         setup_repo(&tmp, &state);
 
@@ -496,10 +494,7 @@ mod tests {
 
     #[test]
     fn test_execute_move_slots_to_page_deletes_empty_src() {
-        let state = make_state_with_layout(vec![
-            vec!["p0.jpg"],
-            vec!["p1.jpg", "p2.jpg"],
-        ]);
+        let state = make_state_with_layout(vec![vec!["p0.jpg"], vec!["p1.jpg", "p2.jpg"]]);
         let tmp = TempDir::new().unwrap();
         setup_repo(&tmp, &state);
 
@@ -522,10 +517,7 @@ mod tests {
 
     #[test]
     fn test_execute_move_unplace_all_slots_deletes_page() {
-        let state = make_state_with_layout(vec![
-            vec!["p0.jpg", "p1.jpg"],
-            vec!["p2.jpg"],
-        ]);
+        let state = make_state_with_layout(vec![vec!["p0.jpg", "p1.jpg"], vec!["p2.jpg"]]);
         let tmp = TempDir::new().unwrap();
         setup_repo(&tmp, &state);
 
@@ -550,10 +542,10 @@ mod tests {
     #[test]
     fn test_execute_swap_page_range_block_transposition() {
         let state = make_state_with_layout(vec![
-            vec!["a1.jpg", "a2.jpg"], // page 1
-            vec!["b1.jpg"],           // page 2
+            vec!["a1.jpg", "a2.jpg"],           // page 1
+            vec!["b1.jpg"],                     // page 2
             vec!["c1.jpg", "c2.jpg", "c3.jpg"], // page 3
-            vec!["d1.jpg"],           // page 4
+            vec!["d1.jpg"],                     // page 4
         ]);
         let tmp = TempDir::new().unwrap();
         setup_repo(&tmp, &state);
@@ -567,7 +559,10 @@ mod tests {
         assert_eq!(result.pages_modified, vec![0, 1, 2, 3]);
 
         let mgr = StateManager::open(tmp.path()).unwrap();
-        assert_eq!(mgr.state.layout[0].photos, vec!["c1.jpg", "c2.jpg", "c3.jpg"]);
+        assert_eq!(
+            mgr.state.layout[0].photos,
+            vec!["c1.jpg", "c2.jpg", "c3.jpg"]
+        );
         assert_eq!(mgr.state.layout[1].photos, vec!["d1.jpg"]);
         assert_eq!(mgr.state.layout[2].photos, vec!["a1.jpg", "a2.jpg"]);
         assert_eq!(mgr.state.layout[3].photos, vec!["b1.jpg"]);
@@ -631,11 +626,7 @@ mod tests {
 
     #[test]
     fn test_execute_swap_page_range_overlap() {
-        let state = make_state_with_layout(vec![
-            vec!["a.jpg"],
-            vec!["b.jpg"],
-            vec!["c.jpg"],
-        ]);
+        let state = make_state_with_layout(vec![vec!["a.jpg"], vec!["b.jpg"], vec!["c.jpg"]]);
         let tmp = TempDir::new().unwrap();
         setup_repo(&tmp, &state);
 
