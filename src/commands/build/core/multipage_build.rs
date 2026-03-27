@@ -47,7 +47,7 @@ pub fn multipage_build(
 
     // 2. Determine solver config
     let config = if let Some(ref custom) = params.custom_config {
-        &custom
+        custom
     } else {
         &mgr.state.config.book_layout_solver
     };
@@ -55,13 +55,13 @@ pub fn multipage_build(
     // 3. For full rebuilds with a structured cover (non-Free mode): peel off the first N
     //    photos and solve the cover separately so the multipage solver only sees inner pages.
     let cover_cfg = &mgr.state.config.book.cover;
-    let (cover_files_opt, inner_groups) = split_cover_files(&params, &cover_cfg);
+    let (cover_files_opt, inner_groups) = split_cover_files(&params, cover_cfg);
 
     // 4. Run MultiPage solver (inner pages only when structured cover is active)
     let mut new_pages = run_solver(&Request {
         request_type: RequestType::MultiPage,
         groups: &inner_groups,
-        config: config,
+        config,
         ga_config: &mgr.state.config.page_layout_solver,
         canvas_config: &mgr.state.config.book,
     })?;
@@ -69,7 +69,7 @@ pub fn multipage_build(
     // 5. Build and prepend structured cover page
     if let Some(cover_files) = cover_files_opt {
         let inner_count = new_pages.len();
-        let cover_page = build_cover_page(&cover_cfg, cover_files, inner_count)?;
+        let cover_page = build_cover_page(cover_cfg, cover_files, inner_count)?;
         new_pages.insert(0, cover_page);
     }
 
