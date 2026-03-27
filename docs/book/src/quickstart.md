@@ -1,28 +1,19 @@
 # Your First Book
 
-This walkthrough takes you from zero to a print-ready PDF. It assumes you have
-`fotobuch` installed and a folder of photos somewhere on your machine.
-
-The whole process takes about 10 minutes the first time.
+This walkthrough takes you from zero to a print-ready PDF.
+Prerequisites: `fotobuch` installed, a folder of photos on your machine.
 
 ---
 
 ## Step 1 — Create a project
 
-A fotobuch project is a regular folder containing a `[project-name].yaml` config file
-and a Git repository that tracks every change you make. Multiple projects can be tracked within the same folder.
-When creating a new project, the name chosen needs to
-
-- start with a letter
-- contain only numbers or letters or "-"
-
 ```bash
 fotobuch project new "Italy-2024" --width 297 --height 210
 ```
 
-This creates a folder called `Italy-2024` in the current directory and
-initialises a Git repo inside it. The `--width` and `--height` values are in
-millimeters (297 × 210 mm = A4 landscape).
+This creates a directory `Italy-2024/` with a Git repo, a YAML config, and a
+Typst template. The `--width` and `--height` values are in millimetres
+(297 × 210 mm = A4 landscape).
 
 Switch into the project folder:
 
@@ -30,34 +21,41 @@ Switch into the project folder:
 cd "Italy-2024"
 ```
 
+> Project names must start with a letter and can only contain letters, digits,
+> or dashes.
+
 ---
 
 ## Step 2 — Add photos
 
-Point fotobuch at one or more folders. Each folder becomes a *group* — photos
-from the same group are kept together on pages.
+Point fotobuch at one or more folders. Each folder becomes a
+[group](concepts.md#photos-and-groups) — photos from the same group are kept
+together on pages.
 
 ```bash
 fotobuch add /photos/2024-07-Italy
 fotobuch add /photos/2024-08-Hiking
 ```
 
-Folder names that contain a date (`2024-07-Italy`, `20240715_Rome`) are sorted
-chronologically according to the given timestamp. Folders without a timestamp are sorted according to the timestamp of the oldest photo within the folder.
+Folders with a date in the name (`2024-07-Italy`, `20240715_Rome`) are sorted
+chronologically. Folders without a recognisable date are sorted by the oldest
+photo's timestamp.
 
-You can also add a single file, or add recursively (each subfolder becomes its
-own group):
+You can also add single files, add recursively (each subfolder = its own group),
+or filter:
 
 ```bash
+# single file
 fotobuch add /photos/2024-07-Italy/DSC_0042.jpg
+
+# recursive — each subfolder becomes a group
 fotobuch add --recursive /photos/2024-summer
-```
 
-You can also add photos selectively by filtering filenames and **xmp**-Data:
+# only photos matching a filename pattern
+fotobuch add /photos/2024-07-Italy --filter "DSC_00.*\.jpg"
 
-```bash
-fotobuch add /photos/2024-07-Italy --filter "DSC_00*.jpg"
-fotobuch add /photos/2024-07-Italy --filter-xmp "Rating.*[3-5]" --weight 5 # adds photos with a rating of 3, 4 ,or 5 stars giving them a higher weight (more space) in the layout (5, whereas 1 is the default weight)
+# only 3-to-5-star photos, giving them more space
+fotobuch add /photos/2024-07-Italy --filter-xmp "Rating.*[3-5]" --weight 5
 ```
 
 Check what was imported:
@@ -74,9 +72,11 @@ fotobuch status
 fotobuch build
 ```
 
-fotobuch solves the layout and renders a preview PDF at lower DPI (fast).
-Open `[project-name].pdf` (or the `.typ` file in VS Code with Typst Preview) to
-review the result.
+On the first run, fotobuch distributes all photos across pages automatically and
+renders a preview PDF at lower DPI (fast). Open `Italy-2024.pdf` to review the
+result — or open `Italy-2024.typ` in VS Code with
+[Typst Preview](https://marketplace.visualstudio.com/items?itemName=mgt19937.typst-preview)
+for a live preview.
 
 ---
 
@@ -89,19 +89,19 @@ You will almost certainly want to tweak a few things.
 fotobuch page swap 3 7
 ```
 
-**Move a photo from one page to another:**
+**Move a photo to another page:**
 ```bash
 fotobuch page move 3:2 to 5
 ```
-`3:2` means slot 2 on page 3 (slots are numbered from 1, left-to-right,
-top-to-bottom).
+This moves slot 2 on page 3 to page 5. (Pages and slots count from 0 — use
+`fotobuch status 3` to see which slot is which.)
 
-**Give a photo more space** (weight > 1 makes it relatively larger):
+**Give a photo more space** (weight > 1 = relatively larger):
 ```bash
 fotobuch page weight 3:2 2.0
 ```
 
-**Force the solver to redo a single page:**
+**Re-solve a single page** (runs the solver again from scratch for that page):
 ```bash
 fotobuch rebuild --page 6
 ```
@@ -121,15 +121,34 @@ fotobuch build
 
 ---
 
-## Step 5 — Export for print
+## Step 5 — Adding more photos later
 
-When you are happy with the layout:
+After the first build, newly added photos start as **unplaced**. Place them
+before building:
+
+```bash
+fotobuch add /photos/bonus-shots
+fotobuch place
+fotobuch build
+```
+
+You can also place photos onto a specific page:
+
+```bash
+fotobuch place --into 4
+```
+
+---
+
+## Step 6 — Export for print
+
+When you're happy with the layout:
 
 ```bash
 fotobuch build release
 ```
 
-This re-renders all images at 300 DPI and writes `release.pdf`.
-The file is ready to upload directly to your print service (e.g. Saal Digital).
+This re-renders all images at 300 DPI and writes `Italy-2024_final.pdf`.
+The file is ready to upload to your print service (e.g. Saal Digital).
 
-See [Printing & Known Limitations](printing.md) for Saal Digital-specific details.
+See [Printing](printing.md) for Saal Digital-specific details.

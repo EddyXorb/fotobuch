@@ -1,20 +1,22 @@
 # fotobuch
 
-**fotobuch** automatically distributes your photos across photobook pages and generates
-a print-ready PDF — without ever (automatically) cropping or distorting a single image.
+**fotobuch** turns a folder of photos into a print-ready PDF photobook —
+no cropping, no distortion, no manual drag-and-drop.
 
-The solver places photos using an opinionated layout philosophy: aspect ratios are
-always preserved, reading order flows naturally from top-left to bottom-right, and
-photos from the same event stay together. You can let it run fully automatically, or
-step in and adjust any page manually.
+You point it at your photos, it figures out the layout: aspect ratios stay intact,
+reading order flows naturally from top-left to bottom-right, and photos from the
+same event stay together. Fully automatic, or tweak any page by hand.
 
 ## Quick links
 
-- [Installation and first steps](installation.md)
-- [Your first book — a complete walkthrough](quickstart.md)
-- [All commands at a glance](commands.md)
-- [Exporting for Saal Digital](printing.md)
-- [Full flag reference](cli/reference-generated.md)
+| Where to go | What you'll find |
+|---|---|
+| [Installation](installation.md) | Binaries, building from source, editor setup |
+| [Core Concepts](concepts.md) | How projects, groups, and layouts work |
+| [Your First Book](quickstart.md) | Zero to PDF in 10 minutes |
+| [Commands](commands.md) | Every command at a glance |
+| [Printing](printing.md) | Exporting for Saal Digital & friends |
+| [Full Flag Reference](cli/reference-generated.md) | Every flag, auto-generated from source |
 
 ## Source code
 
