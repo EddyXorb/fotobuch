@@ -25,7 +25,7 @@ jobs:
           mdbook-version: "latest"
 
       - name: Generate CLI reference
-        run: cargo run --example generate-cli-docs
+        run: cargo run --bin generate-cli-docs --features cli-docs
 
       - name: Build docs
         run: mdbook build docs/book

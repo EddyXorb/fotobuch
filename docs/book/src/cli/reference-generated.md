@@ -34,6 +34,8 @@ This document contains the help content for the `fotobuch` command-line program.
 * [`fotobuch project new`↴](#fotobuch-project-new)
 * [`fotobuch project list`↴](#fotobuch-project-list)
 * [`fotobuch project switch`↴](#fotobuch-project-switch)
+* [`fotobuch init`↴](#fotobuch-init)
+* [`fotobuch completions`↴](#fotobuch-completions)
 
 ## `fotobuch`
 
@@ -56,6 +58,8 @@ Photobook layout solver and project manager
 * `undo` — Undo the last N commits (default: 1)
 * `redo` — Redo N previously undone commits (default: 1)
 * `project` — Project management commands
+* `init` — Create a new photobook project (alias for `project new`)
+* `completions` — Print shell completion script to stdout
 
 
 
@@ -441,6 +445,58 @@ Switch to another photobook project
 ###### **Arguments:**
 
 * `<NAME>` — Project name to switch to
+
+
+
+## `fotobuch init`
+
+Create a new photobook project (alias for `project new`)
+
+**Usage:** `fotobuch init [OPTIONS] --width <WIDTH> --height <HEIGHT> <NAME>`
+
+###### **Arguments:**
+
+* `<NAME>` — Project name
+
+###### **Options:**
+
+* `--width <WIDTH>` — Page width in millimeters
+* `--height <HEIGHT>` — Page height in millimeters
+* `--bleed <BLEED>` — Bleed margin in millimeters
+
+  Default value: `3`
+* `--parent-dir <PARENT_DIR>` — Parent directory where project will be created (default: current directory)
+* `--quiet` — Suppress welcome message
+
+  Default value: `false`
+* `--with-cover` — Create project with an active cover page
+
+  Default value: `false`
+* `--cover-width <COVER_WIDTH>` — Cover width in millimeters
+* `--cover-height <COVER_HEIGHT>` — Cover height in millimeters
+* `--spine-grow-per-10-pages-mm <SPINE_GROW_PER_10_PAGES_MM>` — Spine width growth per 10 inner pages in mm
+* `--spine-mm <SPINE_MM>` — Fixed spine width in mm
+
+
+
+## `fotobuch completions`
+
+Print shell completion script to stdout
+
+Usage:
+  fotobuch completions --shell bash   >> ~/.bash_completion
+  fotobuch completions --shell zsh    >> ~/.zshrc
+  fotobuch completions --shell fish   > ~/.config/fish/completions/fotobuch.fish
+  fotobuch completions --shell powershell >> $PROFILE
+
+**Usage:** `fotobuch completions --shell <SHELL>`
+
+###### **Options:**
+
+* `--shell <SHELL>` — Shell to generate completions for
+
+  Possible values: `bash`, `elvish`, `fish`, `powershell`, `zsh`
+
 
 
 
