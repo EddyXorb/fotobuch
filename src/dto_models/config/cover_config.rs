@@ -62,7 +62,7 @@ impl CoverMode {
 }
 
 /// Spine configuration: auto-calculated from page count or fixed by user.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "spine_mode", rename_all = "snake_case")]
 pub enum SpineConfig {
     /// Spine width calculated from inner page count: (pages / 10) * spine_mm_per_10_pages.
@@ -83,7 +83,7 @@ impl Default for SpineConfig {
 
 /// Cover configuration. Present only if the project has a cover page.
 /// Absence of this block means no cover exists.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct CoverConfig {
     /// Whether the first layout entry is treated as the cover page.
     /// false = cover block present but disabled.
