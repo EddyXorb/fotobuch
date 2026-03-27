@@ -62,7 +62,7 @@ setting `active: true` and providing dimensions.
 | **`active`** | `false` | **Enable the cover.** When `true`, the first layout entry (page 0) becomes the cover page. |
 | **`front_back_width_mm`** | `0.0` | **Total width of front + back panel combined, without the spine.** Required when `active: true`. |
 | **`height_mm`** | `0.0` | **Cover height in mm.** Required when `active: true`. |
-| `mode` | `free` | **Cover layout mode.** Controls how page 0 is solved. `free` = GA solver optimises freely (default). All other modes use a deterministic solver and bypass the GA. See [Cover modes](#cover-modes) below. |
+| `mode` | `split` | **Cover layout mode.** Controls how page 0 is solved. `split` = deterministic solver optimises the cover (default). See [Cover modes](#cover-modes) below. |
 | `spine_clearance_mm` | `5.0` | Gap in mm between the photo edge and the spine for `front`, `back`, and `split` modes. Ignored for `spread` modes. |
 | **`spine_text`** | book title | **Text on the spine.** Set to `~` (null) for no text. Font size is auto-calculated from the spine width (max 80% of spine width). |
 | `spine_mode` | `auto` | Spine width mode — see below. |

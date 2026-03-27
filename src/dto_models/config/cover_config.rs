@@ -127,7 +127,7 @@ impl Default for CoverConfig {
     fn default() -> Self {
         CoverConfig {
             active: false,
-            mode: CoverMode::Free,
+            mode: CoverMode::Split,
             spine_clearance_mm: default_spine_clearance_mm(),
             spine: SpineConfig::default(),
             front_back_width_mm: 0.0,
@@ -328,9 +328,9 @@ mod tests {
     }
 
     #[test]
-    fn cover_mode_default_is_free() {
+    fn cover_mode_default_is_split() {
         let c = CoverConfig::default();
-        assert_eq!(c.mode, CoverMode::Free);
+        assert_eq!(c.mode, CoverMode::Split);
     }
 
     #[test]
