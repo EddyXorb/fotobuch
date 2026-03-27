@@ -63,7 +63,33 @@ Work happens on branch `claude/prepare-release-v1-w7cvz`.
 - [ ] Write: Saal Digital / Print settings
 - [ ] (Optional) Internals – recycle the 27 existing design docs in `docs/design/`
 
-### Phase 4 – Release
+### Phase 4 – UX Review & Polish
+
+General usability review of the CLI before release. The goal is to catch rough edges
+that a new user would stumble over.
+
+**Cover handling (concrete known issue)**
+- [ ] `fotobuch add` currently distributes photos onto the cover page too on first build –
+      cover should be excluded from automatic photo distribution
+- [ ] Adding a cover currently requires manual YAML editing to position front/back images
+      without colliding with the spine. Proposal: cover gets two pre-defined placeholder
+      slots (front, back) that the user simply assigns photos to via `fotobuch place` or
+      a dedicated command – no YAML editing needed
+- [ ] Investigate whether cover slot boundaries (spine width) can be enforced automatically
+
+**CLI syntax review (concrete known issue)**
+- [ ] `fotobuch page move A to B` – the `to` keyword feels unexpected in a CLI context;
+      evaluate removing it (e.g. `fotobuch page move A B`) or replacing with `->` consistently
+- [ ] General pass: review all subcommand names and argument styles for consistency and
+      intuitiveness from a first-time-user perspective
+
+**General UX review**
+- [ ] Walk through full workflow as a new user (project new → add → build → rebuild → release)
+      and note friction points
+- [ ] Check all error messages: are they actionable and clear?
+- [ ] Check `fotobuch --help` output: is the command hierarchy obvious?
+
+### Phase 5 – Release
 
 - [ ] Final review of all changes
 - [ ] Push tag `v0.1.0` manually → triggers release workflow → git-cliff generates notes → draft created
