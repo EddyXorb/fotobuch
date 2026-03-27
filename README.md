@@ -20,18 +20,30 @@
 
 <!-- USER: please finalize this section. Draft below based on your notes. -->
 
+I am a passionate photographer. I document much of the things that happen around me. Taking a lot of pictures is easy, but it has no sense to me to just shot them without doing something with them later.
+So every year I sit down and group, rate, post-process and print my photos. In this workflow, the printing is done creating a photobook and that was always a pain: the commercial print offers normally come with some inhouse software solution that does not work well for me.
+The pain points normally are:
+
+- no option to export the photobook to pdf in full size
+- bad/restricted automation options for placing the photos on a page
+- to maintain a copy of the photobook you normally have to keep some proprietary files that contain all the photo you already have on you disk - wasted space
+- even if the automations respect the chronology of the photos when distributed across pages, they do not respect the timestamp in-page-wise often
+- it is often not possible to tell the automatic solver which photos should be bigger than others
+- bugs, crashes and loss of data happened to me more than one time
+
 Photobooks should be made a certain way. `fotobuch` is an opinionated tool that supports
-exactly one philosophy of what a great photobook looks like — and pursues it without
-compromise.
+exactly one philosophy of what a great photobook looks like.
 
 **Why opinionated?** Every design decision in the layout algorithm reflects a deliberate
 aesthetic stance: photos are not cropped, not distorted, not squeezed to fill a gap.
 A photographer chooses a frame intentionally. `fotobuch` respects that choice.
+There are no colourful frames, smileys or other distracting objects in the photobook, only the 
+photos you chose to include, but those are handled with care.
 
 Key principles:
 
 - **Full automation, full control.** Let the solver do all the work, or step in and
-  adjust any page manually. Both workflows are first-class.
+  adjust any page manually.
 - **Aspect ratios are sacred.** Every photo is shown exactly as it was shot — no
   cropping, no distortion. The solver finds a layout that fits, not one that forces.
 - **Reading flow matters.** Photos are arranged so the eye moves naturally from top-left
@@ -39,7 +51,7 @@ Key principles:
 - **Weight your images.** Tell `fotobuch` which photos deserve more space. Important
   moments appear larger; supporting shots stay smaller. The balance is yours to set.
 - **Groups stay together.** Photos from the same event or folder are treated as a unit.
-  The book flows from one group to the next without mixing.
+  The book flows from one group to the next without mixing, unless you want it to.
 - **Tiny footprint.** A project is fully described by a single YAML file and a Typst
   source file. As long as your source photos stay where they are, the entire book takes
   almost no additional disk space.
