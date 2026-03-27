@@ -1,6 +1,6 @@
 //! Detection of outdated pages when project state changes.
 
-use crate::dto_models::ProjectState;
+use crate::dto_models::{CoverMode, ProjectState};
 use std::collections::{BTreeSet, HashMap, HashSet};
 
 const ASPECT_RATIO_THRESHOLD: f64 = 0.001;
@@ -36,11 +36,16 @@ pub fn compute_outdated_pages(reference: &ProjectState, new: &ProjectState) -> V
     // Find photos with changed metadata
     let changed_photos = find_metadata_changed_photos(reference, new, &ref_photo_metadata);
 
+    let cover = &new.config.book.cover;
+    let cover_skips_ar = cover.active && cover.mode.allows_ar_mismatch();
+
     // Phase 2: Evaluate each new page
     for (page_index, new_page) in new.layout.iter().enumerate() {
+        let skip_ar_check = cover_skips_ar && page_index == 0;
         if page_is_outdated_by_metadata(&changed_photos, new_page)
             || page_is_outdated_by_slot_structure(new_page, &reference.layout, &page_hashes)
-            || page_is_outdated_by_aspect_ratio_violation(new_page, &ref_photo_metadata)
+            || (!skip_ar_check
+                && page_is_outdated_by_aspect_ratio_violation(new_page, &ref_photo_metadata))
         {
             outdated.push(page_index);
         }
@@ -169,6 +174,7 @@ mod tests {
         BookConfig, BookLayoutSolverConfig, LayoutPage, PhotoFile, PhotoGroup, ProjectConfig,
         ProjectState, Slot,
     };
+    use crate::dto_models::{CoverConfig, CoverMode};
 
     fn make_state(title: &str, pages: Vec<LayoutPage>) -> ProjectState {
         ProjectState {
@@ -627,5 +633,92 @@ mod tests {
 
         let outdated = compute_outdated_pages(&reference, &new);
         assert_eq!(outdated, Vec::<usize>::new()); // No pages to check
+    }
+
+    fn make_state_with_cover(
+        title: &str,
+        pages: Vec<LayoutPage>,
+        cover_mode: CoverMode,
+    ) -> ProjectState {
+        let mut state = make_state(title, pages);
+        state.config.book.cover = CoverConfig {
+            active: true,
+            mode: cover_mode,
+            ..CoverConfig::default()
+        };
+        state
+    }
+
+    #[test]
+    fn test_cover_full_mode_ignores_ar_mismatch_on_cover_page() {
+        // In FrontFull the cover solver fills the slot to canvas dimensions (crops).
+        // Slot AR = 1.5, photo AR = 1.0 — mismatch is intentional and must not trigger re-solve.
+        // Slots are identical in ref and new (canvas unchanged), so slot-structure check passes.
+        let cover_slot = make_slot(0.0, 0.0, 150.0, 100.0); // AR = 1.5
+        let cover_ref = make_page(0, vec!["A".to_string()], vec![cover_slot.clone()]);
+        let cover_new = make_page(0, vec!["A".to_string()], vec![cover_slot]);
+
+        let mut reference = make_state_with_cover("ref", vec![cover_ref], CoverMode::FrontFull);
+        reference.photos = vec![PhotoGroup {
+            group: "test".to_string(),
+            sort_key: "2024-01-01T00:00:00Z".to_string(),
+            files: vec![make_photo("A", 100, 100, 1.0)], // photo AR = 1.0
+        }];
+
+        let mut new = make_state_with_cover("new", vec![cover_new], CoverMode::FrontFull);
+        new.photos = reference.photos.clone();
+
+        let outdated = compute_outdated_pages(&reference, &new);
+        assert_eq!(outdated, Vec::<usize>::new()); // AR mismatch tolerated in FrontFull
+    }
+
+    #[test]
+    fn test_cover_non_full_mode_still_checks_ar() {
+        // Front mode preserves AR — slot AR mismatch with photo must still trigger re-solve.
+        let cover_slot = make_slot(0.0, 0.0, 150.0, 100.0); // AR = 1.5
+        let cover_ref = make_page(0, vec!["A".to_string()], vec![cover_slot.clone()]);
+        let cover_new = make_page(0, vec!["A".to_string()], vec![cover_slot]);
+
+        let mut reference = make_state_with_cover("ref", vec![cover_ref], CoverMode::Front);
+        reference.photos = vec![PhotoGroup {
+            group: "test".to_string(),
+            sort_key: "2024-01-01T00:00:00Z".to_string(),
+            files: vec![make_photo("A", 100, 100, 1.0)], // photo AR = 1.0
+        }];
+
+        let mut new = make_state_with_cover("new", vec![cover_new], CoverMode::Front);
+        new.photos = reference.photos.clone();
+
+        let outdated = compute_outdated_pages(&reference, &new);
+        assert_eq!(outdated, vec![0]); // AR mismatch still triggers re-solve
+    }
+
+    #[test]
+    fn test_cover_full_mode_ar_skip_does_not_affect_inner_pages() {
+        // Cover AR mismatch is tolerated (FrontFull), inner page AR mismatch must still trigger.
+        let cover_slot = make_slot(0.0, 0.0, 150.0, 100.0); // AR = 1.5, photo AR = 1.0 — OK
+        let inner_slot = make_slot(0.0, 0.0, 150.0, 100.0); // AR = 1.5, photo AR = 1.0 — NOT OK
+        let cover_ref = make_page(0, vec!["A".to_string()], vec![cover_slot.clone()]);
+        let cover_new = make_page(0, vec!["A".to_string()], vec![cover_slot]);
+        let inner_ref = make_page(1, vec!["B".to_string()], vec![inner_slot.clone()]);
+        let inner_new = make_page(1, vec!["B".to_string()], vec![inner_slot]);
+
+        let mut reference =
+            make_state_with_cover("ref", vec![cover_ref, inner_ref], CoverMode::FrontFull);
+        reference.photos = vec![PhotoGroup {
+            group: "test".to_string(),
+            sort_key: "2024-01-01T00:00:00Z".to_string(),
+            files: vec![
+                make_photo("A", 100, 100, 1.0),
+                make_photo("B", 100, 100, 1.0),
+            ],
+        }];
+
+        let mut new =
+            make_state_with_cover("new", vec![cover_new, inner_new], CoverMode::FrontFull);
+        new.photos = reference.photos.clone();
+
+        let outdated = compute_outdated_pages(&reference, &new);
+        assert_eq!(outdated, vec![1]); // Only inner page is outdated
     }
 }

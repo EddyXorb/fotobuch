@@ -47,6 +47,18 @@ impl CoverMode {
     pub fn is_free(self) -> bool {
         self == CoverMode::Free
     }
+
+    /// `true` when the mode intentionally fills slots without preserving aspect ratio (cropping modes).
+    /// AR mismatch between slot and photo is expected and should not trigger re-solving.
+    pub fn allows_ar_mismatch(self) -> bool {
+        matches!(
+            self,
+            CoverMode::FrontFull
+                | CoverMode::BackFull
+                | CoverMode::SpreadFull
+                | CoverMode::SplitFull
+        )
+    }
 }
 
 /// Spine configuration: auto-calculated from page count or fixed by user.
@@ -290,6 +302,19 @@ mod tests {
         assert!(CoverMode::Free.is_free());
         assert!(!CoverMode::Front.is_free());
         assert!(!CoverMode::Split.is_free());
+    }
+
+    #[test]
+    fn cover_mode_allows_ar_mismatch() {
+        assert!(!CoverMode::Free.allows_ar_mismatch());
+        assert!(!CoverMode::Front.allows_ar_mismatch());
+        assert!(CoverMode::FrontFull.allows_ar_mismatch());
+        assert!(!CoverMode::Back.allows_ar_mismatch());
+        assert!(CoverMode::BackFull.allows_ar_mismatch());
+        assert!(!CoverMode::Spread.allows_ar_mismatch());
+        assert!(CoverMode::SpreadFull.allows_ar_mismatch());
+        assert!(!CoverMode::Split.allows_ar_mismatch());
+        assert!(CoverMode::SplitFull.allows_ar_mismatch());
     }
 
     #[test]
