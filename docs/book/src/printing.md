@@ -4,7 +4,7 @@
 
 Before uploading your PDF, verify these things:
 
-- Run `fotobuch build release` — only the release PDF has full 300 DPI
+- Run `fotobuch build release` — only the release PDF has full 300 DPI, do **NOT UPLOAD THE PREVIEW PDF** to be printed, it will be ugly!
 - Check the terminal output for **DPI warnings** (photos that are too small for
   their slot will be listed)
 - Open the final PDF (`{name}_final.pdf`) and spot-check a few pages

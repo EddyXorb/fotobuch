@@ -97,7 +97,7 @@ the handwritten pages provide clarity and examples.
 Light review of the CLI experience. **No feature work or breaking changes in this phase** –
 only document findings. Code changes go into post-v0.1.0 issues.
 
-- [ ] Walk through full workflow as a new user (`project new` → `add` → `build` → `rebuild` → `build release`)
+- [x] Walk through full workflow as a new user (`project new` → `add` → `build` → `rebuild` → `build release`)
       and note friction points
 - [x] Check `fotobuch --help` output: is the command hierarchy obvious?
 
