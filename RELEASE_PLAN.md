@@ -45,7 +45,7 @@ Work happens on branch `claude/prepare-release-v1-w7cvz`.
 - [x] Rewrite `README.md` in English + coverage badge at top (skeleton done; placeholders for user)
 - [ ] Clean up README placeholders: replace `YOUREMAIL@example.com` with real address,
       remove `<!-- USER: ... -->` comments, replace or remove `docs/assets/example_spread.jpg`
-- [ ] Add `fotobuch init` as alias for `project new` (familiar pattern from git/cargo/npm)
+- [x] Add `fotobuch init` as alias for `project new` (familiar pattern from git/cargo/npm)
 - [ ] Add `fotobuch completions --shell <bash|zsh|fish|powershell>` subcommand
       (clap has built-in support via `clap_complete`, minimal code needed)
 - [ ] Create example project in `examples/demo-project/` with 5–10 small public-domain photos
