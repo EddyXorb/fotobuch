@@ -67,8 +67,17 @@ To be done in this order
 
 ## Workflow improvements (found during book review)
 
-- [ ] Cover setup is too manual (3–4 commands + YAML edit). A dedicated
-      `fotobuch cover set-photo <path>` command would make it a one-liner.
+- [ ] Cover setup is too manual (3–4 commands + YAML edit). Solution: a `mode`
+      field in `config.book.cover` with fixed slot layouts — see `COVER_WORKFLOW_IMPROVEMENT.md`.
+- [ ] **Generalise page layout modes to inner pages.** The cover `mode` concept
+      (fixed slot positions instead of GA-solver) could apply to any page via
+      `page mode <idx> <mode>`. For inner pages the modes would use `left`/`right`
+      instead of `front`/`back`. An additional mode should support a configurable
+      **inner margin** (gutter) for non-lay-flat bindings — the solver would keep
+      photos away from the spine side of each page. This avoids photos disappearing
+      into the binding on double-page spreads. Modes for inner pages: `free`, `left`,
+      `left-full`, `right`, `right-full`, `spread`, `spread-full`, `split`,
+      `split-full`, `gutter:<mm>` (solver respects a keep-out zone on the spine side).
 - [ ] First `build` auto-places all photos, but subsequent builds require
       explicit `fotobuch place`. This asymmetry is surprising. Consider
       auto-placing in `build` or warning loudly about unplaced photos.
