@@ -73,6 +73,7 @@ pub fn generate_default_state(config: &NewConfig) -> ProjectState {
                 bleed_threshold_mm: 3.0,
                 dpi: 300.0,
                 cover,
+                appendix: Default::default(),
             },
             page_layout_solver: GaConfig::default(),
             preview: PreviewConfig::default(),

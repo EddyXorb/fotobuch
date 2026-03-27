@@ -4,8 +4,10 @@ Every project has a `{name}.typ` file — a [Typst](https://typst.app/) template
 that controls how the PDF looks. fotobuch generates this file for you, but you
 are free (and encouraged) to edit it.
 
-The top of the template has a clearly marked **USER SETTINGS** section. These
-are the knobs you can turn without understanding the rest of the template.
+Preview overlay settings (borders, slot info, filenames) and the appendix are
+configured in your **YAML config file**, not in the template. Run
+`fotobuch config` to see all available options, or see the
+[Configuration reference](configuration.md#configpreview--preview-rendering).
 
 > **Important:** Always edit `{name}.typ`, never `final.typ`. The final
 > template is auto-generated from yours during `build release` (with
@@ -16,23 +18,25 @@ are the knobs you can turn without understanding the rest of the template.
 ## Preview overlays
 
 These settings only affect the preview PDF. They are automatically disabled in
-the release build.
+the release build. Configure them in `{name}.yaml`:
+
+```yaml
+config:
+  preview:
+    show_filenames: false    # show filename caption on each photo
+    show_borders: true       # red bleed border + blue margin border
+    show_slot_info: true     # slot address and weight on each photo
+```
 
 | Setting | Default | Effect |
 |---|---|---|
-| `show_image_captions_on_preview` | `false` | Show the filename on each photo |
-| `show_borders_on_preview` | `true` | Red bleed border + blue margin border |
-| `show_slot_info_on_preview` | `true` | Slot address and weight on each photo (e.g. `3:2 (1.5)`) |
+| `show_filenames` | `false` | Show the filename on each photo |
+| `show_borders` | `true` | Red bleed border + blue margin border |
+| `show_slot_info` | `true` | Slot address and weight on each photo (e.g. `3:2 (1.5)`) |
 
-```typ
-#let show_image_captions_on_preview = false
-#let show_borders_on_preview = true
-#let show_slot_info_on_preview = true
-```
-
-Turn on `show_image_captions_on_preview` when you're trying to identify which
-photo is where. Turn off `show_slot_info_on_preview` once you're happy with the
-layout and just want a clean preview.
+Turn on `show_filenames` when you're trying to identify which photo is where.
+Turn off `show_slot_info` once you're happy with the layout and just want a
+clean preview.
 
 ---
 
@@ -40,17 +44,30 @@ layout and just want a clean preview.
 
 The template can append a photo index at the end of the book — a compact
 reference listing every photo with its group, timestamp, and a reference back to
-its page position.
+its page position. Configure it under `config.book.appendix` in `{name}.yaml`:
+
+```yaml
+config:
+  book:
+    appendix:
+      active: true
+      columns: 7
+      ref_mode: "positions"   # or "counter"
+      label_title: "Photo Index"
+      label_page: "Page"
+```
 
 | Setting | Default | Effect |
 |---|---|---|
-| `appendix_show` | `false` | Enable the appendix |
-| `appendix_nr_columns` | `7` | Number of columns in the listing |
-| `appendix_ref_mode` | `"positions"` | How photos are referenced (see below) |
-| `appendix_show_page_nr_separator` | `false` | Show a page-number header between pages |
-| `appendix_try_strip_datetimes_from_photo_name` | `true` | Strip leading timestamps from filenames |
-| `appendix_label_title` | `"Bildverzeichnis"` | Title text (change for your language) |
-| `appendix_label_page` | `"Seite"` | "Page" label (change for your language) |
+| `active` | `false` | Enable the appendix |
+| `columns` | `7` | Number of columns in the listing |
+| `ref_mode` | `"positions"` | How photos are referenced (see below) |
+| `page_separator` | `false` | Show a page-number header between pages |
+| `strip_timestamps` | `true` | Strip leading timestamps from filenames |
+| `label_title` | `"Photo Index"` | Title text |
+| `label_page` | `"Page"` | "Page" label |
+| `date_format` | `"{day}. {month} {year} {hour}:{min}"` | Timestamp format |
+| `date_months` | `["Jan", …, "Dec"]` | Month abbreviations |
 
 ### Reference modes
 
@@ -61,26 +78,15 @@ its page position.
 badge with the number appears in the bottom-right corner of each photo in the
 PDF.
 
-```typ
-#let appendix_show = true
-#let appendix_ref_mode = "counter"
-#let appendix_label_title = "Photo Index"
-#let appendix_label_page = "Page"
-```
-
 ---
 
 ## Going further
 
-Everything below the `USER SETTINGS` block is the full Typst template: page
-setup, slot rendering, cover logic, watermarks, and the appendix renderer. If
-you know Typst, you can customize anything — fonts, colours, page numbering,
-decorative elements, or the layout structure itself.
+The template reads layout data from `{name}.yaml` via `#let data = yaml(…)`.
+The YAML structure is stable, so your customizations won't break on updates.
 
 A few things to keep in mind:
 
-- The template reads layout data from `{name}.yaml` via `#let data = yaml(…)`.
-  The YAML structure is stable, so your customizations won't break on updates.
 - `is_final` controls preview vs. release mode. Use it to conditionally show or
   hide elements: `#if not is_final [Draft watermark]`.
 - Image paths are resolved relative to the project root via `cache_prefix`.
