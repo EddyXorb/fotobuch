@@ -7,7 +7,7 @@ src = "src"
 [output.html]
 site-url = "/fotobuch/"
 git-repository-url = "https://github.com/EddyXorb/fotobuch"
-git-repository-icon = "fa-github"
+git-repository-icon = "fab-github"
 edit-url-template = "https://github.com/EddyXorb/fotobuch/edit/main/docs/book/src/{path}"
 
 [output.html.search]
