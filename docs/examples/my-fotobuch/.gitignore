@@ -1,0 +1,7 @@
+
+.fotobuch/
+*.pdf
+final.typ
+log*
+*.yaml
+*.typ
