@@ -1,7 +1,8 @@
 //! Command-line interface for the photobook solver.
 
 use anyhow::Result;
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand};
+use clap_complete::Shell;
 use std::path::PathBuf;
 
 // Handler modules for each command
@@ -174,6 +175,56 @@ pub enum Commands {
     Project {
         #[command(subcommand)]
         command: ProjectCommands,
+    },
+
+    /// Create a new photobook project (alias for `project new`)
+    Init {
+        /// Project name
+        name: String,
+        /// Page width in millimeters
+        #[arg(long)]
+        width: f64,
+        /// Page height in millimeters
+        #[arg(long)]
+        height: f64,
+        /// Bleed margin in millimeters
+        #[arg(long, default_value = "3")]
+        bleed: f64,
+        /// Parent directory where project will be created (default: current directory)
+        #[arg(long)]
+        parent_dir: Option<PathBuf>,
+        /// Suppress welcome message
+        #[arg(long, default_value_t = false)]
+        quiet: bool,
+        /// Create project with an active cover page
+        #[arg(long, default_value_t = false)]
+        with_cover: bool,
+        /// Cover width in millimeters
+        #[arg(long, requires = "with_cover")]
+        cover_width: Option<f64>,
+        /// Cover height in millimeters
+        #[arg(long, requires = "with_cover")]
+        cover_height: Option<f64>,
+        /// Spine width growth per 10 inner pages in mm
+        #[arg(long, requires = "with_cover", conflicts_with = "spine_mm")]
+        spine_grow_per_10_pages_mm: Option<f64>,
+        /// Fixed spine width in mm
+        #[arg(long, requires = "with_cover", conflicts_with = "spine_grow_per_10_pages_mm")]
+        spine_mm: Option<f64>,
+    },
+
+    /// Print shell completion script to stdout
+    ///
+    /// Usage:
+    ///   fotobuch completions --shell bash   >> ~/.bash_completion
+    ///   fotobuch completions --shell zsh    >> ~/.zshrc
+    ///   fotobuch completions --shell fish   > ~/.config/fish/completions/fotobuch.fish
+    ///   fotobuch completions --shell powershell >> $PROFILE
+    #[command(verbatim_doc_comment)]
+    Completions {
+        /// Shell to generate completions for
+        #[arg(long, value_enum)]
+        shell: Shell,
     },
 }
 
@@ -398,6 +449,40 @@ impl Execute for Commands {
             Commands::Undo { steps } => undo::handle_undo(*steps),
             Commands::Redo { steps } => undo::handle_redo(*steps),
             Commands::Project { command } => command.execute(),
+            Commands::Init {
+                name,
+                width,
+                height,
+                bleed,
+                parent_dir,
+                quiet,
+                with_cover,
+                cover_width,
+                cover_height,
+                spine_grow_per_10_pages_mm,
+                spine_mm,
+            } => project::handle(project::ProjectSubcommand::New {
+                name: name.clone(),
+                width: *width,
+                height: *height,
+                bleed: *bleed,
+                parent_dir: parent_dir.clone(),
+                quiet: *quiet,
+                with_cover: *with_cover,
+                cover_width: *cover_width,
+                cover_height: *cover_height,
+                spine_grow_per_10_pages_mm: *spine_grow_per_10_pages_mm,
+                spine_mm: *spine_mm,
+            }),
+            Commands::Completions { shell } => {
+                clap_complete::generate(
+                    *shell,
+                    &mut Cli::command(),
+                    "fotobuch",
+                    &mut std::io::stdout(),
+                );
+                Ok(())
+            }
         }
     }
 }

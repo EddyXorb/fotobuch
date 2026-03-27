@@ -14,6 +14,7 @@ path = "src/lib.rs"
 [dependencies]
 # CLI argument parsing
 clap = { version = "4", features = ["derive"] }
+clap_complete = "4"
 
 # Error handling
 anyhow = "1"
