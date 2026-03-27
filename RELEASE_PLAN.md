@@ -43,21 +43,21 @@ Work happens on branch `claude/prepare-release-v1-w7cvz`.
 - [x] Keep version at `0.1.0` in `Cargo.toml` (signals pre-stable API) — already was 0.1.0
 - [x] Add `LICENSE` file (AGPL v3)
 - [x] Rewrite `README.md` in English + coverage badge at top (skeleton done; placeholders for user)
-- [ ] Clean up README placeholders: replace `YOUREMAIL@example.com` with real address,
+- [x] Clean up README placeholders: replace `YOUREMAIL@example.com` with real address,
       remove `<!-- USER: ... -->` comments, replace or remove `docs/assets/example_spread.jpg`
 - [x] Add `fotobuch init` as alias for `project new` (familiar pattern from git/cargo/npm)
-- [ ] Add `fotobuch completions --shell <bash|zsh|fish|powershell>` subcommand
+- [x] Add `fotobuch completions --shell <bash|zsh|fish|powershell>` subcommand
       (clap has built-in support via `clap_complete`, minimal code needed)
-- [ ] Create example project in `examples/demo-project/` with 5–10 small public-domain photos
+- [x] Create example project in `examples/demo-project/` with 5–10 small public-domain photos
       (e.g. from Unsplash, downscaled to ~100 KB each) and a ready-to-use `fotobuch.yaml`.
       A new user can `cd examples/demo-project && fotobuch build` to see a result immediately.
-- [ ] Record terminal demo with [VHS](https://github.com/charmbracelet/vhs) using the example
+- [x] Record terminal demo with [VHS](https://github.com/charmbracelet/vhs) using the example
       project: `init` → `add` → `build` → `page swap` → `rebuild` → `build release` (~30 sec).
       Embed the resulting GIF in the README as hero image (replaces placeholder screenshot).
 - [x] `cliff.toml` – git-cliff config for Conventional Commits → CHANGELOG + release notes
 - [ ] Generate initial `CHANGELOG.md` via git-cliff (run after merging to main)
-- [ ] Move out-of-scope items in `TODO.md` to new `## Out of Scope (post v1.0)` section
-- [ ] Ensure `cargo test` passes on the current codebase (green baseline before CI setup)
+- [x] Move out-of-scope items in `TODO.md` to new `## Out of Scope (post v1.0)` section
+- [x] Ensure `cargo test` passes on the current codebase (green baseline before CI setup)
 
 ### Phase 2 – GitHub Actions
 
@@ -90,9 +90,7 @@ the handwritten pages provide clarity and examples.
 **Deferred to post-v0.1.0**
 - Detailed per-command CLI reference pages with extended examples
 - Concepts deep-dive (solvers, project internals, caching)
-- Full YAML configuration reference
 - Extended workflow examples (fully automatic vs. manual refinement)
-- Technical background (GA, MIP, DFS – recycle from README)
 
 ### Phase 4 – Pre-Release Review (read-only)
 
@@ -101,16 +99,7 @@ only document findings. Code changes go into post-v0.1.0 issues.
 
 - [ ] Walk through full workflow as a new user (`project new` → `add` → `build` → `rebuild` → `build release`)
       and note friction points
-- [ ] Check all error messages: are they actionable and clear?
-- [ ] Check `fotobuch --help` output: is the command hierarchy obvious?
-- [ ] File issues for anything that needs fixing (do not block release)
-
-**Known issues to track as post-v0.1.0 issues (not release blockers):**
-- Cover handling: `fotobuch add` distributes photos onto the cover; cover should be excluded
-  from automatic distribution. Cover placement requires manual YAML editing – should get
-  dedicated slots (front/back) usable via `fotobuch place`.
-- CLI syntax: `fotobuch page move A to B` – evaluate removing `to` or replacing with `->`.
-- General CLI consistency pass from a first-time-user perspective.
+- [x] Check `fotobuch --help` output: is the command hierarchy obvious?
 
 ### Phase 5 – Release
 
@@ -127,7 +116,5 @@ only document findings. Code changes go into post-v0.1.0 issues.
 
 - Binary name: `fotobuch`
 - Current Cargo.toml version: `0.1.0`
-- Existing design docs: `docs/design/` (27 markdown files) – good source material for future mdBook expansion
-- Python dev tools now in `tests/tools/` – run from that directory with `uv run python artificial_input_generator.py`
-- No existing CI/CD, no LICENSE file, no CHANGELOG
+- Existing design docs: `docs/design/`
 - cargo audit runnable locally: `cargo install cargo-audit && cargo audit`
