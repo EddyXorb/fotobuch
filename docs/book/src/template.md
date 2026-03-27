@@ -28,11 +28,11 @@ config:
     show_slot_info: true     # slot address and weight on each photo
 ```
 
-| Setting | Default | Effect |
-|---|---|---|
-| `show_filenames` | `false` | Show the filename on each photo |
-| `show_borders` | `true` | Red bleed border + blue margin border |
-| `show_slot_info` | `true` | Slot address and weight on each photo (e.g. `3:2 (1.5)`) |
+| Setting          | Default | Effect                                                   |
+| ---------------- | ------- | -------------------------------------------------------- |
+| `show_filenames` | `false` | Show the filename on each photo                          |
+| `show_borders`   | `true`  | Red bleed border + blue margin border                    |
+| `show_slot_info` | `true`  | Slot address and weight on each photo (e.g. `3:2 (1.5)`) |
 
 Turn on `show_filenames` when you're trying to identify which photo is where.
 Turn off `show_slot_info` once you're happy with the layout and just want a
@@ -57,17 +57,17 @@ config:
       label_page: "Page"
 ```
 
-| Setting | Default | Effect |
-|---|---|---|
-| `active` | `false` | Enable the appendix |
-| `columns` | `7` | Number of columns in the listing |
-| `ref_mode` | `"positions"` | How photos are referenced (see below) |
-| `page_separator` | `false` | Show a page-number header between pages |
-| `strip_timestamps` | `true` | Strip leading timestamps from filenames |
-| `label_title` | `"Photo Index"` | Title text |
-| `label_page` | `"Page"` | "Page" label |
-| `date_format` | `"{day}. {month} {year} {hour}:{min}"` | Timestamp format |
-| `date_months` | `["Jan", …, "Dec"]` | Month abbreviations |
+| Setting            | Default                                | Effect                                  |
+| ------------------ | -------------------------------------- | --------------------------------------- |
+| `active`           | `false`                                | Enable the appendix                     |
+| `columns`          | `7`                                    | Number of columns in the listing        |
+| `ref_mode`         | `"positions"`                          | How photos are referenced (see below)   |
+| `page_separator`   | `false`                                | Show a page-number header between pages |
+| `strip_timestamps` | `true`                                 | Strip leading timestamps from filenames |
+| `label_title`      | `"Photo Index"`                        | Title text                              |
+| `label_page`       | `"Page"`                               | "Page" label                            |
+| `date_format`      | `"{day}. {month} {year} {hour}:{min}"` | Timestamp format                        |
+| `date_months`      | `["Jan", …, "Dec"]`                    | Month abbreviations                     |
 
 ### Reference modes
 

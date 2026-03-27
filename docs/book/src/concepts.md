@@ -30,10 +30,10 @@ one, otherwise by the oldest photo's timestamp.
 
 A photo can be in one of two states:
 
-| State | Meaning |
-|---|---|
+| State        | Meaning                                          |
+| ------------ | ------------------------------------------------ |
 | **unplaced** | In the project, but not assigned to any page yet |
-| **placed** | Assigned to a specific slot on a specific page |
+| **placed**   | Assigned to a specific slot on a specific page   |
 
 When you run `fotobuch build` for the **first time**, all photos are placed
 automatically — the solver distributes them across pages.
@@ -65,13 +65,13 @@ Slots are ordered left-to-right, top-to-bottom (reading order). Use
 
 A **slot address** identifies one or more photos:
 
-| Address | Meaning |
-|---|---|
-| `3` | All slots on page 3 |
-| `3:2` | Slot 2 on page 3 |
-| `3:2..5` | Slots 2 through 5 on page 3 |
-| `3:2..5,7` | Slots 2–5 and slot 7 on page 3 |
-| `4+` | New page inserted after page 4 (move destination only) |
+| Address    | Meaning                                                |
+| ---------- | ------------------------------------------------------ |
+| `3`        | All slots on page 3                                    |
+| `3:2`      | Slot 2 on page 3                                       |
+| `3:2..5`   | Slots 2 through 5 on page 3                            |
+| `3:2..5,7` | Slots 2–5 and slot 7 on page 3                         |
+| `4+`       | New page inserted after page 4 (move destination only) |
 
 ## Two ways to address photos
 
@@ -82,24 +82,24 @@ are placed in the layout or not:
 you want to work with photos regardless of their layout position. Matches
 against the photo's source path or XMP metadata.
 
-| Command | What it does |
-|---|---|
-| `fotobuch add --filter "pattern"` | Import only matching photos |
+| Command                               | What it does                                  |
+| ------------------------------------- | --------------------------------------------- |
+| `fotobuch add --filter "pattern"`     | Import only matching photos                   |
 | `fotobuch add --filter-xmp "pattern"` | Import only photos whose XMP metadata matches |
-| `fotobuch place --filter "pattern"` | Place only matching unplaced photos |
-| `fotobuch remove "pattern"` | Remove matching photos from the project |
+| `fotobuch place --filter "pattern"`   | Place only matching unplaced photos           |
+| `fotobuch remove "pattern"`           | Remove matching photos from the project       |
 
 **By slot address** — used for photos that are already placed on a page. Each
 placed photo has a unique address like `3:2` (page 3, slot 2). See
 [Pages and slots](#pages-and-slots) below for the full syntax.
 
-| Command | What it does |
-|---|---|
-| `fotobuch page move 3:2 to 5` | Move a placed photo to another page |
-| `fotobuch page swap 3:2 5:1` | Swap two placed photos |
-| `fotobuch page weight 3:2 2.0` | Change a placed photo's weight |
-| `fotobuch page info 3:2` | Show metadata for a placed photo |
-| `fotobuch unplace 3:2` | Remove a placed photo from its slot |
+| Command                        | What it does                        |
+| ------------------------------ | ----------------------------------- |
+| `fotobuch page move 3:2 to 5`  | Move a placed photo to another page |
+| `fotobuch page swap 3:2 5:1`   | Swap two placed photos              |
+| `fotobuch page weight 3:2 2.0` | Change a placed photo's weight      |
+| `fotobuch page info 3:2`       | Show metadata for a placed photo    |
+| `fotobuch unplace 3:2`         | Remove a placed photo from its slot |
 
 **Rule of thumb:** use filename patterns when working with *unplaced* photos
 (`add`, `place`, `remove`), and use slot addresses when working with *placed*

@@ -5,10 +5,10 @@
 Download the latest binary for your platform from the
 [Releases page](https://github.com/EddyXorb/fotobuch/releases/latest):
 
-| Platform | File |
-|---|---|
-| Linux x86_64 | `fotobuch-linux-x86_64.tar.gz` |
-| Windows x86_64 | `fotobuch-windows-x86_64.zip` |
+| Platform       | File                           |
+| -------------- | ------------------------------ |
+| Linux x86_64   | `fotobuch-linux-x86_64.tar.gz` |
+| Windows x86_64 | `fotobuch-windows-x86_64.zip`  |
 
 Extract the archive and place the `fotobuch` binary somewhere on your `PATH`.
 
