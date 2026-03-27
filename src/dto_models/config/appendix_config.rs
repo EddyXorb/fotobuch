@@ -81,8 +81,10 @@ fn default_date_format() -> String {
 }
 
 fn default_date_months() -> Vec<String> {
-    ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-        .iter()
-        .map(|s| s.to_string())
-        .collect()
+    [
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+    ]
+    .iter()
+    .map(|s| s.to_string())
+    .collect()
 }
