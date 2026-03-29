@@ -35,10 +35,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-afd89f27.js";
+            window.path_to_searchindex_js = "searchindex-23bc70c8.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-f7564f5f.js"></script>
+        <script src="toc-840ddc95.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -182,12 +182,16 @@
                     <main>
                         <h1 id="customizing-the-template"><a class="header" href="#customizing-the-template">Customizing the Template</a></h1>
 <p>Every project has a <code>{name}.typ</code> file — a <a href="https://typst.app/">Typst</a> template
-that controls how the PDF looks. fotobuch generates this file for you, but you
-are free (and encouraged) to edit it.</p>
-<p>Preview overlay settings (borders, slot info, filenames) and the appendix are
-configured in your <strong>YAML config file</strong>, not in the template. Run
-<code>fotobuch config</code> to see all available options, or see the
-<a href="configuration.html#configpreview--preview-rendering">Configuration reference</a>.</p>
+that controls how the PDF looks. ^<em>fotobuch</em> generates this file for you, but you
+are free (and encouraged) to edit it, if you are proficient with typst.
+Tweak it to your needs, use it as a starting point. fotobuch will not overwrite your template once you created it, so your changes stay safe within the project folder and can also be reused in other fotobuch projects.
+Make sure that during your edits you do not change the lines</p>
+<pre><code class="language-typst">#let is_final = false
+#let project_name = "{project_name}"
+#let data = yaml(project_name + ".yaml")
+#set text(font: "Libertinus Serif")
+</code></pre>
+<p>otherwise it won’t compile.</p>
 <blockquote>
 <p><strong>Important:</strong> Always edit <code>{name}.typ</code>, never <code>final.typ</code>. The final
 template is auto-generated from yours during <code>build release</code> (with
@@ -203,18 +207,6 @@ the release build. Configure them in <code>{name}.yaml</code>:</p>
     show_borders: true       # red bleed border + blue margin border
     show_slot_info: true     # slot address and weight on each photo
 </code></pre>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Setting</th><th>Default</th><th>Effect</th></tr>
-</thead>
-<tbody>
-<tr><td><code>show_filenames</code></td><td><code>false</code></td><td>Show the filename on each photo</td></tr>
-<tr><td><code>show_borders</code></td><td><code>true</code></td><td>Red bleed border + blue margin border</td></tr>
-<tr><td><code>show_slot_info</code></td><td><code>true</code></td><td>Slot address and weight on each photo (e.g. <code>3:2 (1.5)</code>)</td></tr>
-</tbody>
-</table>
-</div>
 <p>Turn on <code>show_filenames</code> when you’re trying to identify which photo is where.
 Turn off <code>show_slot_info</code> once you’re happy with the layout and just want a
 clean preview.</p>
@@ -242,9 +234,9 @@ its page position. Configure it under <code>config.book.appendix</code> in <code
 <tr><td><code>columns</code></td><td><code>7</code></td><td>Number of columns in the listing</td></tr>
 <tr><td><code>ref_mode</code></td><td><code>"positions"</code></td><td>How photos are referenced (see below)</td></tr>
 <tr><td><code>page_separator</code></td><td><code>false</code></td><td>Show a page-number header between pages</td></tr>
-<tr><td><code>strip_timestamps</code></td><td><code>true</code></td><td>Strip leading timestamps from filenames</td></tr>
-<tr><td><code>label_title</code></td><td><code>"Photo Index"</code></td><td>Title text</td></tr>
-<tr><td><code>label_page</code></td><td><code>"Page"</code></td><td>“Page” label</td></tr>
+<tr><td><code>strip_timestamps</code></td><td><code>true</code></td><td>Try to strip leading timestamps from filenames</td></tr>
+<tr><td><code>label_title</code></td><td><code>"Photo Index"</code></td><td>Localization: Title text</td></tr>
+<tr><td><code>label_page</code></td><td><code>"Page"</code></td><td>Localization: “Page” label</td></tr>
 <tr><td><code>date_format</code></td><td><code>"{day}. {month} {year} {hour}:{min}"</code></td><td>Timestamp format</td></tr>
 <tr><td><code>date_months</code></td><td><code>["Jan", …, "Dec"]</code></td><td>Month abbreviations</td></tr>
 </tbody>
@@ -258,8 +250,7 @@ badge with the number appears in the bottom-right corner of each photo in the
 PDF.</p>
 <hr>
 <h2 id="going-further"><a class="header" href="#going-further">Going further</a></h2>
-<p>The template reads layout data from <code>{name}.yaml</code> via <code>#let data = yaml(…)</code>.
-The YAML structure is stable, so your customizations won’t break on updates.</p>
+<p>The template reads layout data from <code>{name}.yaml</code> via <code>#let data = yaml(…)</code>.</p>
 <p>A few things to keep in mind:</p>
 <ul>
 <li><code>is_final</code> controls preview vs. release mode. Use it to conditionally show or

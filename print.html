@@ -36,10 +36,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-afd89f27.js";
+            window.path_to_searchindex_js = "searchindex-23bc70c8.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-f7564f5f.js"></script>
+        <script src="toc-840ddc95.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -418,6 +418,7 @@ set the <strong>page count</strong> to match the size of book you want:</p>
     page_height_mm: 210.0
     bleed_mm: 3.0        # required by most print services
     margin_mm: 0.0       # 0 = edge-to-edge; set to e.g. 10 for a white border
+    gap_mm: 5.0          # the gap between the photos in your layout; if set to 0, photos touch each other
   book_layout_solver:
     page_target: 20      # how many pages you want
     page_max: 24         # upper limit — give the solver some room above the target
@@ -433,8 +434,10 @@ a significantly better layout.</p>
       front_back_width_mm: 594.0   # total width of front + back panel
       height_mm: 297.0
       spine_text: "Italy 2024"     # or ~ for no text
+      spine_mm: 15.0               # the spine width of your book - does not add to front_back_width_mm, when spine_mode = fixed
+      spine_mode: fixed            # fixed = spine_mm is the exact width; auto = spine width is determined by page count
 </code></pre>
-<p>Other settings you might want to adjust: <code>gap_mm</code> (space between photos),
+<p>Other settings you might want to adjust:
 <code>search_timeout</code> (solver time limit for large books).</p>
 <p>See <a href="#configuration">Configuration</a> for a full reference of all settings.</p>
 <blockquote>
@@ -445,7 +448,7 @@ The solver will redistribute photos according to the new settings.</p>
 <h2 id="step-3--add-photos"><a class="header" href="#step-3--add-photos">Step 3 — Add photos</a></h2>
 <p>Point fotobuch at one or more folders. Each folder becomes a
 <a href="#photos-and-groups">group</a> — photos from the same group are kept
-together on pages.</p>
+together on pages, but neighboured groups can mix.</p>
 <pre><code class="language-bash">fotobuch add /photos/2024-07-Italy
 fotobuch add /photos/2024-08-Hiking
 </code></pre>
@@ -453,7 +456,7 @@ fotobuch add /photos/2024-08-Hiking
 chronologically. Folders without a recognisable date are sorted by the oldest
 photo’s timestamp.</p>
 <p>You can also add single files, add recursively (each subfolder = its own group),
-or filter:</p>
+or filter by file name or xmp-data (that is where your rating and other metadata normally sits for each photo, when you use e.g. lightroom):</p>
 <pre><code class="language-bash"># single file
 fotobuch add /photos/2024-07-Italy/DSC_0042.jpg
 
@@ -480,16 +483,30 @@ result — or open <code>Italy-2024.typ</code> in VS Code with
 for a live preview.</p>
 <hr>
 <h2 id="step-5--adjust-the-layout"><a class="header" href="#step-5--adjust-the-layout">Step 5 — Adjust the layout</a></h2>
-<p>You will almost certainly want to tweak a few things.</p>
-<p><strong>Swap two pages:</strong></p>
-<pre><code class="language-bash">fotobuch page swap 3 7
-</code></pre>
+<p>You will almost certainly want to tweak a few things. The general procedure is to make a change to the layout using the <em>page</em> subcommands <em>move</em>, <em>swap</em>, <em>combine</em>, <em>split</em>.
+After applying one of these (or multiple of these if you want), run <code>fotobuch build</code> to
+finally apply all the changes to the layout you made.</p>
 <p><strong>Move a photo to another page:</strong></p>
 <pre><code class="language-bash">fotobuch page move 3:2 to 5
 </code></pre>
 <p>This moves slot 2 on page 3 to page 5. (Pages and slots count from 0 — use
 <code>fotobuch status 3</code> to see which slot is which.)</p>
-<p><strong>Give a photo more space</strong> (weight &gt; 1 = relatively larger):</p>
+<p><strong>Swap two photos</strong></p>
+<pre><code class="language-bash">fotobuch page swap 2:3 2:7
+</code></pre>
+<p><strong>Swap two pages:</strong></p>
+<pre><code class="language-bash">fotobuch page swap 3 7
+</code></pre>
+<p><strong>Split a page into two</strong></p>
+<pre><code class="language-bash">fotobuch page split 3:2
+</code></pre>
+<p>Creates a new page after page 3 and moves slot 2 (and all photos after it) to the new page.</p>
+<p><strong>Combine two pages</strong></p>
+<pre><code class="language-bash">fotobuch page combine 3..7
+</code></pre>
+<p>Moves all photos from pages 4 to 7 to the end of page 3, then deletes pages 4 to 7.
+You can also write <code>fotobuch page combine 3,4,5,6,7</code> for the same effect.</p>
+<p><strong>Give a photo more space in the next build</strong> (weight &gt; 1 = relatively larger):</p>
 <pre><code class="language-bash">fotobuch page weight 3:2 2.0
 </code></pre>
 <p><strong>Re-solve a single page</strong> (runs the solver again from scratch for that page):</p>
@@ -503,6 +520,7 @@ log, and <code>fotobuch undo N</code> rolls back N steps.</p>
 <p>Rebuild the preview after changes:</p>
 <pre><code class="language-bash">fotobuch build
 </code></pre>
+<p>Iterate through the above steps until you are happy with the result.</p>
 <hr>
 <h2 id="step-6--adding-more-photos-later"><a class="header" href="#step-6--adding-more-photos-later">Step 6 — Adding more photos later</a></h2>
 <p>After the first build, newly added photos start as <strong>unplaced</strong>. Place them
@@ -511,8 +529,13 @@ before building:</p>
 fotobuch place
 fotobuch build
 </code></pre>
-<p>You can also place photos onto a specific page:</p>
+<p>This will distribute the unplaced photos on matching pages; no new page will be added though.
+A page is matching for a new photo if the photos timestamp fits into the timestamps of the already existing pages.</p>
+<p>You can also place all unplaced photos onto a specific page:</p>
 <pre><code class="language-bash">fotobuch place --into 4
+</code></pre>
+<p>or combine it with a filter for filenames:</p>
+<pre><code class="language-bash">fotobuch place --filter "DSC_00.*\.jpg" --into 6
 </code></pre>
 <hr>
 <h2 id="step-7--export-for-print"><a class="header" href="#step-7--export-for-print">Step 7 — Export for print</a></h2>
@@ -893,12 +916,16 @@ even if nothing changed. Useful when you’re not happy with a layout.</li>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="customizing-the-template"><a class="header" href="#customizing-the-template">Customizing the Template</a></h1>
 <p>Every project has a <code>{name}.typ</code> file — a <a href="https://typst.app/">Typst</a> template
-that controls how the PDF looks. fotobuch generates this file for you, but you
-are free (and encouraged) to edit it.</p>
-<p>Preview overlay settings (borders, slot info, filenames) and the appendix are
-configured in your <strong>YAML config file</strong>, not in the template. Run
-<code>fotobuch config</code> to see all available options, or see the
-<a href="#configpreview--preview-rendering">Configuration reference</a>.</p>
+that controls how the PDF looks. ^<em>fotobuch</em> generates this file for you, but you
+are free (and encouraged) to edit it, if you are proficient with typst.
+Tweak it to your needs, use it as a starting point. fotobuch will not overwrite your template once you created it, so your changes stay safe within the project folder and can also be reused in other fotobuch projects.
+Make sure that during your edits you do not change the lines</p>
+<pre><code class="language-typst">#let is_final = false
+#let project_name = "{project_name}"
+#let data = yaml(project_name + ".yaml")
+#set text(font: "Libertinus Serif")
+</code></pre>
+<p>otherwise it won’t compile.</p>
 <blockquote>
 <p><strong>Important:</strong> Always edit <code>{name}.typ</code>, never <code>final.typ</code>. The final
 template is auto-generated from yours during <code>build release</code> (with
@@ -914,18 +941,6 @@ the release build. Configure them in <code>{name}.yaml</code>:</p>
     show_borders: true       # red bleed border + blue margin border
     show_slot_info: true     # slot address and weight on each photo
 </code></pre>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Setting</th><th>Default</th><th>Effect</th></tr>
-</thead>
-<tbody>
-<tr><td><code>show_filenames</code></td><td><code>false</code></td><td>Show the filename on each photo</td></tr>
-<tr><td><code>show_borders</code></td><td><code>true</code></td><td>Red bleed border + blue margin border</td></tr>
-<tr><td><code>show_slot_info</code></td><td><code>true</code></td><td>Slot address and weight on each photo (e.g. <code>3:2 (1.5)</code>)</td></tr>
-</tbody>
-</table>
-</div>
 <p>Turn on <code>show_filenames</code> when you’re trying to identify which photo is where.
 Turn off <code>show_slot_info</code> once you’re happy with the layout and just want a
 clean preview.</p>
@@ -953,9 +968,9 @@ its page position. Configure it under <code>config.book.appendix</code> in <code
 <tr><td><code>columns</code></td><td><code>7</code></td><td>Number of columns in the listing</td></tr>
 <tr><td><code>ref_mode</code></td><td><code>"positions"</code></td><td>How photos are referenced (see below)</td></tr>
 <tr><td><code>page_separator</code></td><td><code>false</code></td><td>Show a page-number header between pages</td></tr>
-<tr><td><code>strip_timestamps</code></td><td><code>true</code></td><td>Strip leading timestamps from filenames</td></tr>
-<tr><td><code>label_title</code></td><td><code>"Photo Index"</code></td><td>Title text</td></tr>
-<tr><td><code>label_page</code></td><td><code>"Page"</code></td><td>“Page” label</td></tr>
+<tr><td><code>strip_timestamps</code></td><td><code>true</code></td><td>Try to strip leading timestamps from filenames</td></tr>
+<tr><td><code>label_title</code></td><td><code>"Photo Index"</code></td><td>Localization: Title text</td></tr>
+<tr><td><code>label_page</code></td><td><code>"Page"</code></td><td>Localization: “Page” label</td></tr>
 <tr><td><code>date_format</code></td><td><code>"{day}. {month} {year} {hour}:{min}"</code></td><td>Timestamp format</td></tr>
 <tr><td><code>date_months</code></td><td><code>["Jan", …, "Dec"]</code></td><td>Month abbreviations</td></tr>
 </tbody>
@@ -969,8 +984,7 @@ badge with the number appears in the bottom-right corner of each photo in the
 PDF.</p>
 <hr>
 <h2 id="going-further"><a class="header" href="#going-further">Going further</a></h2>
-<p>The template reads layout data from <code>{name}.yaml</code> via <code>#let data = yaml(…)</code>.
-The YAML structure is stable, so your customizations won’t break on updates.</p>
+<p>The template reads layout data from <code>{name}.yaml</code> via <code>#let data = yaml(…)</code>.</p>
 <p>A few things to keep in mind:</p>
 <ul>
 <li><code>is_final</code> controls preview vs. release mode. Use it to conditionally show or
@@ -1009,8 +1023,9 @@ what InDesign would produce</li>
 The default 3 mm works for the majority of European providers.</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="known-limitations"><a class="header" href="#known-limitations">Known Limitations</a></h1>
-<p>There are surely plenty of limitations I don’t mention here. Let’s start with that:</p>
+<p>There are surely plenty of limitations I am not aware of at the moment, but let’s start with that:</p>
 <ul>
+<li><strong>photo weights are not respected cross-page-wise</strong> - will be adressed in future</li>
 <li><strong>No GUI so far for user not used to a cli</strong> - will be adressed in future</li>
 </ul>
 <h2 id="what-fotobuch-deliberately-does-not-do"><a class="header" href="#what-fotobuch-deliberately-does-not-do">What fotobuch deliberately does not do</a></h2>
