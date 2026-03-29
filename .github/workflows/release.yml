@@ -84,13 +84,11 @@ jobs:
         with:
           path: artifacts
 
+      - name: Install git-cliff
+        uses: taiki-e/install-action@git-cliff
+
       - name: Generate release notes
-        uses: orhun/git-cliff-action@v3
-        with:
-          config: cliff.toml
-          args: --latest --strip header
-        env:
-          OUTPUT: RELEASE_NOTES.md
+        run: git-cliff --config cliff.toml --latest --strip header --output RELEASE_NOTES.md
 
       - name: Create GitHub Release draft
         uses: softprops/action-gh-release@v2

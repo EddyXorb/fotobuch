@@ -13,7 +13,7 @@ body = """
 ## [unreleased]
 {% endif %}\
 {% for group, commits in commits | group_by(attribute="group") %}
-### {{ group | strtitle }}
+### {{ group }}
 {% for commit in commits %}
 - {% if commit.breaking %}[**breaking**] {% endif %}{{ commit.message | upper_first }}\
 {% endfor %}
@@ -34,6 +34,7 @@ commit_parsers = [
     { message = "^docs", group = "Documentation" },
     { message = "^test", group = "Testing" },
     { message = "^chore", group = "Miscellaneous" },
+    { message = "^ci", group = "Miscellaneous" },
 ]
 filter_commits = false
 tag_pattern = "v[0-9]*"
