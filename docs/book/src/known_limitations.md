@@ -1,7 +1,8 @@
 # Known Limitations
 
-There are surely plenty of limitations I don't mention here. Let's start with that:
+There are surely plenty of limitations I am not aware of at the moment, but let's start with that:
 
+- **photo weights are not respected cross-page-wise** - will be adressed in future
 - **No GUI so far for user not used to a cli** - will be adressed in future
 
 ## What fotobuch deliberately does not do

@@ -1,13 +1,19 @@
 # Customizing the Template
 
 Every project has a `{name}.typ` file — a [Typst](https://typst.app/) template
-that controls how the PDF looks. fotobuch generates this file for you, but you
-are free (and encouraged) to edit it.
+that controls how the PDF looks. ^*fotobuch* generates this file for you, but you
+are free (and encouraged) to edit it, if you are proficient with typst.
+Tweak it to your needs, use it as a starting point. fotobuch will not overwrite your template once you created it, so your changes stay safe within the project folder and can also be reused in other fotobuch projects.
+Make sure that during your edits you do not change the lines
 
-Preview overlay settings (borders, slot info, filenames) and the appendix are
-configured in your **YAML config file**, not in the template. Run
-`fotobuch config` to see all available options, or see the
-[Configuration reference](configuration.md#configpreview--preview-rendering).
+```typst
+#let is_final = false
+#let project_name = "{project_name}"
+#let data = yaml(project_name + ".yaml")
+#set text(font: "Libertinus Serif")
+```
+
+otherwise it won't compile.
 
 > **Important:** Always edit `{name}.typ`, never `final.typ`. The final
 > template is auto-generated from yours during `build release` (with
@@ -27,12 +33,6 @@ config:
     show_borders: true       # red bleed border + blue margin border
     show_slot_info: true     # slot address and weight on each photo
 ```
-
-| Setting          | Default | Effect                                                   |
-| ---------------- | ------- | -------------------------------------------------------- |
-| `show_filenames` | `false` | Show the filename on each photo                          |
-| `show_borders`   | `true`  | Red bleed border + blue margin border                    |
-| `show_slot_info` | `true`  | Slot address and weight on each photo (e.g. `3:2 (1.5)`) |
 
 Turn on `show_filenames` when you're trying to identify which photo is where.
 Turn off `show_slot_info` once you're happy with the layout and just want a
@@ -57,17 +57,17 @@ config:
       label_page: "Page"
 ```
 
-| Setting            | Default                                | Effect                                  |
-| ------------------ | -------------------------------------- | --------------------------------------- |
-| `active`           | `false`                                | Enable the appendix                     |
-| `columns`          | `7`                                    | Number of columns in the listing        |
-| `ref_mode`         | `"positions"`                          | How photos are referenced (see below)   |
-| `page_separator`   | `false`                                | Show a page-number header between pages |
-| `strip_timestamps` | `true`                                 | Strip leading timestamps from filenames |
-| `label_title`      | `"Photo Index"`                        | Title text                              |
-| `label_page`       | `"Page"`                               | "Page" label                            |
-| `date_format`      | `"{day}. {month} {year} {hour}:{min}"` | Timestamp format                        |
-| `date_months`      | `["Jan", …, "Dec"]`                    | Month abbreviations                     |
+| Setting            | Default                                | Effect                                         |
+| ------------------ | -------------------------------------- | ---------------------------------------------- |
+| `active`           | `false`                                | Enable the appendix                            |
+| `columns`          | `7`                                    | Number of columns in the listing               |
+| `ref_mode`         | `"positions"`                          | How photos are referenced (see below)          |
+| `page_separator`   | `false`                                | Show a page-number header between pages        |
+| `strip_timestamps` | `true`                                 | Try to strip leading timestamps from filenames |
+| `label_title`      | `"Photo Index"`                        | Localization: Title text                       |
+| `label_page`       | `"Page"`                               | Localization: "Page" label                     |
+| `date_format`      | `"{day}. {month} {year} {hour}:{min}"` | Timestamp format                               |
+| `date_months`      | `["Jan", …, "Dec"]`                    | Month abbreviations                            |
 
 ### Reference modes
 
@@ -83,7 +83,6 @@ PDF.
 ## Going further
 
 The template reads layout data from `{name}.yaml` via `#let data = yaml(…)`.
-The YAML structure is stable, so your customizations won't break on updates.
 
 A few things to keep in mind:
 

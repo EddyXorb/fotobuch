@@ -42,6 +42,7 @@ config:
     page_height_mm: 210.0
     bleed_mm: 3.0        # required by most print services
     margin_mm: 0.0       # 0 = edge-to-edge; set to e.g. 10 for a white border
+    gap_mm: 5.0          # the gap between the photos in your layout; if set to 0, photos touch each other
   book_layout_solver:
     page_target: 20      # how many pages you want
     page_max: 24         # upper limit — give the solver some room above the target
@@ -61,9 +62,11 @@ If you plan to use a cover, also set:
       front_back_width_mm: 594.0   # total width of front + back panel
       height_mm: 297.0
       spine_text: "Italy 2024"     # or ~ for no text
+      spine_mm: 15.0               # the spine width of your book - does not add to front_back_width_mm, when spine_mode = fixed
+      spine_mode: fixed            # fixed = spine_mm is the exact width; auto = spine width is determined by page count
 ```
 
-Other settings you might want to adjust: `gap_mm` (space between photos),
+Other settings you might want to adjust:
 `search_timeout` (solver time limit for large books).
 
 See [Configuration](configuration.md) for a full reference of all settings.
@@ -77,7 +80,7 @@ See [Configuration](configuration.md) for a full reference of all settings.
 
 Point fotobuch at one or more folders. Each folder becomes a
 [group](concepts.md#photos-and-groups) — photos from the same group are kept
-together on pages.
+together on pages, but neighboured groups can mix.
 
 ```bash
 fotobuch add /photos/2024-07-Italy
@@ -89,7 +92,7 @@ chronologically. Folders without a recognisable date are sorted by the oldest
 photo's timestamp.
 
 You can also add single files, add recursively (each subfolder = its own group),
-or filter:
+or filter by file name or xmp-data (that is where your rating and other metadata normally sits for each photo, when you use e.g. lightroom):
 
 ```bash
 # single file
@@ -129,12 +132,9 @@ for a live preview.
 
 ## Step 5 — Adjust the layout
 
-You will almost certainly want to tweak a few things.
-
-**Swap two pages:**
-```bash
-fotobuch page swap 3 7
-```
+You will almost certainly want to tweak a few things. The general procedure is to make a change to the layout using the *page* subcommands *move*, *swap*, *combine*, *split*.
+After applying one of these (or multiple of these if you want), run `fotobuch build` to
+finally apply all the changes to the layout you made.
 
 **Move a photo to another page:**
 ```bash
@@ -143,7 +143,30 @@ fotobuch page move 3:2 to 5
 This moves slot 2 on page 3 to page 5. (Pages and slots count from 0 — use
 `fotobuch status 3` to see which slot is which.)
 
-**Give a photo more space** (weight > 1 = relatively larger):
+**Swap two photos**
+```bash 
+fotobuch page swap 2:3 2:7
+```
+
+**Swap two pages:**
+```bash
+fotobuch page swap 3 7
+```
+
+**Split a page into two**
+```bash
+fotobuch page split 3:2
+```
+Creates a new page after page 3 and moves slot 2 (and all photos after it) to the new page.
+
+**Combine two pages**
+```bash
+fotobuch page combine 3..7
+```
+Moves all photos from pages 4 to 7 to the end of page 3, then deletes pages 4 to 7.
+You can also write `fotobuch page combine 3,4,5,6,7` for the same effect. 
+
+**Give a photo more space in the next build** (weight > 1 = relatively larger):
 ```bash
 fotobuch page weight 3:2 2.0
 ```
@@ -166,6 +189,8 @@ Rebuild the preview after changes:
 fotobuch build
 ```
 
+Iterate through the above steps until you are happy with the result.
+
 ---
 
 ## Step 6 — Adding more photos later
@@ -179,10 +204,17 @@ fotobuch place
 fotobuch build
 ```
 
-You can also place photos onto a specific page:
+This will distribute the unplaced photos on matching pages; no new page will be added though.
+A page is matching for a new photo if the photos timestamp fits into the timestamps of the already existing pages.
+
+You can also place all unplaced photos onto a specific page:
 
 ```bash
 fotobuch place --into 4
+```
+or combine it with a filter for filenames:
+```bash
+fotobuch place --filter "DSC_00.*\.jpg" --into 6
 ```
 
 ---

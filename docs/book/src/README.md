@@ -9,14 +9,14 @@ same event stay together. Fully automatic, or tweak any page by hand.
 
 ## Quick links
 
-| Where to go | What you'll find |
-|---|---|
-| [Installation](installation.md) | Binaries, building from source, editor setup |
-| [Core Concepts](concepts.md) | How projects, groups, and layouts work |
-| [Your First Book](quickstart.md) | Zero to PDF in 10 minutes |
-| [Commands](commands.md) | Every command at a glance |
-| [Printing](printing.md) | Exporting for Saal Digital & friends |
-| [Full Flag Reference](cli/reference-generated.md) | Every flag, auto-generated from source |
+| Where to go                                       | What you'll find                             |
+| ------------------------------------------------- | -------------------------------------------- |
+| [Installation](installation.md)                   | Binaries, building from source, editor setup |
+| [Core Concepts](concepts.md)                      | How projects, groups, and layouts work       |
+| [Your First Book](quickstart.md)                  | Zero to PDF in 10 minutes                    |
+| [Commands](commands.md)                           | Every command at a glance                    |
+| [Printing](printing.md)                           | Exporting for Saal Digital & friends         |
+| [Full Flag Reference](cli/reference-generated.md) | Every flag, auto-generated from source       |
 
 ## Example project
 

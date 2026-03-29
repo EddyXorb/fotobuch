@@ -8,7 +8,7 @@
 
 - [Installation](installation.md)
 - [Core Concepts](concepts.md)
-- [Your First Book](quickstart.md)
+- [Quickstart](quickstart.md)
 - [Configuration](configuration.md)
 - [Cover Modes](cover-modes.md)
 - [Command Overview](commands.md)
