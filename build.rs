@@ -1,3 +1,9 @@
+#[cfg(windows)]
+use std::{
+    env, fs,
+    path::{Path, PathBuf},
+};
+
 fn main() {
     #[cfg(windows)]
     {
