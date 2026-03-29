@@ -62,7 +62,7 @@ jobs:
           "$hash  ${{ matrix.artifact }}.zip" | Out-File "${{ matrix.artifact }}.zip.sha256" -Encoding ascii
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ matrix.artifact }}
           path: ${{ matrix.artifact }}.*
@@ -80,7 +80,7 @@ jobs:
           fetch-depth: 0
 
       - name: Download artifacts
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v6
         with:
           path: artifacts
 
@@ -91,8 +91,11 @@ jobs:
         run: git-cliff --config cliff.toml --latest --strip header --output RELEASE_NOTES.md
 
       - name: Create GitHub Release draft
-        uses: softprops/action-gh-release@v2
-        with:
-          body_path: RELEASE_NOTES.md
-          draft: true
-          files: artifacts/**/*
+        run: |
+          gh release create "${{ github.ref_name }}" \
+            --title "${{ github.ref_name }}" \
+            --notes-file RELEASE_NOTES.md \
+            --draft \
+            artifacts/**/*
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
