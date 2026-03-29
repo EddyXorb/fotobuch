@@ -3,11 +3,6 @@
 Implementierungsplan für den Slicing-Tree GA Layout Solver in Rust.
 Algorithmus-Details siehe `slicing_tree_ga_algorithm.md`.
 
-Nach jedem schritt ein commit machen mit beschreibung in knappen worten, mit conventional commits.
-
-Benutze Rust 2024.
-
-
 ## Projektstruktur
 
 ```
