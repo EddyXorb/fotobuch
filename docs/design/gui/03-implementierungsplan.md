@@ -1,118 +1,152 @@
 # GUI Implementierungsplan
 
+## Phase 0: Lib-Vorbereitung
+
+**Ziel**: Lib-Änderungen die GUI ermöglichen, ohne GUI-Code zu schreiben.
+
+1. **`CommandOutput<T>` einführen**
+   - `StateManager::finish()` → `Result<ProjectState>` (move statt drop)
+   - Alle Commands returnen `Result<CommandOutput<T>>` mit ihrem bestehenden Result-Typ + State
+   - CLI-Handler: nur `.result` nutzen (minimale Anpassung)
+
+2. **`render_pages()` in der Lib**
+   - `output::typst::render_pages(root, name, pages, pixel_per_pt) → Vec<RenderedPage>`
+   - Intern: `typst::compile()` → `typst_render::render()` → premultiply→straight Konvertierung
+   - `typst-render` als neue Dependency (nicht feature-gated, klein)
+
+3. **`PageMode` in LayoutPage**
+   - `mode: PageMode` (Default: Auto, optional in YAML)
+   - Solver überspringt Manual-Seiten bei inkrementellem Build
+
 ## Phase 1: Minimal Viable GUI
 
 **Ziel**: Seiten anzeigen, scrollen, zoomen. Proof of Concept.
 
-1. **Feature-Gate einrichten**
-   - `gui`-Feature in Cargo.toml mit eframe/egui/typst-render
+4. **Feature-Gate + Grundgerüst**
+   - `gui`-Feature in Cargo.toml mit eframe/egui
    - `main.rs` Weiche: args → CLI, keine args → GUI
-   - `src/gui/mod.rs` mit leerem `FotobuchApp`
+   - `src/gui.rs` mit `FotobuchApp` (eframe::App)
+   - Background-Thread mit Channel-Paar (task_tx/result_rx) von Anfang an
 
-2. **Rendering-Kern**
-   - Typst-Dokument kompilieren (bestehende `compile_to_bytes` aufteilen)
-   - `typst-render` pro Seite → Pixmap → demultiply → egui::TextureHandle
-   - Alle Seiten beim Start rendern
+5. **Initiales Rendering**
+   - Beim Start: `render_pages()` für alle Seiten im Background-Thread
+   - UI-Thread pollt `result_rx.try_recv()` jeden Frame
+   - Texturen als `Vec<Option<PageTexture>>` (None = noch nicht gerendert)
 
-3. **Hauptansicht**
-   - Vertikales ScrollArea mit allen Seitenbildern
+6. **Hauptansicht**
+   - Vertikales ScrollArea mit Seitenbildern
    - Zoom mit Ctrl+Scroll
    - Seitennummer als Label über jeder Seite
+   - Platzhalter (grauer Rect) für noch nicht gerenderte Seiten
 
-**Ergebnis**: Man sieht das Fotobuch, kann scrollen und zoomen.
+**Ergebnis**: Fotobuch sichtbar, scrollbar, zoombar. Kein UI-Freeze.
 
-## Phase 2: Slot-Interaktion
+## Phase 2: State + Slot-Interaktion
 
-**Ziel**: Slots erkennen, highlighten, selektieren.
+**Ziel**: `DerivedState` aufbauen, Slots erkennen und highlighten.
 
-4. **Slot-Overlay-System**
-   - Slot-Koordinaten (mm) → Screenkoordinaten umrechnen (abhängig von Zoom + Scroll)
+7. **DerivedState**
+   - Struct mit Lookup-Maps (photo_by_id, placement_of_photo, unplaced_photos, etc.)
+   - `DerivedState::rebuild(&ProjectState)` — eine Methode, ein Codepfad
+   - Wird im Background-Thread gebaut, via Channel an UI übergeben
+
+8. **Slot-Overlay-System**
+   - Slot-Koordinaten (mm) → Screen-Koordinaten (abhängig von Zoom/Scroll)
    - Hit-Test: Mausposition → welcher Slot?
-   - Hover: halbtransparentes blaues Rect zeichnen
-   - Klick: grüne Umrandung, Selektion speichern
+   - Hover: halbtransparentes blaues Rect
+   - Klick: Einzelselektion (grüne Umrandung)
+   - Ctrl+Klick: Toggle-Selektion, Shift+Klick: Range-Selektion
 
-5. **Statusbar**
-   - Aktuelle Seite (basierend auf Scroll-Position)
-   - Selektiertes Foto: ID, Auflösung, DPI
-   - Anzahl Fotos, unplatziert
+9. **Statusbar + Toolbar**
+   - Statusbar: aktuelle Seite, Foto-Count, Selektion-Info
+   - Toolbar: Build, Release, Undo, Redo, Config-Button
 
-## Phase 3: Drag & Drop + Background-Rendering
+## Phase 3: Commands + Background-Pipeline
 
-**Ziel**: Fotos swappen, live Rebuild.
+**Ziel**: GUI-Aktionen führen Lib-Commands aus, alles non-blocking.
 
-6. **Drag & Drop innerhalb einer Seite**
-   - Drag-Start bei Mausklick+Bewegung auf Slot
-   - Visuelles Feedback: Ghost-Image am Cursor
-   - Drop auf anderen Slot → Swap (default) oder Move (Shift)
-   - Ratio-Feedback: Grün/Rot-Overlay auf Ziel-Slot
+10. **Command-Dispatch**
+    - User-Aktion → `task_tx.send(RunCommand(...))` → Background führt aus
+    - Background sendet `CommandDone` → UI updatet `project_state` + `derived`
+    - Background rendert dirty pages → UI swappt Texturen
 
-7. **Background-Rendering**
-   - `std::sync::mpsc` Channel: Request/Result
-   - Background-Thread: Solver → YAML → Typst → Render
-   - Blur-Effekt: alte Textur mit Gauss-Blur (CPU, einmalig bei dirty-Markierung)
-   - Neue Textur → swap in, Blur weg
+11. **Swap/Move (gleiche Seite)**
+    - Drag-Start auf Slot → DragState
+    - Drop auf anderen Slot → Background: `commands::page::swap()`
+    - Ratio-Feedback: grün (gleiche Ratio) / rot (unterschiedlich)
+    - M-Taste gehalten: Move statt Swap
 
-8. **Undo/Redo**
-   - Ctrl+Z / Ctrl+Y → StateManager::undo()/redo()
-   - Nach Undo: alle Seiten als dirty markieren, neu rendern
+12. **Blur-Effekt + Undo/Redo**
+    - Dirty page → Blur über alter Textur + Spinner
+    - Neue Textur fertig → Blur entfernen
+    - Ctrl+Z/Y → Background: `commands::undo()`/`redo()` → alle Seiten dirty
 
 ## Phase 4: Panels
 
 **Ziel**: Foto-Pool, Seiten-Navigation, Config.
 
-9. **Seiten-Navigation (rechts)**
-   - Thumbnails: niedrig aufgelöste Version der Seitentexturen
-   - Klick → Scroll zur Seite
-   - Drag & Drop → Seiten swappen/moven
-   - Badge [A]/[M] pro Seite
+13. **Seiten-Navigation (rechts)**
+    - Thumbnails: niedrig aufgelöste Seitentexturen
+    - Klick → Scroll zur Seite
+    - Drag → Seiten swappen/moven
+    - Badge [A]/[M] pro Seite
+    - Drag-Target für Cross-Page Slot-Operationen
 
-10. **Foto-Pool (links)**
-    - `ProjectState.photos` als Liste rendern
-    - Gruppen als collapsible Headers
-    - Pro Foto: Name, Mini-Thumbnail, Status (platziert/unplatziert)
-    - Drag aus Pool auf Hauptansicht = Place
-    - Tooltip: Metadaten (Größe, Timestamp, Gewicht)
+14. **Foto-Pool (links)**
+    - Gruppen als collapsible Headers, Fotos als Liste
+    - Pro Foto: Name, Mini-Thumbnail (Background geladen), platziert/unplatziert
+    - Drag aus Pool auf Seite/Nav → `commands::place()`
+    - Drag von Slot auf Pool → `commands::unplace()`
+    - Thumbnails im Background laden
 
-11. **Config-Panel**
+15. **Config-Panel**
     - `serde_yaml::to_value(&config)` → rekursiv Widgets generieren
-    - Mapping → CollapsingHeader
-    - String → TextEdit, Number → DragValue, Bool → Checkbox
-    - Änderung → `serde_yaml::from_value()` → Config zurückschreiben
+    - Mapping → CollapsingHeader, String → TextEdit, f64 → DragValue, bool → Checkbox
+    - Änderung → `serde_yaml::from_value()` → Config-Command im Background
     - Floating Window, toggle mit Ctrl+,
 
-## Phase 5: Advanced Features
+## Phase 5: Cross-Page + Neue Seiten
 
-12. **Cross-Page Drag**
-    - Foto von Hauptansicht auf Seiten-Nav-Thumbnail draggen
-    - = Move/Swap auf andere Seite (Shift-Modifikator)
+**Ziel**: Vollständige Drag-Operationen über Seitengrenzen.
 
-13. **Manual Mode**
-    - PageMode-Enum in LayoutPage (YAML-Erweiterung)
-    - [A|M]-Toggle pro Seite in der GUI
-    - Manual-Seiten: Slots frei positionierbar, Solver überspringt sie
-    - Drag auf freie Fläche = Slot repositionieren
-    - Resize per Ecken-Drag (Ratio beibehalten)
+16. **[+]-Platzhalter zwischen Seiten**
+    - Schmale Rects zwischen Seiten in der Hauptansicht
+    - Drop darauf → `commands::page::move(..., page+)` im Background
+    - Leere Seiten verschwinden automatisch (Lib-Logik)
 
-14. **Hotkeys komplett**
-    - Alle Hotkeys aus dem UX-Konzept implementieren
+17. **Cross-Page Drag**
+    - Selektion auf Seite A → Drag auf Slot/Seite B (Hauptansicht oder Nav)
+    - M gehalten: Move, sonst Swap
+    - Background: entsprechender `page move`/`page swap` Command
+
+18. **Hotkeys komplett**
+    - Alle Hotkeys aus dem UX-Konzept
     - Ctrl+G: Popup mit Seitennummer-Eingabe
-    - R: Rebuild aktuelle Seite
+    - R: Rebuild selektierte Seite(n) im Background
 
-15. **Polish**
-    - Zoom-Debouncing (Textur-Re-Render bei Zoom-Änderung)
-    - Drag-Ghosts mit Semi-Transparenz
-    - Smooth Scrolling
-    - Kontextmenü (Rechtsklick)
+## Phase 6: Manual Mode + Polish
+
+19. **Manual Mode**
+    - [A|M]-Toggle pro Seite
+    - Manual-Seiten: Drag auf freie Fläche = Slot repositionieren
+    - Resize per Ecken-Drag (Ratio beibehalten)
+    - Solver überspringt Manual-Seiten
+
+20. **Polish**
+    - Zoom-Debouncing (Re-Render ~200ms nach letzter Zoom-Änderung)
+    - Render-Cancellation bei neuer Anfrage
+    - Nur sichtbare Seiten in voller Auflösung, Rest als Thumbnails
+    - Drag-Ghosts, Smooth Scrolling, Kontextmenü
 
 ## Abhängigkeiten
 
 ```
-Phase 1 ─→ Phase 2 ─→ Phase 3 ─→ Phase 5
-                  └──→ Phase 4 ─→ Phase 5
+Phase 0 ─→ Phase 1 ─→ Phase 2 ─→ Phase 3 ─→ Phase 5 ─→ Phase 6
+                                      └──→ Phase 4 ─→ Phase 5
 ```
 
-Phase 2 und 4 sind teilweise parallel machbar.
-Phase 5 (Manual Mode, Cross-Page Drag) baut auf allem auf.
+Phase 0 ist reine Lib-Arbeit, kein GUI-Code.
+Phase 3 und 4 sind teilweise parallel machbar.
 
 ## Neue Dependencies
 
@@ -120,22 +154,14 @@ Phase 5 (Manual Mode, Cross-Page Drag) baut auf allem auf.
 |-------|-------|---------------|
 | `eframe` | egui Framework (OpenGL/wgpu Backend) | gui |
 | `egui` | Immediate-Mode UI | gui |
-| `typst-render` | Typst → Pixmap (nutzt tiny-skia) | gui |
-| `image` | Pixmap-Konvertierung, Blur-Effekt | gui |
+| `typst-render` | Typst → Pixmap (nutzt tiny-skia) | nein (Lib) |
+| `image` | Blur-Effekt | gui |
 
-`typst` und `typst-kit` sind bereits Dependencies - kein Overhead.
-
-## Aufwandsschätzung (grob)
-
-- Phase 1: Grundgerüst, schnell machbar
-- Phase 2: Slot-Overlay ist geometrisch einfach (mm → px Umrechnung)
-- Phase 3: Hauptaufwand ist Background-Thread + Channel-Architektur
-- Phase 4: Config-Auto-Widget ist der kreativste Teil
-- Phase 5: Manual Mode erfordert sorgfältige State-Behandlung
+`typst` und `typst-kit` sind bereits Dependencies.
 
 ## Risiken
 
-1. **typst-render Kompatibilität**: Die Typst-Version muss mit typst-render matchen (gleiche typst-Version)
-2. **Premultiplied Alpha**: typst-render gibt premultiplied Pixmaps, egui erwartet straight alpha → Konvertierung nötig
-3. **Kompilierzeit**: Typst-Kompilierung für ein ganzes Buch kann Sekunden dauern → nur dirty pages rendern
-4. **Speicher**: Eine Textur pro Seite bei hohem Zoom kann viel RAM brauchen → nur sichtbare Seiten in voller Auflösung, Rest als Thumbnails
+1. **typst-render Version**: Muss zur verwendeten typst-Version passen
+2. **Premultiplied Alpha**: `render_pages()` konvertiert intern — einmal korrekt implementieren, dann erledigt
+3. **Typst-Kompilierzeit**: Ganzes Dokument wird kompiliert auch wenn nur eine Seite gerendert wird — bei großen Büchern ggf. Cache für `typst::Document` im Background-Thread
+4. **RAM bei Zoom**: Hochaufgelöste Texturen nur für sichtbare Seiten, Rest als Thumbnails halten
