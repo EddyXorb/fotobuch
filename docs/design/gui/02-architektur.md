@@ -31,18 +31,19 @@ fn main() {
 ## Modul-Struktur
 
 ```
-src/gui/              (feature-gated: #[cfg(feature = "gui")])
-├── mod.rs            pub fn run() + FotobuchApp struct
-├── state.rs          GuiState + DerivedState
-├── renderer.rs       Background-Rendering: Typst → Pixmap → egui::TextureHandle
-├── panels/
-│   ├── mod.rs
-│   ├── main_view.rs  Scrollbare Seitenansicht mit Slot-Overlays
-│   ├── photo_pool.rs Linkes Panel: Foto-Liste
-│   ├── page_nav.rs   Rechtes Panel: Seiten-Thumbnails
-│   └── config.rs     Config-Fenster (auto-generated aus serde_yaml::Value)
-├── interactions.rs   Drag & Drop, Hotkeys, Selektion
-└── toolbar.rs        Top-Bar + Statusbar
+src/
+├── gui.rs              pub fn run() + FotobuchApp (feature-gated)
+├── gui/
+│   ├── state.rs        GuiState + DerivedState
+│   ├── renderer.rs     Background-Rendering: Typst → Pixmap → egui::TextureHandle
+│   ├── panels.rs       Re-exports der Panel-Module
+│   ├── panels/
+│   │   ├── main_view.rs  Scrollbare Seitenansicht mit Slot-Overlays
+│   │   ├── photo_pool.rs Linkes Panel: Foto-Liste
+│   │   ├── page_nav.rs   Rechtes Panel: Seiten-Thumbnails
+│   │   └── config.rs     Config-Fenster (auto-generated aus serde_yaml::Value)
+│   ├── interactions.rs Drag & Drop, Hotkeys, Selektion
+│   └── toolbar.rs      Top-Bar + Statusbar
 ```
 
 ## Command-Rückgaben: `CommandOutput<T>`
