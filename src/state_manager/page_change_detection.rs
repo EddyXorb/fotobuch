@@ -294,6 +294,8 @@ mod tests {
             page: page_num,
             photos,
             slots,
+        
+            mode: None,
         }
     }
 

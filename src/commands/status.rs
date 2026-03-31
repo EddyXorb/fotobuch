@@ -299,7 +299,9 @@ mod tests {
                 page: 1,
                 photos: vec!["a.jpg".to_string()],
                 slots: vec![],
-            }],
+            
+            mode: None,
+        }],
         };
 
         assert_eq!(count_unplaced(&state), 0);
@@ -337,7 +339,9 @@ mod tests {
                 page: 1,
                 photos: vec!["a.jpg".to_string()],
                 slots: vec![],
-            }],
+            
+            mode: None,
+        }],
         };
 
         assert_eq!(count_unplaced(&state), 1);
@@ -397,7 +401,9 @@ mod tests {
                 page: 1,
                 photos: vec!["a.jpg".to_string()],
                 slots: vec![],
-            }],
+            
+            mode: None,
+        }],
         };
 
         let warnings = check_consistency(&state);
@@ -417,7 +423,9 @@ mod tests {
                 page: 1,
                 photos: vec!["orphan.jpg".to_string()],
                 slots: vec![],
-            }],
+            
+            mode: None,
+        }],
         };
 
         let warnings = check_consistency(&state);

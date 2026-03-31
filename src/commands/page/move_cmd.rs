@@ -108,7 +108,9 @@ fn execute_move_to(
                     page: new_page_num,
                     photos: vec![],
                     slots: vec![],
-                },
+                
+            mode: None,
+        },
             );
             (new_idx, Some(new_page_num as u32))
         }

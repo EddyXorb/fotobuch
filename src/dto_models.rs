@@ -14,6 +14,6 @@ pub use config::{
     AppendixConfig, BookConfig, BookLayoutSolverConfig, CanvasConfig, CoverConfig, CoverMode,
     FitnessWeights, GaConfig, PreviewConfig, ProjectConfig, SpineConfig, ValidationError,
 };
-pub use layout::{LayoutPage, Slot};
+pub use layout::{LayoutPage, PageMode, Slot};
 pub use photos::{PhotoFile, PhotoGroup};
 pub use state::ProjectState;

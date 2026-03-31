@@ -638,6 +638,8 @@ mod tests {
             page: 1,
             photos: vec![],
             slots: vec![],
+        
+            mode: None,
         });
         let diff = StateDiff::compute(&old, &new);
         assert_eq!(diff.pages_added, 1);
@@ -657,6 +659,7 @@ mod tests {
                 width_mm: 100.0,
                 height_mm: 80.0,
             }],
+            mode: None,
         });
         let mut new = old.clone();
         new.layout[0].slots[0].width_mm = 200.0;

@@ -1,10 +1,11 @@
-//! `fotobuch page` subcommands (move, split, combine, swap, info, weight).
+//! `fotobuch page` subcommands (move, split, combine, swap, info, weight, mode).
 //!
 //! See the design document at `docs/design/cli/page.md`.
 
 mod combine;
 mod helpers;
 mod info;
+mod mode;
 mod move_cmd;
 mod split;
 mod types;
@@ -16,6 +17,7 @@ pub(crate) mod test_fixtures;
 pub use combine::execute_combine;
 pub(crate) use helpers::{delete_empty_pages, page_idx, remove_slots, resolve_slots};
 pub use info::execute_info;
+pub use mode::{execute_mode, PageModeResult};
 pub use move_cmd::execute_move;
 pub use split::execute_split;
 pub use types::{

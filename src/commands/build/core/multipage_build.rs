@@ -189,6 +189,7 @@ fn build_cover_page(
         page: 0,
         photos: files.into_iter().map(|f| f.id).collect(),
         slots,
+        mode: None,
     })
 }
 

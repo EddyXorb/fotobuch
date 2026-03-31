@@ -249,6 +249,7 @@ impl SolverPageLayout {
             page: page_num,
             photos: photo_ids,
             slots,
+            mode: None,
         }
     }
     /// Calculates the needed scaling factor to add bleed around the page

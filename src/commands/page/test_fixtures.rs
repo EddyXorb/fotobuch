@@ -1,8 +1,8 @@
 //! Shared test fixtures for page command tests.
 
 use crate::dto_models::{
-    BookConfig, BookLayoutSolverConfig, LayoutPage, PhotoFile, PhotoGroup, ProjectConfig,
-    ProjectState, Slot,
+    BookConfig, BookLayoutSolverConfig, LayoutPage, PageMode, PhotoFile, PhotoGroup,
+    ProjectConfig, ProjectState, Slot,
 };
 use crate::git;
 use tempfile::TempDir;
@@ -24,6 +24,7 @@ pub fn make_state_with_layout(pages: Vec<Vec<&str>>) -> ProjectState {
             page: i,
             photos: photos.iter().map(|s| s.to_string()).collect(),
             slots: (0..photos.len()).map(|_| make_slot()).collect(),
+            mode: None,  // Auto pages have None
         })
         .collect();
 

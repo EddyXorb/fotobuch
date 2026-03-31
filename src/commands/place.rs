@@ -305,7 +305,9 @@ mod tests {
                 page: 1,
                 photos: vec!["a.jpg".to_string()],
                 slots: vec![],
-            }],
+            
+            mode: None,
+        }],
         };
 
         let unplaced = find_unplaced(&state);
@@ -448,12 +450,16 @@ mod tests {
                 page: 0,
                 photos: vec!["cover.jpg".into()],
                 slots: vec![],
-            },
+            
+            mode: None,
+        },
             LayoutPage {
                 page: 1,
                 photos: vec!["content.jpg".into()],
                 slots: vec![],
-            },
+            
+            mode: None,
+        },
         ];
         let state = make_state_with_cover(true, layout, photos);
         let photo_index = crate::commands::build::build_photo_index(&state.photos);
@@ -482,12 +488,16 @@ mod tests {
                 page: 0,
                 photos: vec!["p0.jpg".into()],
                 slots: vec![],
-            },
+            
+            mode: None,
+        },
             LayoutPage {
                 page: 1,
                 photos: vec!["p1.jpg".into()],
                 slots: vec![],
-            },
+            
+            mode: None,
+        },
         ];
         let state = make_state_with_cover(false, layout, photos);
         let photo_index = crate::commands::build::build_photo_index(&state.photos);
@@ -518,12 +528,16 @@ mod tests {
                 page: 0,
                 photos: vec!["cover.jpg".into()],
                 slots: vec![],
-            },
+            
+            mode: None,
+        },
             LayoutPage {
                 page: 1,
                 photos: vec!["content.jpg".into()],
                 slots: vec![],
-            },
+            
+            mode: None,
+        },
         ];
         let mut state = make_state_with_cover(true, layout, photos);
 
