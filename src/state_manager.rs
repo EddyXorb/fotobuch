@@ -176,7 +176,9 @@ fn diff_pages(old: &[LayoutPage], new: &[LayoutPage]) -> (usize, usize, usize) {
         .iter()
         .filter(|(k, old_page)| {
             new_map.get(k).is_some_and(|new_page| {
-                old_page.slots != new_page.slots || old_page.photos != new_page.photos
+                old_page.slots != new_page.slots
+                    || old_page.photos != new_page.photos
+                    || old_page.mode != new_page.mode
             })
         })
         .count();

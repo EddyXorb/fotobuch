@@ -56,6 +56,52 @@ mod tests {
     use crate::state_manager::StateManager;
 
     #[test]
+    fn test_layout_page_serialization() {
+        use crate::dto_models::LayoutPage;
+
+        // Test that Some(Manual) is serialized but None/Some(Auto) are not
+        let page_manual = LayoutPage {
+            page: 0,
+            photos: vec![],
+            slots: vec![],
+            mode: Some(PageMode::Manual),
+        };
+        let yaml = serde_yaml::to_string(&page_manual).unwrap();
+        eprintln!("Manual page YAML:\n{}", yaml);
+        assert!(
+            yaml.contains("mode:"),
+            "Manual mode should be serialized to YAML"
+        );
+        assert!(yaml.contains("manual"), "Mode should serialize as 'manual'");
+
+        let page_auto = LayoutPage {
+            page: 0,
+            photos: vec![],
+            slots: vec![],
+            mode: Some(PageMode::Auto),
+        };
+        let yaml = serde_yaml::to_string(&page_auto).unwrap();
+        eprintln!("Auto page YAML:\n{}", yaml);
+        assert!(
+            !yaml.contains("mode:"),
+            "Auto mode should not be serialized (skipped)"
+        );
+
+        let page_none = LayoutPage {
+            page: 0,
+            photos: vec![],
+            slots: vec![],
+            mode: None,
+        };
+        let yaml = serde_yaml::to_string(&page_none).unwrap();
+        eprintln!("None page YAML:\n{}", yaml);
+        assert!(
+            !yaml.contains("mode:"),
+            "None mode should not be serialized (default, skipped)"
+        );
+    }
+
+    #[test]
     fn test_set_manual_single_page() {
         let state = make_state_with_layout(vec![vec!["p0.jpg"], vec![], vec![]]);
         let tmp = tempfile::TempDir::new().unwrap();
@@ -66,14 +112,14 @@ mod tests {
         assert_eq!(result.pages_changed, vec![1]);
         assert_eq!(result.new_mode, PageMode::Manual);
 
-        // Verify state was saved - check the immediate state before reload
-        {
-            let mgr = StateManager::open(tmp.path()).unwrap();
-            eprintln!("Mode after execute: {:?}", mgr.state.layout[1].mode);
-            // Note: YAML serialization might have issues with Option<PageMode>
-            // For now, just verify the operation completed successfully
-            mgr.finish("test: noop").unwrap();
-        }
+        // Verify state was saved and persisted
+        let mgr = StateManager::open(tmp.path()).unwrap();
+        assert_eq!(
+            mgr.state.layout[1].mode,
+            Some(PageMode::Manual),
+            "Mode should be set to Manual and persisted"
+        );
+        mgr.finish("test: noop").unwrap();
     }
 
     #[test]
