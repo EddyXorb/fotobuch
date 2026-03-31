@@ -3,9 +3,9 @@
 use anyhow::{Context, Result};
 use std::path::PathBuf;
 
-use fotobuch::commands::page::{self as page_cmd, InfoFilter, PageMoveCmd, SlotInfo, PageModeResult};
-use fotobuch::dto_models::PageMode;
+use fotobuch::commands::page::{self as page_cmd, InfoFilter, PageMoveCmd, SlotInfo};
 use fotobuch::commands::unplace::execute_unplace;
+use fotobuch::dto_models::PageMode;
 
 use super::parse_api::{
     parse_info_address, parse_move_cmd, parse_pages_expr, parse_split_addr, parse_swap_addrs,
@@ -271,7 +271,12 @@ pub fn handle_mode(pages_str: &str, mode_str: &str) -> Result<()> {
     let mode = match mode_str {
         "a" | "auto" => PageMode::Auto,
         "m" | "manual" => PageMode::Manual,
-        _ => return Err(anyhow::anyhow!("Invalid mode '{}'. Use 'a', 'm', 'auto', or 'manual'.", mode_str)),
+        _ => {
+            return Err(anyhow::anyhow!(
+                "Invalid mode '{}'. Use 'a', 'm', 'auto', or 'manual'.",
+                mode_str
+            ));
+        }
     };
 
     let result = page_cmd::execute_mode(&project_root()?, pages, mode)

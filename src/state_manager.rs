@@ -638,7 +638,7 @@ mod tests {
             page: 1,
             photos: vec![],
             slots: vec![],
-        
+
             mode: None,
         });
         let diff = StateDiff::compute(&old, &new);

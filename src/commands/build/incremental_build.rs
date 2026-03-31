@@ -62,14 +62,6 @@ pub fn incremental_build(
 
     // 5. Rebuild each modified page (skip manual pages)
     for &page_idx in &pages_needing_rebuild {
-        // Skip manual pages - they keep their manual layout
-        if mgr.state.layout[page_idx]
-            .mode
-            .is_some_and(|m| m == crate::dto_models::PageMode::Manual)
-        {
-            info!("Skipping manual page {}", page_idx);
-            continue;
-        }
         rebuild_single_page(&mut mgr.state, page_idx, &photo_index)?;
     }
 

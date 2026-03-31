@@ -51,7 +51,7 @@ To be done in this order
 
 - [x] Cover setup is too manual (3–4 commands + YAML edit). Solution: a `mode`
       field in `config.book.cover` with fixed slot layouts — see `COVER_WORKFLOW_IMPROVEMENT.md`.
-- [ ] **Generalise page layout modes to inner pages.** The cover `mode` concept
+- [x] **Generalise page layout modes to inner pages.** The cover `mode` concept
       (fixed slot positions instead of GA-solver) could apply to any page via
       `page mode <idx> <mode>`. The mode is then saved as optional child of each page in the yaml.
       An additional mode should support a configurable **inner margin** (gutter) for non-lay-flat bindings — the solver would keep
@@ -67,3 +67,9 @@ To be done in this order
 ## Internal todos
 
 - [ ] clean up the builder-section and have a new wrapper that calls the others, but takes care to build the pdf and get the correct BookLayoutConfig for further processing.
+- [ ] **Page mode refinements (SSOT)**:
+  - [ ] Move manual page detection to `StateManager::outdated_pages_indices()` instead of `incremental_build.rs` (Single Source of Truth)
+  - [ ] Remove per-page "skipping manual page" log messages - only log statistics
+  - [ ] Consider removing `page_idx` helper and use layout index directly (guarded index retrieval only if needed)
+  - [ ] Run `cargo fmt` after refactoring
+  - [ ] Update test expectations for new logging behavior

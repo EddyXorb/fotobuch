@@ -2,10 +2,7 @@
 
 use std::path::Path;
 
-use crate::{
-    dto_models::PageMode,
-    state_manager::StateManager,
-};
+use crate::{dto_models::PageMode, state_manager::StateManager};
 
 use super::{
     helpers::{format_pages_list, page_idx},

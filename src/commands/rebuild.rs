@@ -112,7 +112,11 @@ fn rebuild_single(mut mgr: StateManager, project_root: &Path, idx: usize) -> Res
         .mode
         .is_some_and(|m| m == crate::dto_models::PageMode::Manual)
     {
-        anyhow::bail!("Cannot rebuild page {}: page is in manual mode. Use `page mode {} a` to switch to auto mode first.", idx, idx);
+        anyhow::bail!(
+            "Cannot rebuild page {}: page is in manual mode. Use `page mode {} a` to switch to auto mode first.",
+            idx,
+            idx
+        );
     }
 
     // 2. Preview-Cache

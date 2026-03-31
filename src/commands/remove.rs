@@ -348,7 +348,7 @@ mod tests {
             page: 1,
             photos: vec!["a.jpg".to_string(), "b.jpg".to_string()],
             slots: vec![slot1.clone(), slot2.clone()],
-        
+
             mode: None,
         }];
 
@@ -370,23 +370,23 @@ mod tests {
                 page: 1,
                 photos: vec![],
                 slots: vec![],
-            
-            mode: None,
-        },
+
+                mode: None,
+            },
             LayoutPage {
                 page: 2,
                 photos: vec!["a.jpg".to_string()],
                 slots: vec![],
-            
-            mode: None,
-        },
+
+                mode: None,
+            },
             LayoutPage {
                 page: 3,
                 photos: vec![],
                 slots: vec![],
-            
-            mode: None,
-        },
+
+                mode: None,
+            },
         ];
 
         remove_empty_pages(&mut layout);
@@ -401,16 +401,16 @@ mod tests {
                 page: 5,
                 photos: vec!["a.jpg".to_string()],
                 slots: vec![],
-            
-            mode: None,
-        },
+
+                mode: None,
+            },
             LayoutPage {
                 page: 7,
                 photos: vec!["b.jpg".to_string()],
                 slots: vec![],
-            
-            mode: None,
-        },
+
+                mode: None,
+            },
         ];
 
         renumber_pages(&mut layout, false);
@@ -425,23 +425,23 @@ mod tests {
                 page: 99,
                 photos: vec!["cover.jpg".to_string()],
                 slots: vec![],
-            
-            mode: None,
-        },
+
+                mode: None,
+            },
             LayoutPage {
                 page: 99,
                 photos: vec!["a.jpg".to_string()],
                 slots: vec![],
-            
-            mode: None,
-        },
+
+                mode: None,
+            },
             LayoutPage {
                 page: 99,
                 photos: vec!["b.jpg".to_string()],
                 slots: vec![],
-            
-            mode: None,
-        },
+
+                mode: None,
+            },
         ];
 
         renumber_pages(&mut layout, true);
@@ -509,9 +509,9 @@ mod tests {
                 page: 1,
                 photos: vec!["a.jpg".to_string()],
                 slots: vec![],
-            
-            mode: None,
-        }],
+
+                mode: None,
+            }],
         };
 
         let unplaced = collect_unplaced_ids(&state);
@@ -533,9 +533,9 @@ mod tests {
                 page: 1,
                 photos: vec!["a.jpg".to_string()],
                 slots: vec![],
-            
-            mode: None,
-        }],
+
+                mode: None,
+            }],
         };
 
         let unplaced = collect_unplaced_ids(&state);
