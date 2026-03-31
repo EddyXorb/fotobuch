@@ -1,175 +1,20 @@
-# Phase 0a: Neue Lib-Commands
+# Phase 0: Neue Lib-Commands — Übersicht
 
-Neue Commands die für die GUI (und die CLI) gebraucht werden.
+> **Hinweis**: GUI-Kommentare in diesen Plänen sind rein informativ und sollen
+> in diesem Implementierungsplan **nicht** umgesetzt werden. Es geht hier nur um
+> die Lib- und CLI-Änderungen.
 
-## `config set` — Konfigurationswerte setzen
+## Reihenfolge
 
-### CLI
+Die Schritte bauen aufeinander auf:
 
-```
-fotobuch config set <key> <value>
-```
+| # | Was | Datei | Branch |
+|---|-----|-------|--------|
+| 0 | `CommandOutput<T>` + `render_pages()` | `00-3-command-output.md` | `feat/command-output` |
+| 1 | `page mode` (führt `PageMode` ein) | `00-1-page-mode.md` | `feat/page-mode` |
+| 2 | `page pos` (braucht `PageMode`) | `00-0-page-pos.md` | `feat/page-pos` |
+| 3 | `config set` (unabhängig) | `00-2-config-set.md` | `feat/config-set` |
 
-Dot-Notation wie bei `git config`, navigiert die YAML-Hierarchie:
-
-```
-fotobuch config set book.dpi 300
-fotobuch config set book.gap_mm 3.5
-fotobuch config set book.cover.active true
-fotobuch config set page_layout_solver.mutation_rate 0.4
-fotobuch config set book_layout_solver.page_target 24
-fotobuch config set preview.show_filenames false
-```
-
-### Lib
-
-```rust
-// src/commands/config/set.rs
-pub struct ConfigSetResult {
-    pub key: String,
-    pub old_value: String,
-    pub new_value: String,
-}
-
-pub fn config_set(
-    project_root: &Path,
-    key: &str,
-    value: &str,
-) -> Result<CommandOutput<ConfigSetResult>>
-```
-
-Implementierung:
-1. `StateManager::open()`
-2. Config als `serde_yaml::Value` laden
-3. Key per Dot-Notation navigieren (`book.dpi` → `["book"]["dpi"]`)
-4. Alten Wert merken, neuen Wert setzen (Typ-Erkennung: bool/number/string)
-5. Zurück nach `ProjectConfig` deserialisieren (validiert automatisch)
-6. `finish()` → State zurück
-
-### GUI-Nutzung
-
-Das Config-Panel ruft für jede Widget-Änderung `config_set()` im Background auf.
-Kein Sonderweg — GUI und CLI nutzen denselben Codepfad.
-
----
-
-## `page mode` — Seitenmodus umschalten
-
-### CLI
-
-```
-fotobuch page mode <address> <auto|manual>
-```
-
-Beispiele:
-
-```
-fotobuch page mode 3 manual        # Seite 3 auf Manual
-fotobuch page mode 3 auto          # Seite 3 zurück auf Auto
-fotobuch page mode 0..5 manual     # Seiten 0-5 auf Manual
-```
-
-### Lib
-
-```rust
-// src/commands/page/mode.rs
-pub struct PageModeResult {
-    pub pages_changed: Vec<usize>,
-    pub new_mode: PageMode,
-}
-
-pub fn execute_mode(
-    project_root: &Path,
-    pages: PageExpr,
-    mode: PageMode,
-) -> Result<CommandOutput<PageModeResult>>
-```
-
-Implementierung:
-1. `StateManager::open()`
-2. Für jede Seite im Adressbereich: `layout[i].mode = mode`
-3. `finish()` → State zurück
-
-Wechsel Manual→Auto markiert die Seite als dirty für den nächsten Build
-(Solver optimiert sie beim nächsten `build` neu).
-
-### GUI-Nutzung
-
-Der [A|M]-Toggle pro Seite ruft `execute_mode()` im Background auf.
-
----
-
-## `page pos` — Freie Positionierung (Manual Mode)
-
-### CLI
-
-Relatives Verschieben und Skalieren:
-
-```
-fotobuch page pos 4:2 --by -20,30             # Slot 2 auf Seite 4: -20mm x, +30mm y
-fotobuch page pos 4:2 --by -20,30 --scale 1.5 # zusätzlich 1.5x skalieren
-fotobuch page pos 4:2 --scale 0.8             # nur skalieren (um Slot-Zentrum)
-fotobuch page pos 4:2..5 --by -20,30          # Slots 2-5 gemeinsam verschieben
-```
-
-Absolutes Positionieren:
-
-```
-fotobuch page pos 4:2 --at 100,50             # Slot-Ursprung auf (100mm, 50mm)
-fotobuch page pos 4:2 --at 100,50 --scale 2.0 # absolut + skalieren
-```
-
-`--by` und `--at` schließen sich gegenseitig aus. `--scale` ist mit beiden kombinierbar.
-Skalierung behält Aspect Ratio bei und skaliert um den Slot-Mittelpunkt.
-
-Akzeptiert Slot-Ranges und Komma-Listen (wie andere page-Subcommands).
-Bei Multi-Selektion wird derselbe Delta/Scale auf alle Slots angewendet.
-
-Fehler wenn die Seite nicht im Manual-Mode ist.
-
-### Lib
-
-```rust
-// src/commands/page/pos.rs
-pub enum PosMode {
-    Relative { dx_mm: f64, dy_mm: f64 },
-    Absolute { x_mm: f64, y_mm: f64 },
-}
-
-pub struct PosConfig {
-    pub mode: PosMode,
-    pub scale: Option<f64>,  // None = keine Skalierung
-}
-
-pub struct PosResult {
-    pub page: usize,
-    pub slots_changed: Vec<SlotChange>,
-}
-
-pub struct SlotChange {
-    pub slot: usize,
-    pub old: Slot,
-    pub new: Slot,
-}
-
-pub fn execute_pos(
-    project_root: &Path,
-    page: u32,
-    slots: SlotExpr,
-    config: &PosConfig,
-) -> Result<CommandOutput<PosResult>>
-```
-
-Implementierung:
-1. `StateManager::open()`
-2. Prüfen: `layout[page].mode == Manual`, sonst Fehler
-3. Für jeden Slot in der SlotExpr:
-   - Relative: `x_mm += dx`, `y_mm += dy`
-   - Absolute: `x_mm = x`, `y_mm = y` (nur sinnvoll bei Einzel-Slot)
-   - Scale: `width_mm *= s`, `height_mm *= s`, Mittelpunkt bleibt
-4. `finish()` → State zurück
-
-### GUI-Nutzung
-
-Drag auf freie Fläche → berechnet Delta in mm → `execute_pos(Relative)` im Background.
-Ecken-Drag → berechnet Scale-Faktor → `execute_pos(scale)` im Background.
+`CommandOutput<T>` muss **zuerst** umgesetzt werden — alle neuen und bestehenden
+Commands bauen darauf auf. `page mode` vor `page pos`, weil `pos` den Manual-Mode
+voraussetzt. `config set` ist unabhängig und kann parallel.
