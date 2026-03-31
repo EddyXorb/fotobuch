@@ -235,17 +235,40 @@ enum BackgroundResult {
 }
 ```
 
-### Typst-Rendering
+### Typst-Rendering: Lib-API statt GUI-Logik
+
+Die Lib bietet eine neue Funktion in `output/typst.rs` an, analog zu `compile_preview`:
 
 ```rust
-let document = typst::compile(&world).output?;
-let pixmap = typst_render::render(&document.pages[i], pixel_per_pt);
-// premultiplied → demultiply für egui
+/// Rendert einzelne Seiten als RGBA-Pixmaps.
+/// Die GUI ruft nur diese Funktion auf und kümmert sich nicht um Typst-Interna.
+pub fn render_pages(
+    project_root: &Path,
+    project_name: &str,
+    pages: &[usize],
+    pixel_per_pt: f32,
+) -> Result<Vec<RenderedPage>>
+
+pub struct RenderedPage {
+    pub page: usize,
+    pub width: u32,
+    pub height: u32,
+    /// RGBA-Pixel, straight alpha (nicht premultiplied — fertig für egui)
+    pub pixels: Vec<u8>,
+}
 ```
+
+Intern nutzt sie die bestehende `SimpleWorld` + `typst::compile()`, ersetzt aber
+den `typst_pdf::pdf()`-Schritt durch `typst_render::render()` + Alpha-Konvertierung.
+
+Vorteile:
+- GUI hat keine Typst-Dependency (nur über Lib)
+- Demultiply-Logik liegt zentral in der Lib
+- Signatur ist simpel: Pfad rein, Pixel raus
 
 ### Zoom-Strategie
 
-- Texturen bei aktuellem Zoom-Level gerendert
+- GUI ruft `render_pages()` mit passendem `pixel_per_pt` für den aktuellen Zoom
 - Zoom-Änderung > 2x: debounced Re-Render (~200ms)
 - Dazwischen: GPU-Skalierung der vorhandenen Textur
 
