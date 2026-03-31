@@ -12,7 +12,6 @@ gui = ["dep:eframe", "dep:egui", "dep:typst-render", "dep:image"]
 // cli/main.rs (Pseudocode)
 fn main() {
     if std::env::args().len() > 1 {
-        // CLI-Modus: wie bisher
         let cli = Cli::parse();
         cli.command.execute()
     } else {
@@ -26,15 +25,15 @@ fn main() {
 
 - `cargo build` → nur CLI
 - `cargo build --features gui` → CLI + GUI
-- Ohne Argumente + mit GUI-Feature → GUI startet
-- Mit Argumenten → immer CLI, egal ob GUI-Feature an
+- Ohne Argumente → GUI (wenn Feature an), sonst Help
+- Mit Argumenten → immer CLI
 
 ## Modul-Struktur
 
 ```
 src/gui/              (feature-gated: #[cfg(feature = "gui")])
 ├── mod.rs            pub fn run() + FotobuchApp struct
-├── state.rs          GuiState: wraps ProjectState + UI-spezifischer State
+├── state.rs          GuiState + DerivedState
 ├── renderer.rs       Background-Rendering: Typst → Pixmap → egui::TextureHandle
 ├── panels/
 │   ├── mod.rs
@@ -46,127 +45,208 @@ src/gui/              (feature-gated: #[cfg(feature = "gui")])
 └── toolbar.rs        Top-Bar + Statusbar
 ```
 
-~10 Dateien. Jede fokussiert auf eine Aufgabe.
+## Command-Rückgaben: `CommandOutput<T>`
+
+### Problem
+
+Commands haben jeweils eigene, sinnvolle Result-Structs (`BuildResult`, `AddResult`, ...).
+Die GUI braucht nach jedem Command den aktuellen `ProjectState`.
+
+### Lösung: Generischer Wrapper
+
+```rust
+// src/commands/mod.rs
+pub struct CommandOutput<T> {
+    pub result: T,
+    pub state: ProjectState,
+}
+```
+
+`StateManager::finish()` gibt den State zurück statt ihn zu droppen:
+
+```rust
+// StateManager
+pub fn finish(self, message: &str) -> Result<ProjectState> {
+    self.finish_internal(message, false)?;
+    Ok(self.state)
+}
+```
+
+Jeder Command gibt `Result<CommandOutput<XyzResult>>` zurück:
+
+```rust
+// Vorher:
+pub fn build(...) -> Result<BuildResult>
+
+// Nachher:
+pub fn build(...) -> Result<CommandOutput<BuildResult>>
+```
+
+CLI-Handler ignorieren `.state`, GUI nutzt beides:
+
+```rust
+// CLI (ändert sich minimal)
+let output = commands::build::build(...)?;
+print_build_result(&output.result);
+
+// GUI
+let output = commands::build::build(...)?;
+gui_state.apply(output.state);
+// output.result.pages_rebuilt → nur diese Seiten re-rendern
+```
+
+### Dirty Pages aus Command Results
+
+Die GUI muss nicht selbst diffen — die Commands liefern bereits, was sich geändert hat:
+
+| Command | Affected Pages (aus Result) |
+|---------|---------------------------|
+| `build` | `pages_rebuilt`, `pages_swapped` |
+| `rebuild` | `pages_rebuilt` (= BuildResult) |
+| `place` | `pages_affected` |
+| `remove` | `pages_affected` |
+| `page swap/move` | betroffene Seiten-Indizes |
+| `undo/redo` | alle Seiten (State komplett neu) |
+| `config` | alle Seiten |
 
 ## State-Modell
 
+### GuiState: Was die GUI hält
+
 ```rust
 struct GuiState {
-    // === Kern-State (aus Lib) ===
-    project_state: ProjectState,       // config + photos + layout
-    state_manager: StateManager,       // persistenz + git + undo/redo
+    // === Kern ===
+    project_state: ProjectState,
+    derived: DerivedState,
 
-    // === Rendering-Cache ===
-    page_textures: Vec<PageTexture>,   // eine Textur pro Seite
-    dirty_pages: HashSet<usize>,       // Seiten die neu gerendert werden müssen
-    building_pages: HashSet<usize>,    // Seiten die gerade gebaut werden
+    // === Rendering ===
+    page_textures: Vec<PageTexture>,
+    dirty_pages: HashSet<usize>,
+    building_pages: HashSet<usize>,
 
-    // === UI-State ===
-    selected_slot: Option<(usize, usize)>,  // (page, slot)
+    // === UI ===
+    selection: Selection,
     drag: Option<DragState>,
     zoom: f32,
     scroll_offset: f32,
     config_window_open: bool,
 }
+```
 
-struct PageTexture {
-    texture: egui::TextureHandle,
-    /// Blur-Version für "wird gerade gebaut"-Zustand
-    blurred: Option<egui::TextureHandle>,
-    render_scale: f32,          // bei welchem Zoom gerendert
+### DerivedState: Lookup-Caches
+
+Wird einmal aus `ProjectState` berechnet und nach jedem Command-Update neu gebaut.
+
+```rust
+struct DerivedState {
+    /// Foto-ID → PhotoFile (schneller Lookup für Tooltips, DPI-Berechnung etc.)
+    photo_by_id: HashMap<String, PhotoFile>,
+
+    /// Foto-ID → Gruppe
+    group_of_photo: HashMap<String, String>,
+
+    /// Foto-ID → (page, slot_index) — wo ist es platziert?
+    placement_of_photo: HashMap<String, (usize, usize)>,
+
+    /// Set aller platzierten Foto-IDs
+    placed_photos: HashSet<String>,
+
+    /// Alle unplatzierten Fotos (für den Foto-Pool)
+    unplaced_photos: Vec<String>,
+
+    /// Anzahl platzierter Fotos pro Gruppe (für Pool-Badges)
+    placed_per_group: HashMap<String, usize>,
 }
 
-enum DragState {
-    Slot { page: usize, slot: usize, offset: Vec2 },
-    Page { page: usize },
-    PhotoFromPool { photo_id: String },
+impl DerivedState {
+    /// Komplett neu berechnen aus ProjectState
+    fn rebuild(state: &ProjectState) -> Self {
+        // Einmal über photos + layout iterieren,
+        // alle Maps aufbauen
+    }
 }
 ```
 
-### Prinzip: ProjectState ist die Single Source of Truth
+### Update-Flow nach jedem Command
 
-- Alle Änderungen gehen durch `ProjectState`
-- GUI-State ist nur View-Logik (Zoom, Selektion, Drag)
-- Config-Änderungen → `ProjectState.config` mutieren → dirty pages
-- Undo/Redo = StateManager (Git-basiert, wie CLI)
+```rust
+impl GuiState {
+    fn apply(&mut self, output: CommandOutput<impl Any>) {
+        self.project_state = output.state;
+        self.derived = DerivedState::rebuild(&self.project_state);
+        // dirty_pages aus dem jeweiligen Result setzen
+    }
+}
+```
+
+**Prinzip**: `DerivedState::rebuild()` ist die einzige Stelle, die Lookup-Strukturen baut.
+Ein Aufruf, ein Codepfad, kein inkrementelles Patching.
+
+### Kein StateManager in der GUI
+
+Die GUI hält keinen `StateManager`. Der Lifecycle ist:
+
+1. GUI ruft Lib-Command auf (z.B. `commands::page::swap(...)`)
+2. Command öffnet intern `StateManager::open()`, mutiert, ruft `finish()` auf
+3. `finish()` speichert YAML + Git-Commit, gibt `ProjectState` zurück
+4. GUI erhält `CommandOutput<T>` mit dem neuen State
+5. GUI ruft `DerivedState::rebuild()` auf, markiert dirty pages
+
+Die GUI liest **nie** YAML-Dateien. Sie bekommt den State immer als Rückgabewert.
 
 ## Rendering-Pipeline
 
 ```
-                    UI-Thread (60fps)
-                    ─────────────────
-                    egui frame:
-                      1. Input verarbeiten
-                      2. Gecachte Texturen zeichnen
-                      3. Slot-Overlays zeichnen
-                      4. Channel pollen
-                         ↓ neue Textur?  → swap in, blur weg
-                         ↓ state change? → dirty pages markieren
-                                           ↓
-                              ┌─────────────────────────────────┐
-                              │     Background-Thread           │
-                              │                                 │
-    dirty pages ─────────→    │  1. Solver (nur Auto-Seiten)    │
-                              │  2. YAML schreiben              │
-                              │  3. Typst kompilieren           │
-                              │  4. typst-render → Pixmap       │
-                              │  5. Pixmap demultiply alpha     │
-                              │  6. → Channel → UI-Thread       │
-                              └─────────────────────────────────┘
+UI-Thread (60fps)                    Background-Thread
+─────────────────                    ──────────────────
+egui frame loop:
+  1. Input verarbeiten
+  2. Gecachte Texturen zeichnen
+  3. Slot-Overlays zeichnen
+  4. Channel pollen
+     → neue Textur? swap in
+     → Command fertig? apply(output)
+
+User-Aktion (z.B. Swap):
+  → Command an Background ──────→   commands::page::swap(...)
+                                     ↓ CommandOutput<SwapResult>
+  ← output zurück ←─────────────   
+  → apply(output)
+  → dirty pages an Background ──→   Typst kompilieren + rendern
+                                     ↓ Pixmaps
+  ← Texturen zurück ←───────────   
 ```
 
-### Kommunikation: Channels
+### Channels
 
 ```rust
-// UI → Background
-enum RenderRequest {
-    RebuildPages(Vec<usize>),
-    FullBuild,
-    ReleaseBuild,
+// GUI → Background
+enum BackgroundTask {
+    RunCommand(Box<dyn FnOnce() -> Result<...> + Send>),
+    RenderPages { pages: Vec<usize>, zoom: f32 },
 }
 
-// Background → UI
-enum RenderResult {
-    PageReady { page: usize, pixmap: Vec<u8>, width: u32, height: u32 },
-    BuildComplete { result: BuildResult },
+// Background → GUI
+enum BackgroundResult {
+    CommandDone(CommandOutput<Box<dyn Any>>),
+    PageRendered { page: usize, pixmap: Vec<u8>, width: u32, height: u32 },
     Error(String),
 }
 ```
 
-### Typst-Rendering: Einzelseiten
-
-Wichtig: Typst kompiliert das ganze Dokument, aber `typst-render` kann **einzelne Seiten** rendern:
+### Typst-Rendering
 
 ```rust
 let document = typst::compile(&world).output?;
-// Nur Seite i rendern:
 let pixmap = typst_render::render(&document.pages[i], pixel_per_pt);
-// pixmap ist premultiplied → demultiply für egui
+// premultiplied → demultiply für egui
 ```
 
 ### Zoom-Strategie
 
-- Texturen werden bei bestimmtem Zoom-Level gerendert
-- Bei Zoom-Änderung > 2x: neu rendern (debounced, ~200ms)
-- Zwischen-Zooms: GPU-Skalierung der vorhandenen Textur (schnell, leicht unscharf)
-- Ergebnis: sofortiges visuelles Feedback, scharfes Bild nach kurzer Verzögerung
-
-## Integration mit der Lib
-
-Die GUI ruft **dieselben Funktionen** wie die CLI:
-
-| GUI-Aktion | Lib-Funktion |
-|------------|-------------|
-| Swap Slots | `commands::page::swap()` |
-| Move Foto | `commands::page::move_photo()` |
-| Unplace | `commands::unplace()` |
-| Build | `commands::build::build()` |
-| Release | `commands::build::build(release=true)` |
-| Undo/Redo | `StateManager::undo()`/`redo()` |
-| Config ändern | `ProjectState.config` direkt mutieren |
-| Add Photos | `commands::add::add()` |
-
-Kein Duplizieren von Logik. Die GUI ist nur eine andere Eingabemethode.
+- Texturen bei aktuellem Zoom-Level gerendert
+- Zoom-Änderung > 2x: debounced Re-Render (~200ms)
+- Dazwischen: GPU-Skalierung der vorhandenen Textur
 
 ## YAML-Erweiterung: Page Mode
 
@@ -176,14 +256,9 @@ layout:
   mode: manual    # optional, fehlt = auto
   photos: [...]
   slots: [...]
-- page: 1
-  # kein mode-Feld = auto (implizit)
-  photos: [...]
-  slots: [...]
 ```
 
 ```rust
-// dto_models/layout/layout_page.rs
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LayoutPage {
     pub page: usize,
