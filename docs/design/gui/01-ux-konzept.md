@@ -1,0 +1,125 @@
+# GUI UX-Konzept
+
+## Grundidee
+
+Die GUI ist ein **interaktiver Typst-Viewer**. Die gerenderten Seiten SIND das Ergebnis - kein separates Preview. Die GUI legt nur einen dünnen Interaktionslayer darüber.
+
+## Layout: Drei-Panel-Architektur
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│  fotobuch · my-project       [Build] [Release] [↩][↪] [⚙]  │
+├───────────┬──────────────────────────────────┬───────────────┤
+│ FOTO-POOL │       HAUPTANSICHT               │ SEITEN-NAV   │
+│           │                                  │              │
+│ ▼ Urlaub  │   ┌──────────────────┐           │ ┌──┐ P0 [A] │
+│  img1.jpg │   │  Seite 0         │  [A|M]    │ │  │        │
+│  img2.jpg │   └──────────────────┘           │ └──┘        │
+│  img3.jpg │                                  │ ┌──┐ P1 [A] │
+│           │   ┌──────────────────┐           │ │  │        │
+│ ▶ Familie │   │  Seite 1         │  [A|M]    │ └──┘        │
+│           │   │ ┌──┐ ┌────────┐  │           │ ┌──┐ P2 [M] │
+│ ▶ Wandern │   │ │  │ │ hover! │  │           │ │  │        │
+│           │   │ └──┘ └────────┘  │           │ └──┘        │
+│           │   └──────────────────┘           │ ...         │
+│           │                                  │              │
+│           │   ... (vertical scroll) ...      │              │
+├───────────┴──────────────────────────────────┴───────────────┤
+│  Seite 3/24 · 156 Fotos · 12 unplatziert · [Shift=Move]     │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### Linkes Panel: Foto-Pool
+
+- Spiegelt 1:1 die `photos`-Sektion des YAML
+- Gruppen als aufklappbare Ordner
+- Pro Foto: Mini-Thumbnail + Name, Tooltip mit Metadaten
+- Platzierte Fotos gedimmt mit Seitennummer-Badge
+- Unplatzierte Fotos visuell hervorgehoben
+- Drag aus Pool auf Seite = Place
+- Startversion: einfache Liste/Tabelle, später evtl. Grid-View
+
+### Mitte: Hauptansicht
+
+- Alle Seiten vertikal gestapelt, scrollbar
+- Jede Seite = Typst-gerendertes Raster-Image als egui-Textur
+- Zoom: Ctrl+Scroll, stufenlos
+- Pro Seite ein kleiner [A|M]-Toggle rechts oben (Auto/Manual Mode)
+- Seitenheader mit Seitennummer
+
+### Rechtes Panel: Seiten-Navigation
+
+- Thumbnail pro Seite (klein, ~80px breit)
+- Klick = Scroll zur Seite
+- Drag & Drop = Seiten swappen/moven
+- [A]/[M]-Badge pro Seite sichtbar
+- Auch Drag-Target für Foto-Operationen (Cross-Page Move/Swap)
+
+## Interaktionsmodell
+
+### Slot-Interaktion (Hauptansicht)
+
+| Aktion | Ergebnis |
+|--------|----------|
+| Hover über Slot | Halbtransparentes blaues Overlay (alpha ~0.15), Tooltip mit Foto-Info |
+| Klick auf Slot | Selektion (grüner Rand), Details in Statusbar |
+| Drag Slot → anderer Slot (gleiche Seite) | **Swap** (default) oder **Move** (mit Shift) |
+| Drag Slot → Slot auf anderer Seite (via Nav) | Cross-Page Swap/Move |
+| Drag Slot → freie Fläche (Manual Mode) | Freie Positionierung, Slot bekommt neue x/y |
+| Drag Slot-Ecke | Resize unter Beibehaltung des Seitenverhältnisses |
+| Rechtsklick Slot | Kontextmenü: Unplace, Rebuild Seite, Info |
+| Delete-Taste | Selektierten Slot unplacen |
+
+### Drag-Feedback
+
+- **Grünes Overlay** auf Ziel-Slot: Gleiche Aspect Ratio → problemloser Swap
+- **Rötliches Overlay** auf Ziel-Slot: Unterschiedliche Ratio → Solver muss Seite neu layouten
+- **Statusbar** zeigt während Drag: `[Shift: Move | Default: Swap]`
+
+### Auto-Rebuild nach Änderungen
+
+1. Swap/Move/Unplace/Config-Änderung → betroffene Seiten als "dirty" markieren
+2. Background-Thread baut dirty Pages neu (Solver + Typst-Render)
+3. Während Rebuild: **Gaussian Blur + kleiner Spinner** über der Seite
+4. Alte Version bleibt sichtbar (geblurt) bis neue fertig
+5. UI bleibt immer bei 60fps
+
+### Seiten-Modus: Auto vs Manual
+
+- **Auto** (default, implizit): Solver optimiert Layout bei Rebuild
+- **Manual**: Solver lässt Seite in Ruhe, User positioniert frei
+- Toggle pro Seite: kleiner Schalter [A|M] neben der Seite
+- YAML: optionales `mode`-Feld pro `LayoutPage` (fehlt = auto)
+- Wechsel Manual→Auto: Solver optimiert Seite beim nächsten Build neu
+
+## Hotkeys
+
+| Taste | Aktion |
+|-------|--------|
+| `Ctrl+Z` / `Ctrl+Y` | Undo / Redo |
+| `Ctrl+B` | Build (inkrementell) |
+| `Ctrl+Shift+B` | Release Build |
+| `Ctrl+Scroll` | Zoom |
+| `Ctrl+0` | Zoom: Seitenbreite einpassen |
+| `Ctrl+G` | Gehe zu Seite |
+| `Home` / `End` | Erste / Letzte Seite |
+| `Delete` | Selektierten Slot unplacen |
+| `R` | Selektierte Seite rebuild |
+| `Ctrl+,` | Config-Panel toggle |
+| `Escape` | Selektion aufheben |
+| `Shift` (halten) | Drag-Modus: Move statt Swap |
+
+## Config-Panel
+
+Öffnet sich als **Floating Window** (Ctrl+,):
+
+- Config-Structs werden **automatisch** über `serde_yaml::Value` zu Widgets
+- Rekursive Regel:
+  - `Mapping` → Collapsible Section
+  - `String` → TextEdit
+  - `Number` → DragValue
+  - `Bool` → Checkbox
+  - Enum (String-Variante) → ComboBox
+- Feld-Labels = YAML-Keys, human-readable formatiert (snake_case → Title Case)
+- Änderungen → sofort in Config übernehmen → dirty pages → Auto-Rebuild
+- **Null Wartungsaufwand** bei Config-Änderungen in der Lib
