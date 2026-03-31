@@ -57,24 +57,45 @@ Die GUI ist ein **interaktiver Typst-Viewer**. Die gerenderten Seiten SIND das E
 
 ## Interaktionsmodell
 
+### Selektion
+
+| Aktion | Ergebnis |
+|--------|----------|
+| Klick auf Slot | Einzelselektion (ersetzt vorherige) |
+| Ctrl+Klick | Slot zur Selektion hinzufügen/entfernen |
+| Shift+Klick | Range-Selektion (Slot X bis Slot Y, wie Textauswahl) |
+| Ctrl+A | Alle Slots der aktuellen Seite |
+| Escape | Selektion aufheben |
+
+Selektion ist immer auf **eine Seite** beschränkt.
+
 ### Slot-Interaktion (Hauptansicht)
 
 | Aktion | Ergebnis |
 |--------|----------|
 | Hover über Slot | Halbtransparentes blaues Overlay (alpha ~0.15), Tooltip mit Foto-Info |
-| Klick auf Slot | Selektion (grüner Rand), Details in Statusbar |
-| Drag Slot → anderer Slot (gleiche Seite) | **Swap** (default) oder **Move** (mit Shift) |
-| Drag Slot → Slot auf anderer Seite (via Nav) | Cross-Page Swap/Move |
+| Drag Selektion → anderer Slot | **Swap** (default) oder **Move** (M halten) |
+| Drag Selektion → [+]-Platzhalter zwischen Seiten | **Move auf neue Seite** |
+| Drag Selektion → Foto-Pool (links) | **Unplace** |
+| Drag Selektion → Seiten-Thumbnail (rechts) | Cross-Page Move/Swap |
 | Drag Slot → freie Fläche (Manual Mode) | Freie Positionierung, Slot bekommt neue x/y |
-| Drag Slot-Ecke | Resize unter Beibehaltung des Seitenverhältnisses |
-| Rechtsklick Slot | Kontextmenü: Unplace, Rebuild Seite, Info |
-| Delete-Taste | Selektierten Slot unplacen |
+| Drag Slot-Ecke (Manual Mode) | Resize unter Beibehaltung des Seitenverhältnisses |
+| Rechtsklick Slot | Kontextmenü: Unplace, Rebuild, Weight, Info |
+| Delete-Taste | Selektierte Slots unplacen |
+
+### Neue-Seite-Platzhalter
+
+Zwischen jeder Seite: schmales Rechteck mit `[+]`, halbtransparent.
+- Normalzustand: minimal/unauffällig
+- Hover: leuchtet auf
+- Drop darauf: erstellt neue Seite, verschiebt Slots dorthin
+- Leere Seiten nach Move/Unplace verschwinden automatisch (wie CLI)
 
 ### Drag-Feedback
 
 - **Grünes Overlay** auf Ziel-Slot: Gleiche Aspect Ratio → problemloser Swap
 - **Rötliches Overlay** auf Ziel-Slot: Unterschiedliche Ratio → Solver muss Seite neu layouten
-- **Statusbar** zeigt während Drag: `[Shift: Move | Default: Swap]`
+- **Statusbar** zeigt während Drag: `[Drag: Swap]` bzw. `[M: Move]`
 
 ### Auto-Rebuild nach Änderungen
 
@@ -107,7 +128,11 @@ Die GUI ist ein **interaktiver Typst-Viewer**. Die gerenderten Seiten SIND das E
 | `R` | Selektierte Seite rebuild |
 | `Ctrl+,` | Config-Panel toggle |
 | `Escape` | Selektion aufheben |
-| `Shift` (halten) | Drag-Modus: Move statt Swap |
+| `M` (halten) | Drag-Modus: Move statt Swap |
+| `Ctrl+Klick` | Toggle-Selektion (einzelne Slots) |
+| `Shift+Klick` | Range-Selektion (Slot X bis Y) |
+| `Ctrl+A` | Alle Slots der aktuellen Seite selektieren |
+| `Ctrl+O` | Fotos hinzufügen (Add-Dialog) |
 
 ## Config-Panel
 
