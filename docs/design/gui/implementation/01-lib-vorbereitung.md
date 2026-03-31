@@ -47,6 +47,9 @@ Jeder Command, der `StateManager::finish()` aufruft, gibt jetzt den State weiter
 | `execute_split()` | `Result<PageMoveResult, PageMoveError>` | `Result<CommandOutput<PageMoveResult>, PageMoveError>` |
 | `execute_combine()` | `Result<PageMoveResult, PageMoveError>` | `Result<CommandOutput<PageMoveResult>, PageMoveError>` |
 | `execute_weight()` | `Result<()>` | `Result<CommandOutput<()>>` |
+| `execute_mode()` | *(neu, siehe 00)* | `Result<CommandOutput<PageModeResult>>` |
+| `execute_pos()` | *(neu, siehe 00)* | `Result<CommandOutput<PosResult>>` |
+| `config_set()` | *(neu, siehe 00)* | `Result<CommandOutput<ConfigSetResult>>` |
 | `project_new()` | `Result<NewResult>` | `Result<CommandOutput<NewResult>>` |
 | `project_switch()` | `Result<()>` | `Result<CommandOutput<()>>` |
 

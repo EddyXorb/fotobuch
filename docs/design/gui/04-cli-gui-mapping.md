@@ -80,6 +80,13 @@ Zwischen jeder Seite in der Hauptansicht: schmales Rechteck mit `[+]`, halbtrans
 | **`page info 3`** | `fotobuch page info 3` | Hover über Slots zeigt Tooltips. Rechtsklick → Page Info für Details |
 | **`page info 3:2`** | `fotobuch page info 3:2` | Klick auf Slot → Statusbar zeigt Details (ID, Pixel, DPI, Gewicht) |
 | **`page weight 3:2 2.0`** | `fotobuch page weight 3:2 2.0` | Rechtsklick auf Slot → "Set Weight" → DragValue |
+| **`page mode 3 manual`** | `fotobuch page mode 3 manual` | [A\|M]-Toggle neben der Seite |
+| **`page mode 0..5 auto`** | `fotobuch page mode 0..5 auto` | Multi-Selektion in Seiten-Nav → Rechtsklick → "Set Auto" |
+| **`page pos 4:2 --by -20,30`** | `fotobuch page pos 4:2 --by -20,30` | Drag Slot auf freie Fläche (Manual Mode) |
+| **`page pos 4:2 --at 100,50`** | `fotobuch page pos 4:2 --at 100,50` | Drag Slot auf freie Fläche (Manual Mode) |
+| **`page pos 4:2 --scale 1.5`** | `fotobuch page pos 4:2 --scale 1.5` | Ecken-Drag auf Slot (Manual Mode) |
+| **`config set book.dpi 300`** | `fotobuch config set book.dpi 300` | Config-Panel: DragValue für `dpi` ändern |
+| **`config set book.cover.active true`** | `fotobuch config set book.cover.active true` | Config-Panel: Checkbox für `cover.active` |
 | **`remove "urlaub/*"`** | `fotobuch remove "urlaub/*"` | Im Foto-Pool: Rechtsklick auf Gruppe → "Remove Group" |
 | **`remove --unplaced`** | `fotobuch remove --unplaced` | Im Foto-Pool: Button "Remove Unplaced" oder Kontextmenü |
 | **`status`** | `fotobuch status` | Statusbar zeigt permanent: Seiten, Fotos, Unplatziert, Build-Status |
