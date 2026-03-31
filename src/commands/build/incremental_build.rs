@@ -60,8 +60,16 @@ pub fn incremental_build(
     // 4. Build photo index for fast lookup
     let photo_index = build_photo_index(&mgr.state.photos);
 
-    // 5. Rebuild each modified page
+    // 5. Rebuild each modified page (skip manual pages)
     for &page_idx in &pages_needing_rebuild {
+        // Skip manual pages - they keep their manual layout
+        if mgr.state.layout[page_idx]
+            .mode
+            .is_some_and(|m| m == crate::dto_models::PageMode::Manual)
+        {
+            info!("Skipping manual page {}", page_idx);
+            continue;
+        }
         rebuild_single_page(&mut mgr.state, page_idx, &photo_index)?;
     }
 
