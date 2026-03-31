@@ -42,11 +42,16 @@ Jeder Command, der `StateManager::finish()` aufruft, gibt jetzt den State weiter
 | `remove()` | `Result<RemoveResult>` | `Result<CommandOutput<RemoveResult>>` |
 | `undo()` | `Result<UndoResult>` | `Result<CommandOutput<UndoResult>>` |
 | `redo()` | `Result<UndoResult>` | `Result<CommandOutput<UndoResult>>` |
-| `execute_move()` | `Result<PageMoveResult>` | `Result<CommandOutput<PageMoveResult>>` |
-| `execute_unplace()` | `Result<PageMoveResult>` | `Result<CommandOutput<PageMoveResult>>` |
+| `execute_move()` | `Result<PageMoveResult, PageMoveError>` | `Result<CommandOutput<PageMoveResult>, PageMoveError>` |
+| `execute_unplace()` | `Result<PageMoveResult, PageMoveError>` | `Result<CommandOutput<PageMoveResult>, PageMoveError>` |
+| `execute_split()` | `Result<PageMoveResult, PageMoveError>` | `Result<CommandOutput<PageMoveResult>, PageMoveError>` |
+| `execute_combine()` | `Result<PageMoveResult, PageMoveError>` | `Result<CommandOutput<PageMoveResult>, PageMoveError>` |
+| `execute_weight()` | `Result<()>` | `Result<CommandOutput<()>>` |
+| `project_new()` | `Result<NewResult>` | `Result<CommandOutput<NewResult>>` |
+| `project_switch()` | `Result<()>` | `Result<CommandOutput<()>>` |
 
-Read-Only Commands (`config`, `status`, `history`) brauchen kein `CommandOutput` —
-sie verändern keinen State.
+Read-Only Commands (`config`, `status`, `history`, `execute_info`) brauchen kein
+`CommandOutput` — sie verändern keinen State.
 
 ### Anpassung der CLI-Handler
 
