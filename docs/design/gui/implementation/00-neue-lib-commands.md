@@ -106,9 +106,10 @@ Der [A|M]-Toggle pro Seite ruft `execute_mode()` im Background auf.
 Relatives Verschieben und Skalieren:
 
 ```
-fotobuch page pos 4:2 --by -20,30             # -20mm x, +30mm y
+fotobuch page pos 4:2 --by -20,30             # Slot 2 auf Seite 4: -20mm x, +30mm y
 fotobuch page pos 4:2 --by -20,30 --scale 1.5 # zusätzlich 1.5x skalieren
 fotobuch page pos 4:2 --scale 0.8             # nur skalieren (um Slot-Zentrum)
+fotobuch page pos 4:2..5 --by -20,30          # Slots 2-5 gemeinsam verschieben
 ```
 
 Absolutes Positionieren:
@@ -120,6 +121,9 @@ fotobuch page pos 4:2 --at 100,50 --scale 2.0 # absolut + skalieren
 
 `--by` und `--at` schließen sich gegenseitig aus. `--scale` ist mit beiden kombinierbar.
 Skalierung behält Aspect Ratio bei und skaliert um den Slot-Mittelpunkt.
+
+Akzeptiert Slot-Ranges und Komma-Listen (wie andere page-Subcommands).
+Bei Multi-Selektion wird derselbe Delta/Scale auf alle Slots angewendet.
 
 Fehler wenn die Seite nicht im Manual-Mode ist.
 
@@ -139,15 +143,19 @@ pub struct PosConfig {
 
 pub struct PosResult {
     pub page: usize,
+    pub slots_changed: Vec<SlotChange>,
+}
+
+pub struct SlotChange {
     pub slot: usize,
-    pub old_slot: Slot,
-    pub new_slot: Slot,
+    pub old: Slot,
+    pub new: Slot,
 }
 
 pub fn execute_pos(
     project_root: &Path,
     page: u32,
-    slot: u32,
+    slots: SlotExpr,
     config: &PosConfig,
 ) -> Result<CommandOutput<PosResult>>
 ```
@@ -155,9 +163,9 @@ pub fn execute_pos(
 Implementierung:
 1. `StateManager::open()`
 2. Prüfen: `layout[page].mode == Manual`, sonst Fehler
-3. Slot lesen, neue Position berechnen:
+3. Für jeden Slot in der SlotExpr:
    - Relative: `x_mm += dx`, `y_mm += dy`
-   - Absolute: `x_mm = x`, `y_mm = y`
+   - Absolute: `x_mm = x`, `y_mm = y` (nur sinnvoll bei Einzel-Slot)
    - Scale: `width_mm *= s`, `height_mm *= s`, Mittelpunkt bleibt
 4. `finish()` → State zurück
 
