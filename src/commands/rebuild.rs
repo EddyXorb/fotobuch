@@ -107,19 +107,27 @@ fn validate_scope(scope: &RebuildScope, mgr: &StateManager) -> Result<()> {
 
 /// Rebuild a single page using the SinglePage solver.
 fn rebuild_single(mut mgr: StateManager, project_root: &Path, idx: usize) -> Result<BuildResult> {
-    // 1. Preview-Cache
+    // 1. Check if page is manual - can't rebuild manual pages
+    if mgr.state.layout[idx]
+        .mode
+        .is_some_and(|m| m == crate::dto_models::PageMode::Manual)
+    {
+        anyhow::bail!("Cannot rebuild page {}: page is in manual mode. Use `page mode {} a` to switch to auto mode first.", idx, idx);
+    }
+
+    // 2. Preview-Cache
     let preview_cache_dir = mgr.preview_cache_dir();
     preview::ensure_previews(&mut mgr.state, &preview_cache_dir)?;
 
-    // 2. Solver — reuse rebuild_single_page from build module
+    // 3. Solver — reuse rebuild_single_page from build module
     let photo_index = build_photo_index(&mgr.state.photos);
     rebuild_single_page(&mut mgr.state, idx, &photo_index)?;
 
-    // 3. Compile Typst
+    // 4. Compile Typst
     let bleed_mm = mgr.state.config.book.bleed_mm;
     let pdf_path = typst::compile_preview(project_root, mgr.project_name(), bleed_mm)?;
 
-    // 4. Save — always commit (even if slots don't change)
+    // 5. Save — always commit (even if slots don't change)
     mgr.finish_always(&format!("rebuild: page {}", idx))?;
 
     Ok(BuildResult {

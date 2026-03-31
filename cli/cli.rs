@@ -323,6 +323,17 @@ pub enum PageCommands {
         /// Weight value (must be > 0)
         weight: f64,
     },
+    /// Toggle page mode between auto (solver) and manual (user-placed)
+    ///
+    /// Syntax: `fotobuch page mode <pages> <a|m|auto|manual>`
+    ///
+    /// Examples: `3 m` (page 3 to manual), `3..5 a` (pages 3-5 to auto).
+    Mode {
+        /// Pages to change: "3", "3..5", "3,5"
+        pages: String,
+        /// Mode: 'a' or 'auto' for auto-solver, 'm' or 'manual' for manual placement
+        mode: String,
+    },
 }
 
 /// Project subcommands
@@ -502,6 +513,7 @@ impl Execute for PageCommands {
                 )
             }
             PageCommands::Weight { address, weight } => page::handle_weight(address, *weight),
+            PageCommands::Mode { pages, mode } => page::handle_mode(pages, mode),
         }
     }
 }
