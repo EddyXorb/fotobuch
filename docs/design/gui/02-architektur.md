@@ -195,45 +195,107 @@ Die GUI hält keinen `StateManager`. Der Lifecycle ist:
 
 Die GUI liest **nie** YAML-Dateien. Sie bekommt den State immer als Rückgabewert.
 
-## Rendering-Pipeline
+## Threading-Modell
+
+### Grundregel: UI-Thread darf nie blocken
+
+Alles was länger als ~1ms dauern kann, wird an einen Background-Thread delegiert.
+Der UI-Thread macht **nur**:
+
+- egui-Widgets zeichnen
+- gecachte Texturen anzeigen
+- Slot-Overlays berechnen (reine Geometrie, schnell)
+- Input verarbeiten → Tasks in Channel schieben
+- Result-Channel pollen (non-blocking)
+
+### Was in den Background muss
+
+| Operation | Grund |
+|-----------|-------|
+| Jeder Lib-Command (build, swap, move, add, ...) | StateManager öffnet YAML, schreibt, Git-Commit |
+| `render_pages()` | Typst-Kompilierung + Rasterisierung |
+| `DerivedState::rebuild()` | HashMap-Aufbau, bei vielen Fotos spürbar |
+| Bild-Thumbnails laden (Foto-Pool) | Disk-I/O |
+| Blur-Berechnung für "wird gebaut"-Effekt | CPU-intensiv |
+
+### Was im UI-Thread bleiben kann
+
+| Operation | Grund |
+|-----------|-------|
+| Slot-Hit-Test (Maus → welcher Slot?) | Einfache Rect-Checks |
+| Selektion updaten | Nur Index-Sets ändern |
+| Drag-State verwalten | Nur Position tracken |
+| Zoom/Scroll updaten | Nur eine Zahl ändern |
+| Texturen an egui übergeben | Pointer-Swap, kein Copy |
+
+### Architektur: Ein Background-Thread mit Task-Queue
 
 ```
 UI-Thread (60fps)                    Background-Thread
 ─────────────────                    ──────────────────
-egui frame loop:
-  1. Input verarbeiten
-  2. Gecachte Texturen zeichnen
-  3. Slot-Overlays zeichnen
-  4. Channel pollen
-     → neue Textur? swap in
-     → Command fertig? apply(output)
-
-User-Aktion (z.B. Swap):
-  → Command an Background ──────→   commands::page::swap(...)
-                                     ↓ CommandOutput<SwapResult>
-  ← output zurück ←─────────────   
-  → apply(output)
-  → dirty pages an Background ──→   Typst kompilieren + rendern
-                                     ↓ Pixmaps
-  ← Texturen zurück ←───────────   
+egui frame loop:                     loop {
+  1. Widgets zeichnen                  task = rx.recv()
+  2. Texturen anzeigen                 match task {
+  3. Overlays                            Command(f) => {
+  4. result_rx.try_recv()                  let out = f();
+     → CommandDone? apply()                result_tx.send(CommandDone(out))
+     → PageRendered? Textur swap           // + automatisch dirty pages rendern
+     → DerivedReady? derived swap        }
+     → ThumbnailReady? Pool update       RenderPages(pages, zoom) => {
+  5. Input → task_tx.send(...)             let pix = render_pages(...);
+                                           result_tx.send(PageRendered(pix))
+                                         }
+                                       }
+                                     }
 ```
 
 ### Channels
 
 ```rust
-// GUI → Background
+// UI → Background
 enum BackgroundTask {
-    RunCommand(Box<dyn FnOnce() -> Result<...> + Send>),
-    RenderPages { pages: Vec<usize>, zoom: f32 },
+    /// Lib-Command ausführen (build, swap, etc.)
+    RunCommand(Box<dyn FnOnce() -> CommandOutputAny + Send>),
+    /// Seiten rendern (nach Command oder Zoom-Änderung)
+    RenderPages { pages: Vec<usize>, pixel_per_pt: f32 },
+    /// Thumbnails für Foto-Pool laden
+    LoadThumbnails(Vec<String>),  // photo_ids
 }
 
-// Background → GUI
+// Background → UI
 enum BackgroundResult {
-    CommandDone(CommandOutput<Box<dyn Any>>),
-    PageRendered { page: usize, pixmap: Vec<u8>, width: u32, height: u32 },
+    CommandDone { output: CommandOutputAny, dirty_pages: Vec<usize> },
+    PageRendered(RenderedPage),
+    DerivedReady(DerivedState),
+    ThumbnailReady { photo_id: String, texture_data: Vec<u8> },
     Error(String),
 }
 ```
+
+### Ablauf einer User-Aktion (z.B. Swap)
+
+```
+1. User draggt Slot A auf Slot B
+2. UI-Thread:
+   - Setzt building_pages für betroffene Seiten
+   - Zeigt Blur auf diesen Seiten
+   - Sendet RunCommand(|| commands::page::swap(...)) an Background
+3. Background-Thread:
+   - Führt swap aus → CommandOutput<SwapResult>
+   - Sendet CommandDone zurück
+   - Baut DerivedState::rebuild() → sendet DerivedReady
+   - Ruft render_pages() für dirty pages auf → sendet PageRendered
+4. UI-Thread (nächste Frames):
+   - try_recv() → CommandDone: project_state updaten
+   - try_recv() → DerivedReady: derived state swappen
+   - try_recv() → PageRendered: Textur swappen, Blur entfernen
+```
+
+### Konkurrenz-Handling
+
+- Neue Aktion während laufendem Command: wird gequeued (Channel-Buffer)
+- Neue Render-Anfrage während laufendem Render: alten abbrechen (Cancellation-Flag)
+- UI zeigt immer den letzten bekannten State — auch wenn Background noch arbeitet
 
 ### Typst-Rendering: Lib-API statt GUI-Logik
 
