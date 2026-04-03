@@ -60,6 +60,7 @@ impl ProjectState {
             .iter()
             .enumerate()
             .skip(self.config.book.cover.active as usize)
+            .filter(|(_, page)| page.mode.is_none_or(|value| value == PageMode::Auto))
         {
             for (slot_index, (slot, photo)) in page.slots.iter().zip(page.photos.iter()).enumerate()
             {
