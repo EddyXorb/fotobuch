@@ -11,7 +11,7 @@
 ## Planen
 - keine Wall of Texts wenn Pläne erstellt werden
 - fokussiert auf die Kernfragen bleiben
-- offensichtliches weglassen
+- Offensichtliches weglassen
 - keinen komplett ausformulierten code bereitstellen, außer es ist ein sehr  komplizierter Teil der implementierung
 - Wenn etwas weggelassen werden kann, weil das Fehlen das zu erstellende Feature nicht unklar macht, lass es weg
 
@@ -22,3 +22,8 @@
 ## Rust specific
 
 - **do not use mod.rs files for subfolders**, instead use the same name for the module in root and include every module in the same named subfolder in the root-file
+
+
+## General Workflow
+
+- read the file rust.instructions.md in the same folder as this one for general workflow instructions and respect these. When contradicting instructions are given in this file, the instructions in this current CLAUDE-file take precedence, NOT the rust.instructions.md file.
