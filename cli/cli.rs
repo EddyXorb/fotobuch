@@ -334,6 +334,32 @@ pub enum PageCommands {
         /// Mode: 'a' or 'auto' for auto-solver, 'm' or 'manual' for manual placement
         mode: String,
     },
+    /// Reposition or rescale slots on a Manual-mode page.
+    ///
+    /// Syntax: `fotobuch page pos <address> [--by dx,dy] [--at x,y] [--scale s]`
+    ///
+    /// Examples:
+    ///   `4:2 --by -20,30`          — move slot 2 on page 4 relatively
+    ///   `4:2 --at 100,50`          — set slot 2 origin to (100mm, 50mm)
+    ///   `4:2 --scale 1.5`          — scale slot 2 by 1.5×
+    ///   `4:2..5 --by -20,30`       — move slots 2–5 together
+    ///   `4:2 --at 100,50 --scale 2` — absolute position + scale
+    ///
+    /// At least one of --by, --at, --scale is required. --by and --at are mutually exclusive.
+    /// The page must be in manual mode.
+    Pos {
+        /// Address: "4:2", "4:2..5", "4:1,3"
+        address: String,
+        /// Relative move in mm: "dx,dy" (e.g. "-20,30")
+        #[arg(long, conflicts_with = "at")]
+        by: Option<String>,
+        /// Absolute position in mm: "x,y" (e.g. "100,50")
+        #[arg(long, conflicts_with = "by")]
+        at: Option<String>,
+        /// Scale factor applied to width and height (origin stays fixed)
+        #[arg(long)]
+        scale: Option<f64>,
+    },
 }
 
 /// Project subcommands
@@ -514,6 +540,9 @@ impl Execute for PageCommands {
             }
             PageCommands::Weight { address, weight } => page::handle_weight(address, *weight),
             PageCommands::Mode { pages, mode } => page::handle_mode(pages, mode),
+            PageCommands::Pos { address, by, at, scale } => {
+                page::handle_pos(address, by.as_deref(), at.as_deref(), *scale)
+            }
         }
     }
 }

@@ -103,6 +103,25 @@ pub fn parse_weight_address(raw: &str) -> Result<WeightAddress, ParseError> {
     Ok(WeightAddress::Slots { page, slots })
 }
 
+/// Parse a `page pos` address: `"PAGE:SLOT_EXPR"` (e.g. `"4:2"`, `"4:2..5"`).
+pub fn parse_pos_address(raw: &str) -> Result<(u32, SlotExpr), ParseError> {
+    let tokens = tokenize(raw)?;
+    let mut parser = Parser::new(tokens);
+    let page = parser.expect_number("page number")?;
+    match parser.advance() {
+        Some(super::tokens::Token::Colon) => {}
+        Some(t) => {
+            return Err(ParseError::UnexpectedToken {
+                got: format!("{t:?}"),
+                expected: "':'",
+            });
+        }
+        None => return Err(ParseError::UnexpectedEnd { expected: "':'" }),
+    }
+    let slots = parser.parse_slot_expr()?;
+    Ok((page, slots))
+}
+
 /// Parse a `page swap` pair: two address strings each being `src` / `dst_swap`.
 pub fn parse_swap_addrs(left: &str, right: &str) -> Result<(Src, DstSwap), ParseError> {
     let left_tokens = tokenize(left)?;

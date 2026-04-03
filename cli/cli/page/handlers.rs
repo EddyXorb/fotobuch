@@ -8,8 +8,8 @@ use fotobuch::commands::unplace::execute_unplace;
 use fotobuch::dto_models::PageMode;
 
 use super::parse_api::{
-    parse_info_address, parse_move_cmd, parse_pages_expr, parse_split_addr, parse_swap_addrs,
-    parse_unplace_addr, parse_weight_address,
+    parse_info_address, parse_move_cmd, parse_pages_expr, parse_pos_address, parse_split_addr,
+    parse_swap_addrs, parse_unplace_addr, parse_weight_address,
 };
 
 fn project_root() -> Result<PathBuf> {
@@ -294,4 +294,64 @@ pub fn handle_mode(pages_str: &str, mode_str: &str) -> Result<()> {
         format_page_list(&result.pages_changed)
     );
     Ok(())
+}
+
+/// Handler for `fotobuch page pos <address> [--by dx,dy] [--at x,y] [--scale s]`.
+pub fn handle_pos(
+    address: &str,
+    by: Option<&str>,
+    at: Option<&str>,
+    scale: Option<f64>,
+) -> Result<()> {
+    use fotobuch::commands::page::{PosConfig, PosMode};
+
+    if by.is_none() && at.is_none() && scale.is_none() {
+        return Err(anyhow::anyhow!(
+            "At least one of --by, --at, or --scale must be specified."
+        ));
+    }
+
+    let (page, slots) = parse_pos_address(address)
+        .map_err(|e| anyhow::anyhow!("Invalid address '{}': {}", address, e))?;
+
+    let position = if let Some(by_str) = by {
+        let (dx, dy) = parse_mm_pair(by_str, "--by")?;
+        Some(PosMode::Relative { dx_mm: dx, dy_mm: dy })
+    } else if let Some(at_str) = at {
+        let (x, y) = parse_mm_pair(at_str, "--at")?;
+        Some(PosMode::Absolute { x_mm: x, y_mm: y })
+    } else {
+        None
+    };
+
+    let config = PosConfig { position, scale };
+
+    let result = page_cmd::execute_pos(&project_root()?, page, slots, &config)
+        .map_err(|e| anyhow::anyhow!("{}", e))?;
+
+    println!(
+        "Moved {} slot(s) on page {}.",
+        result.slots_changed.len(),
+        result.page,
+    );
+    Ok(())
+}
+
+/// Parse a `"value,value"` pair of mm coordinates.
+fn parse_mm_pair(raw: &str, flag: &str) -> Result<(f64, f64)> {
+    let parts: Vec<&str> = raw.splitn(2, ',').collect();
+    if parts.len() != 2 {
+        return Err(anyhow::anyhow!(
+            "Invalid {} value '{}': expected 'number,number' (e.g. '-20,30')",
+            flag,
+            raw
+        ));
+    }
+    let x = parts[0].trim().parse::<f64>().map_err(|_| {
+        anyhow::anyhow!("Invalid {} value '{}': '{}' is not a number", flag, raw, parts[0])
+    })?;
+    let y = parts[1].trim().parse::<f64>().map_err(|_| {
+        anyhow::anyhow!("Invalid {} value '{}': '{}' is not a number", flag, raw, parts[1])
+    })?;
+    Ok((x, y))
 }

@@ -17,6 +17,6 @@ mod tokens;
 mod tests;
 
 pub use handlers::{
-    handle_combine, handle_info, handle_mode, handle_move, handle_split, handle_swap,
+    handle_combine, handle_info, handle_mode, handle_move, handle_pos, handle_split, handle_swap,
     handle_unplace, handle_weight,
 };
