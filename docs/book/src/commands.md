@@ -37,49 +37,8 @@ or see the [Full Flag Reference](cli/reference-generated.md).
 | `undo`           | Undo the last N changes                                        |
 | `redo`           | Redo N undone changes                                          |
 
-### `page mode` — Auto vs. Manual layout
-
-By default every page is in **auto** mode: the genetic-algorithm solver places
-photos automatically. Switch a page to **manual** mode to position slots yourself.
-
-```bash
-fotobuch page mode 3 m          # page 3 → manual
-fotobuch page mode 3..5 a       # pages 3–5 → auto
-```
-
-### `page pos` — Move or scale slots (manual mode only)
-
-Repositions one or more slots on a page that is already in manual mode.
-
-```bash
-fotobuch page pos 4:2 --by -20,30       # move slot 2 on page 4: −20 mm x, +30 mm y
-fotobuch page pos 4:2 --at 100,50       # set slot 2 origin to (100 mm, 50 mm)
-fotobuch page pos 4:2 --scale 1.5       # scale slot 2 by 1.5× (origin stays fixed)
-fotobuch page pos 4:2..5 --by -20,30    # move slots 2–5 together
-fotobuch page pos 4:2 --at 100,50 --scale 2.0
-```
-
-`--by` and `--at` are mutually exclusive; `--scale` can be combined with either.
-At least one flag is required. The page must be in manual mode first.
-
-### `config show` / `config set` — View and mutate configuration
-
-```bash
-fotobuch config show                        # print resolved config with defaults
-fotobuch config set book.dpi 150            # change DPI
-fotobuch config set book.gap_mm 3.5
-fotobuch config set book.cover.active true
-fotobuch config set page_layout_solver.mutation_rate 0.4
-```
-
-Key uses dot-notation matching the YAML hierarchy.
-The old and new value are printed after each change:
-
-```
-book.dpi: 300 → 150
-```
-
-See [Configuration](configuration.md) for all available keys.
+For all flags and exact syntax see the [Full Flag Reference](cli/reference-generated.md).
+For available config keys see [Configuration](configuration.md).
 
 ### `remove` vs. `unplace`
 
