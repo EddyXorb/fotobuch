@@ -3,10 +3,14 @@
 - moderne Codingstandards sind Pflicht
 - jeder Teilschritt ist ein conventional commit
 - unittests für jedes neue feature sind pflicht
-- regelmäßig cargo build ausführen und alle warnings beheben
+
+## Vor jedem Commit 
+
+- cargo build ausführen und alle warnings beheben
 - **keine Co-Authored-By trailers in Commit-Nachrichten** — verwende nur normales Conventional Commit Format
 - benutze clippy --fix vor jedem commit
 - benutze eddyxorb@gmail.com als Author-Email für alle Commits und EddyXorb als author
+- cargo-fmt ausführen und alle Formatierungsfehler beheben
 
 ## Planen
 - keine Wall of Texts wenn Pläne erstellt werden
