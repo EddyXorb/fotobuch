@@ -127,7 +127,7 @@ fn config_in_project_succeeds() {
     let project = create_project(&dir, "my-book");
     cmd()
         .current_dir(&project)
-        .args(["config"])
+        .args(["config", "show"])
         .assert()
         .success();
 }
