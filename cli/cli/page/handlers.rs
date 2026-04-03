@@ -336,7 +336,7 @@ pub fn handle_pos(
 
 /// Parse a `"value,value"` pair of mm coordinates.
 fn parse_mm_pair(raw: &str, flag: &str) -> Result<(f64, f64)> {
-    let parts: Vec<&str> = raw.splitn(2, ',').collect();
+    let parts: Vec<&str> = raw.splitn(3, ',').collect();
     if parts.len() != 2 {
         return Err(anyhow::anyhow!(
             "Invalid {} value '{}': expected 'number,number' (e.g. '-20,30')",
@@ -344,21 +344,10 @@ fn parse_mm_pair(raw: &str, flag: &str) -> Result<(f64, f64)> {
             raw
         ));
     }
-    let x = parts[0].trim().parse::<f64>().map_err(|_| {
-        anyhow::anyhow!(
-            "Invalid {} value '{}': '{}' is not a number",
-            flag,
-            raw,
-            parts[0]
-        )
-    })?;
-    let y = parts[1].trim().parse::<f64>().map_err(|_| {
-        anyhow::anyhow!(
-            "Invalid {} value '{}': '{}' is not a number",
-            flag,
-            raw,
-            parts[1]
-        )
-    })?;
-    Ok((x, y))
+    let parse_num = |s: &str| {
+        s.trim().parse::<f64>().map_err(|_| {
+            anyhow::anyhow!("Invalid {} value '{}': '{}' is not a number", flag, raw, s)
+        })
+    };
+    Ok((parse_num(parts[0])?, parse_num(parts[1])?))
 }
