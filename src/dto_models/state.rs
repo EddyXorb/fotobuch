@@ -90,13 +90,12 @@ impl ProjectState {
                         photo_id
                     ));
                 }
-                if (!self.has_cover() || i > 0)
-                    && !layout_photo_ids.insert(photo_id.as_str()) {
-                        return Err(anyhow::anyhow!(
-                            "Photo '{}' appears on more than one page",
-                            photo_id
-                        ));
-                    }
+                if (!self.has_cover() || i > 0) && !layout_photo_ids.insert(photo_id.as_str()) {
+                    return Err(anyhow::anyhow!(
+                        "Photo '{}' appears on more than one page",
+                        photo_id
+                    ));
+                }
             }
         }
 
