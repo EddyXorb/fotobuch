@@ -4,8 +4,19 @@ Every project has a `{project-name}.yaml` file that controls the entire book.
 You don't need to write this file from scratch — `fotobuch project new` creates
 it with sensible defaults. You only edit the parts you want to change.
 
-Run `fotobuch config` at any time to see the full resolved configuration
-(including all defaults).
+Run `fotobuch config show` at any time to see the full resolved configuration
+(including all defaults). Use `fotobuch config set <key> <value>` to change a
+value without editing the YAML directly:
+
+```bash
+fotobuch config set book.dpi 150
+fotobuch config set book.cover.active true
+fotobuch config set page_layout_solver.mutation_rate 0.4
+```
+
+The key uses dot-notation matching the YAML hierarchy shown below.
+Types are auto-detected (`true`/`false` → bool, integers → int, decimals → float, else string).
+An error is shown if the key doesn't exist or the value is incompatible with the field type.
 
 For a quick overview of the most important settings to check before your first
 build, see [Step 2 in Your First Book](quickstart.md#step-2--review-the-configuration).
