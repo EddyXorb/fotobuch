@@ -351,3 +351,30 @@ fn parse_mm_pair(raw: &str, flag: &str) -> Result<(f64, f64)> {
     };
     Ok((parse_num(parts[0])?, parse_num(parts[1])?))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_mm_pair_valid() {
+        assert_eq!(parse_mm_pair("-20,30", "--by").unwrap(), (-20.0, 30.0));
+    }
+
+    #[test]
+    fn test_parse_mm_pair_too_few_parts() {
+        assert!(parse_mm_pair("42", "--by").is_err());
+    }
+
+    #[test]
+    fn test_parse_mm_pair_too_many_parts() {
+        // Was silent bug with splitn(2): "2,3,3" → ["2","3,3"] accepted "3,3" as y
+        assert!(parse_mm_pair("2,3,3", "--by").is_err());
+    }
+
+    #[test]
+    fn test_parse_mm_pair_not_a_number() {
+        assert!(parse_mm_pair("a,3", "--by").is_err());
+        assert!(parse_mm_pair("3,b", "--by").is_err());
+    }
+}
