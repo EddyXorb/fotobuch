@@ -47,36 +47,53 @@ impl ProjectState {
     }
 
     pub fn check_validity(&self) -> Result<()> {
-        let id_to_photo = self
-            .photos
-            .iter()
-            .flat_map(|group| group.files.iter())
-            .map(|file| (&file.id, file))
-            .collect::<std::collections::HashMap<_, _>>();
-
-        // we skip the first page if its a cover, as the cover is allowed to be special
-        for (page_index, page) in self
-            .layout
-            .iter()
-            .enumerate()
-            .skip(self.config.book.cover.active as usize)
-        {
-            for (slot_index, (slot, photo)) in page.slots.iter().zip(page.photos.iter()).enumerate()
-            {
-                let slot_ratio = slot.width_mm / slot.height_mm;
-                let photo_ratio = id_to_photo
-                    .get(&photo)
-                    .with_context(|| format!("Photo ID {} in layout not found in photos", photo))?
-                    .aspect_ratio();
-
-                if (slot_ratio - photo_ratio).abs() > 0.01 {
+        // Build known photo IDs, checking for duplicates within the photos section
+        let mut known_ids: std::collections::HashSet<&str> = std::collections::HashSet::new();
+        for group in &self.photos {
+            for file in &group.files {
+                if !known_ids.insert(file.id.as_str()) {
                     return Err(anyhow::anyhow!(
-                        "Aspect ratio mismatch for page {} with photo {} in slot {}: slot ratio {:.2}, photo ratio {:.2}",
-                        page_index,
-                        photo,
-                        slot_index,
-                        slot_ratio,
-                        photo_ratio
+                        "Duplicate photo ID in photos section: {}",
+                        file.id
+                    ));
+                }
+            }
+        }
+
+        let mut layout_photo_ids: std::collections::HashSet<&str> =
+            std::collections::HashSet::new();
+
+        for (i, page) in self.layout.iter().enumerate() {
+            if page.page != i {
+                return Err(anyhow::anyhow!(
+                    "Page at position {} has index {}, expected {}",
+                    i,
+                    page.page,
+                    i
+                ));
+            }
+
+            if page.photos.len() != page.slots.len() {
+                return Err(anyhow::anyhow!(
+                    "Page {}: {} photo(s) but {} slot(s)",
+                    i,
+                    page.photos.len(),
+                    page.slots.len()
+                ));
+            }
+
+            for photo_id in &page.photos {
+                if !known_ids.contains(photo_id.as_str()) {
+                    return Err(anyhow::anyhow!(
+                        "Page {}: photo '{}' not found in photos section",
+                        i,
+                        photo_id
+                    ));
+                }
+                if (!self.has_cover() || i > 0) && !layout_photo_ids.insert(photo_id.as_str()) {
+                    return Err(anyhow::anyhow!(
+                        "Photo '{}' appears on more than one page",
+                        photo_id
                     ));
                 }
             }
@@ -90,6 +107,93 @@ impl ProjectState {
 mod tests {
     use super::*;
     use tempfile::TempDir;
+
+    fn make_photo(id: &str) -> PhotoFile {
+        PhotoFile {
+            id: id.into(),
+            source: format!("/path/{id}"),
+            timestamp: "2024-01-15T00:00:00Z".parse().unwrap(),
+            width_px: 6000,
+            height_px: 4000,
+            area_weight: 1.0,
+            hash: String::new(),
+        }
+    }
+
+    fn make_slot() -> Slot {
+        Slot {
+            x_mm: 0.0,
+            y_mm: 0.0,
+            width_mm: 100.0,
+            height_mm: 66.67,
+        }
+    }
+
+    fn make_page(page: usize, photo_ids: &[&str]) -> LayoutPage {
+        LayoutPage {
+            page,
+            photos: photo_ids.iter().map(|s| s.to_string()).collect(),
+            slots: photo_ids.iter().map(|_| make_slot()).collect(),
+            mode: None,
+        }
+    }
+
+    fn minimal_state() -> ProjectState {
+        ProjectState {
+            config: Default::default(),
+            photos: vec![PhotoGroup {
+                group: "G".into(),
+                sort_key: "2024-01-15T00:00:00Z".into(),
+                files: vec![make_photo("G/a.jpg"), make_photo("G/b.jpg")],
+            }],
+            layout: vec![make_page(0, &["G/a.jpg", "G/b.jpg"])],
+        }
+    }
+
+    #[test]
+    fn test_validity_ok() {
+        assert!(minimal_state().check_validity().is_ok());
+    }
+
+    #[test]
+    fn test_validity_photo_not_in_photos_section() {
+        let mut state = minimal_state();
+        state.layout[0].photos[0] = "G/unknown.jpg".into();
+        let err = state.check_validity().unwrap_err();
+        assert!(err.to_string().contains("not found in photos section"));
+    }
+
+    #[test]
+    fn test_validity_photos_slots_count_mismatch() {
+        let mut state = minimal_state();
+        state.layout[0].slots.pop();
+        let err = state.check_validity().unwrap_err();
+        assert!(err.to_string().contains("slot(s)"));
+    }
+
+    #[test]
+    fn test_validity_page_index_mismatch() {
+        let mut state = minimal_state();
+        state.layout[0].page = 1;
+        let err = state.check_validity().unwrap_err();
+        assert!(err.to_string().contains("expected 0"));
+    }
+
+    #[test]
+    fn test_validity_duplicate_photo_in_photos_section() {
+        let mut state = minimal_state();
+        state.photos[0].files.push(make_photo("G/a.jpg"));
+        let err = state.check_validity().unwrap_err();
+        assert!(err.to_string().contains("Duplicate photo ID"));
+    }
+
+    #[test]
+    fn test_validity_photo_on_multiple_pages() {
+        let mut state = minimal_state();
+        state.layout.push(make_page(1, &["G/a.jpg"]));
+        let err = state.check_validity().unwrap_err();
+        assert!(err.to_string().contains("appears on more than one page"));
+    }
 
     #[test]
     fn test_serialize_deserialize() {

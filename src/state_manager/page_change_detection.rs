@@ -45,6 +45,15 @@ pub fn compute_outdated_pages(reference: &ProjectState, new: &ProjectState) -> V
 
     // Phase 2: Evaluate each new page
     for (page_index, new_page) in new.layout.iter().enumerate() {
+        // Skip manual pages - they keep their manual layout and don't need rebuilding
+        if new_page
+            .mode
+            .is_some_and(|m| m == crate::dto_models::PageMode::Manual)
+        {
+            debug!("page {page_index} is manual, skipping rebuild");
+            continue;
+        }
+
         let is_cover = cover.active && page_index == 0;
         let canvas_outdated = if is_cover {
             cover_canvas_outdated
@@ -294,6 +303,8 @@ mod tests {
             page: page_num,
             photos,
             slots,
+
+            mode: None,
         }
     }
 

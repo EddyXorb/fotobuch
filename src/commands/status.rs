@@ -299,6 +299,8 @@ mod tests {
                 page: 1,
                 photos: vec!["a.jpg".to_string()],
                 slots: vec![],
+
+                mode: None,
             }],
         };
 
@@ -337,6 +339,8 @@ mod tests {
                 page: 1,
                 photos: vec!["a.jpg".to_string()],
                 slots: vec![],
+
+                mode: None,
             }],
         };
 
@@ -397,6 +401,8 @@ mod tests {
                 page: 1,
                 photos: vec!["a.jpg".to_string()],
                 slots: vec![],
+
+                mode: None,
             }],
         };
 
@@ -417,6 +423,8 @@ mod tests {
                 page: 1,
                 photos: vec!["orphan.jpg".to_string()],
                 slots: vec![],
+
+                mode: None,
             }],
         };
 

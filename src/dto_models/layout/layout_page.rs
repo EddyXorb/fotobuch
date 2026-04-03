@@ -2,6 +2,19 @@ use serde::{Deserialize, Serialize};
 
 use super::Slot;
 
+/// Page mode: Auto (solver places photos) or Manual (user places photos manually)
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum PageMode {
+    #[default]
+    Auto,
+    Manual,
+}
+
+fn is_auto_mode(mode: &Option<PageMode>) -> bool {
+    matches!(mode, None | Some(PageMode::Auto))
+}
+
 /// Single page in the layout.
 /// Margin and bleed are **considered** in the slot positions,
 /// so they are absolute coordinates respecting those.
@@ -16,4 +29,7 @@ pub struct LayoutPage {
     pub photos: Vec<String>,
     /// Calculated slot positions (index-coupled to photos)
     pub slots: Vec<Slot>,
+    /// Page mode: Auto or Manual (None = Auto for backward compatibility)
+    #[serde(default, skip_serializing_if = "is_auto_mode")]
+    pub mode: Option<PageMode>,
 }

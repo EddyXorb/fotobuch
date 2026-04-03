@@ -46,6 +46,7 @@ pub fn execute_split(
             page: new_idx, // will be renumbered by finish()
             photos: moved_photos,
             slots: moved_slots,
+            mode: None, // Auto page
         },
     );
 

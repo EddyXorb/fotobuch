@@ -60,7 +60,7 @@ pub fn incremental_build(
     // 4. Build photo index for fast lookup
     let photo_index = build_photo_index(&mgr.state.photos);
 
-    // 5. Rebuild each modified page
+    // 5. Rebuild each modified page (skip manual pages)
     for &page_idx in &pages_needing_rebuild {
         rebuild_single_page(&mut mgr.state, page_idx, &photo_index)?;
     }

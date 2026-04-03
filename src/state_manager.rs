@@ -10,16 +10,17 @@
 //! - Warning in `Drop` when programmatic changes were never committed
 
 mod page_change_detection;
+mod state_diff;
 
 use anyhow::{Context, Result, bail};
 use serde_yaml::Value;
 use std::cell::RefCell;
-use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use tracing::{debug, warn};
 
-use crate::dto_models::{LayoutPage, PhotoGroup, ProjectState};
+use crate::dto_models::{LayoutPage, ProjectState};
 use crate::git;
+use crate::state_manager::state_diff::StateDiff;
 
 /// Nummeriert alle LayoutPage.page Felder auf den Array-Index (0-basiert).
 ///
@@ -30,160 +31,6 @@ pub fn renumber_pages(layout: &mut [LayoutPage], _has_cover: bool) {
         page.page = i;
     }
 }
-
-// ── StateDiff ────────────────────────────────────────────────────────────────
-
-/// Summary of differences between two [`ProjectState`] snapshots.
-#[derive(Debug, Default, PartialEq)]
-struct StateDiff {
-    config_changes: usize,
-    photos_added: usize,
-    photos_removed: usize,
-    photos_modified: usize,
-    pages_added: usize,
-    pages_removed: usize,
-    pages_modified: usize,
-}
-
-impl StateDiff {
-    /// Compute the diff between `old` and `new`.
-    fn compute(old: &ProjectState, new: &ProjectState) -> Self {
-        let config_changes = count_config_changes(old, new);
-
-        let (photos_added, photos_removed, photos_modified) = diff_photos(&old.photos, &new.photos);
-        let (pages_added, pages_removed, pages_modified) = diff_pages(&old.layout, &new.layout);
-
-        Self {
-            config_changes,
-            photos_added,
-            photos_removed,
-            photos_modified,
-            pages_added,
-            pages_removed,
-            pages_modified,
-        }
-    }
-
-    fn is_empty(&self) -> bool {
-        self.config_changes == 0
-            && self.photos_added == 0
-            && self.photos_removed == 0
-            && self.photos_modified == 0
-            && self.pages_added == 0
-            && self.pages_removed == 0
-            && self.pages_modified == 0
-    }
-
-    /// Human-readable one-line summary, e.g. `"changed 2 configs, added 15 photos"`.
-    fn summary(&self) -> String {
-        let mut parts = Vec::new();
-        if self.config_changes > 0 {
-            parts.push(format!("changed {} config(s)", self.config_changes));
-        }
-        if self.photos_added > 0 {
-            parts.push(format!("added {} photo(s)", self.photos_added));
-        }
-        if self.photos_removed > 0 {
-            parts.push(format!("removed {} photo(s)", self.photos_removed));
-        }
-        if self.photos_modified > 0 {
-            parts.push(format!("modified {} photo(s)", self.photos_modified));
-        }
-        if self.pages_added > 0 {
-            parts.push(format!("added {} page(s)", self.pages_added));
-        }
-        if self.pages_removed > 0 {
-            parts.push(format!("removed {} page(s)", self.pages_removed));
-        }
-        if self.pages_modified > 0 {
-            parts.push(format!("modified {} page(s)", self.pages_modified));
-        }
-        if parts.is_empty() {
-            "no changes".to_owned()
-        } else {
-            parts.join(", ")
-        }
-    }
-}
-
-/// Count differing leaf values in the config section by serialising both states
-/// to `serde_yaml::Value` and recursively comparing leaves.
-fn count_config_changes(old: &ProjectState, new: &ProjectState) -> usize {
-    let old_val = serde_yaml::to_value(&old.config).unwrap_or(Value::Null);
-    let new_val = serde_yaml::to_value(&new.config).unwrap_or(Value::Null);
-    count_value_diffs(&old_val, &new_val)
-}
-
-fn count_value_diffs(a: &Value, b: &Value) -> usize {
-    match (a, b) {
-        (Value::Mapping(ma), Value::Mapping(mb)) => {
-            let keys: HashSet<_> = ma.keys().chain(mb.keys()).collect();
-            keys.into_iter()
-                .map(|k| {
-                    count_value_diffs(
-                        ma.get(k).unwrap_or(&Value::Null),
-                        mb.get(k).unwrap_or(&Value::Null),
-                    )
-                })
-                .sum()
-        }
-        _ => usize::from(a != b),
-    }
-}
-
-/// Returns (added, removed, modified) photo counts.
-///
-/// Modified = same photo ID but different `area_weight` or pixel dimensions.
-fn diff_photos(old: &[PhotoGroup], new: &[PhotoGroup]) -> (usize, usize, usize) {
-    let old_map: std::collections::HashMap<&str, &crate::dto_models::PhotoFile> = old
-        .iter()
-        .flat_map(|g| g.files.iter().map(|f| (f.id.as_str(), f)))
-        .collect();
-    let new_map: std::collections::HashMap<&str, &crate::dto_models::PhotoFile> = new
-        .iter()
-        .flat_map(|g| g.files.iter().map(|f| (f.id.as_str(), f)))
-        .collect();
-
-    let old_ids: HashSet<&str> = old_map.keys().copied().collect();
-    let new_ids: HashSet<&str> = new_map.keys().copied().collect();
-
-    let added = new_ids.difference(&old_ids).count();
-    let removed = old_ids.difference(&new_ids).count();
-    let modified = old_ids
-        .intersection(&new_ids)
-        .filter(|&&id| {
-            let o = old_map[id];
-            let n = new_map[id];
-            o.area_weight != n.area_weight || o.width_px != n.width_px || o.height_px != n.height_px
-        })
-        .count();
-
-    (added, removed, modified)
-}
-
-/// Returns (pages_added, pages_removed, pages_modified).
-///
-/// Modified = a page that exists in both old and new but has different slots.
-fn diff_pages(old: &[LayoutPage], new: &[LayoutPage]) -> (usize, usize, usize) {
-    let old_map: std::collections::HashMap<usize, &LayoutPage> =
-        old.iter().map(|p| (p.page, p)).collect();
-    let new_map: std::collections::HashMap<usize, &LayoutPage> =
-        new.iter().map(|p| (p.page, p)).collect();
-
-    let added = new_map.keys().filter(|k| !old_map.contains_key(k)).count();
-    let removed = old_map.keys().filter(|k| !new_map.contains_key(k)).count();
-    let modified = old_map
-        .iter()
-        .filter(|(k, old_page)| {
-            new_map.get(k).is_some_and(|new_page| {
-                old_page.slots != new_page.slots || old_page.photos != new_page.photos
-            })
-        })
-        .count();
-
-    (added, removed, modified)
-}
-
 // ── BuildBaseline ─────────────────────────────────────────────────────────────
 
 /// Lazy reference state from the last `build:` or `rebuild:` git commit.
@@ -638,6 +485,8 @@ mod tests {
             page: 1,
             photos: vec![],
             slots: vec![],
+
+            mode: None,
         });
         let diff = StateDiff::compute(&old, &new);
         assert_eq!(diff.pages_added, 1);
@@ -657,6 +506,7 @@ mod tests {
                 width_mm: 100.0,
                 height_mm: 80.0,
             }],
+            mode: None,
         });
         let mut new = old.clone();
         new.layout[0].slots[0].width_mm = 200.0;
