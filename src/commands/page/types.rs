@@ -164,7 +164,10 @@ impl std::fmt::Display for ValidationError {
             }
             Self::WeightOutOfRange(w) => write!(f, "weight {w} is out of range (must be > 0)"),
             Self::PageNotManual(p) => {
-                write!(f, "page {p} is not in manual mode; use 'page mode {p} m' first")
+                write!(
+                    f,
+                    "page {p} is not in manual mode; use 'page mode {p} m' first"
+                )
             }
         }
     }

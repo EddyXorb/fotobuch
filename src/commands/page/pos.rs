@@ -101,12 +101,22 @@ pub fn execute_pos(
         }
 
         mgr.state.layout[idx].slots[slot_idx] = new.clone();
-        slots_changed.push(SlotChange { slot: slot_idx, old, new });
+        slots_changed.push(SlotChange {
+            slot: slot_idx,
+            old,
+            new,
+        });
     }
 
-    mgr.finish(&format!("page pos {page}: {} slot(s) moved", slots_changed.len()))?;
+    mgr.finish(&format!(
+        "page pos {page}: {} slot(s) moved",
+        slots_changed.len()
+    ))?;
 
-    Ok(PosResult { page, slots_changed })
+    Ok(PosResult {
+        page,
+        slots_changed,
+    })
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -116,13 +126,13 @@ mod tests {
     use super::super::test_fixtures::{make_state_with_layout, setup_repo};
     use super::super::types::SlotExpr;
     use super::*;
-    use crate::{commands::page::mode::execute_mode, dto_models::PageMode, state_manager::StateManager};
+    use crate::{
+        commands::page::mode::execute_mode, dto_models::PageMode, state_manager::StateManager,
+    };
 
     fn make_manual_state() -> (ProjectState, tempfile::TempDir) {
         use crate::commands::page::types::PagesExpr;
-        let state = make_state_with_layout(vec![
-            vec!["p0.jpg", "p1.jpg", "p2.jpg"],
-        ]);
+        let state = make_state_with_layout(vec![vec!["p0.jpg", "p1.jpg", "p2.jpg"]]);
         let tmp = tempfile::TempDir::new().unwrap();
         setup_repo(&tmp, &state);
         // Set page 0 to Manual
@@ -138,7 +148,10 @@ mod tests {
 
         // Slot 0 starts at (0,0); move by (+5, -3)
         let config = PosConfig {
-            position: Some(PosMode::Relative { dx_mm: 5.0, dy_mm: -3.0 }),
+            position: Some(PosMode::Relative {
+                dx_mm: 5.0,
+                dy_mm: -3.0,
+            }),
             scale: None,
         };
         let result = execute_pos(tmp.path(), 0, SlotExpr::single(0), &config).unwrap();
@@ -162,7 +175,10 @@ mod tests {
         let (_state, tmp) = make_manual_state();
 
         let config = PosConfig {
-            position: Some(PosMode::Absolute { x_mm: 50.0, y_mm: 60.0 }),
+            position: Some(PosMode::Absolute {
+                x_mm: 50.0,
+                y_mm: 60.0,
+            }),
             scale: None,
         };
         let result = execute_pos(tmp.path(), 0, SlotExpr::single(0), &config).unwrap();
@@ -196,7 +212,10 @@ mod tests {
         let (_state, tmp) = make_manual_state();
 
         let config = PosConfig {
-            position: Some(PosMode::Relative { dx_mm: 5.0, dy_mm: 5.0 }),
+            position: Some(PosMode::Relative {
+                dx_mm: 5.0,
+                dy_mm: 5.0,
+            }),
             scale: Some(0.5),
         };
         let result = execute_pos(tmp.path(), 0, SlotExpr::single(0), &config).unwrap();
@@ -213,7 +232,10 @@ mod tests {
         let (_state, tmp) = make_manual_state();
 
         let config = PosConfig {
-            position: Some(PosMode::Relative { dx_mm: 10.0, dy_mm: 10.0 }),
+            position: Some(PosMode::Relative {
+                dx_mm: 10.0,
+                dy_mm: 10.0,
+            }),
             scale: None,
         };
         let result = execute_pos(tmp.path(), 0, SlotExpr::from_range(0, 2), &config).unwrap();
@@ -233,7 +255,10 @@ mod tests {
         setup_repo(&tmp, &state);
 
         let config = PosConfig {
-            position: Some(PosMode::Relative { dx_mm: 1.0, dy_mm: 0.0 }),
+            position: Some(PosMode::Relative {
+                dx_mm: 1.0,
+                dy_mm: 0.0,
+            }),
             scale: None,
         };
         let err = execute_pos(tmp.path(), 0, SlotExpr::single(0), &config).unwrap_err();
@@ -248,7 +273,10 @@ mod tests {
         let (_state, tmp) = make_manual_state();
 
         let config = PosConfig {
-            position: Some(PosMode::Relative { dx_mm: 1.0, dy_mm: 0.0 }),
+            position: Some(PosMode::Relative {
+                dx_mm: 1.0,
+                dy_mm: 0.0,
+            }),
             scale: None,
         };
         // Page 0 has 3 slots (0..2); slot 99 does not exist

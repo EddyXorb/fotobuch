@@ -316,7 +316,10 @@ pub fn handle_pos(
 
     let position = if let Some(by_str) = by {
         let (dx, dy) = parse_mm_pair(by_str, "--by")?;
-        Some(PosMode::Relative { dx_mm: dx, dy_mm: dy })
+        Some(PosMode::Relative {
+            dx_mm: dx,
+            dy_mm: dy,
+        })
     } else if let Some(at_str) = at {
         let (x, y) = parse_mm_pair(at_str, "--at")?;
         Some(PosMode::Absolute { x_mm: x, y_mm: y })
@@ -348,10 +351,20 @@ fn parse_mm_pair(raw: &str, flag: &str) -> Result<(f64, f64)> {
         ));
     }
     let x = parts[0].trim().parse::<f64>().map_err(|_| {
-        anyhow::anyhow!("Invalid {} value '{}': '{}' is not a number", flag, raw, parts[0])
+        anyhow::anyhow!(
+            "Invalid {} value '{}': '{}' is not a number",
+            flag,
+            raw,
+            parts[0]
+        )
     })?;
     let y = parts[1].trim().parse::<f64>().map_err(|_| {
-        anyhow::anyhow!("Invalid {} value '{}': '{}' is not a number", flag, raw, parts[1])
+        anyhow::anyhow!(
+            "Invalid {} value '{}': '{}' is not a number",
+            flag,
+            raw,
+            parts[1]
+        )
     })?;
     Ok((x, y))
 }

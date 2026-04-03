@@ -19,8 +19,8 @@ pub use combine::execute_combine;
 pub(crate) use helpers::{delete_empty_pages, page_idx, remove_slots, resolve_slots};
 pub use info::execute_info;
 pub use mode::{PageModeResult, execute_mode};
-pub use pos::{PosConfig, PosMode, PosResult, SlotChange, execute_pos};
 pub use move_cmd::execute_move;
+pub use pos::{PosConfig, PosMode, PosResult, SlotChange, execute_pos};
 pub use split::execute_split;
 pub use types::{
     DstMove, DstSwap, InfoFilter, PageInfoResult, PageMoveCmd, PageMoveError, PageMoveResult,

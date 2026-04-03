@@ -540,9 +540,12 @@ impl Execute for PageCommands {
             }
             PageCommands::Weight { address, weight } => page::handle_weight(address, *weight),
             PageCommands::Mode { pages, mode } => page::handle_mode(pages, mode),
-            PageCommands::Pos { address, by, at, scale } => {
-                page::handle_pos(address, by.as_deref(), at.as_deref(), *scale)
-            }
+            PageCommands::Pos {
+                address,
+                by,
+                at,
+                scale,
+            } => page::handle_pos(address, by.as_deref(), at.as_deref(), *scale),
         }
     }
 }
