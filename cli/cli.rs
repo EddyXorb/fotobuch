@@ -148,8 +148,11 @@ pub enum Commands {
         page: Option<usize>,
     },
 
-    /// Show resolved configuration with defaults
-    Config,
+    /// Configuration commands (show or mutate)
+    Config {
+        #[command(subcommand)]
+        command: ConfigCommands,
+    },
 
     /// Show project change history
     History {
@@ -363,6 +366,23 @@ pub enum PageCommands {
     },
 }
 
+/// Config subcommands
+#[derive(Subcommand, Debug)]
+pub enum ConfigCommands {
+    /// Show resolved configuration with defaults
+    Show,
+    /// Set a config value using dot-notation (e.g. `book.dpi 300`)
+    ///
+    /// Supported keys mirror the YAML config hierarchy.
+    /// Types are auto-detected: true/false → bool, integers → int, decimals → float, else string.
+    Set {
+        /// Dot-notation key, e.g. "book.dpi" or "book.cover.active"
+        key: String,
+        /// New value, e.g. "300", "true", "3.5", "spread"
+        value: String,
+    },
+}
+
 /// Project subcommands
 #[derive(Subcommand, Debug)]
 pub enum ProjectCommands {
@@ -471,7 +491,10 @@ impl Execute for Commands {
                 unplaced,
             } => remove::handle(patterns.clone(), *keep_files, *unplaced),
             Commands::Status { page } => status::handle(*page),
-            Commands::Config => config::handle(),
+            Commands::Config { command } => match command {
+                ConfigCommands::Show => config::handle_show(),
+                ConfigCommands::Set { key, value } => config::handle_set(key, value),
+            },
             Commands::History { count } => history::handle(*count),
             Commands::Undo { steps } => undo::handle_undo(*steps),
             Commands::Redo { steps } => undo::handle_redo(*steps),
