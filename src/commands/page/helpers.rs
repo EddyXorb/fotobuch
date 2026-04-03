@@ -9,10 +9,11 @@ use super::types::{DstSwap, SlotExpr, SlotItem, Src, ValidationError};
 /// Resolve a page number to a 0-based layout index, or return ValidationError.
 /// Page 0 is valid when a cover page exists as the first layout entry.
 pub(crate) fn page_idx(page: u32, layout: &[LayoutPage]) -> Result<usize, ValidationError> {
-    layout
-        .iter()
-        .position(|p| p.page == page as usize)
-        .ok_or(ValidationError::PageNotFound(page))
+    if page as usize >= layout.len() {
+        Err(ValidationError::PageNotFound(page))
+    } else {
+        Ok(page as usize)
+    }
 }
 
 /// Resolve slot numbers on a page to 0-based indices and validate they exist.

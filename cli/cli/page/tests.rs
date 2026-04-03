@@ -1,7 +1,9 @@
 //! Tests for the page CLI lexer and parser.
 
 use super::lexer::tokenize;
-use super::parse_api::{parse_move_cmd, parse_pages_expr, parse_split_addr, parse_unplace_addr};
+use super::parse_api::{
+    parse_move_cmd, parse_pages_expr, parse_pos_address, parse_split_addr, parse_unplace_addr,
+};
 use super::tokens::{ParseError, Token};
 use fotobuch::commands::page::{DstMove, PageMoveCmd, PagesExpr, SlotExpr, SlotItem, Src};
 
@@ -299,4 +301,33 @@ fn test_parse_pages_list() {
 fn test_parse_pages_range() {
     let pe = parse_pages_expr("3..5").unwrap();
     assert_eq!(pe.pages, vec![3, 4, 5]);
+}
+
+// ── parse_pos_address ─────────────────────────────────────────────────────────
+
+#[test]
+fn test_parse_pos_single_slot() {
+    let (page, slots) = parse_pos_address("4:2").unwrap();
+    assert_eq!(page, 4);
+    assert_eq!(slots, SlotExpr::single(2));
+}
+
+#[test]
+fn test_parse_pos_slot_range() {
+    let (page, slots) = parse_pos_address("4:2..5").unwrap();
+    assert_eq!(page, 4);
+    assert_eq!(slots, SlotExpr::from_range(2, 5));
+}
+
+#[test]
+fn test_parse_pos_missing_colon() {
+    assert!(matches!(
+        parse_pos_address("4"),
+        Err(ParseError::UnexpectedEnd { .. })
+    ));
+}
+
+#[test]
+fn test_parse_pos_invalid_input() {
+    assert!(parse_pos_address("abc").is_err());
 }
