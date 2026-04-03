@@ -1,7 +1,7 @@
 //! Command-line interface for the photobook solver.
 
 use anyhow::Result;
-use clap::{CommandFactory, Parser, Subcommand};
+use clap::{ArgGroup, CommandFactory, Parser, Subcommand};
 use clap_complete::Shell;
 use std::path::PathBuf;
 
@@ -347,6 +347,7 @@ pub enum PageCommands {
     ///
     /// At least one of --by, --at, --scale is required. --by and --at are mutually exclusive.
     /// The page must be in manual mode.
+    #[command(group(ArgGroup::new("movement").required(true).args(["by", "at", "scale"])))]
     Pos {
         /// Address: "4:2", "4:2..5", "4:1,3"
         address: String,

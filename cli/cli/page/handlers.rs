@@ -305,12 +305,6 @@ pub fn handle_pos(
 ) -> Result<()> {
     use fotobuch::commands::page::{PosConfig, PosMode};
 
-    if by.is_none() && at.is_none() && scale.is_none() {
-        return Err(anyhow::anyhow!(
-            "At least one of --by, --at, or --scale must be specified."
-        ));
-    }
-
     let (page, slots) = parse_pos_address(address)
         .map_err(|e| anyhow::anyhow!("Invalid address '{}': {}", address, e))?;
 
