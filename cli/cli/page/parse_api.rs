@@ -57,21 +57,7 @@ pub fn parse_pages_expr(raw: &str) -> Result<PagesExpr, ParseError> {
 
 /// Parse an `unplace` address: `"PAGE:SLOT_EXPR"`.
 pub fn parse_unplace_addr(raw: &str) -> Result<(u32, SlotExpr), ParseError> {
-    let tokens = tokenize(raw)?;
-    let mut parser = Parser::new(tokens);
-    let page = parser.expect_number("page number")?;
-    match parser.advance() {
-        Some(super::tokens::Token::Colon) => {}
-        Some(t) => {
-            return Err(ParseError::UnexpectedToken {
-                got: format!("{t:?}"),
-                expected: "':'",
-            });
-        }
-        None => return Err(ParseError::UnexpectedEnd { expected: "':'" }),
-    }
-    let slots = parser.parse_slot_expr()?;
-    Ok((page, slots))
+    parse_page_colon_slots(raw)
 }
 
 /// Parse a `page info` address — same grammar as `src`.
@@ -105,6 +91,11 @@ pub fn parse_weight_address(raw: &str) -> Result<WeightAddress, ParseError> {
 
 /// Parse a `page pos` address: `"PAGE:SLOT_EXPR"` (e.g. `"4:2"`, `"4:2..5"`).
 pub fn parse_pos_address(raw: &str) -> Result<(u32, SlotExpr), ParseError> {
+    parse_page_colon_slots(raw)
+}
+
+/// Parse a `"PAGE:SLOT_EXPR"` string — shared by `unplace` and `pos`.
+fn parse_page_colon_slots(raw: &str) -> Result<(u32, SlotExpr), ParseError> {
     let tokens = tokenize(raw)?;
     let mut parser = Parser::new(tokens);
     let page = parser.expect_number("page number")?;
