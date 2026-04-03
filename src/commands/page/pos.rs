@@ -2,7 +2,10 @@
 
 use std::path::Path;
 
-use crate::{dto_models::Slot, state_manager::StateManager};
+use crate::{
+    dto_models::{LayoutPage, PageMode, Slot},
+    state_manager::StateManager,
+};
 
 use super::{
     helpers::{page_idx, resolve_slots},
@@ -46,6 +49,12 @@ pub struct PosResult {
     pub slots_changed: Vec<SlotChange>,
 }
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+fn is_in_manual_mode(layout: &[LayoutPage], idx: usize) -> bool {
+    layout[idx].mode == Some(PageMode::Manual)
+}
+
 // ── execute_pos ───────────────────────────────────────────────────────────────
 
 /// Reposition one or more slots on a Manual-mode page.
@@ -65,12 +74,8 @@ pub fn execute_pos(
     let idx = page_idx(page, &mgr.state.layout)?;
 
     // Require Manual mode
-    {
-        use crate::dto_models::PageMode;
-        let mode = mgr.state.layout[idx].mode;
-        if mode != Some(PageMode::Manual) {
-            return Err(ValidationError::PageNotManual(page).into());
-        }
+    if !is_in_manual_mode(&mgr.state.layout, idx) {
+        return Err(ValidationError::PageNotManual(page).into());
     }
 
     let slot_indices = resolve_slots(page, &slots, &mgr.state.layout)?;
