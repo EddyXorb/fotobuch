@@ -136,6 +136,7 @@ pub enum ValidationError {
     CombineSinglePage(u32),
     SplitAtFirstSlot(u32),
     WeightOutOfRange(f64),
+    PageNotManual(u32),
 }
 
 impl std::fmt::Display for ValidationError {
@@ -162,6 +163,9 @@ impl std::fmt::Display for ValidationError {
                 write!(f, "cannot split at first slot (would leave page {p} empty)")
             }
             Self::WeightOutOfRange(w) => write!(f, "weight {w} is out of range (must be > 0)"),
+            Self::PageNotManual(p) => {
+                write!(f, "page {p} is not in manual mode; use 'page mode {p} m' first")
+            }
         }
     }
 }
