@@ -5,7 +5,7 @@ use std::path::Path;
 use anyhow::{Result, anyhow};
 use serde_yaml::Value;
 
-use crate::{dto_models::ProjectConfig, state_manager::StateManager};
+use crate::{commands::CommandOutput, dto_models::ProjectConfig, state_manager::StateManager};
 
 /// Result of a successful `config set` call.
 #[derive(Debug, Clone)]
@@ -21,7 +21,11 @@ pub struct ConfigSetResult {
 /// - Empty or invalid key
 /// - Key not found in config hierarchy
 /// - Value cannot be deserialized into the expected type
-pub fn config_set(project_root: &Path, key: &str, value: &str) -> Result<ConfigSetResult> {
+pub fn config_set(
+    project_root: &Path,
+    key: &str,
+    value: &str,
+) -> Result<CommandOutput<ConfigSetResult>> {
     if key.is_empty() || key.split('.').any(|p| p.is_empty()) {
         return Err(anyhow!("Invalid config key: '{key}'"));
     }
@@ -64,12 +68,15 @@ pub fn config_set(project_root: &Path, key: &str, value: &str) -> Result<ConfigS
         .map_err(|e| anyhow!("Cannot set '{key}' to '{value}': {e}"))?;
 
     mgr.state.config = new_config;
-    mgr.finish(&format!("config set {key}: {value}"))?;
+    let state = mgr.finish(&format!("config set {key}: {value}"))?;
 
-    Ok(ConfigSetResult {
-        key: key.to_string(),
-        old_value,
-        new_value: value.to_string(),
+    Ok(CommandOutput {
+        result: ConfigSetResult {
+            key: key.to_string(),
+            old_value,
+            new_value: value.to_string(),
+        },
+        state,
     })
 }
 
@@ -120,8 +127,8 @@ mod tests {
     fn test_set_dpi() {
         let (_tmp, root) = open_tmp();
         let res = config_set(&root, "book.dpi", "150").unwrap();
-        assert_eq!(res.key, "book.dpi");
-        assert_eq!(res.new_value, "150");
+        assert_eq!(res.result.key, "book.dpi");
+        assert_eq!(res.result.new_value, "150");
 
         let mgr = StateManager::open(&root).unwrap();
         assert_eq!(mgr.state.config.book.dpi, 150.0);
@@ -132,7 +139,7 @@ mod tests {
     fn test_set_gap_mm_float() {
         let (_tmp, root) = open_tmp();
         let res = config_set(&root, "book.gap_mm", "3.5").unwrap();
-        assert_eq!(res.new_value, "3.5");
+        assert_eq!(res.result.new_value, "3.5");
 
         let mgr = StateManager::open(&root).unwrap();
         assert_eq!(mgr.state.config.book.gap_mm, 3.5);
@@ -153,7 +160,7 @@ mod tests {
     fn test_set_title_string() {
         let (_tmp, root) = open_tmp();
         let res = config_set(&root, "book.title", "Mein Buch").unwrap();
-        assert_eq!(res.new_value, "Mein Buch");
+        assert_eq!(res.result.new_value, "Mein Buch");
 
         let mgr = StateManager::open(&root).unwrap();
         assert_eq!(mgr.state.config.book.title, "Mein Buch");

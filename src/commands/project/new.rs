@@ -14,6 +14,8 @@ use std::path::{Path, PathBuf};
 
 pub use validation::validate_project_name;
 
+use crate::commands::CommandOutput;
+use crate::dto_models::ProjectState;
 use crate::git;
 
 /// Configuration for creating a new project
@@ -91,7 +93,10 @@ Happy photobook making! 📷✨
 /// Automatically detects mode:
 /// - Mode 1 (first project): Creates new directory under `parent_dir_or_root`
 /// - Mode 2 (additional project): Creates in repository root at `parent_dir_or_root`
-pub fn project_new(parent_dir_or_root: &Path, config: &NewConfig) -> Result<NewResult> {
+pub fn project_new(
+    parent_dir_or_root: &Path,
+    config: &NewConfig,
+) -> Result<CommandOutput<NewResult>> {
     validate_project_name(&config.name)?;
 
     // Detect mode: check if we're already in a repo with fotobuch branches
@@ -114,6 +119,10 @@ pub fn project_new(parent_dir_or_root: &Path, config: &NewConfig) -> Result<NewR
     }
 }
 
+fn load_new_project_state(result: &NewResult) -> Result<ProjectState> {
+    ProjectState::load(&result.yaml_path)
+}
+
 #[derive(Debug, Clone, Copy)]
 enum Mode {
     FirstProject,
@@ -121,7 +130,7 @@ enum Mode {
 }
 
 /// Mode 1: Create first project in new directory
-fn create_first_project(parent_dir: &Path, config: &NewConfig) -> Result<NewResult> {
+fn create_first_project(parent_dir: &Path, config: &NewConfig) -> Result<CommandOutput<NewResult>> {
     let project_root = parent_dir.join(&config.name);
 
     // 1. Create directory
@@ -187,16 +196,21 @@ log*
         println!("{}", WELCOME_MESSAGE); //intentionally avoid logging this
     }
 
-    Ok(NewResult {
+    let result = NewResult {
         project_root,
         branch: branch_name,
         yaml_path,
         typ_path,
-    })
+    };
+    let state = load_new_project_state(&result)?;
+    Ok(CommandOutput { result, state })
 }
 
 /// Mode 2: Create additional project in existing repository
-fn create_additional_project(repo_root: &Path, config: &NewConfig) -> Result<NewResult> {
+fn create_additional_project(
+    repo_root: &Path,
+    config: &NewConfig,
+) -> Result<CommandOutput<NewResult>> {
     let repo = git::open_repo(repo_root)?;
 
     // 1. Check if branch already exists
@@ -259,12 +273,14 @@ fn create_additional_project(repo_root: &Path, config: &NewConfig) -> Result<New
         ),
     )?;
 
-    Ok(NewResult {
+    let result = NewResult {
         project_root: repo_root.to_path_buf(),
         branch: branch_name,
         yaml_path,
         typ_path,
-    })
+    };
+    let state = load_new_project_state(&result)?;
+    Ok(CommandOutput { result, state })
 }
 
 #[cfg(test)]
@@ -291,18 +307,18 @@ mod tests {
 
         let result = project_new(temp_dir.path(), &config).unwrap();
 
-        assert!(result.project_root.exists());
-        assert!(result.yaml_path.exists());
-        assert!(result.typ_path.exists());
-        assert_eq!(result.branch, "fotobuch/vacation");
+        assert!(result.result.project_root.exists());
+        assert!(result.result.yaml_path.exists());
+        assert!(result.result.typ_path.exists());
+        assert_eq!(result.result.branch, "fotobuch/vacation");
 
         // Check cache directories
-        let cache_base = result.project_root.join(".fotobuch/cache/vacation");
+        let cache_base = result.result.project_root.join(".fotobuch/cache/vacation");
         assert!(cache_base.join("preview").exists());
         assert!(cache_base.join("final").exists());
 
         // Check .gitignore
-        let gitignore = result.project_root.join(".gitignore");
+        let gitignore = result.result.project_root.join(".gitignore");
         assert!(gitignore.exists());
         let content = fs::read_to_string(gitignore).unwrap();
         assert!(content.contains(".fotobuch/"));
@@ -330,7 +346,7 @@ mod tests {
 
         let result = project_new(temp_dir.path(), &config).unwrap();
 
-        let yaml_content = fs::read_to_string(&result.yaml_path).unwrap();
+        let yaml_content = fs::read_to_string(&result.result.yaml_path).unwrap();
         assert!(yaml_content.contains("page_width_mm: 200"));
         assert!(yaml_content.contains("page_height_mm: 250"));
         assert!(yaml_content.contains("bleed_mm: 5"));
@@ -355,7 +371,7 @@ mod tests {
 
         let result = project_new(temp_dir.path(), &config).unwrap();
 
-        let typ_content = fs::read_to_string(&result.typ_path).unwrap();
+        let typ_content = fs::read_to_string(&result.result.typ_path).unwrap();
         assert!(typ_content.contains(r#"project_name = "mybook""#));
         assert!(!typ_content.contains("{project_name}"));
     }

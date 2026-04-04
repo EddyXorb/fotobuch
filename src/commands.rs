@@ -20,6 +20,24 @@ pub mod status;
 pub mod undo;
 pub mod unplace;
 
+use crate::dto_models::ProjectState;
+
+/// Wraps a command result together with the project state after the command.
+/// Allows the GUI to update its state view after each state-modifying command.
+pub struct CommandOutput<T> {
+    pub result: T,
+    pub state: ProjectState,
+}
+
+impl<T: std::fmt::Debug> std::fmt::Debug for CommandOutput<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CommandOutput")
+            .field("result", &self.result)
+            .field("state", &self.state)
+            .finish()
+    }
+}
+
 pub use add::{AddConfig, AddResult, GroupSummary, add};
 pub use build::{BuildConfig, BuildResult, DpiWarning, build};
 pub use config::{ConfigResult, config, render_config};

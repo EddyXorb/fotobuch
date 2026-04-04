@@ -3,6 +3,9 @@
 use anyhow::{Result, bail};
 use std::path::Path;
 
+use crate::commands::CommandOutput;
+use crate::state_manager::load_project_state;
+
 /// Switch to another photobook project
 ///
 /// Checks out the specified project's branch (`fotobuch/<name>`)
@@ -15,7 +18,7 @@ use std::path::Path;
 /// # Returns
 /// * Ok(()) if switch successful
 /// * Error if project not found, uncommitted changes, or git error
-pub fn project_switch(project_root: &Path, name: &str) -> Result<()> {
+pub fn project_switch(project_root: &Path, name: &str) -> Result<CommandOutput<()>> {
     use git2::Repository;
 
     // Validate project name
@@ -63,7 +66,8 @@ pub fn project_switch(project_root: &Path, name: &str) -> Result<()> {
 
     if is_already_on_branch {
         // Already on this branch - this is fine, just return
-        return Ok(());
+        let state = load_project_state(project_root)?;
+        return Ok(CommandOutput { result: (), state });
     }
 
     // Switch to the branch: update working tree first, then point HEAD
@@ -71,7 +75,8 @@ pub fn project_switch(project_root: &Path, name: &str) -> Result<()> {
     repo.checkout_tree(&object, None)?;
     repo.set_head(&format!("refs/heads/{}", branch_name))?;
 
-    Ok(())
+    let state = load_project_state(project_root)?;
+    Ok(CommandOutput { result: (), state })
 }
 
 #[cfg(test)]

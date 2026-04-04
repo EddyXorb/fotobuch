@@ -2,6 +2,7 @@
 
 use std::path::Path;
 
+use crate::commands::CommandOutput;
 use crate::dto_models::LayoutPage;
 use crate::state_manager::StateManager;
 
@@ -15,7 +16,7 @@ pub fn execute_split(
     project_root: &Path,
     page: u32,
     slot: u32,
-) -> Result<PageMoveResult, PageMoveError> {
+) -> Result<CommandOutput<PageMoveResult>, PageMoveError> {
     let mut mgr = StateManager::open(project_root)?;
 
     let idx = page_idx(page, &mgr.state.layout)?;
@@ -51,12 +52,15 @@ pub fn execute_split(
     );
 
     let new_page_num = new_idx as u32;
-    mgr.finish(&format!("page split: page {page} at slot {slot}"))?;
+    let state = mgr.finish(&format!("page split: page {page} at slot {slot}"))?;
 
-    Ok(PageMoveResult {
-        pages_modified: vec![page],
-        pages_inserted: vec![new_page_num],
-        pages_deleted: vec![],
+    Ok(CommandOutput {
+        result: PageMoveResult {
+            pages_modified: vec![page],
+            pages_inserted: vec![new_page_num],
+            pages_deleted: vec![],
+        },
+        state,
     })
 }
 
@@ -77,7 +81,7 @@ mod tests {
         setup_repo(&tmp, &state);
 
         let result = execute_split(tmp.path(), 0, 2).unwrap();
-        assert!(!result.pages_inserted.is_empty());
+        assert!(!result.result.pages_inserted.is_empty());
 
         let mgr = StateManager::open(tmp.path()).unwrap();
         assert_eq!(mgr.state.layout.len(), 2);

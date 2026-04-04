@@ -2,6 +2,7 @@
 
 use std::path::Path;
 
+use crate::commands::CommandOutput;
 use crate::state_manager::StateManager;
 
 use super::helpers::{format_pages_list, page_idx};
@@ -13,7 +14,7 @@ use super::types::{PageMoveError, PageMoveResult, PagesExpr, ValidationError};
 pub fn execute_combine(
     project_root: &Path,
     pages_expr: PagesExpr,
-) -> Result<PageMoveResult, PageMoveError> {
+) -> Result<CommandOutput<PageMoveResult>, PageMoveError> {
     let mut mgr = StateManager::open(project_root)?;
 
     if pages_expr.pages.len() < 2 {
@@ -48,12 +49,15 @@ pub fn execute_combine(
     }
 
     let pages_str = format_pages_list(&pages_expr.pages);
-    mgr.finish(&format!("page combine: {pages_str}"))?;
+    let state = mgr.finish(&format!("page combine: {pages_str}"))?;
 
-    Ok(PageMoveResult {
-        pages_modified: vec![first_page],
-        pages_inserted: vec![],
-        pages_deleted: other_pages,
+    Ok(CommandOutput {
+        result: PageMoveResult {
+            pages_modified: vec![first_page],
+            pages_inserted: vec![],
+            pages_deleted: other_pages,
+        },
+        state,
     })
 }
 
@@ -79,7 +83,7 @@ mod tests {
 
         let pages = PagesExpr::from_range(0, 2);
         let result = execute_combine(tmp.path(), pages).unwrap();
-        assert_eq!(result.pages_deleted, vec![1, 2]);
+        assert_eq!(result.result.pages_deleted, vec![1, 2]);
 
         let mgr = StateManager::open(tmp.path()).unwrap();
         assert_eq!(mgr.state.layout.len(), 1);
