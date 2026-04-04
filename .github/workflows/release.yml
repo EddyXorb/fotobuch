@@ -41,6 +41,7 @@ jobs:
       - name: Build
         env:
           CARGO_PROFILE_RELEASE_STRIP: symbols
+          CARGO_PROFILE_RELEASE_DEBUG: "false"
         run: cargo build --release --target ${{ matrix.target }}
 
       - name: Smoke test
