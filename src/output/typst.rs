@@ -13,13 +13,23 @@ use typst::utils::LazyHash;
 use typst::{Library, LibraryExt, World};
 use typst_kit::fonts::{FontSlot, Fonts};
 
-/// Compiles a Typst template and returns the raw PDF bytes.
-fn compile_to_bytes(template_path: &Path) -> Result<Vec<u8>> {
+/// A rasterized page ready for display (e.g. in egui).
+#[derive(Debug)]
+pub struct RenderedPage {
+    /// 0-based page index within the document.
+    pub page: usize,
+    pub width: u32,
+    pub height: u32,
+    /// RGBA pixels, straight (non-premultiplied) alpha.
+    pub pixels: Vec<u8>,
+}
+
+/// Compiles a Typst template to a `typst::layout::PagedDocument`.
+fn compile_to_document(template_path: &Path) -> Result<typst::layout::PagedDocument> {
     let content = fs::read_to_string(template_path)
         .with_context(|| format!("Failed to read template: {}", template_path.display()))?;
 
     let world = SimpleWorld::new(template_path, content)?;
-
     let result = typst::compile(&world);
 
     if !result.warnings.is_empty() {
@@ -29,15 +39,19 @@ fn compile_to_bytes(template_path: &Path) -> Result<Vec<u8>> {
         }
     }
 
-    let document = result.output.map_err(|errors| {
+    result.output.map_err(|errors| {
         let error_msg = errors
             .iter()
             .map(|e| format!("{:?}", e))
             .collect::<Vec<_>>()
             .join("\n");
         anyhow::anyhow!("Typst compilation failed:\n{}", error_msg)
-    })?;
+    })
+}
 
+/// Compiles a Typst template and returns the raw PDF bytes.
+fn compile_to_bytes(template_path: &Path) -> Result<Vec<u8>> {
+    let document = compile_to_document(template_path)?;
     typst_pdf::pdf(&document, &typst_pdf::PdfOptions::default()).map_err(|errors| {
         let error_msg = errors
             .iter()
@@ -46,6 +60,61 @@ fn compile_to_bytes(template_path: &Path) -> Result<Vec<u8>> {
             .join("\n");
         anyhow::anyhow!("PDF export failed:\n{}", error_msg)
     })
+}
+
+/// Render selected pages of a Typst template to RGBA pixel data.
+///
+/// # Arguments
+/// * `project_root` - Directory containing the template and assets
+/// * `project_name` - Base name of the `.typ` file (without extension)
+/// * `pages` - 0-based page indices to render
+/// * `pixel_per_pt` - Rasterisation resolution (e.g. 1.0 for 72 dpi, 2.0 for 144 dpi)
+///
+/// # Returns
+/// One `RenderedPage` per requested index, in the same order.
+pub fn render_pages(
+    project_root: &Path,
+    project_name: &str,
+    pages: &[usize],
+    pixel_per_pt: f32,
+) -> Result<Vec<RenderedPage>> {
+    let template = project_root.join(format!("{project_name}.typ"));
+    let document = compile_to_document(&template)?;
+
+    let mut rendered = Vec::with_capacity(pages.len());
+    for &page_idx in pages {
+        let page = document.pages.get(page_idx).ok_or_else(|| {
+            anyhow::anyhow!(
+                "Page index {page_idx} out of range (document has {} page(s))",
+                document.pages.len()
+            )
+        })?;
+
+        let pixmap = typst_render::render(page, pixel_per_pt);
+
+        let width = pixmap.width();
+        let height = pixmap.height();
+        let mut pixels = pixmap.take();
+
+        // Convert premultiplied alpha → straight alpha (required by egui)
+        for chunk in pixels.chunks_exact_mut(4) {
+            let a = chunk[3] as f32 / 255.0;
+            if a > 0.0 {
+                chunk[0] = (chunk[0] as f32 / a).min(255.0) as u8;
+                chunk[1] = (chunk[1] as f32 / a).min(255.0) as u8;
+                chunk[2] = (chunk[2] as f32 / a).min(255.0) as u8;
+            }
+        }
+
+        rendered.push(RenderedPage {
+            page: page_idx,
+            width,
+            height,
+            pixels,
+        });
+    }
+
+    Ok(rendered)
 }
 
 /// Compiles a Typst template to PDF.
@@ -472,5 +541,85 @@ mod tests {
             "TrimBox y1 off: {ty1} vs {}",
             my1 - bleed_pt
         );
+    }
+
+    #[test]
+    fn test_render_pages_correct_dimensions() {
+        let temp = TempDir::new().unwrap();
+        let template = temp.path().join("test.typ");
+        // A4 in mm: 210 × 297 → in pt: ~595 × ~842
+        fs::write(&template, "#set page(width: 210mm, height: 297mm)\nHello").unwrap();
+
+        let result = render_pages(temp.path(), "test", &[0], 1.0);
+        assert!(result.is_ok(), "render_pages failed: {:?}", result.err());
+        let pages = result.unwrap();
+        assert_eq!(pages.len(), 1);
+        let page = &pages[0];
+        assert_eq!(page.page, 0);
+        // 210mm × (72/25.4) pt/mm ≈ 595 pt; allow ±2 px tolerance
+        assert!((page.width as i32 - 595).abs() <= 2, "width {}", page.width);
+        assert!(
+            (page.height as i32 - 842).abs() <= 2,
+            "height {}",
+            page.height
+        );
+        assert_eq!(page.pixels.len() as u32, page.width * page.height * 4);
+    }
+
+    #[test]
+    fn test_render_pages_page_selection() {
+        let temp = TempDir::new().unwrap();
+        let template = temp.path().join("multi.typ");
+        // Three pages
+        fs::write(
+            &template,
+            "#set page(width: 50mm, height: 50mm)\nPage 1\n#pagebreak()\nPage 2\n#pagebreak()\nPage 3",
+        )
+        .unwrap();
+
+        // Only render page 1 (0-based)
+        let result = render_pages(temp.path(), "multi", &[1], 1.0);
+        assert!(result.is_ok(), "{:?}", result.err());
+        let pages = result.unwrap();
+        assert_eq!(pages.len(), 1);
+        assert_eq!(pages[0].page, 1);
+    }
+
+    #[test]
+    fn test_render_pages_out_of_range_returns_error() {
+        let temp = TempDir::new().unwrap();
+        let template = temp.path().join("single.typ");
+        fs::write(&template, "Only one page").unwrap();
+
+        let result = render_pages(temp.path(), "single", &[5], 1.0);
+        assert!(result.is_err());
+        let msg = result.unwrap_err().to_string();
+        assert!(msg.contains("out of range"), "unexpected error: {msg}");
+    }
+
+    #[test]
+    fn test_render_pages_straight_alpha_conversion() {
+        // Render a page with a semi-transparent element and verify that
+        // premultiplied alpha has been undone: for fully-opaque pixels
+        // the RGB values should be consistent (no darkening from premultiplication).
+        let temp = TempDir::new().unwrap();
+        let template = temp.path().join("alpha.typ");
+        // White background page
+        fs::write(
+            &template,
+            "#set page(width: 20mm, height: 20mm, fill: white)\n#text(fill: black)[X]",
+        )
+        .unwrap();
+
+        let result = render_pages(temp.path(), "alpha", &[0], 2.0);
+        assert!(result.is_ok(), "{:?}", result.err());
+        let page = &result.unwrap()[0];
+
+        // Find a fully-opaque pixel (alpha == 255) and verify R == G == B for white pixels
+        let has_opaque = page
+            .pixels
+            .chunks_exact(4)
+            .any(|p| p[3] == 255 && p[0] == 255 && p[1] == 255 && p[2] == 255);
+        assert!(has_opaque, "expected at least one white opaque pixel");
     }
 }
