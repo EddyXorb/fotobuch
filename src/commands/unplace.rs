@@ -23,14 +23,14 @@ pub fn execute_unplace(
 
     let slot_indices = resolve_slots(page, &slots, &mgr.state.layout)?;
     if slot_indices.is_empty() {
-        let state = mgr.finish("")?;
+        let changed_state = mgr.finish("")?;
         return Ok(CommandOutput {
             result: PageMoveResult {
                 pages_modified: vec![],
                 pages_inserted: vec![],
                 pages_deleted: vec![],
             },
-            state,
+            changed_state,
         });
     }
 
@@ -43,7 +43,7 @@ pub fn execute_unplace(
         vec![page]
     };
 
-    let state = mgr.finish(&format!("unplace: page {page}"))?;
+    let changed_state = mgr.finish(&format!("unplace: page {page}"))?;
 
     Ok(CommandOutput {
         result: PageMoveResult {
@@ -51,7 +51,7 @@ pub fn execute_unplace(
             pages_inserted: vec![],
             pages_deleted: deleted,
         },
-        state,
+        changed_state,
     })
 }
 

@@ -42,14 +42,14 @@ pub fn execute_mode(
         PageMode::Manual => "manual",
     };
     let pages_str = format_pages_list(&pages.pages);
-    let state = mgr.finish(&format!("page mode {}: {}", pages_str, mode_str))?;
+    let changed_state = mgr.finish(&format!("page mode {}: {}", pages_str, mode_str))?;
 
     Ok(CommandOutput {
         result: PageModeResult {
             pages_changed,
             new_mode: mode,
         },
-        state,
+        changed_state,
     })
 }
 

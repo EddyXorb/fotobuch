@@ -106,7 +106,7 @@ pub fn multipage_build(
     let project_name = mgr.project_name().to_string();
 
     // 8. Save and commit
-    let state = if params.always_commit {
+    let changed_state = if params.always_commit {
         mgr.finish_always(&params.commit_message)?
     } else {
         mgr.finish(&params.commit_message)?
@@ -125,7 +125,7 @@ pub fn multipage_build(
             dpi_warnings: Vec::new(),
             nothing_to_do: false,
         },
-        state,
+        changed_state,
     })
 }
 

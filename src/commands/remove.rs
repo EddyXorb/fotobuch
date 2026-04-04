@@ -218,7 +218,7 @@ pub fn remove(project_root: &Path, config: &RemoveConfig) -> Result<CommandOutpu
     };
 
     if matched_ids.is_empty() {
-        let state = mgr.finish("")?;
+        let changed_state = mgr.finish("")?;
         return Ok(CommandOutput {
             result: RemoveResult {
                 photos_removed: 0,
@@ -226,7 +226,7 @@ pub fn remove(project_root: &Path, config: &RemoveConfig) -> Result<CommandOutpu
                 groups_removed: vec![],
                 pages_affected: vec![],
             },
-            state,
+            changed_state,
         });
     }
 
@@ -257,7 +257,7 @@ pub fn remove(project_root: &Path, config: &RemoveConfig) -> Result<CommandOutpu
     } else {
         format!("remove: {} photos", photos_removed)
     };
-    let state = mgr.finish(&commit_msg)?;
+    let changed_state = mgr.finish(&commit_msg)?;
 
     Ok(CommandOutput {
         result: RemoveResult {
@@ -266,7 +266,7 @@ pub fn remove(project_root: &Path, config: &RemoveConfig) -> Result<CommandOutpu
             groups_removed,
             pages_affected: layout_result.pages_affected,
         },
-        state,
+        changed_state,
     })
 }
 

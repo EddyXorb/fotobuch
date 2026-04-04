@@ -48,8 +48,11 @@ pub fn execute_weight(
         }
     }
 
-    let state = mgr.finish(&format!("page weight: page {page} = {weight}"))?;
-    Ok(CommandOutput { result: (), state })
+    let changed_state = mgr.finish(&format!("page weight: page {page} = {weight}"))?;
+    Ok(CommandOutput {
+        result: (),
+        changed_state,
+    })
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────

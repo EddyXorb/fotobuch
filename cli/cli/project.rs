@@ -82,7 +82,7 @@ pub fn handle(command: ProjectSubcommand) -> Result<()> {
             let project_root =
                 std::env::current_dir().context("Failed to determine current directory")?;
 
-            let projects = commands::project::project_list(&project_root)?;
+            let projects = commands::project::project_list(&project_root)?.result;
 
             if projects.is_empty() {
                 info!("ℹ️  No projects found.");

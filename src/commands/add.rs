@@ -183,7 +183,7 @@ pub fn add(project_root: &Path, config: &AddConfig) -> Result<CommandOutput<AddR
         });
     }
 
-    let state = if !config.dry_run {
+    let changed_state = if !config.dry_run {
         mgr.state.photos.sort_by(|a, b| a.sort_key.cmp(&b.sort_key));
 
         let total_photos: usize = groups_added.iter().map(|g| g.photo_count).sum();
@@ -206,7 +206,7 @@ pub fn add(project_root: &Path, config: &AddConfig) -> Result<CommandOutput<AddR
             dry_run: config.dry_run,
             updated: total_updated,
         },
-        state,
+        changed_state,
     })
 }
 

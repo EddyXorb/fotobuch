@@ -68,7 +68,7 @@ pub fn config_set(
         .map_err(|e| anyhow!("Cannot set '{key}' to '{value}': {e}"))?;
 
     mgr.state.config = new_config;
-    let state = mgr.finish(&format!("config set {key}: {value}"))?;
+    let changed_state = mgr.finish(&format!("config set {key}: {value}"))?;
 
     Ok(CommandOutput {
         result: ConfigSetResult {
@@ -76,7 +76,7 @@ pub fn config_set(
             old_value,
             new_value: value.to_string(),
         },
-        state,
+        changed_state,
     })
 }
 

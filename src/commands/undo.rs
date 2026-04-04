@@ -48,7 +48,7 @@ pub fn undo(project_root: &Path, steps: usize) -> Result<CommandOutput<UndoResul
 
     let current_message = target.summary().unwrap_or("").to_string();
 
-    let state = load_project_state(project_root).unwrap_or_default();
+    let changed_state = Some(load_project_state(project_root).unwrap_or_default());
 
     Ok(CommandOutput {
         result: UndoResult {
@@ -56,7 +56,7 @@ pub fn undo(project_root: &Path, steps: usize) -> Result<CommandOutput<UndoResul
             undone_message,
             current_message,
         },
-        state,
+        changed_state,
     })
 }
 
@@ -102,7 +102,7 @@ pub fn redo(project_root: &Path, steps: usize) -> Result<CommandOutput<UndoResul
 
     let current_message = commit.summary().unwrap_or("").to_string();
 
-    let state = load_project_state(project_root).unwrap_or_default();
+    let changed_state = Some(load_project_state(project_root).unwrap_or_default());
 
     Ok(CommandOutput {
         result: UndoResult {
@@ -110,7 +110,7 @@ pub fn redo(project_root: &Path, steps: usize) -> Result<CommandOutput<UndoResul
             undone_message,
             current_message,
         },
-        state,
+        changed_state,
     })
 }
 

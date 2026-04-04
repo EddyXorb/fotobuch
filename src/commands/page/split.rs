@@ -52,7 +52,7 @@ pub fn execute_split(
     );
 
     let new_page_num = new_idx as u32;
-    let state = mgr.finish(&format!("page split: page {page} at slot {slot}"))?;
+    let changed_state = mgr.finish(&format!("page split: page {page} at slot {slot}"))?;
 
     Ok(CommandOutput {
         result: PageMoveResult {
@@ -60,7 +60,7 @@ pub fn execute_split(
             pages_inserted: vec![new_page_num],
             pages_deleted: vec![],
         },
-        state,
+        changed_state,
     })
 }
 

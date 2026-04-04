@@ -49,7 +49,7 @@ pub fn execute_combine(
     }
 
     let pages_str = format_pages_list(&pages_expr.pages);
-    let state = mgr.finish(&format!("page combine: {pages_str}"))?;
+    let changed_state = mgr.finish(&format!("page combine: {pages_str}"))?;
 
     Ok(CommandOutput {
         result: PageMoveResult {
@@ -57,7 +57,7 @@ pub fn execute_combine(
             pages_inserted: vec![],
             pages_deleted: other_pages,
         },
-        state,
+        changed_state,
     })
 }
 

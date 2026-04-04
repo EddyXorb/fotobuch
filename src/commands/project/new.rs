@@ -202,8 +202,11 @@ log*
         yaml_path,
         typ_path,
     };
-    let state = load_new_project_state(&result)?;
-    Ok(CommandOutput { result, state })
+    let changed_state = Some(load_new_project_state(&result)?);
+    Ok(CommandOutput {
+        result,
+        changed_state,
+    })
 }
 
 /// Mode 2: Create additional project in existing repository
@@ -279,8 +282,11 @@ fn create_additional_project(
         yaml_path,
         typ_path,
     };
-    let state = load_new_project_state(&result)?;
-    Ok(CommandOutput { result, state })
+    let changed_state = Some(load_new_project_state(&result)?);
+    Ok(CommandOutput {
+        result,
+        changed_state,
+    })
 }
 
 #[cfg(test)]

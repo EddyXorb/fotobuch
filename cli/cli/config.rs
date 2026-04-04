@@ -11,7 +11,7 @@ fn project_root() -> Result<std::path::PathBuf> {
 /// Handler for `fotobuch config show`.
 pub fn handle_show() -> Result<()> {
     let result = commands::config(&project_root()?)?;
-    let output = commands::render_config(&result)?;
+    let output = commands::render_config(&result.result)?;
     info!("{}", output);
     Ok(())
 }

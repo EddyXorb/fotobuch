@@ -114,7 +114,7 @@ pub fn execute_pos(
         });
     }
 
-    let state = mgr.finish(&format!(
+    let changed_state = mgr.finish(&format!(
         "page pos {page}: {} slot(s) moved",
         slots_changed.len()
     ))?;
@@ -124,7 +124,7 @@ pub fn execute_pos(
             page,
             slots_changed,
         },
-        state,
+        changed_state,
     })
 }
 

@@ -45,14 +45,15 @@ fn execute_move_to(
                 } else {
                     vec![page]
                 };
-                let state = mgr.finish(&format!("page move: page {page}:... -> (unplace)"))?;
+                let changed_state =
+                    mgr.finish(&format!("page move: page {page}:... -> (unplace)"))?;
                 Ok(CommandOutput {
                     result: PageMoveResult {
                         pages_modified: modified,
                         pages_inserted: vec![],
                         pages_deleted: deleted,
                     },
-                    state,
+                    changed_state,
                 })
             }
             Src::Pages(pe) => {
@@ -68,14 +69,14 @@ fn execute_move_to(
                     deleted.push(page_num);
                 }
                 deleted.sort();
-                let state = mgr.finish(&format!("page move: {src_desc} -> (unplace)"))?;
+                let changed_state = mgr.finish(&format!("page move: {src_desc} -> (unplace)"))?;
                 Ok(CommandOutput {
                     result: PageMoveResult {
                         pages_modified: vec![],
                         pages_inserted: vec![],
                         pages_deleted: deleted,
                     },
-                    state,
+                    changed_state,
                 })
             }
         };
@@ -83,14 +84,14 @@ fn execute_move_to(
 
     let (photos, _src_page_indices) = collect_src_photos(&src, &mgr.state.layout)?;
     if photos.is_empty() {
-        let state = mgr.finish("")?;
+        let changed_state = mgr.finish("")?;
         return Ok(CommandOutput {
             result: PageMoveResult {
                 pages_modified: vec![],
                 pages_inserted: vec![],
                 pages_deleted: vec![],
             },
-            state,
+            changed_state,
         });
     }
 
@@ -160,7 +161,8 @@ fn execute_move_to(
         modified.retain(|p| !deleted.contains(p));
         modified.sort();
         modified.dedup();
-        let state = mgr.finish(&format!("page move: slots from page {src_page} -> page"))?;
+        let changed_state =
+            mgr.finish(&format!("page move: slots from page {src_page} -> page"))?;
         return Ok(CommandOutput {
             result: PageMoveResult {
                 pages_modified: modified,
@@ -169,7 +171,7 @@ fn execute_move_to(
                     .unwrap_or_default(),
                 pages_deleted: deleted,
             },
-            state,
+            changed_state,
         });
     }
 
@@ -197,7 +199,7 @@ fn execute_move_to(
     modified_pages.retain(|p| !deleted.contains(p));
 
     let src_desc = format_src_desc(&src);
-    let state = mgr.finish(&format!("page move: {src_desc} -> page {dst_page_num}"))?;
+    let changed_state = mgr.finish(&format!("page move: {src_desc} -> page {dst_page_num}"))?;
 
     Ok(CommandOutput {
         result: PageMoveResult {
@@ -207,7 +209,7 @@ fn execute_move_to(
                 .unwrap_or_default(),
             pages_deleted: deleted,
         },
-        state,
+        changed_state,
     })
 }
 
@@ -240,14 +242,14 @@ fn execute_swap(
 
         block_transpose_pages(&mut mgr.state.layout, &lpe.pages, &rpe.pages);
 
-        let state = mgr.finish("page swap")?;
+        let changed_state = mgr.finish("page swap")?;
         return Ok(CommandOutput {
             result: PageMoveResult {
                 pages_modified: modified_pages,
                 pages_inserted: vec![],
                 pages_deleted: vec![],
             },
-            state,
+            changed_state,
         });
     }
 
@@ -291,7 +293,7 @@ fn execute_swap(
     modified_pages.sort();
     modified_pages.dedup();
 
-    let state = mgr.finish("page swap")?;
+    let changed_state = mgr.finish("page swap")?;
 
     Ok(CommandOutput {
         result: PageMoveResult {
@@ -299,7 +301,7 @@ fn execute_swap(
             pages_inserted: vec![],
             pages_deleted: vec![],
         },
-        state,
+        changed_state,
     })
 }
 

@@ -177,8 +177,8 @@ impl StateManager {
     /// Save YAML and commit if `state` changed since `open()`. Consumes the manager.
     ///
     /// The commit message is `"{message} — {diff_summary}"`.
-    /// When there are no changes this is a no-op.
-    pub fn finish(self, message: &str) -> Result<ProjectState> {
+    /// Returns `None` when there are no changes (no-op), `Some(state)` after a commit.
+    pub fn finish(self, message: &str) -> Result<Option<ProjectState>> {
         self.finish_internal(message, false)
     }
 
@@ -186,13 +186,18 @@ impl StateManager {
     ///
     /// Use this for commands like `release_build` that need a git marker commit
     /// even when no state changes occur.
-    pub fn finish_always(self, message: &str) -> Result<ProjectState> {
+    /// Returns `Some(state)` always (a commit is always created).
+    pub fn finish_always(self, message: &str) -> Result<Option<ProjectState>> {
         self.finish_internal(message, true)
     }
 
     // ── private helpers ───────────────────────────────────────────────────────
 
-    fn finish_internal(mut self, message: &str, always_commit: bool) -> Result<ProjectState> {
+    fn finish_internal(
+        mut self,
+        message: &str,
+        always_commit: bool,
+    ) -> Result<Option<ProjectState>> {
         if let Err(e) = self.state.check_validity() {
             warn!("State is not clean before commit! Reason(s): {e}");
         }
@@ -201,9 +206,8 @@ impl StateManager {
         let diff = StateDiff::compute(&self.baseline, &self.state);
 
         if diff.is_empty() && !always_commit {
-            let state = std::mem::take(&mut self.state);
             self.committed = true;
-            return Ok(state);
+            return Ok(None);
         }
 
         let yaml_name = format!("{}.yaml", self.project_name);
@@ -221,7 +225,7 @@ impl StateManager {
 
         let state = std::mem::take(&mut self.state);
         self.committed = true;
-        Ok(state)
+        Ok(Some(state))
     }
 
     /// If the on-disk YAML differs from the last committed version, auto-commit

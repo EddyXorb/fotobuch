@@ -137,7 +137,7 @@ fn rebuild_single(
     let pdf_path = typst::compile_preview(project_root, mgr.project_name(), bleed_mm)?;
 
     // 5. Save — always commit (even if slots don't change)
-    let state = mgr.finish_always(&format!("rebuild: page {}", idx))?;
+    let changed_state = mgr.finish_always(&format!("rebuild: page {}", idx))?;
 
     Ok(CommandOutput {
         result: BuildResult {
@@ -149,7 +149,7 @@ fn rebuild_single(
             dpi_warnings: Vec::new(),
             nothing_to_do: false,
         },
-        state,
+        changed_state,
     })
 }
 

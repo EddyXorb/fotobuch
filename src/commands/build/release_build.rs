@@ -89,7 +89,7 @@ pub fn release_build(
     let page_count = mgr.state.layout.len();
     let total_photos: usize = mgr.state.layout.iter().map(|p| p.photos.len()).sum();
 
-    let state = mgr.finish_always(&format!(
+    let changed_state = mgr.finish_always(&format!(
         "release: {} pages, {} photos",
         page_count, total_photos
     ))?;
@@ -108,6 +108,6 @@ pub fn release_build(
             dpi_warnings: final_result.dpi_warnings,
             nothing_to_do: false,
         },
-        state,
+        changed_state,
     })
 }

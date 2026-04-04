@@ -41,7 +41,7 @@ pub fn incremental_build(
             mgr.project_name(),
         )?;
 
-        let state = mgr.finish("")?;
+        let changed_state = mgr.finish("")?;
         return Ok(CommandOutput {
             result: BuildResult {
                 pdf_path,
@@ -52,7 +52,7 @@ pub fn incremental_build(
                 dpi_warnings: vec![],
                 nothing_to_do: true,
             },
-            state,
+            changed_state,
         });
     }
 
@@ -74,7 +74,7 @@ pub fn incremental_build(
     let project_name = mgr.project_name().to_string(); // need to backup these before mgr gets consumed
     let bleed_mm = mgr.state.config.book.bleed_mm;
     let total_cost = 0.0; //TODO: calculate actual cost from modified pages when available
-    let state = mgr.finish(&format!(
+    let changed_state = mgr.finish(&format!(
         "build: {} page(s) rebuilt",
         pages_needing_rebuild.len()
     ))?;
@@ -92,7 +92,7 @@ pub fn incremental_build(
             dpi_warnings: vec![],
             nothing_to_do: false,
         },
-        state,
+        changed_state,
     })
 }
 

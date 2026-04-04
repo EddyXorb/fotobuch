@@ -5,6 +5,8 @@ use chrono::{DateTime, FixedOffset};
 use git2::Repository;
 use std::path::Path;
 
+use crate::commands::CommandOutput;
+
 /// Single history entry
 #[derive(Debug)]
 pub struct HistoryEntry {
@@ -15,10 +17,15 @@ pub struct HistoryEntry {
 /// Show project change history via libgit2.
 ///
 /// * `count` – max entries to return; 0 means all
-pub fn history(project_root: &Path, count: usize) -> Result<Vec<HistoryEntry>> {
+pub fn history(project_root: &Path, count: usize) -> Result<CommandOutput<Vec<HistoryEntry>>> {
     let repo = match Repository::open(project_root) {
         Ok(r) => r,
-        Err(_) => return Ok(Vec::new()),
+        Err(_) => {
+            return Ok(CommandOutput {
+                result: Vec::new(),
+                changed_state: None,
+            });
+        }
     };
 
     let mut revwalk = repo.revwalk()?;
@@ -39,7 +46,10 @@ pub fn history(project_root: &Path, count: usize) -> Result<Vec<HistoryEntry>> {
         })
         .collect();
 
-    Ok(entries)
+    Ok(CommandOutput {
+        result: entries,
+        changed_state: None,
+    })
 }
 
 #[cfg(test)]
@@ -49,6 +59,6 @@ mod tests {
     #[test]
     fn test_history_returns_vec_for_nonexistent_path() {
         let result = history(Path::new("/nonexistent/path/xyz"), 5).unwrap();
-        assert!(result.is_empty());
+        assert!(result.result.is_empty());
     }
 }

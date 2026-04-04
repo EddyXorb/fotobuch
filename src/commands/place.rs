@@ -100,26 +100,26 @@ pub fn place(project_root: &Path, config: &PlaceConfig) -> Result<CommandOutput<
     // 1. Find unplaced photos
     let unplaced = find_unplaced(&mgr.state);
     if unplaced.is_empty() {
-        let state = mgr.finish("")?;
+        let changed_state = mgr.finish("")?;
         return Ok(CommandOutput {
             result: PlaceResult {
                 photos_placed: 0,
                 pages_affected: vec![],
             },
-            state,
+            changed_state,
         });
     }
 
     // 2. Apply filters
     let filtered = apply_filters(&unplaced, &config.filters)?;
     if filtered.is_empty() {
-        let state = mgr.finish("")?;
+        let changed_state = mgr.finish("")?;
         return Ok(CommandOutput {
             result: PlaceResult {
                 photos_placed: 0,
                 pages_affected: vec![],
             },
-            state,
+            changed_state,
         });
     }
 
@@ -134,14 +134,14 @@ pub fn place(project_root: &Path, config: &PlaceConfig) -> Result<CommandOutput<
 
     // 4. Commit
     let pages_str = format_page_list(&pages_affected);
-    let state = mgr.finish(&format!("place: {photos_placed} photos onto {pages_str}"))?;
+    let changed_state = mgr.finish(&format!("place: {photos_placed} photos onto {pages_str}"))?;
 
     Ok(CommandOutput {
         result: PlaceResult {
             photos_placed,
             pages_affected,
         },
-        state,
+        changed_state,
     })
 }
 
