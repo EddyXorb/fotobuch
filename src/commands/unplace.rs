@@ -2,6 +2,7 @@
 
 use std::path::Path;
 
+use crate::commands::CommandOutput;
 use crate::state_manager::StateManager;
 
 use crate::commands::page::{
@@ -17,15 +18,19 @@ pub fn execute_unplace(
     project_root: &Path,
     page: u32,
     slots: SlotExpr,
-) -> Result<PageMoveResult, PageMoveError> {
+) -> Result<CommandOutput<PageMoveResult>, PageMoveError> {
     let mut mgr = StateManager::open(project_root)?;
 
     let slot_indices = resolve_slots(page, &slots, &mgr.state.layout)?;
     if slot_indices.is_empty() {
-        return Ok(PageMoveResult {
-            pages_modified: vec![],
-            pages_inserted: vec![],
-            pages_deleted: vec![],
+        let changed_state = mgr.finish("")?;
+        return Ok(CommandOutput {
+            result: PageMoveResult {
+                pages_modified: vec![],
+                pages_inserted: vec![],
+                pages_deleted: vec![],
+            },
+            changed_state,
         });
     }
 
@@ -38,12 +43,15 @@ pub fn execute_unplace(
         vec![page]
     };
 
-    mgr.finish(&format!("unplace: page {page}"))?;
+    let changed_state = mgr.finish(&format!("unplace: page {page}"))?;
 
-    Ok(PageMoveResult {
-        pages_modified: modified,
-        pages_inserted: vec![],
-        pages_deleted: deleted,
+    Ok(CommandOutput {
+        result: PageMoveResult {
+            pages_modified: modified,
+            pages_inserted: vec![],
+            pages_deleted: deleted,
+        },
+        changed_state,
     })
 }
 
@@ -64,7 +72,7 @@ mod tests {
         setup_repo(&tmp, &state);
 
         let result = execute_unplace(tmp.path(), 0, SlotExpr::single(1)).unwrap();
-        assert_eq!(result.pages_modified, vec![0]);
+        assert_eq!(result.result.pages_modified, vec![0]);
 
         let mgr = StateManager::open(tmp.path()).unwrap();
         let page = &mgr.state.layout[0];
@@ -79,8 +87,8 @@ mod tests {
         setup_repo(&tmp, &state);
 
         let result = execute_unplace(tmp.path(), 0, SlotExpr::single(0)).unwrap();
-        assert!(result.pages_deleted.contains(&0));
-        assert!(result.pages_modified.is_empty());
+        assert!(result.result.pages_deleted.contains(&0));
+        assert!(result.result.pages_modified.is_empty());
 
         let mgr = StateManager::open(tmp.path()).unwrap();
         assert_eq!(mgr.state.layout.len(), 1);

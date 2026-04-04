@@ -26,7 +26,7 @@ fn create_test_project(temp_dir: &TempDir) -> Result<PathBuf> {
         margin_mm: 0.0,
     };
     let result = project_new(temp_dir.path(), &config)?;
-    Ok(result.project_root)
+    Ok(result.result.project_root)
 }
 
 /// Helper to get absolute path to test fixtures
@@ -58,11 +58,11 @@ fn test_add_single_directory_creates_groups() -> Result<()> {
 
     // Verify result statistics
     assert!(
-        !result.groups_added.is_empty(),
+        !result.result.groups_added.is_empty(),
         "Should have added at least one group"
     );
-    assert_eq!(result.skipped, 0, "No duplicates on first add");
-    assert_eq!(result.warnings.len(), 0, "No warnings on first add");
+    assert_eq!(result.result.skipped, 0, "No duplicates on first add");
+    assert_eq!(result.result.warnings.len(), 0, "No warnings on first add");
 
     // Load YAML and verify photos were added
     let yaml_path = project_root.join("testproject.yaml");
@@ -124,6 +124,7 @@ fn test_add_duplicate_path_skips() -> Result<()> {
     // First add
     let result1 = add(&project_root, &add_config)?;
     let photos_added_first = result1
+        .result
         .groups_added
         .iter()
         .map(|g| g.photo_count)
@@ -133,15 +134,19 @@ fn test_add_duplicate_path_skips() -> Result<()> {
     let result2 = add(&project_root, &add_config)?;
 
     assert_eq!(
-        result2.groups_added.len(),
+        result2.result.groups_added.len(),
         0,
         "No new groups should be added"
     );
     assert_eq!(
-        result2.skipped, photos_added_first,
+        result2.result.skipped, photos_added_first,
         "All photos should be skipped"
     );
-    assert_eq!(result2.warnings.len(), 0, "No warnings for path duplicates");
+    assert_eq!(
+        result2.result.warnings.len(),
+        0,
+        "No warnings for path duplicates"
+    );
 
     Ok(())
 }
@@ -200,8 +205,9 @@ fn test_add_merges_existing_group() -> Result<()> {
     // Add group1 again (should merge with existing)
     let result3 = add(&project_root, &add_config1)?;
     assert_eq!(
-        result3.skipped,
+        result3.result.skipped,
         result1
+            .result
             .groups_added
             .iter()
             .map(|g| g.photo_count)
@@ -247,6 +253,7 @@ fn test_add_allow_duplicates_flag() -> Result<()> {
     let result1 = add(&project_root, &add_config1)?;
     assert_eq!(
         result1
+            .result
             .groups_added
             .iter()
             .map(|g| g.photo_count)
@@ -267,13 +274,13 @@ fn test_add_allow_duplicates_flag() -> Result<()> {
     };
     let result2 = add(&project_root, &add_config2)?;
 
-    assert_eq!(result2.skipped, 1, "Should skip hash duplicate");
+    assert_eq!(result2.result.skipped, 1, "Should skip hash duplicate");
     assert!(
-        !result2.warnings.is_empty(),
+        !result2.result.warnings.is_empty(),
         "Should warn about hash duplicate"
     );
     assert!(
-        result2.warnings[0].contains("Duplicate"),
+        result2.result.warnings[0].contains("Duplicate"),
         "Warning should mention duplicate"
     );
 
@@ -291,6 +298,7 @@ fn test_add_allow_duplicates_flag() -> Result<()> {
     let result3 = add(&project_root, &add_config3)?;
     assert_eq!(
         result3
+            .result
             .groups_added
             .iter()
             .map(|g| g.photo_count)
@@ -299,7 +307,7 @@ fn test_add_allow_duplicates_flag() -> Result<()> {
         "Should add the duplicate when allowed"
     );
     assert_eq!(
-        result3.warnings.len(),
+        result3.result.warnings.len(),
         0,
         "No warnings when duplicates allowed"
     );
@@ -362,9 +370,9 @@ fn test_dry_run_does_not_write_state() -> Result<()> {
     };
     let result = add(&project_root, &add_config)?;
 
-    assert!(result.dry_run);
+    assert!(result.result.dry_run);
     assert!(
-        !result.groups_added.is_empty(),
+        !result.result.groups_added.is_empty(),
         "Dry run should still report what would be added"
     );
 
@@ -397,7 +405,7 @@ fn test_xmp_filter_with_no_match_excludes_nothing() -> Result<()> {
     let result = add(&project_root, &add_config)?;
 
     assert_eq!(
-        result.groups_added.len(),
+        result.result.groups_added.len(),
         2,
         "All photos should not be excluded when XMP filter matches nothing"
     );
@@ -462,18 +470,18 @@ fn test_xmp_filter_matches_modified_description() -> Result<()> {
 
     // Verify that exactly 2 photos were filtered out (xmp_filtered = 2)
     assert_eq!(
-        result.xmp_filtered, 2,
+        result.result.xmp_filtered, 2,
         "Should have filtered out 2 photos without matching XMP"
     );
 
     // Verify that exactly 1 group was added with 1 photo
     assert_eq!(
-        result.groups_added.len(),
+        result.result.groups_added.len(),
         1,
         "Should have added exactly 1 group"
     );
     assert_eq!(
-        result.groups_added[0].photo_count, 1,
+        result.result.groups_added[0].photo_count, 1,
         "Group should contain exactly 1 photo"
     );
 
@@ -583,7 +591,12 @@ fn test_add_hashes_are_persisted() -> Result<()> {
 
     // Verify all photos are persisted
     let total_photos: usize = state.photos.iter().map(|g| g.files.len()).sum();
-    let expected_photos: usize = result.groups_added.iter().map(|g| g.photo_count).sum();
+    let expected_photos: usize = result
+        .result
+        .groups_added
+        .iter()
+        .map(|g| g.photo_count)
+        .sum();
 
     assert_eq!(
         total_photos, expected_photos,

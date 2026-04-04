@@ -2,6 +2,7 @@
 
 use std::path::Path;
 
+use crate::commands::CommandOutput;
 use crate::dto_models::LayoutPage;
 use crate::state_manager::StateManager;
 
@@ -17,7 +18,7 @@ use super::types::{
 pub fn execute_move(
     project_root: &Path,
     cmd: PageMoveCmd,
-) -> Result<PageMoveResult, PageMoveError> {
+) -> Result<CommandOutput<PageMoveResult>, PageMoveError> {
     match cmd {
         PageMoveCmd::Move { src, dst } => execute_move_to(project_root, src, dst),
         PageMoveCmd::Swap { left, right } => execute_swap(project_root, left, right),
@@ -28,7 +29,7 @@ fn execute_move_to(
     project_root: &Path,
     src: Src,
     dst: DstMove,
-) -> Result<PageMoveResult, PageMoveError> {
+) -> Result<CommandOutput<PageMoveResult>, PageMoveError> {
     let mut mgr = StateManager::open(project_root)?;
 
     // Handle unplace-destination: remove photos from layout (and delete pages for Src::Pages).
@@ -44,11 +45,15 @@ fn execute_move_to(
                 } else {
                     vec![page]
                 };
-                mgr.finish(&format!("page move: page {page}:... -> (unplace)"))?;
-                Ok(PageMoveResult {
-                    pages_modified: modified,
-                    pages_inserted: vec![],
-                    pages_deleted: deleted,
+                let changed_state =
+                    mgr.finish(&format!("page move: page {page}:... -> (unplace)"))?;
+                Ok(CommandOutput {
+                    result: PageMoveResult {
+                        pages_modified: modified,
+                        pages_inserted: vec![],
+                        pages_deleted: deleted,
+                    },
+                    changed_state,
                 })
             }
             Src::Pages(pe) => {
@@ -64,11 +69,14 @@ fn execute_move_to(
                     deleted.push(page_num);
                 }
                 deleted.sort();
-                mgr.finish(&format!("page move: {src_desc} -> (unplace)"))?;
-                Ok(PageMoveResult {
-                    pages_modified: vec![],
-                    pages_inserted: vec![],
-                    pages_deleted: deleted,
+                let changed_state = mgr.finish(&format!("page move: {src_desc} -> (unplace)"))?;
+                Ok(CommandOutput {
+                    result: PageMoveResult {
+                        pages_modified: vec![],
+                        pages_inserted: vec![],
+                        pages_deleted: deleted,
+                    },
+                    changed_state,
                 })
             }
         };
@@ -76,10 +84,14 @@ fn execute_move_to(
 
     let (photos, _src_page_indices) = collect_src_photos(&src, &mgr.state.layout)?;
     if photos.is_empty() {
-        return Ok(PageMoveResult {
-            pages_modified: vec![],
-            pages_inserted: vec![],
-            pages_deleted: vec![],
+        let changed_state = mgr.finish("")?;
+        return Ok(CommandOutput {
+            result: PageMoveResult {
+                pages_modified: vec![],
+                pages_inserted: vec![],
+                pages_deleted: vec![],
+            },
+            changed_state,
         });
     }
 
@@ -149,13 +161,17 @@ fn execute_move_to(
         modified.retain(|p| !deleted.contains(p));
         modified.sort();
         modified.dedup();
-        mgr.finish(&format!("page move: slots from page {src_page} -> page"))?;
-        return Ok(PageMoveResult {
-            pages_modified: modified,
-            pages_inserted: inserted_page
-                .map(|_| vec![dst_page_num])
-                .unwrap_or_default(),
-            pages_deleted: deleted,
+        let changed_state =
+            mgr.finish(&format!("page move: slots from page {src_page} -> page"))?;
+        return Ok(CommandOutput {
+            result: PageMoveResult {
+                pages_modified: modified,
+                pages_inserted: inserted_page
+                    .map(|_| vec![dst_page_num])
+                    .unwrap_or_default(),
+                pages_deleted: deleted,
+            },
+            changed_state,
         });
     }
 
@@ -183,14 +199,17 @@ fn execute_move_to(
     modified_pages.retain(|p| !deleted.contains(p));
 
     let src_desc = format_src_desc(&src);
-    mgr.finish(&format!("page move: {src_desc} -> page {dst_page_num}"))?;
+    let changed_state = mgr.finish(&format!("page move: {src_desc} -> page {dst_page_num}"))?;
 
-    Ok(PageMoveResult {
-        pages_modified: modified_pages,
-        pages_inserted: inserted_page
-            .map(|_| vec![dst_page_num])
-            .unwrap_or_default(),
-        pages_deleted: deleted,
+    Ok(CommandOutput {
+        result: PageMoveResult {
+            pages_modified: modified_pages,
+            pages_inserted: inserted_page
+                .map(|_| vec![dst_page_num])
+                .unwrap_or_default(),
+            pages_deleted: deleted,
+        },
+        changed_state,
     })
 }
 
@@ -198,7 +217,7 @@ fn execute_swap(
     project_root: &Path,
     left: Src,
     right: DstSwap,
-) -> Result<PageMoveResult, PageMoveError> {
+) -> Result<CommandOutput<PageMoveResult>, PageMoveError> {
     let mut mgr = StateManager::open(project_root)?;
 
     // Pages × Pages — block transposition, contiguous ranges only.
@@ -223,11 +242,14 @@ fn execute_swap(
 
         block_transpose_pages(&mut mgr.state.layout, &lpe.pages, &rpe.pages);
 
-        mgr.finish("page swap")?;
-        return Ok(PageMoveResult {
-            pages_modified: modified_pages,
-            pages_inserted: vec![],
-            pages_deleted: vec![],
+        let changed_state = mgr.finish("page swap")?;
+        return Ok(CommandOutput {
+            result: PageMoveResult {
+                pages_modified: modified_pages,
+                pages_inserted: vec![],
+                pages_deleted: vec![],
+            },
+            changed_state,
         });
     }
 
@@ -271,12 +293,15 @@ fn execute_swap(
     modified_pages.sort();
     modified_pages.dedup();
 
-    mgr.finish("page swap")?;
+    let changed_state = mgr.finish("page swap")?;
 
-    Ok(PageMoveResult {
-        pages_modified: modified_pages,
-        pages_inserted: vec![],
-        pages_deleted: vec![],
+    Ok(CommandOutput {
+        result: PageMoveResult {
+            pages_modified: modified_pages,
+            pages_inserted: vec![],
+            pages_deleted: vec![],
+        },
+        changed_state,
     })
 }
 
@@ -393,7 +418,7 @@ mod tests {
             dst: DstMove::Page(0),
         };
         let result = execute_move(tmp.path(), cmd).unwrap();
-        assert!(result.pages_deleted.contains(&1));
+        assert!(result.result.pages_deleted.contains(&1));
 
         let mgr = StateManager::open(tmp.path()).unwrap();
         assert_eq!(mgr.state.layout.len(), 1);
@@ -414,8 +439,8 @@ mod tests {
             dst: DstMove::Unplace,
         };
         let result = execute_move(tmp.path(), cmd).unwrap();
-        assert_eq!(result.pages_deleted, vec![0]);
-        assert!(result.pages_modified.is_empty());
+        assert_eq!(result.result.pages_deleted, vec![0]);
+        assert!(result.result.pages_modified.is_empty());
 
         let mgr = StateManager::open(tmp.path()).unwrap();
         assert_eq!(mgr.state.layout.len(), 1);
@@ -437,8 +462,8 @@ mod tests {
             dst: DstMove::Unplace,
         };
         let result = execute_move(tmp.path(), cmd).unwrap();
-        assert_eq!(result.pages_modified, vec![0]);
-        assert!(result.pages_deleted.is_empty());
+        assert_eq!(result.result.pages_modified, vec![0]);
+        assert!(result.result.pages_deleted.is_empty());
 
         let mgr = StateManager::open(tmp.path()).unwrap();
         assert_eq!(mgr.state.layout[0].photos, vec!["p2.jpg"]);
@@ -459,7 +484,7 @@ mod tests {
             dst: DstMove::NewPageAfter(0),
         };
         let result = execute_move(tmp.path(), cmd).unwrap();
-        assert!(!result.pages_inserted.is_empty());
+        assert!(!result.result.pages_inserted.is_empty());
 
         let mgr = StateManager::open(tmp.path()).unwrap();
         assert_eq!(mgr.state.layout.len(), 3);
@@ -483,7 +508,7 @@ mod tests {
             dst: DstMove::NewPageAfter(0),
         };
         let result = execute_move(tmp.path(), cmd).unwrap();
-        assert!(!result.pages_inserted.is_empty());
+        assert!(!result.result.pages_inserted.is_empty());
 
         let mgr = StateManager::open(tmp.path()).unwrap();
         // Original page 0, new page (with p1.jpg), original page 1 (with p2.jpg)
@@ -509,7 +534,7 @@ mod tests {
             dst: DstMove::Page(1),
         };
         let result = execute_move(tmp.path(), cmd).unwrap();
-        assert!(result.pages_deleted.contains(&0));
+        assert!(result.result.pages_deleted.contains(&0));
 
         let mgr = StateManager::open(tmp.path()).unwrap();
         assert_eq!(mgr.state.layout.len(), 1);
@@ -532,8 +557,8 @@ mod tests {
             dst: DstMove::Unplace,
         };
         let result = execute_move(tmp.path(), cmd).unwrap();
-        assert!(result.pages_deleted.contains(&0));
-        assert!(result.pages_modified.is_empty());
+        assert!(result.result.pages_deleted.contains(&0));
+        assert!(result.result.pages_modified.is_empty());
 
         let mgr = StateManager::open(tmp.path()).unwrap();
         assert_eq!(mgr.state.layout.len(), 1);
@@ -558,7 +583,7 @@ mod tests {
             right: super::super::types::DstSwap::Pages(PagesExpr::from_range(2, 3)),
         };
         let result = execute_move(tmp.path(), cmd).unwrap();
-        assert_eq!(result.pages_modified, vec![0, 1, 2, 3]);
+        assert_eq!(result.result.pages_modified, vec![0, 1, 2, 3]);
 
         let mgr = StateManager::open(tmp.path()).unwrap();
         assert_eq!(
@@ -592,7 +617,7 @@ mod tests {
             right: super::super::types::DstSwap::Pages(PagesExpr::from_range(3, 5)),
         };
         let result = execute_move(tmp.path(), cmd).unwrap();
-        assert_eq!(result.pages_modified, vec![0, 1, 3, 4, 5]);
+        assert_eq!(result.result.pages_modified, vec![0, 1, 3, 4, 5]);
 
         let mgr = StateManager::open(tmp.path()).unwrap();
         assert_eq!(mgr.state.layout[0].photos, vec!["c.jpg"]);

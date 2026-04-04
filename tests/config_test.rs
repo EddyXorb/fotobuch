@@ -23,7 +23,7 @@ fn create_test_project(temp_dir: &TempDir) -> Result<PathBuf> {
         margin_mm: 0.0,
     };
     let result = project_new(temp_dir.path(), &config)?;
-    Ok(result.project_root)
+    Ok(result.result.project_root)
 }
 
 #[test]
@@ -31,7 +31,7 @@ fn test_config_minimal_yaml() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let project_root = create_test_project(&temp_dir)?;
 
-    let result = config(&project_root)?;
+    let result = config(&project_root)?.result;
 
     // Resolved config should have all fields
     assert!(!result.resolved.book.title.is_empty());
@@ -49,7 +49,7 @@ fn test_config_render_output() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let project_root = create_test_project(&temp_dir)?;
 
-    let result = config(&project_root)?;
+    let result = config(&project_root)?.result;
     let output = render_config(&result)?;
 
     // Output should contain the book config
@@ -68,7 +68,7 @@ fn test_config_render_has_field_annotations() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let project_root = create_test_project(&temp_dir)?;
 
-    let result = config(&project_root)?;
+    let result = config(&project_root)?.result;
     let output = render_config(&result)?;
 
     // The output should contain field names even if they're all explicit (no defaults in new project)
@@ -84,7 +84,7 @@ fn test_config_output_valid_yaml() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let project_root = create_test_project(&temp_dir)?;
 
-    let result = config(&project_root)?;
+    let result = config(&project_root)?.result;
     let output = render_config(&result)?;
 
     // Output should be valid YAML that can be parsed
@@ -101,7 +101,7 @@ fn test_config_resolved_matches_expected_structure() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let project_root = create_test_project(&temp_dir)?;
 
-    let result = config(&project_root)?;
+    let result = config(&project_root)?.result;
 
     // Check expected config sections exist
     assert!(!result.resolved.book.title.is_empty());
@@ -115,7 +115,7 @@ fn test_config_raw_subset_of_resolved() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let project_root = create_test_project(&temp_dir)?;
 
-    let result = config(&project_root)?;
+    let result = config(&project_root)?.result;
 
     // Raw config should have fewer fields than resolved (because of defaults)
     let raw_str = serde_yaml::to_string(&result.raw)?;
@@ -158,7 +158,7 @@ fn test_config_all_defaults_when_optional_fields_removed() -> Result<()> {
     fs::write(&yaml_path, serde_yaml::to_string(&yaml)?)?;
 
     // Now load config (should have defaults for removed fields)
-    let result = config(&project_root)?;
+    let result = config(&project_root)?.result;
     let output = render_config(&result)?;
 
     // Count how many times "# default" appears

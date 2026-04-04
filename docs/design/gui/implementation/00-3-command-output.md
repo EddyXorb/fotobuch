@@ -10,7 +10,7 @@
 
 ## 1 — `CommandOutput<T>` einführen
 
-### StateManager::finish() → `Result<ProjectState>`
+### StateManager::finish() → `Result<Option<ProjectState>>`
 
 ```rust
 // Vorher:
@@ -18,11 +18,14 @@ pub fn finish(self, message: &str) -> Result<()>
 pub fn finish_always(self, message: &str) -> Result<()>
 
 // Nachher:
-pub fn finish(self, message: &str) -> Result<ProjectState>
-pub fn finish_always(self, message: &str) -> Result<ProjectState>
+pub fn finish(self, message: &str) -> Result<Option<ProjectState>>
+pub fn finish_always(self, message: &str) -> Result<Option<ProjectState>>
 ```
 
-Intern: `self.state` wird am Ende ge-moved statt gedroppt.
+- `None` → kein Commit (State unverändert)
+- `Some(state)` → Commit erstellt, State hat sich geändert
+
+Intern: `self.state` wird nur ge-moved wenn tatsächlich committed wird.
 
 ### CommandOutput-Wrapper
 
@@ -30,13 +33,16 @@ Intern: `self.state` wird am Ende ge-moved statt gedroppt.
 // src/commands.rs
 pub struct CommandOutput<T> {
     pub result: T,
-    pub state: ProjectState,
+    pub changed_state: Option<ProjectState>,
 }
 ```
 
-### Betroffene Commands
+`changed_state: None` bedeutet: State unverändert nach diesem Command.
+`changed_state: Some(s)` bedeutet: State hat sich geändert, hier ist der neue State.
 
-Jeder Command, der `StateManager::finish()` aufruft, gibt jetzt den State weiter:
+### Alle Commands geben CommandOutput zurück
+
+Einheitliche API — kein Unterschied mehr zwischen read-only und write Commands:
 
 | Command | Vorher | Nachher |
 |---------|--------|---------|
@@ -51,12 +57,19 @@ Jeder Command, der `StateManager::finish()` aufruft, gibt jetzt den State weiter
 | `execute_unplace()` | `Result<PageMoveResult, PageMoveError>` | `Result<CommandOutput<PageMoveResult>, PageMoveError>` |
 | `execute_split()` | `Result<PageMoveResult, PageMoveError>` | `Result<CommandOutput<PageMoveResult>, PageMoveError>` |
 | `execute_combine()` | `Result<PageMoveResult, PageMoveError>` | `Result<CommandOutput<PageMoveResult>, PageMoveError>` |
-| `execute_weight()` | `Result<()>` | `Result<CommandOutput<()>>` |
+| `execute_weight()` | `Result<(), PageMoveError>` | `Result<CommandOutput<()>, PageMoveError>` |
+| `execute_mode()` | `Result<PageModeResult, PageMoveError>` | `Result<CommandOutput<PageModeResult>, PageMoveError>` |
+| `execute_pos()` | `Result<PosResult, PageMoveError>` | `Result<CommandOutput<PosResult>, PageMoveError>` |
+| `config_set()` | `Result<ConfigSetResult>` | `Result<CommandOutput<ConfigSetResult>>` |
 | `project_new()` | `Result<NewResult>` | `Result<CommandOutput<NewResult>>` |
 | `project_switch()` | `Result<()>` | `Result<CommandOutput<()>>` |
+| `config()` | `Result<ConfigResult>` | `Result<CommandOutput<ConfigResult>>` |
+| `status()` | `Result<StatusReport>` | `Result<CommandOutput<StatusReport>>` |
+| `history()` | `Result<Vec<HistoryEntry>>` | `Result<CommandOutput<Vec<HistoryEntry>>>` |
+| `execute_info()` | `Result<PageInfo, PageMoveError>` | `Result<CommandOutput<PageInfo>, PageMoveError>` |
+| `project_list()` | `Result<Vec<String>>` | `Result<CommandOutput<Vec<String>>>` |
 
-Read-Only Commands (`config`, `status`, `history`, `execute_info`) brauchen kein
-`CommandOutput` — sie verändern keinen State.
+Read-only Commands geben immer `changed_state: None` zurück — kein extra YAML-Read.
 
 ### Anpassung der CLI-Handler
 
@@ -72,18 +85,21 @@ let output = commands::build::build(root, &config)?;
 print_build_result(&output.result);
 ```
 
-### Tests
+### GUI-Nutzung
 
-- Alle bestehenden Tests müssen weiterhin durchlaufen (Signaturänderung)
-- Neuer Test: `CommandOutput` enthält korrekten State nach Command
+```rust
+let output = command::build(...)?;
+if let Some(new_state) = output.changed_state {
+    gui.update_state(new_state);
+}
+```
 
 ### Commit-Plan
 
 ```
-refactor(state): make StateManager::finish return ProjectState
-feat(commands): introduce CommandOutput<T> wrapper
+refactor(state): make StateManager::finish return Option<ProjectState>
+feat(commands): introduce CommandOutput<T> with changed_state for all commands
 refactor(cli): adapt all CLI handlers to CommandOutput
-test: verify existing tests pass with new signatures
 ```
 
 ## 2 — `render_pages()` in der Lib
@@ -112,7 +128,7 @@ pub fn render_pages(
 ```rust
 // Vorher: compile_to_bytes() → Vec<u8> (PDF)
 // Nachher:
-fn compile_to_document(template_path: &Path) -> Result<typst::model::Document>
+fn compile_to_document(template_path: &Path) -> Result<PagedDocument>
 fn compile_to_bytes(template_path: &Path) -> Result<Vec<u8>>  // nutzt compile_to_document
 pub fn render_pages(...) -> Result<Vec<RenderedPage>>          // nutzt compile_to_document
 ```

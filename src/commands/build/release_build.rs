@@ -1,6 +1,6 @@
 use std::{path::Path, sync::atomic::AtomicUsize};
 
-use crate::commands::BuildResult;
+use crate::commands::{BuildResult, CommandOutput};
 use crate::{cache::final_cache, state_manager::StateManager};
 
 use crate::output::typst;
@@ -21,7 +21,7 @@ pub fn release_build(
     mut mgr: StateManager,
     project_root: &Path,
     force: bool,
-) -> Result<super::BuildResult> {
+) -> Result<CommandOutput<BuildResult>> {
     let dpi = mgr.state.config.book.dpi;
     info!("Release build: generating final PDF at {:.0} DPI...", dpi);
 
@@ -89,7 +89,7 @@ pub fn release_build(
     let page_count = mgr.state.layout.len();
     let total_photos: usize = mgr.state.layout.iter().map(|p| p.photos.len()).sum();
 
-    mgr.finish_always(&format!(
+    let changed_state = mgr.finish_always(&format!(
         "release: {} pages, {} photos",
         page_count, total_photos
     ))?;
@@ -98,13 +98,16 @@ pub fn release_build(
     let pdf_path = typst::compile_final(project_root, &project_name, bleed_mm)?;
     info!("Final PDF generated: {}", pdf_path.display());
 
-    Ok(BuildResult {
-        pdf_path,
-        pages_rebuilt: vec![], // Release doesn't rebuild layout
-        pages_swapped: vec![],
-        images_processed: final_result.created,
-        total_cost: 0.0, // Not relevant for release
-        dpi_warnings: final_result.dpi_warnings,
-        nothing_to_do: false,
+    Ok(CommandOutput {
+        result: BuildResult {
+            pdf_path,
+            pages_rebuilt: vec![], // Release doesn't rebuild layout
+            pages_swapped: vec![],
+            images_processed: final_result.created,
+            total_cost: 0.0, // Not relevant for release
+            dpi_warnings: final_result.dpi_warnings,
+            nothing_to_do: false,
+        },
+        changed_state,
     })
 }

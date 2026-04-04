@@ -3,6 +3,7 @@
 use std::path::Path;
 
 use crate::{
+    commands::CommandOutput,
     dto_models::{LayoutPage, PageMode, Slot},
     state_manager::StateManager,
 };
@@ -68,7 +69,7 @@ pub fn execute_pos(
     page: u32,
     slots: SlotExpr,
     config: &PosConfig,
-) -> Result<PosResult, PageMoveError> {
+) -> Result<CommandOutput<PosResult>, PageMoveError> {
     let mut mgr = StateManager::open(project_root)?;
 
     let idx = page_idx(page, &mgr.state.layout)?;
@@ -113,14 +114,17 @@ pub fn execute_pos(
         });
     }
 
-    mgr.finish(&format!(
+    let changed_state = mgr.finish(&format!(
         "page pos {page}: {} slot(s) moved",
         slots_changed.len()
     ))?;
 
-    Ok(PosResult {
-        page,
-        slots_changed,
+    Ok(CommandOutput {
+        result: PosResult {
+            page,
+            slots_changed,
+        },
+        changed_state,
     })
 }
 
@@ -161,8 +165,8 @@ mod tests {
         };
         let result = execute_pos(tmp.path(), 0, SlotExpr::single(0), &config).unwrap();
 
-        assert_eq!(result.slots_changed.len(), 1);
-        let change = &result.slots_changed[0];
+        assert_eq!(result.result.slots_changed.len(), 1);
+        let change = &result.result.slots_changed[0];
         assert_eq!(change.old.x_mm, 0.0);
         assert_eq!(change.old.y_mm, 0.0);
         assert_eq!(change.new.x_mm, 5.0);
@@ -188,7 +192,7 @@ mod tests {
         };
         let result = execute_pos(tmp.path(), 0, SlotExpr::single(0), &config).unwrap();
 
-        let change = &result.slots_changed[0];
+        let change = &result.result.slots_changed[0];
         assert_eq!(change.new.x_mm, 50.0);
         assert_eq!(change.new.y_mm, 60.0);
     }
@@ -203,7 +207,7 @@ mod tests {
         };
         let result = execute_pos(tmp.path(), 0, SlotExpr::single(0), &config).unwrap();
 
-        let change = &result.slots_changed[0];
+        let change = &result.result.slots_changed[0];
         // Origin unchanged
         assert_eq!(change.new.x_mm, change.old.x_mm);
         assert_eq!(change.new.y_mm, change.old.y_mm);
@@ -225,7 +229,7 @@ mod tests {
         };
         let result = execute_pos(tmp.path(), 0, SlotExpr::single(0), &config).unwrap();
 
-        let change = &result.slots_changed[0];
+        let change = &result.result.slots_changed[0];
         assert_eq!(change.new.x_mm, 5.0);
         assert_eq!(change.new.y_mm, 5.0);
         assert_eq!(change.new.width_mm, 50.0);
@@ -245,8 +249,8 @@ mod tests {
         };
         let result = execute_pos(tmp.path(), 0, SlotExpr::from_range(0, 2), &config).unwrap();
 
-        assert_eq!(result.slots_changed.len(), 3);
-        for change in &result.slots_changed {
+        assert_eq!(result.result.slots_changed.len(), 3);
+        for change in &result.result.slots_changed {
             assert_eq!(change.new.x_mm, 10.0);
             assert_eq!(change.new.y_mm, 10.0);
         }

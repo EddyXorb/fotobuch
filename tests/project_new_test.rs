@@ -26,28 +26,28 @@ fn test_project_new_mode1_creates_complete_structure() -> Result<()> {
     let result = project_new(temp_dir.path(), &config)?;
 
     // Check that directory was created
-    assert!(result.project_root.exists());
-    assert!(result.project_root.is_dir());
+    assert!(result.result.project_root.exists());
+    assert!(result.result.project_root.is_dir());
 
     // Check branch name
-    assert_eq!(result.branch, "fotobuch/vacation2024");
+    assert_eq!(result.result.branch, "fotobuch/vacation2024");
 
     // Check YAML file exists and has correct content
-    assert!(result.yaml_path.exists());
-    let yaml_content = fs::read_to_string(&result.yaml_path)?;
+    assert!(result.result.yaml_path.exists());
+    let yaml_content = fs::read_to_string(&result.result.yaml_path)?;
     assert!(yaml_content.contains("page_width_mm: 1234"));
     assert!(yaml_content.contains("page_height_mm: 1234"));
     assert!(yaml_content.contains("bleed_mm: 1234"));
     assert!(yaml_content.contains("title: vacation2024"));
 
     // Check Typst template exists and has placeholders replaced
-    assert!(result.typ_path.exists());
-    let typ_content = fs::read_to_string(&result.typ_path)?;
+    assert!(result.result.typ_path.exists());
+    let typ_content = fs::read_to_string(&result.result.typ_path)?;
     assert!(typ_content.contains(r#"project_name = "vacation2024""#));
     assert!(!typ_content.contains("{project_name}"));
 
     // Check .gitignore exists and has correct entries
-    let gitignore_path = result.project_root.join(".gitignore");
+    let gitignore_path = result.result.project_root.join(".gitignore");
     assert!(gitignore_path.exists());
     let gitignore_content = fs::read_to_string(gitignore_path)?;
     assert!(gitignore_content.contains(".fotobuch/"));
@@ -56,9 +56,11 @@ fn test_project_new_mode1_creates_complete_structure() -> Result<()> {
 
     // Check cache directories exist
     let cache_preview = result
+        .result
         .project_root
         .join(".fotobuch/cache/vacation2024/preview");
     let cache_final = result
+        .result
         .project_root
         .join(".fotobuch/cache/vacation2024/final");
     assert!(cache_preview.exists());
@@ -67,10 +69,10 @@ fn test_project_new_mode1_creates_complete_structure() -> Result<()> {
     assert!(cache_final.is_dir());
 
     // Check git repository was initialized
-    assert!(result.project_root.join(".git").exists());
+    assert!(result.result.project_root.join(".git").exists());
 
     // Verify we're on the correct branch using git2
-    let repo = git2::Repository::open(&result.project_root)?;
+    let repo = git2::Repository::open(&result.result.project_root)?;
     let head = repo.head()?;
     assert!(head.is_branch());
     assert_eq!(head.shorthand(), Some("fotobuch/vacation2024"));
@@ -112,24 +114,24 @@ fn test_project_new_mode2_creates_additional_project() -> Result<()> {
         spine_mm: None,
         margin_mm: 0.0,
     };
-    let result2 = project_new(&result1.project_root, &config2)?;
+    let result2 = project_new(&result1.result.project_root, &config2)?;
 
     // Both projects should share the same root
-    assert_eq!(result1.project_root, result2.project_root);
+    assert_eq!(result1.result.project_root, result2.result.project_root);
 
     // Check that second project files exist
-    assert!(result2.yaml_path.exists());
-    assert!(result2.typ_path.exists());
-    assert_eq!(result2.branch, "fotobuch/second");
+    assert!(result2.result.yaml_path.exists());
+    assert!(result2.result.typ_path.exists());
+    assert_eq!(result2.result.branch, "fotobuch/second");
 
     // Verify second project YAML has correct dimensions
-    let yaml2_content = fs::read_to_string(&result2.yaml_path)?;
+    let yaml2_content = fs::read_to_string(&result2.result.yaml_path)?;
     assert!(yaml2_content.contains("page_width_mm: 180"));
     assert!(yaml2_content.contains("page_height_mm: 240"));
     assert!(yaml2_content.contains("bleed_mm: 4"));
 
     // Verify we're on second branch
-    let repo = git2::Repository::open(&result2.project_root)?;
+    let repo = git2::Repository::open(&result2.result.project_root)?;
     let head = repo.head()?;
     assert_eq!(head.shorthand(), Some("fotobuch/second"));
 
@@ -230,7 +232,7 @@ fn test_project_new_with_different_page_dimensions() -> Result<()> {
 
         let result = project_new(temp_dir.path(), &config)?;
 
-        let yaml_content = fs::read_to_string(&result.yaml_path)?;
+        let yaml_content = fs::read_to_string(&result.result.yaml_path)?;
         assert!(yaml_content.contains(&format!("page_width_mm: {}", width)));
         assert!(yaml_content.contains(&format!("page_height_mm: {}", height)));
         assert!(yaml_content.contains(&format!("bleed_mm: {}", bleed)));

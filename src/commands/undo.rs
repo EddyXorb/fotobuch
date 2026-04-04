@@ -4,7 +4,7 @@ use anyhow::{Context, Result, bail};
 use git2::{Repository, ResetType, Status};
 use std::path::Path;
 
-use crate::{git, undo_stack};
+use crate::{commands::CommandOutput, git, state_manager::load_project_state, undo_stack};
 
 #[derive(Debug)]
 pub struct UndoResult {
@@ -20,7 +20,7 @@ pub struct UndoResult {
 ///
 /// If the working tree is dirty the changes are committed automatically as
 /// `wip: before undo` so they can be recovered via `redo`.
-pub fn undo(project_root: &Path, steps: usize) -> Result<UndoResult> {
+pub fn undo(project_root: &Path, steps: usize) -> Result<CommandOutput<UndoResult>> {
     if steps == 0 {
         bail!("Steps must be at least 1.");
     }
@@ -48,15 +48,20 @@ pub fn undo(project_root: &Path, steps: usize) -> Result<UndoResult> {
 
     let current_message = target.summary().unwrap_or("").to_string();
 
-    Ok(UndoResult {
-        wip_committed,
-        undone_message,
-        current_message,
+    let changed_state = Some(load_project_state(project_root).unwrap_or_default());
+
+    Ok(CommandOutput {
+        result: UndoResult {
+            wip_committed,
+            undone_message,
+            current_message,
+        },
+        changed_state,
     })
 }
 
 /// Redo `steps` commits that were previously undone.
-pub fn redo(project_root: &Path, steps: usize) -> Result<UndoResult> {
+pub fn redo(project_root: &Path, steps: usize) -> Result<CommandOutput<UndoResult>> {
     if steps == 0 {
         bail!("Steps must be at least 1.");
     }
@@ -97,10 +102,15 @@ pub fn redo(project_root: &Path, steps: usize) -> Result<UndoResult> {
 
     let current_message = commit.summary().unwrap_or("").to_string();
 
-    Ok(UndoResult {
-        wip_committed: false,
-        undone_message,
-        current_message,
+    let changed_state = Some(load_project_state(project_root).unwrap_or_default());
+
+    Ok(CommandOutput {
+        result: UndoResult {
+            wip_committed: false,
+            undone_message,
+            current_message,
+        },
+        changed_state,
     })
 }
 
@@ -192,8 +202,8 @@ mod tests {
         let (dir, _repo) = setup_repo_with_commits(3);
         let result = undo(dir.path(), 1).unwrap();
 
-        assert_eq!(result.undone_message, "commit 3");
-        assert_eq!(result.current_message, "commit 2");
+        assert_eq!(result.result.undone_message, "commit 3");
+        assert_eq!(result.result.current_message, "commit 2");
         assert_eq!(head_content(&dir), "v2");
     }
 
@@ -212,7 +222,7 @@ mod tests {
         assert_eq!(head_content(&dir), "v2");
 
         let result = redo(dir.path(), 1).unwrap();
-        assert_eq!(result.current_message, "commit 3");
+        assert_eq!(result.result.current_message, "commit 3");
         assert_eq!(head_content(&dir), "v3");
     }
 
@@ -253,14 +263,14 @@ mod tests {
         fs::write(dir.path().join("file.txt"), "dirty").unwrap();
 
         let result = undo(dir.path(), 1).unwrap();
-        assert!(result.wip_committed);
+        assert!(result.result.wip_committed);
 
         // After undo 1: WIP was committed as HEAD, then HEAD~1 = v2
         assert_eq!(head_content(&dir), "v2");
 
         // Redo should restore the WIP commit (content = "dirty")
         let redo_result = redo(dir.path(), 1).unwrap();
-        assert_eq!(redo_result.current_message, "wip: before undo");
+        assert_eq!(redo_result.result.current_message, "wip: before undo");
         assert_eq!(head_content(&dir), "dirty");
     }
 

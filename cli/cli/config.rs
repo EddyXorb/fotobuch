@@ -11,18 +11,18 @@ fn project_root() -> Result<std::path::PathBuf> {
 /// Handler for `fotobuch config show`.
 pub fn handle_show() -> Result<()> {
     let result = commands::config(&project_root()?)?;
-    let output = commands::render_config(&result)?;
+    let output = commands::render_config(&result.result)?;
     info!("{}", output);
     Ok(())
 }
 
 /// Handler for `fotobuch config set <key> <value>`.
 pub fn handle_set(key: &str, value: &str) -> Result<()> {
-    let result = commands::config::config_set(&project_root()?, key, value)
+    let output = commands::config::config_set(&project_root()?, key, value)
         .map_err(|e| anyhow::anyhow!("{e}"))?;
     println!(
         "{}: {} → {}",
-        result.key, result.old_value, result.new_value
+        output.result.key, output.result.old_value, output.result.new_value
     );
     Ok(())
 }

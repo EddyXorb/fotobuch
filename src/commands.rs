@@ -20,6 +20,27 @@ pub mod status;
 pub mod undo;
 pub mod unplace;
 
+use crate::dto_models::ProjectState;
+
+/// Wraps a command result with an optional post-command state snapshot.
+///
+/// `changed_state` is `Some(s)` when the command committed a state change,
+/// and `None` when the state was not modified (read-only commands, no-op writes).
+/// The GUI should update its cached state whenever `changed_state.is_some()`.
+pub struct CommandOutput<T> {
+    pub result: T,
+    pub changed_state: Option<ProjectState>,
+}
+
+impl<T: std::fmt::Debug> std::fmt::Debug for CommandOutput<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CommandOutput")
+            .field("result", &self.result)
+            .field("changed_state", &self.changed_state)
+            .finish()
+    }
+}
+
 pub use add::{AddConfig, AddResult, GroupSummary, add};
 pub use build::{BuildConfig, BuildResult, DpiWarning, build};
 pub use config::{ConfigResult, config, render_config};

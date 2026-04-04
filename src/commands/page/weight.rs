@@ -2,6 +2,7 @@
 
 use std::path::Path;
 
+use crate::commands::CommandOutput;
 use crate::state_manager::StateManager;
 
 use super::helpers::{page_idx, resolve_slots};
@@ -12,7 +13,7 @@ pub fn execute_weight(
     project_root: &Path,
     address: WeightAddress,
     weight: f64,
-) -> Result<(), PageMoveError> {
+) -> Result<CommandOutput<()>, PageMoveError> {
     if weight <= 0.0 {
         return Err(ValidationError::WeightOutOfRange(weight).into());
     }
@@ -47,8 +48,11 @@ pub fn execute_weight(
         }
     }
 
-    mgr.finish(&format!("page weight: page {page} = {weight}"))?;
-    Ok(())
+    let changed_state = mgr.finish(&format!("page weight: page {page} = {weight}"))?;
+    Ok(CommandOutput {
+        result: (),
+        changed_state,
+    })
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────

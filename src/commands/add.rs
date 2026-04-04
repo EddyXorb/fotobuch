@@ -16,6 +16,7 @@ use regex::Regex;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
+use crate::commands::CommandOutput;
 use crate::input::scan::{self as scanner, ScannerInput};
 use crate::state_manager::StateManager;
 
@@ -81,7 +82,7 @@ pub struct AddResult {
 /// 6. Merge groups (extend existing or add new) — skipped in dry-run
 /// 7. Sort groups by sort_key — skipped in dry-run
 /// 8. Commit changes via StateManager — skipped in dry-run
-pub fn add(project_root: &Path, config: &AddConfig) -> Result<AddResult> {
+pub fn add(project_root: &Path, config: &AddConfig) -> Result<CommandOutput<AddResult>> {
     let mut mgr =
         StateManager::open(project_root).context("Failed to open project via StateManager")?;
 
@@ -182,7 +183,7 @@ pub fn add(project_root: &Path, config: &AddConfig) -> Result<AddResult> {
         });
     }
 
-    if !config.dry_run {
+    let changed_state = if !config.dry_run {
         mgr.state.photos.sort_by(|a, b| a.sort_key.cmp(&b.sort_key));
 
         let total_photos: usize = groups_added.iter().map(|g| g.photo_count).sum();
@@ -190,17 +191,22 @@ pub fn add(project_root: &Path, config: &AddConfig) -> Result<AddResult> {
             "add: {} photos in {} groups",
             total_photos,
             groups_added.len()
-        ))?;
-    }
+        ))?
+    } else {
+        mgr.finish("")?
+    };
 
-    Ok(AddResult {
-        groups_added,
-        skipped: total_skipped,
-        xmp_filtered: total_xmp_filtered,
-        source_filtered: total_source_filtered,
-        warnings: all_warnings,
-        dry_run: config.dry_run,
-        updated: total_updated,
+    Ok(CommandOutput {
+        result: AddResult {
+            groups_added,
+            skipped: total_skipped,
+            xmp_filtered: total_xmp_filtered,
+            source_filtered: total_source_filtered,
+            warnings: all_warnings,
+            dry_run: config.dry_run,
+            updated: total_updated,
+        },
+        changed_state,
     })
 }
 

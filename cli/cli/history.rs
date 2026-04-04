@@ -8,7 +8,7 @@ use tracing::info;
 pub fn handle(count: usize) -> Result<()> {
     let project_root = std::env::current_dir().context("Failed to determine current directory")?;
 
-    let entries = commands::history(&project_root, count)?;
+    let entries = commands::history(&project_root, count)?.result;
 
     if entries.is_empty() {
         info!("ℹ️  No history available (not a git repository or no commits yet).");

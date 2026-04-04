@@ -9,9 +9,9 @@ use crate::cli::page::parse_api::parse_unplace_addr;
 pub fn handle_unplace(address: &str) -> Result<()> {
     let (page, slots) = parse_unplace_addr(address)
         .map_err(|e| anyhow::anyhow!("Invalid address '{}': {}", address, e))?;
-    let result =
+    let output =
         execute_unplace(&project_root()?, page, slots).map_err(|e| anyhow::anyhow!("{}", e))?;
-    if result.pages_modified.is_empty() {
+    if output.result.pages_modified.is_empty() {
         println!("Nothing to unplace.");
     } else {
         println!("Unplaced photos from page {}.", page);

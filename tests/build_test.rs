@@ -28,7 +28,7 @@ fn create_test_project_with_photos(temp_dir: &TempDir) -> Result<PathBuf> {
         margin_mm: 0.0,
     };
     let result = project_new(temp_dir.path(), &config)?;
-    let project_root = result.project_root;
+    let project_root = result.result.project_root;
 
     let mut mgr = StateManager::open(&project_root)?;
     mgr.state.config.book_layout_solver.page_max = 5; // Limit pages to speed up tests
@@ -75,7 +75,7 @@ fn create_test_project_with_artificial_photos_3(temp_dir: &TempDir) -> Result<Pa
         margin_mm: 0.0,
     };
     let result = project_new(temp_dir.path(), &config)?;
-    let project_root = result.project_root;
+    let project_root = result.result.project_root;
 
     let mut mgr = StateManager::open(&project_root)?;
     // Force at least 2 pages: min 1 photo per page, max 2 per page
@@ -131,21 +131,27 @@ fn test_first_build_creates_layout_and_pdf() -> Result<()> {
     let result = build(&project_root, &build_config)?;
 
     // Verify PDF was created
-    assert!(result.pdf_path.exists(), "PDF should be created");
+    assert!(result.result.pdf_path.exists(), "PDF should be created");
     assert!(
-        result.pdf_path.ends_with("testbuild.pdf"),
+        result.result.pdf_path.ends_with("testbuild.pdf"),
         "PDF should have correct name"
     );
 
     // Verify result statistics
     assert!(
-        !result.pages_rebuilt.is_empty(),
+        !result.result.pages_rebuilt.is_empty(),
         "Should have rebuilt pages"
     );
-    assert!(result.pages_swapped.is_empty(), "First build has no swaps");
-    assert!(!result.nothing_to_do, "First build should do something");
     assert!(
-        result.dpi_warnings.is_empty(),
+        result.result.pages_swapped.is_empty(),
+        "First build has no swaps"
+    );
+    assert!(
+        !result.result.nothing_to_do,
+        "First build should do something"
+    );
+    assert!(
+        result.result.dpi_warnings.is_empty(),
         "Preview build has no DPI warnings"
     );
 
@@ -196,22 +202,25 @@ fn test_incremental_build_without_changes_does_nothing() -> Result<()> {
         pages: None,
     };
     let result1 = build(&project_root, &build_config)?;
-    assert!(!result1.nothing_to_do, "First build should do something");
+    assert!(
+        !result1.result.nothing_to_do,
+        "First build should do something"
+    );
 
     // Second build without changes
     let result2 = build(&project_root, &build_config)?;
 
     // Should report nothing to do
     assert!(
-        result2.nothing_to_do,
+        result2.result.nothing_to_do,
         "Second build without changes should report nothing to do"
     );
     assert!(
-        result2.pages_rebuilt.is_empty(),
+        result2.result.pages_rebuilt.is_empty(),
         "No pages should be rebuilt"
     );
     assert!(
-        result2.pages_swapped.is_empty(),
+        result2.result.pages_swapped.is_empty(),
         "No pages should be swapped"
     );
 
@@ -330,8 +339,12 @@ fn test_release_creates_final_cache_and_pdf() -> Result<()> {
     let result = build(&project_root, &release_config)?;
 
     // Verify final PDF was created
-    assert!(result.pdf_path.exists(), "Final PDF should be created");
+    assert!(
+        result.result.pdf_path.exists(),
+        "Final PDF should be created"
+    );
     let filename = result
+        .result
         .pdf_path
         .file_name()
         .and_then(|n| n.to_str())
@@ -361,7 +374,7 @@ fn test_release_creates_final_cache_and_pdf() -> Result<()> {
 
     // Verify DPI warnings are present in result (may be empty for good photos)
     // We just check the field exists
-    let _ = &result.dpi_warnings;
+    let _ = &result.result.dpi_warnings;
 
     Ok(())
 }
@@ -380,7 +393,7 @@ fn test_pages_filter_limits_scope() -> Result<()> {
     let result1 = build(&project_root, &build_config)?;
 
     // Skip test if only one page was created
-    if result1.pages_rebuilt.len() < 2 {
+    if result1.result.pages_rebuilt.len() < 2 {
         eprintln!("Test skipped: need at least 2 pages for filter test");
         return Ok(());
     }
@@ -394,7 +407,7 @@ fn test_pages_filter_limits_scope() -> Result<()> {
     state.save(&yaml_path)?;
 
     // Build with page filter (only first page that was created)
-    let first_page = *result1.pages_rebuilt.first().unwrap_or(&0);
+    let first_page = *result1.result.pages_rebuilt.first().unwrap_or(&0);
     let filtered_config = BuildConfig {
         release: false,
         force: false,
@@ -404,7 +417,7 @@ fn test_pages_filter_limits_scope() -> Result<()> {
 
     // Should rebuild the specified page
     assert!(
-        result2.pages_rebuilt.contains(&first_page),
+        result2.result.pages_rebuilt.contains(&first_page),
         "Should rebuild the specified page"
     );
 
@@ -434,7 +447,7 @@ fn test_build_handles_empty_photo_list() -> Result<()> {
         margin_mm: 0.0,
     };
     let result = project_new(temp_dir.path(), &config)?;
-    let project_root = result.project_root;
+    let project_root = result.result.project_root;
 
     // Try to build with no photos
     let build_config = BuildConfig {
@@ -450,7 +463,7 @@ fn test_build_handles_empty_photo_list() -> Result<()> {
         Ok(result) => {
             // If it succeeds, it should report nothing to do
             assert!(
-                result.nothing_to_do || result.pages_rebuilt.is_empty(),
+                result.result.nothing_to_do || result.result.pages_rebuilt.is_empty(),
                 "Build with no photos should do nothing or create no pages"
             );
         }
@@ -505,7 +518,7 @@ fn test_max_groups_per_page_limits_to_one_group() -> Result<()> {
 
     // Verify build succeeded
     assert!(
-        !result.pages_rebuilt.is_empty(),
+        !result.result.pages_rebuilt.is_empty(),
         "Build should create pages"
     );
 
@@ -586,7 +599,7 @@ fn test_build_from_scratch_with_max_groups_per_page_one() -> Result<()> {
 
     // Verify build succeeded
     assert!(
-        !result.pages_rebuilt.is_empty(),
+        !result.result.pages_rebuilt.is_empty(),
         "Build should create pages"
     );
 
@@ -643,11 +656,14 @@ fn test_incremental_build_detects_no_changes_when_swapping_page_order() -> Resul
         pages: None,
     };
     let result1 = build(&project_root, &build_config)?;
-    assert!(!result1.nothing_to_do, "First build should do something");
     assert!(
-        result1.pages_rebuilt.len() >= 2,
+        !result1.result.nothing_to_do,
+        "First build should do something"
+    );
+    assert!(
+        result1.result.pages_rebuilt.len() >= 2,
         "Should have at least 2 pages for swap test, got {}",
-        result1.pages_rebuilt.len()
+        result1.result.pages_rebuilt.len()
     );
 
     // Load state and capture layout before swap
@@ -676,12 +692,12 @@ fn test_incremental_build_detects_no_changes_when_swapping_page_order() -> Resul
     // just swapped in order. The page change detection should recognize that
     // the photo sets and slot structures still exist and haven't changed.
     assert!(
-        result2.nothing_to_do,
+        result2.result.nothing_to_do,
         "After swapping page order without changing internal content, should report nothing to do. Got pages_rebuilt={:?}, pages_swapped={:?}",
-        result2.pages_rebuilt, result2.pages_swapped
+        result2.result.pages_rebuilt, result2.result.pages_swapped
     );
     assert!(
-        result2.pages_rebuilt.is_empty(),
+        result2.result.pages_rebuilt.is_empty(),
         "No pages should be rebuilt after page order swap"
     );
 
@@ -701,7 +717,10 @@ fn test_incremental_rebuild_after_swapping_photos_on_same_page() -> Result<()> {
         pages: None,
     };
     let result1 = build(&project_root, &build_config)?;
-    assert!(!result1.nothing_to_do, "First build should do something");
+    assert!(
+        !result1.result.nothing_to_do,
+        "First build should do something"
+    );
 
     // Load state and find a page with 2+ photos
     let yaml_path = project_root.join("testbuild.yaml");
@@ -750,13 +769,13 @@ fn test_incremental_rebuild_after_swapping_photos_on_same_page() -> Result<()> {
     println!("Result2: {:#?}", result2);
     // Should rebuild the affected page
     assert!(
-        result2.pages_rebuilt.contains(&page_idx),
+        result2.result.pages_rebuilt.contains(&page_idx),
         "Page with swapped photos should be rebuilt"
     );
 
     // Verify no DPI warnings in the rebuild
     assert!(
-        result2.dpi_warnings.is_empty(),
+        result2.result.dpi_warnings.is_empty(),
         "Rebuild after photo swap should not produce DPI warnings"
     );
 

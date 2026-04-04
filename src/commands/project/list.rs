@@ -3,6 +3,8 @@
 use anyhow::Result;
 use std::path::Path;
 
+use crate::commands::CommandOutput;
+
 /// List all photobook projects from git branches
 ///
 /// Searches for branches matching pattern `fotobuch/*` and returns info about each one.
@@ -13,7 +15,7 @@ use std::path::Path;
 ///
 /// # Returns
 /// * Vector of ProjectInfo structs with name, branch, and is_current flag
-pub fn project_list(project_root: &Path) -> Result<Vec<super::ProjectInfo>> {
+pub fn project_list(project_root: &Path) -> Result<CommandOutput<Vec<super::ProjectInfo>>> {
     use git2::Repository;
 
     let repo = Repository::open(project_root)?;
@@ -61,5 +63,8 @@ pub fn project_list(project_root: &Path) -> Result<Vec<super::ProjectInfo>> {
     // Sort by name for consistent output
     projects.sort_by(|a, b| a.name.cmp(&b.name));
 
-    Ok(projects)
+    Ok(CommandOutput {
+        result: projects,
+        changed_state: None,
+    })
 }

@@ -23,7 +23,7 @@ fn create_test_project(temp_dir: &TempDir) -> Result<PathBuf> {
         margin_mm: 0.0,
     };
     let result = project_new(temp_dir.path(), &config)?;
-    Ok(result.project_root)
+    Ok(result.result.project_root)
 }
 
 /// Helper to create a project with photos and build layout
@@ -65,7 +65,7 @@ fn test_status_empty_layout() -> Result<()> {
     let project_root = create_test_project(&temp_dir)?;
 
     let config = StatusConfig { page: None };
-    let report = status(&project_root, &config)?;
+    let report = status(&project_root, &config)?.result;
 
     assert_eq!(report.state, ProjectState_::Empty);
     assert_eq!(report.page_count, 0);
@@ -82,7 +82,7 @@ fn test_status_clean() -> Result<()> {
 
     // Status should be clean after build
     let config = StatusConfig { page: None };
-    let report = status(&project_root, &config)?;
+    let report = status(&project_root, &config)?.result;
 
     assert_eq!(report.state, ProjectState_::Clean);
     assert!(report.page_count > 0);
@@ -107,7 +107,7 @@ fn test_status_with_unplaced() -> Result<()> {
         state.save(&yaml_path)?;
 
         let config = StatusConfig { page: None };
-        let report = status(&project_root, &config)?;
+        let report = status(&project_root, &config)?.result;
 
         // Should have unplaced photos
         assert!(report.unplaced > 0);
@@ -122,7 +122,7 @@ fn test_status_page_detail() -> Result<()> {
     let project_root = create_test_project_with_layout(&temp_dir)?;
 
     let config = StatusConfig { page: Some(0) };
-    let report = status(&project_root, &config)?;
+    let report = status(&project_root, &config)?.result;
 
     assert!(report.detail.is_some());
     let detail = report.detail.unwrap();
@@ -161,7 +161,7 @@ fn test_status_counts_correct() -> Result<()> {
     let project_root = create_test_project_with_layout(&temp_dir)?;
 
     let config = StatusConfig { page: None };
-    let report = status(&project_root, &config)?;
+    let report = status(&project_root, &config)?.result;
 
     // Verify basic counts are calculated
     assert!(report.total_photos > 0);
@@ -182,7 +182,7 @@ fn test_status_swap_groups() -> Result<()> {
     let project_root = create_test_project_with_layout(&temp_dir)?;
 
     let config = StatusConfig { page: Some(0) };
-    let report = status(&project_root, &config)?;
+    let report = status(&project_root, &config)?.result;
 
     if let Some(detail) = report.detail {
         // Check that swap groups are assigned
@@ -207,7 +207,7 @@ fn test_status_consistency_no_orphans() -> Result<()> {
     let project_root = create_test_project_with_layout(&temp_dir)?;
 
     let config = StatusConfig { page: None };
-    let report = status(&project_root, &config)?;
+    let report = status(&project_root, &config)?.result;
 
     // After normal build, should have no orphaned placements
     assert!(report.warnings.is_empty());
@@ -230,7 +230,7 @@ fn test_status_modified_after_manual_edit() -> Result<()> {
         state.save(&yaml_path)?;
 
         let config = StatusConfig { page: None };
-        let report = status(&project_root, &config)?;
+        let report = status(&project_root, &config)?.result;
 
         // Status should show modifications
         assert_eq!(report.state, ProjectState_::Modified);

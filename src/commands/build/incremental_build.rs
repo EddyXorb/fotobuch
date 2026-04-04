@@ -2,6 +2,7 @@ use super::super::BuildResult;
 use super::core::rebuild_single_page::rebuild_single_page;
 use super::helpers::{build_photo_index, update_preview_pdf};
 use crate::cache::preview;
+use crate::commands::CommandOutput;
 use crate::state_manager::StateManager;
 use anyhow::Result;
 use std::path::Path;
@@ -12,7 +13,7 @@ pub fn incremental_build(
     mut mgr: StateManager,
     project_root: &Path,
     page_filter: Option<&[usize]>,
-) -> Result<BuildResult> {
+) -> Result<CommandOutput<BuildResult>> {
     info!("Incremental build: checking for changes...");
 
     // 1. Generate/update preview cache
@@ -40,14 +41,18 @@ pub fn incremental_build(
             mgr.project_name(),
         )?;
 
-        return Ok(BuildResult {
-            pdf_path,
-            pages_rebuilt: vec![],
-            pages_swapped: vec![],
-            images_processed: cache_result.created,
-            total_cost: 0.0,
-            dpi_warnings: vec![],
-            nothing_to_do: true,
+        let changed_state = mgr.finish("")?;
+        return Ok(CommandOutput {
+            result: BuildResult {
+                pdf_path,
+                pages_rebuilt: vec![],
+                pages_swapped: vec![],
+                images_processed: cache_result.created,
+                total_cost: 0.0,
+                dpi_warnings: vec![],
+                nothing_to_do: true,
+            },
+            changed_state,
         });
     }
 
@@ -69,7 +74,7 @@ pub fn incremental_build(
     let project_name = mgr.project_name().to_string(); // need to backup these before mgr gets consumed
     let bleed_mm = mgr.state.config.book.bleed_mm;
     let total_cost = 0.0; //TODO: calculate actual cost from modified pages when available
-    mgr.finish(&format!(
+    let changed_state = mgr.finish(&format!(
         "build: {} page(s) rebuilt",
         pages_needing_rebuild.len()
     ))?;
@@ -77,14 +82,17 @@ pub fn incremental_build(
     // 6. Compile Typst template to PDF
     let pdf_path = update_preview_pdf(project_root, bleed_mm, &project_name)?;
 
-    Ok(BuildResult {
-        pdf_path,
-        pages_rebuilt: pages_needing_rebuild,
-        pages_swapped: vec![],
-        images_processed: cache_result.created,
-        total_cost,
-        dpi_warnings: vec![],
-        nothing_to_do: false,
+    Ok(CommandOutput {
+        result: BuildResult {
+            pdf_path,
+            pages_rebuilt: pages_needing_rebuild,
+            pages_swapped: vec![],
+            images_processed: cache_result.created,
+            total_cost,
+            dpi_warnings: vec![],
+            nothing_to_do: false,
+        },
+        changed_state,
     })
 }
 

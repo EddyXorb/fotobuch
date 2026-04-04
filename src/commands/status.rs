@@ -4,6 +4,7 @@ use anyhow::Result;
 use std::collections::HashSet;
 use std::path::Path;
 
+use crate::commands::CommandOutput;
 use crate::commands::build::build_photo_index;
 use crate::dto_models::ProjectState;
 use crate::state_manager::StateManager;
@@ -224,7 +225,7 @@ fn build_page_detail(
 }
 
 /// Show project status (read-only)
-pub fn status(project_root: &Path, config: &StatusConfig) -> Result<StatusReport> {
+pub fn status(project_root: &Path, config: &StatusConfig) -> Result<CommandOutput<StatusReport>> {
     let mgr = StateManager::open(project_root)?;
     let project_name = mgr.project_name().to_owned();
 
@@ -260,17 +261,20 @@ pub fn status(project_root: &Path, config: &StatusConfig) -> Result<StatusReport
         .map(|p| build_page_detail(&mgr.state, p, &page_changes))
         .transpose()?;
 
-    Ok(StatusReport {
-        project_name,
-        state: project_state,
-        total_photos,
-        group_count,
-        unplaced,
-        page_count,
-        avg_photos_per_page: avg,
-        page_changes,
-        detail,
-        warnings,
+    Ok(CommandOutput {
+        result: StatusReport {
+            project_name,
+            state: project_state,
+            total_photos,
+            group_count,
+            unplaced,
+            page_count,
+            avg_photos_per_page: avg,
+            page_changes,
+            detail,
+            warnings,
+        },
+        changed_state: None,
     })
 }
 
