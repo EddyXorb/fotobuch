@@ -22,19 +22,19 @@ pub fn handle_mode(pages_str: &str, mode_str: &str) -> Result<()> {
         }
     };
 
-    let result =
+    let output =
         page::execute_mode(&project_root()?, pages, mode).map_err(|e| anyhow::anyhow!("{}", e))?;
 
-    let mode_name = match result.new_mode {
+    let mode_name = match output.result.new_mode {
         PageMode::Auto => "auto",
         PageMode::Manual => "manual",
     };
 
     println!(
         "Set {} page(s) to {} mode: {}",
-        result.pages_changed.len(),
+        output.result.pages_changed.len(),
         mode_name,
-        format_page_list(&result.pages_changed)
+        format_page_list(&output.result.pages_changed)
     );
     Ok(())
 }

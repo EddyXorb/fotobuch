@@ -13,19 +13,19 @@ pub fn handle(filters: Vec<String>, into: Option<usize>) -> Result<()> {
         into_page: into,
     };
 
-    let result = commands::place::place(&project_root, &config)?;
+    let output = commands::place::place(&project_root, &config)?;
 
-    if result.photos_placed == 0 {
+    if output.result.photos_placed == 0 {
         info!("ℹ️  No photos to place.");
     } else {
-        let pages_str = if result.pages_affected.len() == 1 {
-            format!("page {}", result.pages_affected[0])
+        let pages_str = if output.result.pages_affected.len() == 1 {
+            format!("page {}", output.result.pages_affected[0])
         } else {
-            format!("pages {:?}", result.pages_affected)
+            format!("pages {:?}", output.result.pages_affected)
         };
         info!(
             "✅ Placed {} photo(s) onto {}",
-            result.photos_placed, pages_str
+            output.result.photos_placed, pages_str
         );
         info!("🔄 Run 'fotobuch build' or 'fotobuch rebuild' to regenerate PDFs.");
     }

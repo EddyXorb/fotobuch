@@ -68,13 +68,13 @@ pub fn handle(command: ProjectSubcommand) -> Result<()> {
                 margin_mm,
             };
 
-            let result = commands::project_new(parent, &config)?;
+            let output = commands::project_new(parent, &config)?;
 
             info!("✅ Project '{}' created successfully!", name);
-            info!("📁 Location: {}", result.project_root.display());
-            info!("🌿 Branch: {}", result.branch);
-            info!("📄 YAML: {}", result.yaml_path.display());
-            info!("📝 Template: {}", result.typ_path.display());
+            info!("📁 Location: {}", output.result.project_root.display());
+            info!("🌿 Branch: {}", output.result.branch);
+            info!("📄 YAML: {}", output.result.yaml_path.display());
+            info!("📝 Template: {}", output.result.typ_path.display());
 
             Ok(())
         }

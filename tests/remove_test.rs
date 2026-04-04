@@ -24,7 +24,7 @@ fn create_test_project_with_layout(temp_dir: &TempDir) -> Result<PathBuf> {
         margin_mm: 0.0,
     };
     let result = project_new(temp_dir.path(), &config)?;
-    let project_root = result.project_root;
+    let project_root = result.result.project_root;
 
     // Add test photos
     let photos_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -67,9 +67,9 @@ fn test_remove_no_matches_returns_zero() -> Result<()> {
     };
     let result = remove(&project_root, &config)?;
 
-    assert_eq!(result.photos_removed, 0);
-    assert_eq!(result.placements_removed, 0);
-    assert!(result.pages_affected.is_empty());
+    assert_eq!(result.result.photos_removed, 0);
+    assert_eq!(result.result.placements_removed, 0);
+    assert!(result.result.pages_affected.is_empty());
 
     Ok(())
 }
@@ -105,9 +105,12 @@ fn test_remove_single_photo_by_pattern() -> Result<()> {
     };
     let result = remove(&project_root, &config)?;
 
-    assert!(result.photos_removed > 0, "Should remove some photos");
     assert!(
-        result.placements_removed > 0,
+        result.result.photos_removed > 0,
+        "Should remove some photos"
+    );
+    assert!(
+        result.result.placements_removed > 0,
         "Should remove some placements"
     );
 
@@ -143,9 +146,9 @@ fn test_remove_entire_group() -> Result<()> {
     };
     let result = remove(&project_root, &config)?;
 
-    assert_eq!(result.groups_removed.len(), 1);
-    assert!(result.groups_removed.contains(&group_name));
-    assert!(result.photos_removed > 0);
+    assert_eq!(result.result.groups_removed.len(), 1);
+    assert!(result.result.groups_removed.contains(&group_name));
+    assert!(result.result.photos_removed > 0);
 
     // Verify group is removed
     let state_after = ProjectState::load(&yaml_path)?;
@@ -181,11 +184,11 @@ fn test_remove_with_keep_files() -> Result<()> {
     let result = remove(&project_root, &config)?;
 
     assert_eq!(
-        result.photos_removed, 0,
+        result.result.photos_removed, 0,
         "No photos should be removed from photos section"
     );
     assert!(
-        result.placements_removed > 0,
+        result.result.placements_removed > 0,
         "Placements should be removed from layout"
     );
 

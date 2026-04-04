@@ -23,7 +23,7 @@ fn create_test_project(temp_dir: &TempDir) -> Result<PathBuf> {
         margin_mm: 0.0,
     };
     let result = project_new(temp_dir.path(), &config)?;
-    Ok(result.project_root)
+    Ok(result.result.project_root)
 }
 
 /// Helper to create a project with photos and build layout

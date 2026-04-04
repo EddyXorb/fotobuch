@@ -30,13 +30,13 @@ pub fn handle_pos(
 
     let config = PosConfig { position, scale };
 
-    let result = page_cmd::execute_pos(&project_root()?, page, slots, &config)
+    let output = page_cmd::execute_pos(&project_root()?, page, slots, &config)
         .map_err(|e| anyhow::anyhow!("{}", e))?;
 
     println!(
         "Moved {} slot(s) on page {}.",
-        result.slots_changed.len(),
-        result.page,
+        output.result.slots_changed.len(),
+        output.result.page,
     );
     Ok(())
 }
