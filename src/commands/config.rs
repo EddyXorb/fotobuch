@@ -1,4 +1,8 @@
-//! `fotobuch config` command - Show current configuration
+//! `fotobuch config` command - Show and mutate configuration
+
+mod set;
+
+pub use set::{ConfigSetResult, config_set};
 
 use anyhow::Result;
 use serde_yaml::Value;

@@ -28,11 +28,17 @@ or see the [Full Flag Reference](cli/reference-generated.md).
 | `page combine`   | Merge pages together                                           |
 | `page info`      | Show photo metadata for slots on a page                        |
 | `page weight`    | Set the area weight for one or more slots                      |
+| `page mode`      | Toggle a page between auto (solver) and manual placement       |
+| `page pos`       | Move or scale slots on a manual-mode page                      |
 | `status`         | Show project overview (or single-page detail)                  |
-| `config`         | Print the resolved configuration with all defaults             |
+| `config show`    | Print the resolved configuration with all defaults             |
+| `config set`     | Set a config value using dot-notation (e.g. `book.dpi 150`)    |
 | `history`        | Show the project change log                                    |
 | `undo`           | Undo the last N changes                                        |
 | `redo`           | Redo N undone changes                                          |
+
+For all flags and exact syntax see the [Full Flag Reference](cli/reference-generated.md).
+For available config keys see [Configuration](configuration.md).
 
 ### `remove` vs. `unplace`
 

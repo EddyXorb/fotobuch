@@ -3,8 +3,8 @@
 ## Implementation Tasks
 
 - [x] 00-0-page-mode.md - Page Mode Implementation
-- [ ] 00-1-page-pos.md - Page Position Implementation
-- [ ] 00-2-config-set.md - Config Set Implementation
+- [x] 00-1-page-pos.md - Page Position Implementation
+- [x] 00-2-config-set.md - Config Set Implementation
 - [ ] 00-3-command-output.md - Command Output Implementation
 - [ ] 00-neue-lib-commands.md - New Lib Commands
 - [ ] 01-minimal-gui.md - Minimal GUI
