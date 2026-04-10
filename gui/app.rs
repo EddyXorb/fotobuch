@@ -1,7 +1,9 @@
+mod overlay;
+mod view;
+
 use std::time::Instant;
 
 use crossbeam::channel::{Receiver, Sender};
-use egui::vec2;
 
 use crate::state::{self, GuiState};
 use crate::task::{BackgroundResult, BackgroundTask};
@@ -74,53 +76,15 @@ impl FotobuchApp {
             .show(ui, |ui| {
                 ui.vertical_centered(|ui| {
                     for i in 0..self.state.page_textures.len() {
-                        draw_page(ui, &self.state, i, self.page_width_mm, self.page_height_mm);
+                        view::draw_page(
+                            ui,
+                            &self.state,
+                            i,
+                            self.page_width_mm,
+                            self.page_height_mm,
+                        );
                     }
                 });
-            });
-    }
-
-    fn show_timings_overlay(&self, ctx: &egui::Context) {
-        egui::Window::new("Timings [F2]")
-            .anchor(egui::Align2::RIGHT_TOP, [-10.0, 10.0])
-            .resizable(false)
-            .collapsible(true)
-            .show(ctx, |ui| {
-                egui::Grid::new("timings_grid")
-                    .num_columns(2)
-                    .spacing([12.0, 2.0])
-                    .show(ui, |ui| {
-                        ui.label("ui frame");
-                        ui.label(fmt_ms(self.state.timings.ui_frame.as_secs_f64()));
-                        ui.end_row();
-
-                        ui.label("drain_results");
-                        ui.label(fmt_ms(self.state.timings.drain_results.as_secs_f64()));
-                        ui.end_row();
-
-                        ui.label("apply_zoom");
-                        ui.label(fmt_ms(self.state.timings.apply_zoom.as_secs_f64()));
-                        ui.end_row();
-
-                        ui.label("show_pages");
-                        ui.label(fmt_ms(self.state.timings.show_pages.as_secs_f64()));
-                        ui.end_row();
-                    });
-
-                if !self.state.timings.render_pages.is_empty() {
-                    ui.separator();
-                    ui.label("Background renders:");
-                    egui::Grid::new("render_grid")
-                        .num_columns(2)
-                        .spacing([12.0, 2.0])
-                        .show(ui, |ui| {
-                            for (page, dur) in &self.state.timings.render_pages {
-                                ui.label(format!("page {page}"));
-                                ui.label(fmt_ms(dur.as_secs_f64()));
-                                ui.end_row();
-                            }
-                        });
-                }
             });
     }
 }
@@ -130,7 +94,9 @@ impl eframe::App for FotobuchApp {
         let t_frame = Instant::now();
         let ctx = ui.ctx().clone();
 
-        if ctx.input(|i| i.key_pressed(egui::Key::F2)) {
+        // consume_key ensures the toggle fires exactly once per key press,
+        // even if input() is called multiple times within the same frame.
+        if ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::F2)) {
             self.state.timings.show = !self.state.timings.show;
         }
 
@@ -151,35 +117,7 @@ impl eframe::App for FotobuchApp {
         self.state.timings.ui_frame = t_frame.elapsed();
 
         if self.state.timings.show {
-            self.show_timings_overlay(&ctx);
+            overlay::show_timings_overlay(&self.state.timings, &ctx);
         }
     }
-}
-
-fn draw_page(
-    ui: &mut egui::Ui,
-    state: &GuiState,
-    i: usize,
-    page_width_mm: f64,
-    page_height_mm: f64,
-) {
-    // 0-based page label
-    ui.label(format!("Seite {i}"));
-
-    let mm_to_pt = 72.0_f32 / 25.4_f32;
-    let base_w = page_width_mm as f32 * mm_to_pt;
-    let base_h = page_height_mm as f32 * mm_to_pt;
-    let size = vec2(base_w * state.zoom, base_h * state.zoom);
-
-    if let Some(tex) = &state.page_textures[i] {
-        ui.add(egui::Image::from_texture(tex).fit_to_exact_size(size));
-    } else {
-        let (rect, _) = ui.allocate_exact_size(size, egui::Sense::hover());
-        ui.painter()
-            .rect_filled(rect, 0.0, egui::Color32::from_gray(200));
-    }
-}
-
-fn fmt_ms(secs: f64) -> String {
-    format!("{:.2} ms", secs * 1000.0)
 }
