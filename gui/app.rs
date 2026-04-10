@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use crossbeam::channel::{Receiver, Sender};
 use egui::vec2;
 
@@ -35,8 +37,10 @@ impl FotobuchApp {
     fn drain_results(&mut self, ctx: &egui::Context) {
         while let Ok(msg) = self.result_rx.try_recv() {
             match msg {
-                BackgroundResult::PageRendered(r) => {
+                BackgroundResult::PageRendered { page: r, duration } => {
+                    let page_idx = r.page;
                     state::apply_rendered(&mut self.state, ctx, r);
+                    self.state.timings.record_render(page_idx, duration);
                 }
                 BackgroundResult::Error(e) => {
                     tracing::error!(%e, "render error");
@@ -75,15 +79,80 @@ impl FotobuchApp {
                 });
             });
     }
+
+    fn show_timings_overlay(&self, ctx: &egui::Context) {
+        egui::Window::new("Timings [F2]")
+            .anchor(egui::Align2::RIGHT_TOP, [-10.0, 10.0])
+            .resizable(false)
+            .collapsible(true)
+            .show(ctx, |ui| {
+                egui::Grid::new("timings_grid")
+                    .num_columns(2)
+                    .spacing([12.0, 2.0])
+                    .show(ui, |ui| {
+                        ui.label("ui frame");
+                        ui.label(fmt_ms(self.state.timings.ui_frame.as_secs_f64()));
+                        ui.end_row();
+
+                        ui.label("drain_results");
+                        ui.label(fmt_ms(self.state.timings.drain_results.as_secs_f64()));
+                        ui.end_row();
+
+                        ui.label("apply_zoom");
+                        ui.label(fmt_ms(self.state.timings.apply_zoom.as_secs_f64()));
+                        ui.end_row();
+
+                        ui.label("show_pages");
+                        ui.label(fmt_ms(self.state.timings.show_pages.as_secs_f64()));
+                        ui.end_row();
+                    });
+
+                if !self.state.timings.render_pages.is_empty() {
+                    ui.separator();
+                    ui.label("Background renders:");
+                    egui::Grid::new("render_grid")
+                        .num_columns(2)
+                        .spacing([12.0, 2.0])
+                        .show(ui, |ui| {
+                            for (page, dur) in &self.state.timings.render_pages {
+                                ui.label(format!("page {page}"));
+                                ui.label(fmt_ms(dur.as_secs_f64()));
+                                ui.end_row();
+                            }
+                        });
+                }
+            });
+    }
 }
 
 impl eframe::App for FotobuchApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        let t_frame = Instant::now();
         let ctx = ui.ctx().clone();
+
+        if ctx.input(|i| i.key_pressed(egui::Key::F2)) {
+            self.state.timings.show = !self.state.timings.show;
+        }
+
+        let t = Instant::now();
         self.drain_results(&ctx);
+        self.state.timings.drain_results = t.elapsed();
+
         self.request_repaint_if_loading(&ctx);
+
+        let t = Instant::now();
         self.apply_zoom(&ctx);
+        self.state.timings.apply_zoom = t.elapsed();
+
+        let t = Instant::now();
         self.show_pages(ui);
+        self.state.timings.show_pages = t.elapsed();
+
+        self.state.timings.ui_frame = t_frame.elapsed();
+
+        if self.state.timings.show {
+            self.show_timings_overlay(&ctx);
+        }
     }
 }
 
@@ -109,4 +178,8 @@ fn draw_page(
         ui.painter()
             .rect_filled(rect, 0.0, egui::Color32::from_gray(200));
     }
+}
+
+fn fmt_ms(secs: f64) -> String {
+    format!("{:.2} ms", secs * 1000.0)
 }

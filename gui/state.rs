@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use egui::{ColorImage, Context, TextureHandle, TextureOptions};
 use fotobuch::output::typst::RenderedPage;
 
@@ -7,6 +9,7 @@ pub struct GuiState {
     /// Constant in Phase 1 — used when sending initial render task; will drive re-render in Phase 3.
     #[allow(dead_code)]
     pub base_pixel_per_pt: f32,
+    pub timings: Timings,
 }
 
 impl GuiState {
@@ -15,6 +18,37 @@ impl GuiState {
             page_textures: vec![None; num_pages],
             zoom: 1.0,
             base_pixel_per_pt: 1.5,
+            timings: Timings::default(),
+        }
+    }
+}
+
+/// Per-frame timing measurements for the UI thread and background renders.
+#[derive(Default)]
+pub struct Timings {
+    /// Whether the timing overlay (F2) is visible.
+    pub show: bool,
+    /// Total time spent in `FotobuchApp::ui()` last frame.
+    pub ui_frame: Duration,
+    /// Time spent draining background results last frame.
+    pub drain_results: Duration,
+    /// Time spent applying zoom input last frame.
+    pub apply_zoom: Duration,
+    /// Time spent drawing pages (scroll area) last frame.
+    pub show_pages: Duration,
+    /// Render duration per page, sorted by page index.
+    /// Updated as pages arrive from the background thread.
+    pub render_pages: Vec<(usize, Duration)>,
+}
+
+impl Timings {
+    pub fn record_render(&mut self, page: usize, duration: Duration) {
+        match self.render_pages.iter_mut().find(|(p, _)| *p == page) {
+            Some(entry) => entry.1 = duration,
+            None => {
+                self.render_pages.push((page, duration));
+                self.render_pages.sort_by_key(|(p, _)| *p);
+            }
         }
     }
 }

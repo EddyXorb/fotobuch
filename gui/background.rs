@@ -1,4 +1,5 @@
 use std::path::{Path, PathBuf};
+use std::time::Instant;
 
 use crossbeam::channel::{Receiver, Sender, unbounded};
 use fotobuch::output::typst::render_pages;
@@ -53,10 +54,12 @@ fn render_page(
     pixel_per_pt: f32,
     result_tx: &Sender<BackgroundResult>,
 ) {
+    let t = Instant::now();
     match render_pages(project_root, project_name, &[page], pixel_per_pt) {
         Ok(rendered) => {
+            let duration = t.elapsed();
             for r in rendered {
-                let _ = result_tx.send(BackgroundResult::PageRendered(r));
+                let _ = result_tx.send(BackgroundResult::PageRendered { page: r, duration });
             }
         }
         Err(e) => {
@@ -97,14 +100,14 @@ mod tests {
             .expect("no result within timeout");
 
         match result {
-            BackgroundResult::PageRendered(r) => {
+            BackgroundResult::PageRendered { page: r, duration } => {
                 assert_eq!(r.page, 0);
                 assert!(!r.pixels.is_empty());
+                assert!(duration.as_secs() < 30, "render took unexpectedly long");
             }
             BackgroundResult::Error(e) => panic!("worker error: {e}"),
         }
 
-        // No second message expected
         match result_rx.recv_timeout(std::time::Duration::from_millis(100)) {
             Err(RecvTimeoutError::Timeout) | Err(RecvTimeoutError::Disconnected) => {}
             Ok(_) => panic!("unexpected second result"),

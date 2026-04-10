@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use fotobuch::output::typst::RenderedPage;
 
 pub enum BackgroundTask {
@@ -8,6 +10,9 @@ pub enum BackgroundTask {
 }
 
 pub enum BackgroundResult {
-    PageRendered(RenderedPage),
+    PageRendered {
+        page: RenderedPage,
+        duration: Duration,
+    },
     Error(String),
 }
