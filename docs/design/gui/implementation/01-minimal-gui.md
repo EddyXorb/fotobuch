@@ -2,9 +2,9 @@
 
 **Ziel**: Seiten anzeigen, scrollen, zoomen. Kein UI-Freeze.
 
-**Voraussetzungen** (Phase 0):
-- `fotobuch::output::typst::render_pages()` liefert `Vec<RenderedPage>` mit straight-alpha RGBA.
-- `CommandOutput<T>` + `GuiState::apply` existieren (werden in Phase 1 aber noch nicht genutzt).
+**Voraussetzung**: `fotobuch::output::typst::render_pages()` liefert `Vec<RenderedPage>` mit straight-alpha RGBA (bereits in der Lib vorhanden).
+
+`GuiState` und der Worker werden **in** Phase 1 neu angelegt — sie sind keine Voraussetzung, sondern Ergebnis dieser Phase. Phase 1 ist read-only und nutzt `CommandOutput<T>` noch nicht; das kommt in Phase 3.
 
 ---
 
