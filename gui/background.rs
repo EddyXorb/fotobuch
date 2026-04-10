@@ -1,5 +1,4 @@
-use std::path::Path;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crossbeam::channel::{Receiver, Sender, unbounded};
 use fotobuch::output::typst::render_pages;
@@ -14,19 +13,19 @@ pub fn spawn(
     let (result_tx, result_rx) = unbounded::<BackgroundResult>();
 
     std::thread::spawn(move || {
+        let pool = build_pool();
         while let Ok(task) = task_rx.recv() {
             match task {
                 BackgroundTask::RenderPages {
                     pages,
                     pixel_per_pt,
                 } => {
-                    render_pages_task(
-                        &project_root,
-                        &project_name,
-                        pages,
-                        pixel_per_pt,
-                        &result_tx,
-                    );
+                    for page in pages {
+                        let root = project_root.clone();
+                        let name = project_name.clone();
+                        let tx = result_tx.clone();
+                        pool.spawn(move || render_page(&root, &name, page, pixel_per_pt, &tx));
+                    }
                 }
             }
         }
@@ -35,23 +34,33 @@ pub fn spawn(
     (task_tx, result_rx)
 }
 
-fn render_pages_task(
+fn build_pool() -> rayon::ThreadPool {
+    let workers = std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(2)
+        .saturating_sub(1)
+        .max(1);
+    rayon::ThreadPoolBuilder::new()
+        .num_threads(workers)
+        .build()
+        .expect("failed to build render thread pool")
+}
+
+fn render_page(
     project_root: &Path,
     project_name: &str,
-    pages: Vec<usize>,
+    page: usize,
     pixel_per_pt: f32,
     result_tx: &Sender<BackgroundResult>,
 ) {
-    for page in pages {
-        match render_pages(project_root, project_name, &[page], pixel_per_pt) {
-            Ok(rendered) => {
-                for r in rendered {
-                    let _ = result_tx.send(BackgroundResult::PageRendered(r));
-                }
+    match render_pages(project_root, project_name, &[page], pixel_per_pt) {
+        Ok(rendered) => {
+            for r in rendered {
+                let _ = result_tx.send(BackgroundResult::PageRendered(r));
             }
-            Err(e) => {
-                let _ = result_tx.send(BackgroundResult::Error(e.to_string()));
-            }
+        }
+        Err(e) => {
+            let _ = result_tx.send(BackgroundResult::Error(e.to_string()));
         }
     }
 }

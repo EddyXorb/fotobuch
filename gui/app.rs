@@ -68,9 +68,11 @@ impl FotobuchApp {
         egui::ScrollArea::vertical()
             .auto_shrink([false; 2])
             .show(ui, |ui| {
-                for i in 0..self.state.page_textures.len() {
-                    draw_page(ui, &self.state, i, self.page_width_mm, self.page_height_mm);
-                }
+                ui.vertical_centered(|ui| {
+                    for i in 0..self.state.page_textures.len() {
+                        draw_page(ui, &self.state, i, self.page_width_mm, self.page_height_mm);
+                    }
+                });
             });
     }
 }

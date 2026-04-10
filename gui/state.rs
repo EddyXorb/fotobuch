@@ -34,8 +34,8 @@ pub fn apply_rendered(state: &mut GuiState, ctx: &Context, rendered: RenderedPag
     state.page_textures[rendered.page] = Some(handle);
 }
 
-/// Pure zoom step: multiply by 1.1^sign(delta), clamp to [0.1, 5.0].
-/// Returns `z` unchanged when `delta == 0.0`.
+/// Pure zoom step: `z * delta`, clamped to [0.1, 5.0].
+/// `delta` is a multiplier from `egui::InputState::zoom_delta()`: 1.0 = no change, >1.0 = in, <1.0 = out.
 pub fn apply_zoom_delta(z: f32, delta: f32) -> f32 {
     if delta == 1.0 {
         return z;
@@ -66,10 +66,10 @@ mod tests {
 
     #[test]
     fn zoom_delta() {
-        assert!(apply_zoom_delta(1.0, 1.0) > 1.0, "zoom-in increases zoom");
-        assert!(apply_zoom_delta(1.0, -1.0) < 1.0, "zoom-out decreases zoom");
-        assert_eq!(apply_zoom_delta(4.99, 100.0), 5.0, "upper clamp");
-        assert_eq!(apply_zoom_delta(0.11, -100.0), 0.1, "lower clamp");
-        assert_eq!(apply_zoom_delta(1.5, 0.0), 1.5, "no-op on zero delta");
+        assert!(apply_zoom_delta(1.0, 1.1) > 1.0, "zoom-in increases zoom");
+        assert!(apply_zoom_delta(1.0, 0.9) < 1.0, "zoom-out decreases zoom");
+        assert_eq!(apply_zoom_delta(4.9, 2.0), 5.0, "upper clamp");
+        assert_eq!(apply_zoom_delta(0.15, 0.1), 0.1, "lower clamp");
+        assert_eq!(apply_zoom_delta(1.5, 1.0), 1.5, "no-op on 1.0 delta");
     }
 }
