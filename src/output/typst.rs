@@ -50,7 +50,7 @@ fn compile_to_intermediate_document(template_path: &Path) -> Result<typst::layou
 }
 
 /// Compiles a Typst template and returns the raw PDF bytes.
-fn compile_to_bytes(template_path: &Path) -> Result<Vec<u8>> {
+fn compile_to_pdf_bytes(template_path: &Path) -> Result<Vec<u8>> {
     let document = compile_to_intermediate_document(template_path)?;
     typst_pdf::pdf(&document, &typst_pdf::PdfOptions::default()).map_err(|errors| {
         let error_msg = errors
@@ -124,7 +124,7 @@ pub fn render_pages(
 /// * `template_path` - Path to the `.typ` template file
 /// * `output_path` - Path where the PDF should be saved
 pub fn compile(template_path: &Path, output_path: &Path) -> Result<()> {
-    let pdf_bytes = compile_to_bytes(template_path)?;
+    let pdf_bytes = compile_to_pdf_bytes(template_path)?;
     fs::write(output_path, pdf_bytes)
         .with_context(|| format!("Failed to write PDF: {}", output_path.display()))
 }
@@ -225,7 +225,7 @@ pub fn compile_preview(project_root: &Path, project_name: &str, bleed_mm: f64) -
     let template = project_root.join(format!("{project_name}.typ"));
     let output = project_root.join(format!("{project_name}.pdf"));
 
-    let pdf_bytes = compile_to_bytes(&template)?;
+    let pdf_bytes = compile_to_pdf_bytes(&template)?;
     let pdf_bytes = if bleed_mm > 0.0 {
         add_pdf_boxes(&pdf_bytes, bleed_mm)?
     } else {
@@ -257,7 +257,7 @@ pub fn compile_final(project_root: &Path, project_name: &str, bleed_mm: f64) -> 
 
     generate_final_template(&source_template, &final_template)?;
 
-    let pdf_bytes = compile_to_bytes(&final_template)?;
+    let pdf_bytes = compile_to_pdf_bytes(&final_template)?;
 
     let pdf_bytes = if bleed_mm > 0.0 {
         add_pdf_boxes(&pdf_bytes, bleed_mm)?
@@ -472,7 +472,7 @@ mod tests {
         let temp = TempDir::new().unwrap();
         let template = temp.path().join("bleed_test.typ");
         fs::write(&template, "#set page(width: 210mm, height: 297mm)\nHello").unwrap();
-        let pdf_bytes = compile_to_bytes(&template).unwrap();
+        let pdf_bytes = compile_to_pdf_bytes(&template).unwrap();
 
         let bleed_mm = 3.0_f64;
         let result = add_pdf_boxes(&pdf_bytes, bleed_mm);
