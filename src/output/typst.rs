@@ -25,7 +25,7 @@ pub struct RenderedPage {
 }
 
 /// Compiles a Typst template to a `typst::layout::PagedDocument`.
-fn compile_to_document(template_path: &Path) -> Result<typst::layout::PagedDocument> {
+fn compile_to_intermediate_document(template_path: &Path) -> Result<typst::layout::PagedDocument> {
     let content = fs::read_to_string(template_path)
         .with_context(|| format!("Failed to read template: {}", template_path.display()))?;
 
@@ -51,7 +51,7 @@ fn compile_to_document(template_path: &Path) -> Result<typst::layout::PagedDocum
 
 /// Compiles a Typst template and returns the raw PDF bytes.
 fn compile_to_bytes(template_path: &Path) -> Result<Vec<u8>> {
-    let document = compile_to_document(template_path)?;
+    let document = compile_to_intermediate_document(template_path)?;
     typst_pdf::pdf(&document, &typst_pdf::PdfOptions::default()).map_err(|errors| {
         let error_msg = errors
             .iter()
@@ -79,7 +79,7 @@ pub fn render_pages(
     pixel_per_pt: f32,
 ) -> Result<Vec<RenderedPage>> {
     let template = project_root.join(format!("{project_name}.typ"));
-    let document = compile_to_document(&template)?;
+    let document = compile_to_intermediate_document(&template)?;
 
     let mut rendered = Vec::with_capacity(pages.len());
     for &page_idx in pages {
