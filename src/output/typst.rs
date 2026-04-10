@@ -62,6 +62,18 @@ fn compile_to_pdf_bytes(template_path: &Path) -> Result<Vec<u8>> {
     })
 }
 
+/// Converts premultiplied RGBA pixels to straight (non-premultiplied) alpha in-place.
+fn premultiplied_to_straight_alpha(pixels: &mut [u8]) {
+    for chunk in pixels.chunks_exact_mut(4) {
+        let a = chunk[3] as f32 / 255.0;
+        if a > 0.0 {
+            chunk[0] = (chunk[0] as f32 / a).min(255.0) as u8;
+            chunk[1] = (chunk[1] as f32 / a).min(255.0) as u8;
+            chunk[2] = (chunk[2] as f32 / a).min(255.0) as u8;
+        }
+    }
+}
+
 /// Render selected pages of a Typst template to RGBA pixel data.
 ///
 /// # Arguments
@@ -96,15 +108,7 @@ pub fn render_pages(
         let height = pixmap.height();
         let mut pixels = pixmap.take();
 
-        // Convert premultiplied alpha → straight alpha (required by egui)
-        for chunk in pixels.chunks_exact_mut(4) {
-            let a = chunk[3] as f32 / 255.0;
-            if a > 0.0 {
-                chunk[0] = (chunk[0] as f32 / a).min(255.0) as u8;
-                chunk[1] = (chunk[1] as f32 / a).min(255.0) as u8;
-                chunk[2] = (chunk[2] as f32 / a).min(255.0) as u8;
-            }
-        }
+        premultiplied_to_straight_alpha(&mut pixels);
 
         rendered.push(RenderedPage {
             page: page_idx,
