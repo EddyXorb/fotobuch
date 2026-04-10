@@ -45,12 +45,12 @@ pub fn handle(args: AddArgs) -> Result<()> {
         weight: args.weight,
     };
 
-    let result = commands::add(&project_root, &config)?;
+    let output = commands::add(&project_root, &config)?;
 
-    if result.dry_run {
-        print_dry_run(&result);
+    if output.result.dry_run {
+        print_dry_run(&output.result);
     } else {
-        print_result(&result);
+        print_result(&output.result);
     }
 
     Ok(())

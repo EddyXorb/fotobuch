@@ -10,29 +10,29 @@ pub fn handle_move(args: &[String]) -> Result<()> {
     let raw = args.join(" ");
     let cmd = parse_move_cmd(&raw)
         .map_err(|e| anyhow::anyhow!("Invalid move expression '{}': {}", raw, e))?;
-    let result =
+    let output =
         page_cmd::execute_move(&project_root()?, cmd).map_err(|e| anyhow::anyhow!("{}", e))?;
-    if result.pages_deleted.is_empty() {
+    if output.result.pages_deleted.is_empty() {
         println!(
             "Moved photos. Modified pages: {}",
-            format_page_list(&result.pages_modified)
+            format_page_list(&output.result.pages_modified)
         );
-        if !result.pages_inserted.is_empty() {
+        if !output.result.pages_inserted.is_empty() {
             println!(
                 "Inserted new pages: {}",
-                format_page_list(&result.pages_inserted)
+                format_page_list(&output.result.pages_inserted)
             );
         }
     } else {
-        if !result.pages_modified.is_empty() {
+        if !output.result.pages_modified.is_empty() {
             println!(
                 "Unplaced slots from page(s): {}",
-                format_page_list(&result.pages_modified)
+                format_page_list(&output.result.pages_modified)
             );
         }
         println!(
             "Unplaced and deleted page(s): {}",
-            format_page_list(&result.pages_deleted)
+            format_page_list(&output.result.pages_deleted)
         );
     }
     Ok(())
@@ -46,11 +46,11 @@ pub fn handle_swap(left: &str, right: &str) -> Result<()> {
         left: left_src,
         right: right_dst,
     };
-    let result =
+    let output =
         page_cmd::execute_move(&project_root()?, cmd).map_err(|e| anyhow::anyhow!("{}", e))?;
     println!(
         "Swapped photos. Modified pages: {}",
-        format_page_list(&result.pages_modified)
+        format_page_list(&output.result.pages_modified)
     );
     Ok(())
 }

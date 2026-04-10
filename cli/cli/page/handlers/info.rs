@@ -10,7 +10,8 @@ pub fn handle_info(address: &str, filter: InfoFilter) -> Result<()> {
     let addr = parse_info_address(address)
         .map_err(|e| anyhow::anyhow!("Invalid address '{}': {}", address, e))?;
     let result = page_cmd::execute_info(&project_root()?, addr, filter.clone())
-        .map_err(|e| anyhow::anyhow!("{}", e))?;
+        .map_err(|e| anyhow::anyhow!("{}", e))?
+        .result;
 
     if result.slots.is_empty() {
         println!("No slots found.");

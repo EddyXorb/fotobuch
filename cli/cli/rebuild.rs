@@ -24,13 +24,13 @@ pub fn handle(
         commands::rebuild::RebuildScope::All
     };
 
-    let result = commands::rebuild::rebuild(&project_root, scope)?;
+    let output = commands::rebuild::rebuild(&project_root, scope)?;
 
-    if !result.pages_rebuilt.is_empty() {
+    if !output.result.pages_rebuilt.is_empty() {
         info!(
             "✅ Rebuilt {} page(s): {:?}",
-            result.pages_rebuilt.len(),
-            result.pages_rebuilt
+            output.result.pages_rebuilt.len(),
+            output.result.pages_rebuilt
         );
     }
 

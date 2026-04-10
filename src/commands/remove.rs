@@ -5,6 +5,7 @@ use regex::Regex;
 use std::collections::HashSet;
 use std::path::Path;
 
+use crate::commands::CommandOutput;
 use crate::dto_models::{LayoutPage, PhotoGroup, ProjectState};
 use crate::state_manager::{StateManager, renumber_pages};
 
@@ -205,7 +206,7 @@ fn collect_unplaced_ids(state: &ProjectState) -> HashSet<String> {
 ///
 /// # Returns
 /// * `RemoveResult` with summary of removed photos and affected pages
-pub fn remove(project_root: &Path, config: &RemoveConfig) -> Result<RemoveResult> {
+pub fn remove(project_root: &Path, config: &RemoveConfig) -> Result<CommandOutput<RemoveResult>> {
     let mut mgr = StateManager::open(project_root)?;
 
     // 1. Determine which IDs to act on
@@ -217,11 +218,15 @@ pub fn remove(project_root: &Path, config: &RemoveConfig) -> Result<RemoveResult
     };
 
     if matched_ids.is_empty() {
-        return Ok(RemoveResult {
-            photos_removed: 0,
-            placements_removed: 0,
-            groups_removed: vec![],
-            pages_affected: vec![],
+        let changed_state = mgr.finish("")?;
+        return Ok(CommandOutput {
+            result: RemoveResult {
+                photos_removed: 0,
+                placements_removed: 0,
+                groups_removed: vec![],
+                pages_affected: vec![],
+            },
+            changed_state,
         });
     }
 
@@ -252,13 +257,16 @@ pub fn remove(project_root: &Path, config: &RemoveConfig) -> Result<RemoveResult
     } else {
         format!("remove: {} photos", photos_removed)
     };
-    mgr.finish(&commit_msg)?;
+    let changed_state = mgr.finish(&commit_msg)?;
 
-    Ok(RemoveResult {
-        photos_removed,
-        placements_removed: layout_result.placements_removed,
-        groups_removed,
-        pages_affected: layout_result.pages_affected,
+    Ok(CommandOutput {
+        result: RemoveResult {
+            photos_removed,
+            placements_removed: layout_result.placements_removed,
+            groups_removed,
+            pages_affected: layout_result.pages_affected,
+        },
+        changed_state,
     })
 }
 

@@ -24,7 +24,7 @@ fn create_test_project_with_layout(temp_dir: &TempDir) -> Result<PathBuf> {
         margin_mm: 0.0,
     };
     let result = project_new(temp_dir.path(), &config)?;
-    let project_root = result.project_root;
+    let project_root = result.result.project_root;
 
     // Add test photos
     let photos_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -67,8 +67,8 @@ fn test_place_no_unplaced_photos_returns_zero() -> Result<()> {
     };
     let result = place(&project_root, &config)?;
 
-    assert_eq!(result.photos_placed, 0);
-    assert!(result.pages_affected.is_empty());
+    assert_eq!(result.result.photos_placed, 0);
+    assert!(result.result.pages_affected.is_empty());
 
     Ok(())
 }
@@ -92,7 +92,7 @@ fn test_place_requires_layout() -> Result<()> {
         margin_mm: 0.0,
     };
     let result = project_new(temp_dir.path(), &config)?;
-    let project_root = result.project_root;
+    let project_root = result.result.project_root;
 
     // Add photos
     let photos_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -184,9 +184,12 @@ fn test_place_into_specific_page() -> Result<()> {
     };
     let result = place(&project_root, &config)?;
 
-    assert_eq!(result.photos_placed, 1, "Should place exactly 1 photo");
     assert_eq!(
-        result.pages_affected,
+        result.result.photos_placed, 1,
+        "Should place exactly 1 photo"
+    );
+    assert_eq!(
+        result.result.pages_affected,
         vec![0],
         "Only page 0 should be affected"
     );
@@ -239,7 +242,7 @@ fn test_place_filter_by_pattern() -> Result<()> {
 
     // Should place at least the one unplaced photo if it matches pattern
     assert!(
-        result.photos_placed > 0,
+        result.result.photos_placed > 0,
         "Should place some photos matching pattern"
     );
 
@@ -258,8 +261,8 @@ fn test_place_chronologically_without_unplaced() -> Result<()> {
     };
     let result = place(&project_root, &config)?;
 
-    assert_eq!(result.photos_placed, 0);
-    assert!(result.pages_affected.is_empty());
+    assert_eq!(result.result.photos_placed, 0);
+    assert!(result.result.pages_affected.is_empty());
 
     Ok(())
 }

@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 use std::path::Path;
 
+use crate::commands::CommandOutput;
 use crate::dto_models::{PhotoFile, ProjectState};
 
 use super::helpers::{page_idx, resolve_slots};
@@ -30,7 +31,7 @@ pub fn execute_info(
     project_root: &Path,
     address: Src,
     _filter: InfoFilter,
-) -> Result<PageInfoResult, PageMoveError> {
+) -> Result<CommandOutput<PageInfoResult>, PageMoveError> {
     use crate::state_manager::StateManager;
 
     let mgr = StateManager::open(project_root)?;
@@ -104,7 +105,10 @@ pub fn execute_info(
         }
     }
 
-    Ok(PageInfoResult { slots })
+    Ok(CommandOutput {
+        result: PageInfoResult { slots },
+        changed_state: None,
+    })
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -128,11 +132,11 @@ mod tests {
             InfoFilter::default(),
         )
         .unwrap();
-        assert_eq!(result.slots.len(), 2);
-        assert_eq!(result.slots[0].slot, 0);
-        assert_eq!(result.slots[0].id, "p0.jpg");
-        assert_eq!(result.slots[1].slot, 1);
-        assert_eq!(result.slots[0].total_page_slots, 2);
+        assert_eq!(result.result.slots.len(), 2);
+        assert_eq!(result.result.slots[0].slot, 0);
+        assert_eq!(result.result.slots[0].id, "p0.jpg");
+        assert_eq!(result.result.slots[1].slot, 1);
+        assert_eq!(result.result.slots[0].total_page_slots, 2);
     }
 
     #[test]
@@ -150,8 +154,8 @@ mod tests {
             InfoFilter::default(),
         )
         .unwrap();
-        assert_eq!(result.slots.len(), 2);
-        assert_eq!(result.slots[0].total_page_slots, 3);
+        assert_eq!(result.result.slots.len(), 2);
+        assert_eq!(result.result.slots[0].total_page_slots, 3);
     }
 
     #[test]

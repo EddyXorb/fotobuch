@@ -9,13 +9,13 @@ use crate::cli::page::parse_api::parse_split_addr;
 pub fn handle_split(address: &str) -> Result<()> {
     let (page, slot) = parse_split_addr(address)
         .map_err(|e| anyhow::anyhow!("Invalid split address '{}': {}", address, e))?;
-    let result =
+    let output =
         page::execute_split(&project_root()?, page, slot).map_err(|e| anyhow::anyhow!("{}", e))?;
     println!(
         "Split page {} at slot {}. New page inserted after page {}.",
         page,
         slot,
-        result.pages_inserted.first().copied().unwrap_or(0)
+        output.result.pages_inserted.first().copied().unwrap_or(0)
     );
     Ok(())
 }

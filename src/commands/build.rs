@@ -99,7 +99,10 @@ pub struct BuildResult {
 ///
 /// # Returns
 /// * `BuildResult` with PDF path, statistics, and warnings
-pub fn build(project_root: &Path, config: &BuildConfig) -> Result<BuildResult> {
+pub fn build(
+    project_root: &Path,
+    config: &BuildConfig,
+) -> Result<super::CommandOutput<BuildResult>> {
     let mgr = StateManager::open(project_root)?;
 
     // Handle release builds separately

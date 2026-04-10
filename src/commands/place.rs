@@ -6,6 +6,7 @@ use regex::Regex;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
+use crate::commands::CommandOutput;
 use crate::commands::build::build_photo_index;
 use crate::dto_models::{PhotoFile, ProjectState};
 use crate::state_manager::StateManager;
@@ -78,7 +79,7 @@ fn find_unplaced(state: &ProjectState) -> Vec<UnplacedPhoto> {
 ///
 /// # Returns
 /// * `PlaceResult` with count of placed photos and affected pages
-pub fn place(project_root: &Path, config: &PlaceConfig) -> Result<PlaceResult> {
+pub fn place(project_root: &Path, config: &PlaceConfig) -> Result<CommandOutput<PlaceResult>> {
     let mut mgr = StateManager::open(project_root)?;
 
     // Validation
@@ -99,18 +100,26 @@ pub fn place(project_root: &Path, config: &PlaceConfig) -> Result<PlaceResult> {
     // 1. Find unplaced photos
     let unplaced = find_unplaced(&mgr.state);
     if unplaced.is_empty() {
-        return Ok(PlaceResult {
-            photos_placed: 0,
-            pages_affected: vec![],
+        let changed_state = mgr.finish("")?;
+        return Ok(CommandOutput {
+            result: PlaceResult {
+                photos_placed: 0,
+                pages_affected: vec![],
+            },
+            changed_state,
         });
     }
 
     // 2. Apply filters
     let filtered = apply_filters(&unplaced, &config.filters)?;
     if filtered.is_empty() {
-        return Ok(PlaceResult {
-            photos_placed: 0,
-            pages_affected: vec![],
+        let changed_state = mgr.finish("")?;
+        return Ok(CommandOutput {
+            result: PlaceResult {
+                photos_placed: 0,
+                pages_affected: vec![],
+            },
+            changed_state,
         });
     }
 
@@ -125,11 +134,14 @@ pub fn place(project_root: &Path, config: &PlaceConfig) -> Result<PlaceResult> {
 
     // 4. Commit
     let pages_str = format_page_list(&pages_affected);
-    mgr.finish(&format!("place: {photos_placed} photos onto {pages_str}"))?;
+    let changed_state = mgr.finish(&format!("place: {photos_placed} photos onto {pages_str}"))?;
 
-    Ok(PlaceResult {
-        photos_placed,
-        pages_affected,
+    Ok(CommandOutput {
+        result: PlaceResult {
+            photos_placed,
+            pages_affected,
+        },
+        changed_state,
     })
 }
 

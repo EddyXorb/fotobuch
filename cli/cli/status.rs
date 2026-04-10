@@ -10,7 +10,7 @@ pub fn handle(page: Option<usize>) -> Result<()> {
     let project_root = std::env::current_dir().context("Failed to determine current directory")?;
 
     let config = commands::StatusConfig { page };
-    let report = commands::status(&project_root, &config)?;
+    let report = commands::status(&project_root, &config)?.result;
 
     info!("Project: {}", report.project_name);
     info!(

@@ -1,6 +1,7 @@
 //! `fotobuch rebuild` command - Force re-optimization of pages
 
 use crate::cache::preview;
+use crate::commands::CommandOutput;
 use crate::dto_models::BookLayoutSolverConfig;
 use crate::output::typst;
 use crate::state_manager::StateManager;
@@ -57,7 +58,7 @@ pub enum RebuildScope {
 /// - All inner photos redistributed fresh via Book-Layout-Solver + Page-Layout-Solver.
 /// - If cover is active: cover is skipped (use `rebuild --page 0` explicitly).
 /// - Manual changes in layout are lost (but git-recoverable).
-pub fn rebuild(project_root: &Path, scope: RebuildScope) -> Result<BuildResult> {
+pub fn rebuild(project_root: &Path, scope: RebuildScope) -> Result<CommandOutput<BuildResult>> {
     let mgr = StateManager::open(project_root)?;
 
     validate_scope(&scope, &mgr)?;
@@ -106,7 +107,11 @@ fn validate_scope(scope: &RebuildScope, mgr: &StateManager) -> Result<()> {
 }
 
 /// Rebuild a single page using the SinglePage solver.
-fn rebuild_single(mut mgr: StateManager, project_root: &Path, idx: usize) -> Result<BuildResult> {
+fn rebuild_single(
+    mut mgr: StateManager,
+    project_root: &Path,
+    idx: usize,
+) -> Result<CommandOutput<BuildResult>> {
     // 1. Check if page is manual - can't rebuild manual pages
     if mgr.state.layout[idx]
         .mode
@@ -132,16 +137,19 @@ fn rebuild_single(mut mgr: StateManager, project_root: &Path, idx: usize) -> Res
     let pdf_path = typst::compile_preview(project_root, mgr.project_name(), bleed_mm)?;
 
     // 5. Save — always commit (even if slots don't change)
-    mgr.finish_always(&format!("rebuild: page {}", idx))?;
+    let changed_state = mgr.finish_always(&format!("rebuild: page {}", idx))?;
 
-    Ok(BuildResult {
-        pdf_path,
-        pages_rebuilt: vec![idx],
-        pages_swapped: vec![],
-        images_processed: 0,
-        total_cost: 0.0,
-        dpi_warnings: Vec::new(),
-        nothing_to_do: false,
+    Ok(CommandOutput {
+        result: BuildResult {
+            pdf_path,
+            pages_rebuilt: vec![idx],
+            pages_swapped: vec![],
+            images_processed: 0,
+            total_cost: 0.0,
+            dpi_warnings: Vec::new(),
+            nothing_to_do: false,
+        },
+        changed_state,
     })
 }
 
@@ -171,7 +179,7 @@ fn rebuild_range(
     start: usize,
     end: usize,
     flex: usize,
-) -> Result<BuildResult> {
+) -> Result<CommandOutput<BuildResult>> {
     let effective_start = skip_cover_if_needed(mgr.state.has_cover(), start, end)?;
 
     let groups = collect_photos_as_groups(&mgr.state, effective_start, end + 1);
@@ -200,7 +208,7 @@ fn rebuild_range(
 
 /// Rebuild all pages from scratch.
 /// Cover page (index 0) is always skipped — use `rebuild --page 0` to rebuild it explicitly.
-fn rebuild_all(mgr: StateManager, project_root: &Path) -> Result<BuildResult> {
+fn rebuild_all(mgr: StateManager, project_root: &Path) -> Result<CommandOutput<BuildResult>> {
     let layout_len = mgr.state.layout.len();
 
     let effective_start = if layout_len > 0 {

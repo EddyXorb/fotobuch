@@ -14,7 +14,8 @@ pub fn handle(patterns: Vec<String>, keep_files: bool, unplaced: bool) -> Result
         unplaced,
     };
 
-    let result = commands::remove(&project_root, &config)?;
+    let output = commands::remove(&project_root, &config)?;
+    let result = &output.result;
 
     if result.photos_removed == 0 && result.placements_removed == 0 {
         if unplaced {

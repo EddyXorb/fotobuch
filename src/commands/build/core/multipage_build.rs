@@ -2,6 +2,7 @@ use super::super::BuildResult;
 use super::super::helpers::{build_photo_index, update_preview_pdf};
 use super::rebuild_single_page::rebuild_single_page;
 use crate::cache::preview;
+use crate::commands::CommandOutput;
 use crate::dto_models::{BookLayoutSolverConfig, CoverConfig, LayoutPage, PhotoFile, PhotoGroup};
 use crate::solver::cover_solver::{compute_cover_slots, warn_slot_count_mismatch};
 use crate::solver::{Request, RequestType, run_solver};
@@ -40,7 +41,7 @@ pub fn multipage_build(
     mut mgr: StateManager,
     project_root: &Path,
     params: MultiPageParams,
-) -> Result<BuildResult> {
+) -> Result<CommandOutput<BuildResult>> {
     // 1. Preview-Cache
     let preview_cache_dir = mgr.preview_cache_dir();
     let cache_result = preview::ensure_previews(&mut mgr.state, &preview_cache_dir)?;
@@ -105,23 +106,26 @@ pub fn multipage_build(
     let project_name = mgr.project_name().to_string();
 
     // 8. Save and commit
-    if params.always_commit {
-        mgr.finish_always(&params.commit_message)?;
+    let changed_state = if params.always_commit {
+        mgr.finish_always(&params.commit_message)?
     } else {
-        mgr.finish(&params.commit_message)?;
-    }
+        mgr.finish(&params.commit_message)?
+    };
 
     // 9. Compile Typst to PDF - do this after commit to ensure yaml is up to date for typst
     let pdf_path = update_preview_pdf(project_root, bleed_mm, &project_name)?;
 
-    Ok(BuildResult {
-        pdf_path,
-        pages_rebuilt,
-        pages_swapped: vec![],
-        images_processed: params.images_processed.max(cache_result.created),
-        total_cost: 0.0,
-        dpi_warnings: Vec::new(),
-        nothing_to_do: false,
+    Ok(CommandOutput {
+        result: BuildResult {
+            pdf_path,
+            pages_rebuilt,
+            pages_swapped: vec![],
+            images_processed: params.images_processed.max(cache_result.created),
+            total_cost: 0.0,
+            dpi_warnings: Vec::new(),
+            nothing_to_do: false,
+        },
+        changed_state,
     })
 }
 

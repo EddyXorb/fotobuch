@@ -9,12 +9,12 @@ use crate::cli::page::parse_api::parse_pages_expr;
 pub fn handle_combine(pages_str: &str) -> Result<()> {
     let pages = parse_pages_expr(pages_str)
         .map_err(|e| anyhow::anyhow!("Invalid pages expression '{}': {}", pages_str, e))?;
-    let result =
+    let output =
         page::execute_combine(&project_root()?, pages).map_err(|e| anyhow::anyhow!("{}", e))?;
     println!(
         "Combined onto page {}. Deleted pages: {}",
-        result.pages_modified.first().copied().unwrap_or(0),
-        format_page_list(&result.pages_deleted)
+        output.result.pages_modified.first().copied().unwrap_or(0),
+        format_page_list(&output.result.pages_deleted)
     );
     Ok(())
 }

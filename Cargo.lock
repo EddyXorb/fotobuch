@@ -1207,6 +1207,7 @@ dependencies = [
  "typst",
  "typst-kit",
  "typst-pdf",
+ "typst-render",
 ]
 
 [[package]]
@@ -2559,6 +2560,15 @@ name = "pin-project-lite"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a89322df9ebe1c1578d689c92318e070967d1042b512afbe49518723f4e6d5cd"
+
+[[package]]
+name = "pixglyph"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3c1106193bc18a4b840eb075ff6664c8a0b0270f0531bb12a7e9c803e53b55c5"
+dependencies = [
+ "ttf-parser",
+]
 
 [[package]]
 name = "pkg-config"
@@ -4030,6 +4040,26 @@ dependencies = [
  "typst-syntax",
  "typst-timing",
  "typst-utils",
+]
+
+[[package]]
+name = "typst-render"
+version = "0.14.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1baabef8c01dd7150380592811bf37af9b2498be86043834ddd629d1bcb48ccb"
+dependencies = [
+ "bytemuck",
+ "comemo",
+ "hayro",
+ "image",
+ "pixglyph",
+ "resvg",
+ "tiny-skia",
+ "ttf-parser",
+ "typst-assets",
+ "typst-library",
+ "typst-macros",
+ "typst-timing",
 ]
 
 [[package]]

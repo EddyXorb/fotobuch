@@ -2,6 +2,7 @@
 
 use std::path::Path;
 
+use crate::commands::CommandOutput;
 use crate::{dto_models::PageMode, state_manager::StateManager};
 
 use super::{
@@ -21,7 +22,7 @@ pub fn execute_mode(
     project_root: &Path,
     pages: PagesExpr,
     mode: PageMode,
-) -> Result<PageModeResult, PageMoveError> {
+) -> Result<CommandOutput<PageModeResult>, PageMoveError> {
     let mut mgr = StateManager::open(project_root)?;
 
     if pages.pages.is_empty() {
@@ -41,11 +42,14 @@ pub fn execute_mode(
         PageMode::Manual => "manual",
     };
     let pages_str = format_pages_list(&pages.pages);
-    mgr.finish(&format!("page mode {}: {}", pages_str, mode_str))?;
+    let changed_state = mgr.finish(&format!("page mode {}: {}", pages_str, mode_str))?;
 
-    Ok(PageModeResult {
-        pages_changed,
-        new_mode: mode,
+    Ok(CommandOutput {
+        result: PageModeResult {
+            pages_changed,
+            new_mode: mode,
+        },
+        changed_state,
     })
 }
 
@@ -109,8 +113,8 @@ mod tests {
 
         let result = execute_mode(tmp.path(), PagesExpr::single(1), PageMode::Manual).unwrap();
 
-        assert_eq!(result.pages_changed, vec![1]);
-        assert_eq!(result.new_mode, PageMode::Manual);
+        assert_eq!(result.result.pages_changed, vec![1]);
+        assert_eq!(result.result.new_mode, PageMode::Manual);
 
         // Verify state was saved and persisted
         let mgr = StateManager::open(tmp.path()).unwrap();
@@ -134,8 +138,8 @@ mod tests {
         // Then back to Auto
         let result = execute_mode(tmp.path(), PagesExpr::single(1), PageMode::Auto).unwrap();
 
-        assert_eq!(result.pages_changed, vec![1]);
-        assert_eq!(result.new_mode, PageMode::Auto);
+        assert_eq!(result.result.pages_changed, vec![1]);
+        assert_eq!(result.result.new_mode, PageMode::Auto);
 
         // Verify state was saved
         let mgr = StateManager::open(tmp.path()).unwrap();
@@ -153,8 +157,8 @@ mod tests {
         let result =
             execute_mode(tmp.path(), PagesExpr::from_range(0, 2), PageMode::Manual).unwrap();
 
-        assert_eq!(result.pages_changed, vec![0, 1, 2]);
-        assert_eq!(result.new_mode, PageMode::Manual);
+        assert_eq!(result.result.pages_changed, vec![0, 1, 2]);
+        assert_eq!(result.result.new_mode, PageMode::Manual);
 
         // Verify operation completed successfully
         // Note: Detailed YAML serialization verification deferred
@@ -172,6 +176,6 @@ mod tests {
         // Set to Manual again
         let result = execute_mode(tmp.path(), PagesExpr::single(1), PageMode::Manual).unwrap();
 
-        assert_eq!(result.pages_changed, vec![1]);
+        assert_eq!(result.result.pages_changed, vec![1]);
     }
 }

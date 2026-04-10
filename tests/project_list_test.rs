@@ -100,7 +100,7 @@ fn test_project_list_finds_all_fotobuch_branches() -> Result<()> {
     let temp_dir = TempDir::new()?;
     init_git_with_projects(&temp_dir)?;
 
-    let projects = fotobuch::commands::project::project_list(temp_dir.path())?;
+    let projects = fotobuch::commands::project::project_list(temp_dir.path())?.result;
 
     assert_eq!(projects.len(), 3);
 
@@ -126,7 +126,7 @@ fn test_project_list_marks_current_project() -> Result<()> {
         .current_dir(dir)
         .output()?;
 
-    let projects = fotobuch::commands::project::project_list(dir)?;
+    let projects = fotobuch::commands::project::project_list(dir)?.result;
 
     // Find vacation project
     let vacation = projects.iter().find(|p| p.name == "vacation");
@@ -154,7 +154,7 @@ fn test_project_list_ignores_non_fotobuch_branches() -> Result<()> {
         .current_dir(dir)
         .output()?;
 
-    let projects = fotobuch::commands::project::project_list(dir)?;
+    let projects = fotobuch::commands::project::project_list(dir)?.result;
 
     // Should still have only the 3 fotobuch projects
     assert_eq!(projects.len(), 3);
@@ -175,7 +175,7 @@ fn test_project_list_empty_repo() -> Result<()> {
         .current_dir(dir)
         .output()?;
 
-    let projects = fotobuch::commands::project::project_list(dir)?;
+    let projects = fotobuch::commands::project::project_list(dir)?.result;
 
     assert!(projects.is_empty());
 
@@ -201,7 +201,7 @@ fn test_project_list_sorted_by_name() -> Result<()> {
     let temp_dir = TempDir::new()?;
     init_git_with_projects(&temp_dir)?;
 
-    let projects = fotobuch::commands::project::project_list(temp_dir.path())?;
+    let projects = fotobuch::commands::project::project_list(temp_dir.path())?.result;
 
     // Projects should be sorted alphabetically
     let names: Vec<_> = projects.iter().map(|p| p.name.as_str()).collect();

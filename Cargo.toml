@@ -31,6 +31,7 @@ image = "0.25"
 # Typst compiler + PDF export
 typst = "0.14"
 typst-pdf = "0.14"
+typst-render = "0.14"
 typst-kit = { version = "0.14", features = ["fonts", "embed-fonts"] }
 comemo = "0.5"
 

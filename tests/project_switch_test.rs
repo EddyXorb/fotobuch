@@ -1,8 +1,16 @@
 //! Integration tests for `fotobuch project switch` command
 
 use anyhow::Result;
+use fotobuch::dto_models::ProjectState;
 use std::process::Command;
 use tempfile::TempDir;
+
+fn write_project_yaml(path: &std::path::Path) -> Result<()> {
+    let state = ProjectState::default();
+    let yaml = serde_yaml::to_string(&state)?;
+    std::fs::write(path, yaml)?;
+    Ok(())
+}
 
 /// Initialize a git repo with multiple fotobuch branches
 fn init_git_with_projects(temp_dir: &TempDir) -> Result<()> {
@@ -47,7 +55,7 @@ fn init_git_with_projects(temp_dir: &TempDir) -> Result<()> {
         .current_dir(dir)
         .output()?;
 
-    std::fs::write(dir.join("project1.yaml"), "name: project1\n")?;
+    write_project_yaml(&dir.join("project1.yaml"))?;
     Command::new("git")
         .args(["add", "project1.yaml"])
         .current_dir(dir)
@@ -69,7 +77,7 @@ fn init_git_with_projects(temp_dir: &TempDir) -> Result<()> {
         .current_dir(dir)
         .output()?;
 
-    std::fs::write(dir.join("project2.yaml"), "name: project2\n")?;
+    write_project_yaml(&dir.join("project2.yaml"))?;
     Command::new("git")
         .args(["add", "project2.yaml"])
         .current_dir(dir)

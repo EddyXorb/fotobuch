@@ -8,6 +8,7 @@ use anyhow::Result;
 use serde_yaml::Value;
 use std::path::Path;
 
+use crate::commands::CommandOutput;
 use crate::dto_models::ProjectConfig;
 use crate::state_manager::StateManager;
 
@@ -26,12 +27,15 @@ pub struct ConfigResult {
 /// and the raw YAML value for detecting which fields were explicitly set vs. defaulted.
 ///
 /// StateManager::open() auto-commits any pending user edits before reading config.
-pub fn config(project_root: &Path) -> Result<ConfigResult> {
+pub fn config(project_root: &Path) -> Result<CommandOutput<ConfigResult>> {
     let mgr = StateManager::open(project_root)?;
 
-    Ok(ConfigResult {
-        resolved: mgr.state.config.clone(),
-        raw: mgr.raw_config().clone(),
+    Ok(CommandOutput {
+        result: ConfigResult {
+            resolved: mgr.state.config.clone(),
+            raw: mgr.raw_config().clone(),
+        },
+        changed_state: None,
     })
 }
 

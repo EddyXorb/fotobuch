@@ -27,7 +27,7 @@ fn create_test_project_with_build(temp_dir: &TempDir) -> Result<PathBuf> {
         margin_mm: 0.0,
     };
     let result = project_new(temp_dir.path(), &config)?;
-    let project_root = result.project_root;
+    let project_root = result.result.project_root;
 
     // Restrict book layout solver to force multiple pages with few photos
     let yaml_path = project_root.join("testrebuild.yaml");
@@ -99,9 +99,9 @@ fn test_rebuild_single_page_only_changes_slots() -> Result<()> {
     let result = rebuild(&project_root, RebuildScope::SinglePage(page_idx_to_rebuild))?;
 
     // Verify result
-    assert_eq!(result.pages_rebuilt.len(), 1);
-    assert_eq!(result.pages_rebuilt[0], page_idx_to_rebuild);
-    assert!(result.pdf_path.exists());
+    assert_eq!(result.result.pages_rebuilt.len(), 1);
+    assert_eq!(result.result.pages_rebuilt[0], page_idx_to_rebuild);
+    assert!(result.result.pdf_path.exists());
 
     // Load state after rebuild
     let state_after = ProjectState::load(&yaml_path)?;
@@ -211,8 +211,8 @@ fn test_rebuild_range_replaces_pages() -> Result<()> {
     )?;
 
     // Verify result
-    assert!(!result.pages_rebuilt.is_empty());
-    assert!(result.pdf_path.exists());
+    assert!(!result.result.pages_rebuilt.is_empty());
+    assert!(result.result.pdf_path.exists());
 
     // Load state after rebuild
     let state_after = ProjectState::load(&yaml_path)?;
@@ -270,12 +270,12 @@ fn test_rebuild_range_flex_allows_page_variation() -> Result<()> {
     // Rebuild range with flex=1
     let result = rebuild(&project_root, RebuildScope::Range { start, end, flex })?;
 
-    assert!(result.pdf_path.exists());
+    assert!(result.result.pdf_path.exists());
 
     // Load state after rebuild
     let state_after = ProjectState::load(&yaml_path)?;
 
-    let new_range_size = result.pages_rebuilt.len();
+    let new_range_size = result.result.pages_rebuilt.len();
     assert!(
         new_range_size >= original_range_size.saturating_sub(flex),
         "New range size should be at least {}",
@@ -332,7 +332,7 @@ fn test_rebuild_range_preserves_groups() -> Result<()> {
     // Load state after rebuild
     let state_after = ProjectState::load(&yaml_path)?;
 
-    let result_pages_len = result.pages_rebuilt.len();
+    let result_pages_len = result.result.pages_rebuilt.len();
     assert_eq!(
         result_pages_len,
         end - start + 1,
@@ -375,12 +375,12 @@ fn test_rebuild_all_redistributes_everything() -> Result<()> {
     let result = rebuild(&project_root, RebuildScope::All)?;
     eprintln!(
         "Rebuild returned: pages_rebuilt = {:?}, pdf exists = {}",
-        result.pages_rebuilt,
-        result.pdf_path.exists()
+        result.result.pages_rebuilt,
+        result.result.pdf_path.exists()
     );
 
-    assert!(result.pdf_path.exists());
-    assert!(!result.pages_rebuilt.is_empty());
+    assert!(result.result.pdf_path.exists());
+    assert!(!result.result.pages_rebuilt.is_empty());
 
     // Load state after rebuild
     let state_after = ProjectState::load(&yaml_path)?;
@@ -448,7 +448,7 @@ fn test_rebuild_without_layout_fails_except_all() -> Result<()> {
         margin_mm: 0.0,
     };
     let result = project_new(temp_dir.path(), &config)?;
-    let project_root = result.project_root;
+    let project_root = result.result.project_root;
 
     // Add test photos
     let photos_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -506,8 +506,8 @@ fn test_rebuild_without_layout_fails_except_all() -> Result<()> {
     assert!(result.is_ok(), "All rebuild should work without layout");
 
     let result = result?;
-    assert!(result.pdf_path.exists());
-    assert!(!result.pages_rebuilt.is_empty());
+    assert!(result.result.pdf_path.exists());
+    assert!(!result.result.pages_rebuilt.is_empty());
 
     // Verify layout was created
     let state_after = ProjectState::load(&yaml_path)?;
