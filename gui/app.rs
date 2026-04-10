@@ -54,12 +54,12 @@ impl FotobuchApp {
     fn apply_zoom(&mut self, ctx: &egui::Context) {
         let delta = ctx.input(|i| {
             if i.modifiers.ctrl {
-                i.smooth_scroll_delta.y
+                i.zoom_delta()
             } else {
-                0.0
+                1.0
             }
         });
-        if delta != 0.0 {
+        if delta != 1.0 {
             self.state.zoom = state::apply_zoom_delta(self.state.zoom, delta);
         }
     }

@@ -37,10 +37,10 @@ pub fn apply_rendered(state: &mut GuiState, ctx: &Context, rendered: RenderedPag
 /// Pure zoom step: multiply by 1.1^sign(delta), clamp to [0.1, 5.0].
 /// Returns `z` unchanged when `delta == 0.0`.
 pub fn apply_zoom_delta(z: f32, delta: f32) -> f32 {
-    if delta == 0.0 {
+    if delta == 1.0 {
         return z;
     }
-    (z * 1.1_f32.powf(delta.signum())).clamp(0.1, 5.0)
+    (z * delta).clamp(0.1, 5.0)
 }
 
 #[cfg(test)]
