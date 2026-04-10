@@ -1,50 +1,67 @@
 # GUI Architektur
 
-## Feature-Gate und Binary-Integration
+## Crate-Layout: GUI getrennt von der Lib
+
+Die GUI lebt **außerhalb von `src/`** als eigener Binary-Target, analog zur bestehenden CLI. `src/` bleibt UI-agnostisch — weder `eframe` noch `egui` tauchen im Dep-Graph der Library auf.
+
+```
+fotobuch/
+├── src/     Lib (Kernlogik, UI-frei)
+├── cli/     CLI-Binary  → `fotobuch`
+└── gui/     GUI-Binary  → `fotobuch-gui`
+```
+
+### Cargo.toml
 
 ```toml
-# Cargo.toml
+[[bin]]
+name = "fotobuch"
+path = "cli/main.rs"
+
+[[bin]]
+name = "fotobuch-gui"
+path = "gui/main.rs"
+required-features = ["gui"]
+
 [features]
-gui = ["dep:eframe", "dep:egui", "dep:typst-render", "dep:image"]
+gui = ["dep:eframe", "dep:egui"]
+
+[dependencies]
+eframe = { version = "…", optional = true, default-features = false, features = ["default_fonts", "glow"] }
+egui   = { version = "…", optional = true }
+# typst-render und image liegen in der Lib (nicht optional) — `render_pages()` ist Lib-API.
 ```
 
-```rust
-// cli/main.rs (Pseudocode)
-fn main() {
-    if std::env::args().len() > 1 {
-        let cli = Cli::parse();
-        cli.command.execute()
-    } else {
-        #[cfg(feature = "gui")]
-        gui::run();
-        #[cfg(not(feature = "gui"))]
-        Cli::command().print_help();
-    }
-}
-```
+- `cargo build` → nur `fotobuch` (CLI). Keine eframe/egui-Deps.
+- `cargo build --features gui` → `fotobuch` + `fotobuch-gui`.
+- `cargo run --bin fotobuch-gui --features gui` → startet die GUI.
 
-- `cargo build` → nur CLI
-- `cargo build --features gui` → CLI + GUI
-- Ohne Argumente → GUI (wenn Feature an), sonst Help
-- Mit Argumenten → immer CLI
+**Kein Dispatch aus dem CLI-Binary.** GUI und CLI sind zwei unabhängige Executables — das CLI-Binary bleibt auch im Release frei von eframe/egui. Der ursprünglich geplante „keine Args → GUI"-Switch entfällt zugunsten dieser sauberen Trennung.
 
 ## Modul-Struktur
 
 ```
-src/
-├── gui.rs              pub fn run() + FotobuchApp (feature-gated)
-├── gui/
-│   ├── state.rs        GuiState + DerivedState
-│   ├── renderer.rs     Background-Rendering: Typst → Pixmap → egui::TextureHandle
-│   ├── panels.rs       Re-exports der Panel-Module
-│   ├── panels/
-│   │   ├── main_view.rs  Scrollbare Seitenansicht mit Slot-Overlays
-│   │   ├── photo_pool.rs Linkes Panel: Foto-Liste
-│   │   ├── page_nav.rs   Rechtes Panel: Seiten-Thumbnails
-│   │   └── config.rs     Config-Fenster (auto-generated aus serde_yaml::Value)
-│   ├── interactions.rs Drag & Drop, Hotkeys, Selektion
-│   └── toolbar.rs      Top-Bar + Statusbar
+gui/
+├── main.rs           eframe::run_native, lädt ProjectState, deklariert alle Submodule
+├── app.rs            FotobuchApp (impl eframe::App)
+├── state.rs          GuiState + DerivedState
+├── background.rs     Worker-Thread + Channel-Setup
+├── task.rs           BackgroundTask / BackgroundResult
+├── renderer.rs       Background-Rendering: fotobuch::output::typst::render_pages → egui-Texturen
+├── interactions.rs   Drag & Drop, Hotkeys, Selektion
+├── toolbar.rs        Top-Bar + Statusbar
+├── panels.rs         Panel-Modul-Wurzel (deklariert main_view, photo_pool, page_nav, config)
+└── panels/
+    ├── main_view.rs    Scrollbare Seitenansicht mit Slot-Overlays
+    ├── photo_pool.rs   Linkes Panel: Foto-Liste
+    ├── page_nav.rs     Rechtes Panel: Seiten-Thumbnails
+    └── config.rs       Config-Fenster (auto-generated aus serde_yaml::Value)
 ```
+
+- `gui/main.rs` ist der Binary-Root und deklariert die Submodule direkt (`mod app; mod state; mod panels; …`). **Kein** Zwischen-Modul `gui::` — das Binary *ist* die GUI, ein zusätzlicher Namespace wäre redundant.
+- Geschachtelte Module nur dort, wo es inhaltlich sinnvoll ist (hier: `panels.rs` + `panels/`).
+- Konvention aus `.claude/CLAUDE.md`: kein `mod.rs`, stattdessen `foo.rs` neben `foo/`.
+- Alle Seitenindizes 0-basiert.
 
 ## Command-Rückgaben: `CommandOutput<T>`
 

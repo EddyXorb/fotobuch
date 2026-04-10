@@ -66,12 +66,28 @@ good_lp = { version = "1", features = ["highs"], default-features = false }
 git2 = { version = "0.20", default-features = false }
 
 [[bin]]
+name = "fotobuch-gui"
+path = "gui/main.rs"
+required-features = ["gui"]
+
+[[bin]]
 name = "generate-cli-docs"
 path = "cli/generate_cli_docs.rs"
 required-features = ["cli-docs"]
 
 [features]
+gui = ["dep:eframe", "dep:egui"]
 cli-docs = ["dep:clap-markdown"]
+
+[dependencies.eframe]
+version = "0.34"
+optional = true
+default-features = false
+features = ["default_fonts", "glow", "x11"]
+
+[dependencies.egui]
+version = "0.34"
+optional = true
 
 [dependencies.clap-markdown]
 version = "0.1"
