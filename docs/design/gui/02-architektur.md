@@ -42,26 +42,25 @@ egui   = { version = "…", optional = true }
 
 ```
 gui/
-├── main.rs              eframe::run_native, lädt ProjectState, startet App
-├── gui.rs               Modul-Wurzel (deklariert alle Submodule, kein mod.rs)
-└── gui/
-    ├── app.rs           FotobuchApp (impl eframe::App)
-    ├── state.rs         GuiState + DerivedState
-    ├── background.rs    Worker-Thread + Channel-Setup
-    ├── task.rs          BackgroundTask / BackgroundResult
-    ├── renderer.rs      Background-Rendering: fotobuch::output::typst::render_pages → egui-Texturen
-    ├── panels.rs        Panel-Modul-Wurzel
-    ├── panels/
-    │   ├── main_view.rs    Scrollbare Seitenansicht mit Slot-Overlays
-    │   ├── photo_pool.rs   Linkes Panel: Foto-Liste
-    │   ├── page_nav.rs     Rechtes Panel: Seiten-Thumbnails
-    │   └── config.rs       Config-Fenster (auto-generated aus serde_yaml::Value)
-    ├── interactions.rs  Drag & Drop, Hotkeys, Selektion
-    └── toolbar.rs       Top-Bar + Statusbar
+├── main.rs           eframe::run_native, lädt ProjectState, deklariert alle Submodule
+├── app.rs            FotobuchApp (impl eframe::App)
+├── state.rs          GuiState + DerivedState
+├── background.rs     Worker-Thread + Channel-Setup
+├── task.rs           BackgroundTask / BackgroundResult
+├── renderer.rs       Background-Rendering: fotobuch::output::typst::render_pages → egui-Texturen
+├── interactions.rs   Drag & Drop, Hotkeys, Selektion
+├── toolbar.rs        Top-Bar + Statusbar
+├── panels.rs         Panel-Modul-Wurzel (deklariert main_view, photo_pool, page_nav, config)
+└── panels/
+    ├── main_view.rs    Scrollbare Seitenansicht mit Slot-Overlays
+    ├── photo_pool.rs   Linkes Panel: Foto-Liste
+    ├── page_nav.rs     Rechtes Panel: Seiten-Thumbnails
+    └── config.rs       Config-Fenster (auto-generated aus serde_yaml::Value)
 ```
 
-Konventionen (aus `.claude/CLAUDE.md`):
-- Kein `mod.rs`; jedes Submodul hat eine gleichnamige `.rs` im Eltern-Ordner.
+- `gui/main.rs` ist der Binary-Root und deklariert die Submodule direkt (`mod app; mod state; mod panels; …`). **Kein** Zwischen-Modul `gui::` — das Binary *ist* die GUI, ein zusätzlicher Namespace wäre redundant.
+- Geschachtelte Module nur dort, wo es inhaltlich sinnvoll ist (hier: `panels.rs` + `panels/`).
+- Konvention aus `.claude/CLAUDE.md`: kein `mod.rs`, stattdessen `foo.rs` neben `foo/`.
 - Alle Seitenindizes 0-basiert.
 
 ## Command-Rückgaben: `CommandOutput<T>`

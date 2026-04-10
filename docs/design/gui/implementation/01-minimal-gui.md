@@ -32,16 +32,14 @@ Validierung: `cargo build` (ohne Feature) darf eframe/egui **nicht** ins `Cargo.
 
 ```
 gui/
-├── main.rs
-├── gui.rs                 (deklariert: app, state, background, task)
-└── gui/
-    ├── app.rs
-    ├── state.rs
-    ├── background.rs
-    └── task.rs
+├── main.rs          Binary-Root; deklariert: mod app; mod state; mod background; mod task;
+├── app.rs
+├── state.rs
+├── background.rs
+└── task.rs
 ```
 
-Keine `mod.rs`, kein `pub use`-Dump — jedes Submodul wird in `gui/gui.rs` explizit mit `pub mod …;` aufgeführt.
+Flaches Layout — kein `gui/gui/`-Zwischenordner. Das Binary braucht keinen `gui::`-Namespace, `main.rs` deklariert die Submodule direkt. Kein `mod.rs`, jedes Submodul ist eine Datei im selben Ordner wie `main.rs`.
 
 ### Inhalte
 
@@ -53,7 +51,7 @@ Keine `mod.rs`, kein `pub use`-Dump — jedes Submodul wird in `gui/gui.rs` expl
 - `eframe::run_native("fotobuch", NativeOptions::default(), Box::new(|cc| Ok(Box::new(FotobuchApp::new(cc, state, task_tx, result_rx)))))`.
 - Fehler beim State-Laden: `eprintln!` + Exit-Code 1 (Projekt-Dialog kommt in späterer Phase).
 
-**`gui/gui/task.rs`** — minimaler Start, wird in Phase 3 erweitert:
+**`gui/task.rs`** — minimaler Start, wird in Phase 3 erweitert:
 ```rust
 pub enum BackgroundTask {
     RenderPages { pages: Vec<usize>, pixel_per_pt: f32 },
@@ -65,13 +63,13 @@ pub enum BackgroundResult {
 }
 ```
 
-**`gui/gui/background.rs`**
+**`gui/background.rs`**
 - `pub fn spawn(project_root: PathBuf, project_name: String) -> (Sender<BackgroundTask>, Receiver<BackgroundResult>)`
 - Ein `std::thread::spawn`-Worker, `crossbeam::channel::unbounded` für beide Richtungen.
 - Worker-Loop: `while let Ok(task) = task_rx.recv()` → match auf `RenderPages` → ruft `render_pages()` und sendet **pro Seite** ein `PageRendered` (nicht gesammelt — UI soll inkrementell updaten).
 - Fehler im Render → `BackgroundResult::Error(…)`, Worker läuft weiter.
 
-**`gui/gui/app.rs`** (Phase-1-Skelett)
+**`gui/app.rs`** (Phase-1-Skelett)
 - `pub struct FotobuchApp { state: GuiState, task_tx, result_rx }`
 - `impl eframe::App::update` nur als Stub (wird in 1.2/1.3 gefüllt).
 
@@ -82,7 +80,7 @@ pub enum BackgroundResult {
 
 ## 1.2 — Initiales Rendering
 
-**`gui/gui/state.rs`**
+**`gui/state.rs`**
 ```rust
 pub struct GuiState {
     pub page_textures: Vec<Option<egui::TextureHandle>>,
