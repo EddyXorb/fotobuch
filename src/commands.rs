@@ -26,7 +26,6 @@ use crate::dto_models::ProjectState;
 ///
 /// `changed_state` is `Some(s)` when the command committed a state change,
 /// and `None` when the state was not modified (read-only commands, no-op writes).
-/// The GUI should update its cached state whenever `changed_state.is_some()`.
 pub struct CommandOutput<T> {
     pub result: T,
     pub changed_state: Option<ProjectState>,
