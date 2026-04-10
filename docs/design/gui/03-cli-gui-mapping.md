@@ -75,8 +75,8 @@ Zwischen jeder Seite in der Hauptansicht: schmales Rechteck mit `[+]`, halbtrans
 | **`page move 3:2 to 3+`** | `fotobuch page move 3:2 to 3+` | Slot 3:2 auf [+]-Platzhalter nach Seite 3 draggen |
 | **`page move 3 to 5`** | `fotobuch page move 3 to 5` | In Seiten-Nav: Seite 3 auf Position 5 draggen |
 | **`page move 3:2 out`** | `fotobuch page move 3:2 out` | = Unplace: Slot selektieren → Delete oder Drag auf Foto-Pool |
-| **`page split 3:4`** | `fotobuch page split 3:4` | Shift+Klick auf Slot 4 bis letzten Slot → auf [+]-Platzhalter nach Seite 3 draggen |
-| **`page combine 3,5`** | `fotobuch page combine 3,5` | In Seiten-Nav: alle Slots von Seite 5 auf Seite 3 draggen (M halten). Leere Seite 5 verschwindet automatisch |
+| **`page split 3:4`** | `fotobuch page split 3:4` | Drag **Slot 4** (Einzelselektion, nicht erster Slot) → auf den [+]-Platzhalter **direkt nach Seite 3**. Lib verschiebt automatisch Slot 4..Ende auf die neue Seite. |
+| **`page combine 3,5`** | `fotobuch page combine 3,5` | In Seiten-Nav: Thumbnail Seite 5 auf Thumbnail Seite 3 draggen (`M` halten = Move-Modus). Ruft `page combine 3,5`; leere Seite 5 verschwindet automatisch. |
 | **`page info 3`** | `fotobuch page info 3` | Hover über Slots zeigt Tooltips. Rechtsklick → Page Info für Details |
 | **`page info 3:2`** | `fotobuch page info 3:2` | Klick auf Slot → Statusbar zeigt Details (ID, Pixel, DPI, Gewicht) |
 | **`page weight 3:2 2.0`** | `fotobuch page weight 3:2 2.0` | Rechtsklick auf Slot → "Set Weight" → DragValue |
@@ -117,3 +117,52 @@ Zwischen jeder Seite in der Hauptansicht: schmales Rechteck mit `[+]`, halbtrans
 | `M` (halten) | Während Drag: Move statt Swap |
 | `Shift+Klick` | Range-Selektion |
 | `Ctrl+Klick` | Toggle-Selektion |
+
+---
+
+## Drop-Target-Auflösung
+
+Beim Hit-Test unter dem Maus-Cursor gilt folgende **Prioritätsreihenfolge**
+(erster Treffer gewinnt — verhindert Ambiguitäten bei überlagerten Zonen):
+
+1. `[+]`-Platzhalter zwischen Seiten (haben Vorrang vor den angrenzenden Seiten-Rändern)
+2. Slot innerhalb einer Seite (inkl. Manual-Mode Free-Position)
+3. Seiten-Thumbnail in der rechten Navigation
+4. Foto-Pool (links) — entspricht Unplace
+5. Leere Seitenfläche (= Manual-Mode Position) *nur* wenn Quellseite `mode=manual`
+
+Die Drag-Quelle bestimmt zusätzlich, welche Targets überhaupt gültig sind
+(Foto-Pool-Drag → nur Seiten/Slots/[+]; Slot-Drag → alles).
+
+## Drag-Feedback: Aspect-Ratio-Regel
+
+Ziel-Overlay-Farbe beim Hover über einen Slot ergibt sich aus dem
+Verhältnis `r = width/height` von Quell- und Ziel-Slot.
+Sei `Δ = abs(r_src − r_dst) / max(r_src, r_dst)`:
+
+| Δ | Overlay | Bedeutung |
+|---|---|---|
+| < 5 % | Grün | Swap ohne Solver-Rerun, Bilder behalten Position |
+| 5 – 20 % | Gelb | Swap möglich, Solver rechnet Seite neu |
+| > 20 % | Rot | Swap löst größeres Re-Layout aus (evtl. andere Slots verschoben) |
+
+Bei Multi-Selektion: größte auftretende Differenz über alle Paare gewinnt.
+Im Move-Modus (`M`): Overlay immer blau — Ratio spielt keine Rolle, da der
+Ziel-Slot entfernt und im Solver neu platziert wird.
+
+## Modifier-Tracking während des Drags
+
+- `M` wird **kontinuierlich** gepollt (nicht nur am Drag-Start). Loslassen /
+  Drücken während des Drags wechselt den Modus sofort inkl. Statusbar-Update
+  und Overlay-Farbe.
+- `Escape` während eines Drags bricht ab (kein Command wird abgeschickt).
+- Drag-Ghost: halbtransparentes Thumbnail der Quell-Slots, folgt dem Cursor.
+  Bei Multi-Selektion: Stack-Effekt mit Badge `×N`.
+
+## Mapping: GUI-Aktion → Lib-Command
+
+Jede GUI-Aktion ruft **genau einen** Lib-Command auf (keine impliziten
+Aggregationen in der UI). Bei Multi-Selektion konstruiert die GUI einen
+entsprechenden `SlotExpr` / `PagesExpr` und ruft den Command einmal.
+Commands ohne effektive Änderung liefern `changed_state = None` zurück —
+die GUI ignoriert diese still (kein Toast, kein Re-Render).
