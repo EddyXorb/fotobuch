@@ -34,12 +34,15 @@ impl FotobuchApp {
 }
 
 impl eframe::App for FotobuchApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    /// Called every frame. The runtime already wraps this in a `CentralPanel`.
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        let ctx = ui.ctx().clone();
+
         // Drain background results
         while let Ok(msg) = self.result_rx.try_recv() {
             match msg {
                 BackgroundResult::PageRendered(r) => {
-                    state::apply_rendered(&mut self.state, ctx, r);
+                    state::apply_rendered(&mut self.state, &ctx, r);
                 }
                 BackgroundResult::Error(e) => {
                     tracing::error!(%e, "render error");
@@ -52,10 +55,10 @@ impl eframe::App for FotobuchApp {
             ctx.request_repaint();
         }
 
-        // Zoom via Ctrl+Scroll
+        // Zoom via Ctrl+Scroll (smooth_scroll_delta replaces raw_scroll_delta in egui 0.34)
         let ctrl_scroll = ctx.input(|i| {
             if i.modifiers.ctrl {
-                i.raw_scroll_delta.y
+                i.smooth_scroll_delta.y
             } else {
                 0.0
             }
@@ -64,16 +67,14 @@ impl eframe::App for FotobuchApp {
             self.state.zoom = state::apply_zoom_delta(self.state.zoom, ctrl_scroll);
         }
 
-        egui::CentralPanel::default().show(ctx, |ui| {
-            egui::ScrollArea::vertical()
-                .auto_shrink([false; 2])
-                .show(ui, |ui| {
-                    let n = self.state.page_textures.len();
-                    for i in 0..n {
-                        draw_page(ui, &self.state, i, self.page_width_mm, self.page_height_mm);
-                    }
-                });
-        });
+        egui::ScrollArea::vertical()
+            .auto_shrink([false; 2])
+            .show(ui, |ui| {
+                let n = self.state.page_textures.len();
+                for i in 0..n {
+                    draw_page(ui, &self.state, i, self.page_width_mm, self.page_height_mm);
+                }
+            });
     }
 }
 
