@@ -1,3 +1,4 @@
+use std::path::Path;
 use std::path::PathBuf;
 
 use crossbeam::channel::{Receiver, Sender, unbounded};
@@ -19,24 +20,40 @@ pub fn spawn(
                     pages,
                     pixel_per_pt,
                 } => {
-                    for page in pages {
-                        match render_pages(&project_root, &project_name, &[page], pixel_per_pt) {
-                            Ok(rendered) => {
-                                for r in rendered {
-                                    let _ = result_tx.send(BackgroundResult::PageRendered(r));
-                                }
-                            }
-                            Err(e) => {
-                                let _ = result_tx.send(BackgroundResult::Error(e.to_string()));
-                            }
-                        }
-                    }
+                    render_pages_task(
+                        &project_root,
+                        &project_name,
+                        pages,
+                        pixel_per_pt,
+                        &result_tx,
+                    );
                 }
             }
         }
     });
 
     (task_tx, result_rx)
+}
+
+fn render_pages_task(
+    project_root: &Path,
+    project_name: &str,
+    pages: Vec<usize>,
+    pixel_per_pt: f32,
+    result_tx: &Sender<BackgroundResult>,
+) {
+    for page in pages {
+        match render_pages(project_root, project_name, &[page], pixel_per_pt) {
+            Ok(rendered) => {
+                for r in rendered {
+                    let _ = result_tx.send(BackgroundResult::PageRendered(r));
+                }
+            }
+            Err(e) => {
+                let _ = result_tx.send(BackgroundResult::Error(e.to_string()));
+            }
+        }
+    }
 }
 
 #[cfg(test)]

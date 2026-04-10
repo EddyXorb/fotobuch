@@ -31,50 +31,57 @@ impl FotobuchApp {
             page_height_mm,
         }
     }
-}
 
-impl eframe::App for FotobuchApp {
-    /// Called every frame. The runtime already wraps this in a `CentralPanel`.
-    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
-        let ctx = ui.ctx().clone();
-
-        // Drain background results
+    fn drain_results(&mut self, ctx: &egui::Context) {
         while let Ok(msg) = self.result_rx.try_recv() {
             match msg {
                 BackgroundResult::PageRendered(r) => {
-                    state::apply_rendered(&mut self.state, &ctx, r);
+                    state::apply_rendered(&mut self.state, ctx, r);
                 }
                 BackgroundResult::Error(e) => {
                     tracing::error!(%e, "render error");
                 }
             }
         }
+    }
 
-        // Keep repainting until all pages have loaded
+    fn request_repaint_if_loading(&self, ctx: &egui::Context) {
         if self.state.page_textures.iter().any(Option::is_none) {
             ctx.request_repaint();
         }
+    }
 
-        // Zoom via Ctrl+Scroll (smooth_scroll_delta replaces raw_scroll_delta in egui 0.34)
-        let ctrl_scroll = ctx.input(|i| {
+    fn apply_zoom(&mut self, ctx: &egui::Context) {
+        let delta = ctx.input(|i| {
             if i.modifiers.ctrl {
                 i.smooth_scroll_delta.y
             } else {
                 0.0
             }
         });
-        if ctrl_scroll != 0.0 {
-            self.state.zoom = state::apply_zoom_delta(self.state.zoom, ctrl_scroll);
+        if delta != 0.0 {
+            self.state.zoom = state::apply_zoom_delta(self.state.zoom, delta);
         }
+    }
 
+    fn show_pages(&self, ui: &mut egui::Ui) {
         egui::ScrollArea::vertical()
             .auto_shrink([false; 2])
             .show(ui, |ui| {
-                let n = self.state.page_textures.len();
-                for i in 0..n {
+                for i in 0..self.state.page_textures.len() {
                     draw_page(ui, &self.state, i, self.page_width_mm, self.page_height_mm);
                 }
             });
+    }
+}
+
+impl eframe::App for FotobuchApp {
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        let ctx = ui.ctx().clone();
+        self.drain_results(&ctx);
+        self.request_repaint_if_loading(&ctx);
+        self.apply_zoom(&ctx);
+        self.show_pages(ui);
     }
 }
 
@@ -85,7 +92,7 @@ fn draw_page(
     page_width_mm: f64,
     page_height_mm: f64,
 ) {
-    // 0-based page label (CLAUDE.md convention)
+    // 0-based page label
     ui.label(format!("Seite {i}"));
 
     let mm_to_pt = 72.0_f32 / 25.4_f32;
