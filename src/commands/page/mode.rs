@@ -32,8 +32,8 @@ pub fn execute_mode(
     let mut pages_changed = Vec::new();
     for &page_num in &pages.pages {
         let idx = page_idx(page_num, &mgr.state.layout)?;
-        // Store as Some(mode), but Auto will be serialized as absent
-        mgr.state.layout[idx].mode = Some(mode);
+        // Auto is skipped at serialization time; see LayoutPage::mode.
+        mgr.state.layout[idx].mode = mode;
         pages_changed.push(page_num);
     }
 
@@ -63,15 +63,14 @@ mod tests {
     fn test_layout_page_serialization() {
         use crate::dto_models::LayoutPage;
 
-        // Test that Some(Manual) is serialized but None/Some(Auto) are not
+        // Manual is serialized, Auto (incl. default) is skipped.
         let page_manual = LayoutPage {
             page: 0,
             photos: vec![],
             slots: vec![],
-            mode: Some(PageMode::Manual),
+            mode: PageMode::Manual,
         };
         let yaml = serde_yaml::to_string(&page_manual).unwrap();
-        eprintln!("Manual page YAML:\n{}", yaml);
         assert!(
             yaml.contains("mode:"),
             "Manual mode should be serialized to YAML"
@@ -82,26 +81,21 @@ mod tests {
             page: 0,
             photos: vec![],
             slots: vec![],
-            mode: Some(PageMode::Auto),
+            mode: PageMode::Auto,
         };
         let yaml = serde_yaml::to_string(&page_auto).unwrap();
-        eprintln!("Auto page YAML:\n{}", yaml);
         assert!(
             !yaml.contains("mode:"),
             "Auto mode should not be serialized (skipped)"
         );
 
-        let page_none = LayoutPage {
-            page: 0,
-            photos: vec![],
-            slots: vec![],
-            mode: None,
-        };
-        let yaml = serde_yaml::to_string(&page_none).unwrap();
-        eprintln!("None page YAML:\n{}", yaml);
-        assert!(
-            !yaml.contains("mode:"),
-            "None mode should not be serialized (default, skipped)"
+        // YAML without a `mode:` key deserializes to Auto via #[serde(default)].
+        let yaml_no_mode = "page: 0\nphotos: []\nslots: []\n";
+        let parsed: LayoutPage = serde_yaml::from_str(yaml_no_mode).unwrap();
+        assert_eq!(
+            parsed.mode,
+            PageMode::Auto,
+            "Missing mode should default to Auto for backward compatibility"
         );
     }
 
@@ -120,7 +114,7 @@ mod tests {
         let mgr = StateManager::open(tmp.path()).unwrap();
         assert_eq!(
             mgr.state.layout[1].mode,
-            Some(PageMode::Manual),
+            PageMode::Manual,
             "Mode should be set to Manual and persisted"
         );
         mgr.finish("test: noop").unwrap();
@@ -143,8 +137,7 @@ mod tests {
 
         // Verify state was saved
         let mgr = StateManager::open(tmp.path()).unwrap();
-        // Auto mode is stored as None
-        assert_eq!(mgr.state.layout[1].mode, None);
+        assert_eq!(mgr.state.layout[1].mode, PageMode::Auto);
         mgr.finish("test: noop").unwrap();
     }
 

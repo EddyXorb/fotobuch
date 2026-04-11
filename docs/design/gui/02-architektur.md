@@ -68,49 +68,36 @@ gui/
 ### Problem
 
 Commands haben jeweils eigene, sinnvolle Result-Structs (`BuildResult`, `AddResult`, ...).
-Die GUI braucht nach jedem Command den aktuellen `ProjectState`.
+Die GUI braucht nach jedem Command den aktuellen `ProjectState` — aber nur,
+wenn der Command ihn tatsächlich geändert hat.
 
-### Lösung: Generischer Wrapper
+### Lösung: Generischer Wrapper (bereits implementiert in `src/commands.rs`)
 
 ```rust
-// src/commands/mod.rs
 pub struct CommandOutput<T> {
     pub result: T,
-    pub state: ProjectState,
+    /// `Some(state)` wenn der Command committet hat, `None` bei No-Ops
+    /// (read-only Commands oder Commands ohne effektive Änderung).
+    pub changed_state: Option<ProjectState>,
 }
 ```
 
-`StateManager::finish()` gibt den State zurück statt ihn zu droppen:
+`StateManager::finish()` gibt `Result<Option<ProjectState>>` zurück: `None`
+wenn der Diff leer ist (kein Commit), `Some(state)` nach erfolgreichem Commit.
+Jeder Command reicht dieses Option durch.
+
+CLI-Handler ignorieren `.changed_state`, GUI nutzt beides:
 
 ```rust
-// StateManager
-pub fn finish(self, message: &str) -> Result<ProjectState> {
-    self.finish_internal(message, false)?;
-    Ok(self.state)
-}
-```
-
-Jeder Command gibt `Result<CommandOutput<XyzResult>>` zurück:
-
-```rust
-// Vorher:
-pub fn build(...) -> Result<BuildResult>
-
-// Nachher:
-pub fn build(...) -> Result<CommandOutput<BuildResult>>
-```
-
-CLI-Handler ignorieren `.state`, GUI nutzt beides:
-
-```rust
-// CLI (ändert sich minimal)
+// CLI (unverändert: liest nur .result)
 let output = commands::build::build(...)?;
 print_build_result(&output.result);
 
-// GUI
+// GUI: No-Ops = kein DerivedState-Rebuild, kein Re-Render
 let output = commands::build::build(...)?;
-gui_state.apply(output.state);
-// output.result.pages_rebuilt → nur diese Seiten re-rendern
+if let Some(state) = output.changed_state {
+    gui_state.apply(state, output.result.pages_rebuilt);
+}
 ```
 
 ### Dirty Pages aus Command Results
@@ -138,9 +125,14 @@ struct GuiState {
     derived: DerivedState,
 
     // === Rendering ===
-    page_textures: Vec<PageTexture>,
+    page_textures: Vec<Option<PageTexture>>,  // index-coupled mit layout[]
     dirty_pages: HashSet<usize>,
     building_pages: HashSet<usize>,
+    /// Pro-Seite monoton wachsender Counter. Eine Neuanforderung für Seite `p`
+    /// inkrementiert **nur** `render_epochs[p]` — laufende Renderings für
+    /// unberührte Seiten bleiben gültig und ihr Ergebnis wird akzeptiert.
+    /// Index-coupled mit `page_textures`.
+    render_epochs: Vec<u64>,
 
     // === UI ===
     selection: Selection,
@@ -148,6 +140,16 @@ struct GuiState {
     zoom: f32,
     scroll_offset: f32,
     config_window_open: bool,
+    toasts: VecDeque<Toast>,            // Fehler/Warnungen aus dem Background
+}
+
+struct PageTexture {
+    handle: egui::TextureHandle,
+    /// Seitenmaße in Pt — benötigt für Slot-Overlay-Geometrie.
+    width_pt: f32,
+    height_pt: f32,
+    /// Epoch, mit der diese Textur gerendert wurde.
+    rendered_at: u64,
 }
 ```
 
@@ -189,10 +191,13 @@ impl DerivedState {
 
 ```rust
 impl GuiState {
-    fn apply(&mut self, output: CommandOutput<impl Any>) {
-        self.project_state = output.state;
+    /// Wird aufgerufen, sobald der Background-Thread `CommandDone` liefert.
+    /// `dirty_pages` werden vom jeweiligen Command-Result extrahiert
+    /// (siehe Tabelle unten) und an den Background-Renderer weitergereicht.
+    fn apply(&mut self, new_state: ProjectState, dirty_pages: Vec<usize>) {
+        self.project_state = new_state;
         self.derived = DerivedState::rebuild(&self.project_state);
-        // dirty_pages aus dem jeweiligen Result setzen
+        self.dirty_pages.extend(dirty_pages);
     }
 }
 ```
@@ -271,48 +276,88 @@ egui frame loop:                     loop {
 ```rust
 // UI → Background
 enum BackgroundTask {
-    /// Lib-Command ausführen (build, swap, etc.)
-    RunCommand(Box<dyn FnOnce() -> CommandOutputAny + Send>),
-    /// Seiten rendern (nach Command oder Zoom-Änderung)
-    RenderPages { pages: Vec<usize>, pixel_per_pt: f32 },
-    /// Thumbnails für Foto-Pool laden
-    LoadThumbnails(Vec<String>),  // photo_ids
+    /// Lib-Command ausführen. Closure kapselt alle Argumente und gibt
+    /// ein konkretes `CommandDone`-Variant zurück — kein `dyn Any` nötig.
+    RunCommand(Box<dyn FnOnce() -> CommandDone + Send>),
+    /// Seiten rendern (nach Command oder Zoom-Änderung).
+    /// `epoch` stammt vom UI-Thread (`render_epoch.fetch_add(1, …)`).
+    RenderPages { pages: Vec<usize>, pixel_per_pt: f32, epoch: u64 },
+    /// Thumbnails für Foto-Pool laden (bounded: nur sichtbarer Bereich).
+    LoadThumbnails(Vec<String>),
+}
+
+/// Ein Enum pro Command-Gruppe, damit der UI-Thread typsicher branchen kann
+/// ohne Downcasting. `state` ist `None` bei No-Ops — dann kein Rebuild.
+enum CommandDone {
+    Build  { result: BuildResult,     state: Option<ProjectState> },
+    Place  { result: PlaceResult,     state: Option<ProjectState> },
+    Move   { result: PageMoveResult,  state: Option<ProjectState> },
+    Config { result: ConfigSetResult, state: Option<ProjectState> },
+    Undo   { result: UndoResult,      state: Option<ProjectState> },
+    // …weitere Varianten nach Bedarf
+    Failed(anyhow::Error),
 }
 
 // Background → UI
 enum BackgroundResult {
-    CommandDone { output: CommandOutputAny, dirty_pages: Vec<usize> },
-    PageRendered(RenderedPage),
-    DerivedReady(DerivedState),
-    ThumbnailReady { photo_id: String, texture_data: Vec<u8> },
-    Error(String),
+    CommandDone(CommandDone),
+    /// Rendered page + die Epoch, zu der es gehört. UI verwirft, wenn
+    /// `epoch < render_epochs[page.page]` (stale gegenüber einer neueren
+    /// Anforderung für **dieselbe** Seite).
+    PageRendered { page: RenderedPage, epoch: u64 },
+    ThumbnailReady { photo_id: String, rgba: Vec<u8>, width: u32, height: u32 },
+    Toast(Toast),  // Info/Warning/Error, UI puffert in VecDeque
 }
 ```
+
+`CommandDone::extract_dirty_pages()` kapselt die Mapping-Tabelle (Build → `pages_rebuilt ∪ pages_swapped`, Move → `pages_affected`, Undo/Config → alle Seiten).
 
 ### Ablauf einer User-Aktion (z.B. Swap)
 
 ```
 1. User draggt Slot A auf Slot B
 2. UI-Thread:
-   - Setzt building_pages für betroffene Seiten
-   - Zeigt Blur auf diesen Seiten
+   - Setzt building_pages für betroffene Seiten (→ Blur/Spinner-Overlay)
+   - Für jede betroffene Seite `p`: `render_epochs[p] += 1` — invalidiert
+     nur in-flight Renderings für **diese** Seiten. Unberührte Seiten
+     behalten ihre laufenden Renderings.
    - Sendet RunCommand(|| commands::page::swap(...)) an Background
 3. Background-Thread:
-   - Führt swap aus → CommandOutput<SwapResult>
-   - Sendet CommandDone zurück
-   - Baut DerivedState::rebuild() → sendet DerivedReady
-   - Ruft render_pages() für dirty pages auf → sendet PageRendered
-4. UI-Thread (nächste Frames):
-   - try_recv() → CommandDone: project_state updaten
-   - try_recv() → DerivedReady: derived state swappen
-   - try_recv() → PageRendered: Textur swappen, Blur entfernen
+   - Führt swap aus → Result<CommandOutput<PageMoveResult>>
+   - Sendet CommandDone { result, state } zurück
+   - Wenn state = Some: sendet sofort RenderPages-Task an sich selbst
+     (die dirty pages kommen aus extract_dirty_pages); jede Seite in
+     diesem Task trägt die aktuelle `render_epochs[p]` als Tag.
+4. UI-Thread (nächste Frames, ~immer < 16ms):
+   - try_recv() → CommandDone(Move): gui_state.apply() — ruft intern
+     DerivedState::rebuild() synchron auf (einige Millisekunden bei
+     typischen Projekten; ggf. später off-thread ziehen).
+   - try_recv() → PageRendered { page, epoch }: wenn
+     `epoch ≥ render_epochs[page.page]`, Textur swappen und
+     building_pages bereinigen, sonst verwerfen (stale).
 ```
+
+`DerivedState::rebuild()` wird bewusst im UI-Thread aufgerufen, **nicht**
+im Worker: nur so ist die sichtbare Reihenfolge garantiert (state + derived
+werden atomar gegenüber der UI ersetzt). Bei Projekten mit >10k Fotos ggf.
+später in den Worker auslagern und via `BackgroundResult::DerivedReady`
+austauschen — YAGNI bis Messwerte das rechtfertigen.
 
 ### Konkurrenz-Handling
 
-- Neue Aktion während laufendem Command: wird gequeued (Channel-Buffer)
-- Neue Render-Anfrage während laufendem Render: alten abbrechen (Cancellation-Flag)
-- UI zeigt immer den letzten bekannten State — auch wenn Background noch arbeitet
+- **Commands**: serialisiert im Background (ein Worker-Thread, FIFO-Channel).
+  StateManager-interner Git-Commit ist sequentiell, Parallelisierung bringt nichts.
+- **Rendering**: Epoch-basiert **pro Seite**. Jede Render-Anfrage trägt
+  `(page, epoch = render_epochs[page])`. Bei Zoom-Änderung werden nur die
+  Epochen sichtbarer Seiten inkrementiert; bei einem Command nur die dirty
+  pages aus `extract_dirty_pages`. UI verwirft `PageRendered`-Ergebnisse,
+  deren Epoch kleiner ist als die aktuelle Seiten-Epoch — aber noch laufende
+  Renderings für unberührte Seiten liefern ihr Ergebnis ganz normal ab.
+  Der Typst-Compile läuft nicht preemptiv ab, aber stale Ergebnisse werden
+  nie angezeigt.
+- **Thumbnails**: eigener Channel, niedrigere Priorität. Beim Scroll werden
+  die Epochen der Fotos invalidiert, die aus dem Viewport rausrutschen.
+- UI zeigt immer den letzten bekannten State — auch wenn Background noch arbeitet.
 
 ### Typst-Rendering: Lib-API statt GUI-Logik
 
@@ -351,7 +396,21 @@ Vorteile:
 - Zoom-Änderung > 2x: debounced Re-Render (~200ms)
 - Dazwischen: GPU-Skalierung der vorhandenen Textur
 
-## YAML-Erweiterung: Page Mode
+### Initial Load
+
+Beim Start in `gui/main.rs`:
+
+1. Projekt ermitteln (CLI-Arg oder letztes Projekt aus Config) — synchron.
+2. `state_manager::load_project_state(project_root, project_name)` — synchron,
+   ein einmaliges YAML-Read ist akzeptabel.
+3. `DerivedState::rebuild(&state)` — synchron beim ersten Aufruf (kleiner State).
+4. `eframe::run_native(...)` startet; der Worker-Thread rendert alle Seiten
+   im Hintergrund mit `pixel_per_pt = 1.0`. Solange noch keine Textur da ist,
+   zeigt die Hauptansicht graue Platzhalter-Rechtecke im korrekten Seitenformat
+   (aus `config.book.width/height` berechnet) inkl. Spinner.
+5. Fehler beim Laden → Startup-Modal mit Fehlermeldung, dann App-Exit.
+
+## YAML-Erweiterung: Page Mode (bereits implementiert)
 
 ```yaml
 layout:
@@ -362,22 +421,25 @@ layout:
 ```
 
 ```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
+// src/dto_models/layout/layout_page.rs
 pub struct LayoutPage {
     pub page: usize,
-    #[serde(default, skip_serializing_if = "PageMode::is_auto")]
-    pub mode: PageMode,
     pub photos: Vec<String>,
     pub slots: Vec<Slot>,
+    /// Abwärtskompatibilität kommt über `#[serde(default)]` + `#[default]`
+    /// auf PageMode — fehlendes `mode` im YAML → `Auto`.
+    #[serde(default, skip_serializing_if = "is_auto")]
+    pub mode: PageMode,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+#[derive(Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
-pub enum PageMode {
-    #[default]
-    Auto,
-    Manual,
-}
+pub enum PageMode { #[default] Auto, Manual }
+
+fn is_auto(mode: &PageMode) -> bool { *mode == PageMode::Auto }
 ```
 
-Abwärtskompatibel: bestehende YAMLs ohne `mode` funktionieren (= Auto).
+Zwei Zustände, zwei Bedeutungen — keine `Option`-Schicht obendrauf. Der
+GUI-Toggle `[A|M]` setzt direkt `PageMode::Auto` oder `PageMode::Manual`;
+beim Serialisieren verschwindet `Auto` aus dem YAML, damit Bestands-Files
+unverändert bleiben.

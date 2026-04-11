@@ -1,6 +1,6 @@
 use super::canvas::Canvas;
 use super::photo::Photo;
-use crate::dto_models::{CanvasConfig, LayoutPage, Slot};
+use crate::dto_models::{CanvasConfig, LayoutPage, PageMode, Slot};
 
 /// Placement of a single photo on the canvas.
 #[derive(Debug, Clone, Copy)]
@@ -249,7 +249,7 @@ impl SolverPageLayout {
             page: page_num,
             photos: photo_ids,
             slots,
-            mode: None,
+            mode: PageMode::Auto,
         }
     }
     /// Calculates the needed scaling factor to add bleed around the page

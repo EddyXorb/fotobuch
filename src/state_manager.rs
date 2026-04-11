@@ -409,8 +409,8 @@ fn load_raw_config(yaml_path: &Path) -> Result<Value> {
 mod tests {
     use super::*;
     use crate::dto_models::{
-        BookConfig, BookLayoutSolverConfig, LayoutPage, PhotoFile, PhotoGroup, ProjectConfig,
-        ProjectState, Slot,
+        BookConfig, BookLayoutSolverConfig, LayoutPage, PageMode, PhotoFile, PhotoGroup,
+        ProjectConfig, ProjectState, Slot,
     };
     use tempfile::TempDir;
 
@@ -507,7 +507,7 @@ mod tests {
             photos: vec![],
             slots: vec![],
 
-            mode: None,
+            mode: PageMode::Auto,
         });
         let diff = StateDiff::compute(&old, &new);
         assert_eq!(diff.pages_added, 1);
@@ -527,7 +527,7 @@ mod tests {
                 width_mm: 100.0,
                 height_mm: 80.0,
             }],
-            mode: None,
+            mode: PageMode::Auto,
         });
         let mut new = old.clone();
         new.layout[0].slots[0].width_mm = 200.0;

@@ -274,7 +274,7 @@ fn format_page_list(pages: &[usize]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::dto_models::{LayoutPage, PhotoGroup, ProjectState};
+    use crate::dto_models::{LayoutPage, PageMode, PhotoGroup, ProjectState};
     use chrono::TimeZone;
 
     fn make_unplaced(id: &str, source: &str, ts: DateTime<Utc>) -> UnplacedPhoto {
@@ -318,7 +318,7 @@ mod tests {
                 photos: vec!["a.jpg".to_string()],
                 slots: vec![],
 
-                mode: None,
+                mode: PageMode::Auto,
             }],
         };
 
@@ -463,14 +463,14 @@ mod tests {
                 photos: vec!["cover.jpg".into()],
                 slots: vec![],
 
-                mode: None,
+                mode: PageMode::Auto,
             },
             LayoutPage {
                 page: 1,
                 photos: vec!["content.jpg".into()],
                 slots: vec![],
 
-                mode: None,
+                mode: PageMode::Auto,
             },
         ];
         let state = make_state_with_cover(true, layout, photos);
@@ -501,14 +501,14 @@ mod tests {
                 photos: vec!["p0.jpg".into()],
                 slots: vec![],
 
-                mode: None,
+                mode: PageMode::Auto,
             },
             LayoutPage {
                 page: 1,
                 photos: vec!["p1.jpg".into()],
                 slots: vec![],
 
-                mode: None,
+                mode: PageMode::Auto,
             },
         ];
         let state = make_state_with_cover(false, layout, photos);
@@ -541,14 +541,14 @@ mod tests {
                 photos: vec!["cover.jpg".into()],
                 slots: vec![],
 
-                mode: None,
+                mode: PageMode::Auto,
             },
             LayoutPage {
                 page: 1,
                 photos: vec!["content.jpg".into()],
                 slots: vec![],
 
-                mode: None,
+                mode: PageMode::Auto,
             },
         ];
         let mut state = make_state_with_cover(true, layout, photos);

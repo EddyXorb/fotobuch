@@ -273,7 +273,7 @@ pub fn remove(project_root: &Path, config: &RemoveConfig) -> Result<CommandOutpu
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::dto_models::{LayoutPage, PhotoFile, Slot};
+    use crate::dto_models::{LayoutPage, PageMode, PhotoFile, Slot};
     use chrono::Utc;
 
     fn make_photo(id: &str, source: &str) -> PhotoFile {
@@ -357,7 +357,7 @@ mod tests {
             photos: vec!["a.jpg".to_string(), "b.jpg".to_string()],
             slots: vec![slot1.clone(), slot2.clone()],
 
-            mode: None,
+            mode: PageMode::Auto,
         }];
 
         let mut matched = HashSet::new();
@@ -379,21 +379,21 @@ mod tests {
                 photos: vec![],
                 slots: vec![],
 
-                mode: None,
+                mode: PageMode::Auto,
             },
             LayoutPage {
                 page: 2,
                 photos: vec!["a.jpg".to_string()],
                 slots: vec![],
 
-                mode: None,
+                mode: PageMode::Auto,
             },
             LayoutPage {
                 page: 3,
                 photos: vec![],
                 slots: vec![],
 
-                mode: None,
+                mode: PageMode::Auto,
             },
         ];
 
@@ -410,14 +410,14 @@ mod tests {
                 photos: vec!["a.jpg".to_string()],
                 slots: vec![],
 
-                mode: None,
+                mode: PageMode::Auto,
             },
             LayoutPage {
                 page: 7,
                 photos: vec!["b.jpg".to_string()],
                 slots: vec![],
 
-                mode: None,
+                mode: PageMode::Auto,
             },
         ];
 
@@ -434,21 +434,21 @@ mod tests {
                 photos: vec!["cover.jpg".to_string()],
                 slots: vec![],
 
-                mode: None,
+                mode: PageMode::Auto,
             },
             LayoutPage {
                 page: 99,
                 photos: vec!["a.jpg".to_string()],
                 slots: vec![],
 
-                mode: None,
+                mode: PageMode::Auto,
             },
             LayoutPage {
                 page: 99,
                 photos: vec!["b.jpg".to_string()],
                 slots: vec![],
 
-                mode: None,
+                mode: PageMode::Auto,
             },
         ];
 
@@ -518,7 +518,7 @@ mod tests {
                 photos: vec!["a.jpg".to_string()],
                 slots: vec![],
 
-                mode: None,
+                mode: PageMode::Auto,
             }],
         };
 
@@ -542,7 +542,7 @@ mod tests {
                 photos: vec!["a.jpg".to_string()],
                 slots: vec![],
 
-                mode: None,
+                mode: PageMode::Auto,
             }],
         };
 

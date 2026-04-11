@@ -113,10 +113,7 @@ fn rebuild_single(
     idx: usize,
 ) -> Result<CommandOutput<BuildResult>> {
     // 1. Check if page is manual - can't rebuild manual pages
-    if mgr.state.layout[idx]
-        .mode
-        .is_some_and(|m| m == crate::dto_models::PageMode::Manual)
-    {
+    if mgr.state.layout[idx].mode == crate::dto_models::PageMode::Manual {
         anyhow::bail!(
             "Cannot rebuild page {}: page is in manual mode. Use `page mode {} a` to switch to auto mode first.",
             idx,

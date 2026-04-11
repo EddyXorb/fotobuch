@@ -5,9 +5,10 @@
 - [x] 00-0-page-mode.md - Page Mode Implementation
 - [x] 00-1-page-pos.md - Page Position Implementation
 - [x] 00-2-config-set.md - Config Set Implementation
-- [ ] 00-3-command-output.md - Command Output Implementation
-- [ ] 00-neue-lib-commands.md - New Lib Commands
-- [ ] 01-minimal-gui.md - Minimal GUI
+- [x] 00-3-command-output.md - Command Output Implementation
+- [x] 00-neue-lib-commands.md - New Lib Commands
+- [x] 01-minimal-gui.md - Minimal GUI
+- [ ] 00-4-typst-world-cache.md - Persistente TypstWorld + comemo-Cache
 - [ ] 02-state-und-slots.md - State and Slots
 - [ ] 03-commands-und-background.md - Commands and Background
 - [ ] 04-panels.md - Panels

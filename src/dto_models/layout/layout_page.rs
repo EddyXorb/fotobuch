@@ -11,8 +11,8 @@ pub enum PageMode {
     Manual,
 }
 
-fn is_auto_mode(mode: &Option<PageMode>) -> bool {
-    matches!(mode, None | Some(PageMode::Auto))
+fn is_auto(mode: &PageMode) -> bool {
+    *mode == PageMode::Auto
 }
 
 /// Single page in the layout.
@@ -29,7 +29,9 @@ pub struct LayoutPage {
     pub photos: Vec<String>,
     /// Calculated slot positions (index-coupled to photos)
     pub slots: Vec<Slot>,
-    /// Page mode: Auto or Manual (None = Auto for backward compatibility)
-    #[serde(default, skip_serializing_if = "is_auto_mode")]
-    pub mode: Option<PageMode>,
+    /// Page mode: Auto or Manual. Missing in YAML → Auto (backward compatibility
+    /// via `#[serde(default)]` + `#[default]` on `PageMode`). Auto is skipped
+    /// when serializing, so existing YAMLs stay clean.
+    #[serde(default, skip_serializing_if = "is_auto")]
+    pub mode: PageMode,
 }

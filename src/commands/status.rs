@@ -281,6 +281,7 @@ pub fn status(project_root: &Path, config: &StatusConfig) -> Result<CommandOutpu
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::dto_models::PageMode;
 
     #[test]
     fn test_count_unplaced_all_placed() {
@@ -304,7 +305,7 @@ mod tests {
                 photos: vec!["a.jpg".to_string()],
                 slots: vec![],
 
-                mode: None,
+                mode: PageMode::Auto,
             }],
         };
 
@@ -344,7 +345,7 @@ mod tests {
                 photos: vec!["a.jpg".to_string()],
                 slots: vec![],
 
-                mode: None,
+                mode: PageMode::Auto,
             }],
         };
 
@@ -406,7 +407,7 @@ mod tests {
                 photos: vec!["a.jpg".to_string()],
                 slots: vec![],
 
-                mode: None,
+                mode: PageMode::Auto,
             }],
         };
 
@@ -428,7 +429,7 @@ mod tests {
                 photos: vec!["orphan.jpg".to_string()],
                 slots: vec![],
 
-                mode: None,
+                mode: PageMode::Auto,
             }],
         };
 
