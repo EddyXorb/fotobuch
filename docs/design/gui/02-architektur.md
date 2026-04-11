@@ -128,9 +128,11 @@ struct GuiState {
     page_textures: Vec<Option<PageTexture>>,  // index-coupled mit layout[]
     dirty_pages: HashSet<usize>,
     building_pages: HashSet<usize>,
-    /// Monoton wachsender Counter. Jede Render-Anfrage trägt die aktuelle
-    /// Epoch; Background verwirft Ergebnisse mit veralteter Epoch.
-    render_epoch: Arc<AtomicU64>,
+    /// Pro-Seite monoton wachsender Counter. Eine Neuanforderung für Seite `p`
+    /// inkrementiert **nur** `render_epochs[p]` — laufende Renderings für
+    /// unberührte Seiten bleiben gültig und ihr Ergebnis wird akzeptiert.
+    /// Index-coupled mit `page_textures`.
+    render_epochs: Vec<u64>,
 
     // === UI ===
     selection: Selection,
@@ -300,7 +302,8 @@ enum CommandDone {
 enum BackgroundResult {
     CommandDone(CommandDone),
     /// Rendered page + die Epoch, zu der es gehört. UI verwirft, wenn
-    /// `epoch < render_epoch` (stale).
+    /// `epoch < render_epochs[page.page]` (stale gegenüber einer neueren
+    /// Anforderung für **dieselbe** Seite).
     PageRendered { page: RenderedPage, epoch: u64 },
     ThumbnailReady { photo_id: String, rgba: Vec<u8>, width: u32, height: u32 },
     Toast(Toast),  // Info/Warning/Error, UI puffert in VecDeque
@@ -315,19 +318,23 @@ enum BackgroundResult {
 1. User draggt Slot A auf Slot B
 2. UI-Thread:
    - Setzt building_pages für betroffene Seiten (→ Blur/Spinner-Overlay)
-   - render_epoch.fetch_add(1)  // invalidiert laufendes Rendern
+   - Für jede betroffene Seite `p`: `render_epochs[p] += 1` — invalidiert
+     nur in-flight Renderings für **diese** Seiten. Unberührte Seiten
+     behalten ihre laufenden Renderings.
    - Sendet RunCommand(|| commands::page::swap(...)) an Background
 3. Background-Thread:
    - Führt swap aus → Result<CommandOutput<PageMoveResult>>
    - Sendet CommandDone { result, state } zurück
    - Wenn state = Some: sendet sofort RenderPages-Task an sich selbst
-     (die dirty pages kommen aus extract_dirty_pages).
+     (die dirty pages kommen aus extract_dirty_pages); jede Seite in
+     diesem Task trägt die aktuelle `render_epochs[p]` als Tag.
 4. UI-Thread (nächste Frames, ~immer < 16ms):
    - try_recv() → CommandDone(Move): gui_state.apply() — ruft intern
      DerivedState::rebuild() synchron auf (einige Millisekunden bei
      typischen Projekten; ggf. später off-thread ziehen).
-   - try_recv() → PageRendered { epoch }: wenn epoch ≥ render_epoch,
-     Textur swappen und building_pages bereinigen, sonst verwerfen.
+   - try_recv() → PageRendered { page, epoch }: wenn
+     `epoch ≥ render_epochs[page.page]`, Textur swappen und
+     building_pages bereinigen, sonst verwerfen (stale).
 ```
 
 `DerivedState::rebuild()` wird bewusst im UI-Thread aufgerufen, **nicht**
@@ -340,13 +347,16 @@ austauschen — YAGNI bis Messwerte das rechtfertigen.
 
 - **Commands**: serialisiert im Background (ein Worker-Thread, FIFO-Channel).
   StateManager-interner Git-Commit ist sequentiell, Parallelisierung bringt nichts.
-- **Rendering**: Epoch-basiert. Jede Render-Anfrage trägt `epoch = render_epoch.load()`.
-  Bei Zoom-Änderung / neuem Command inkrementiert der UI-Thread `render_epoch`.
-  Background prüft vor dem Senden von `PageRendered` die Epoch; UI verwirft
-  Ergebnisse mit veralteter Epoch beim `try_recv`. Der Typst-Compile läuft
-  nicht preemptiv ab, aber stale Ergebnisse werden nie angezeigt.
-- **Thumbnails**: eigener Channel, niedrigere Priorität, wird beim Scroll
-  ebenfalls per Epoch invalidiert (nur Thumbnails im Viewport bleiben relevant).
+- **Rendering**: Epoch-basiert **pro Seite**. Jede Render-Anfrage trägt
+  `(page, epoch = render_epochs[page])`. Bei Zoom-Änderung werden nur die
+  Epochen sichtbarer Seiten inkrementiert; bei einem Command nur die dirty
+  pages aus `extract_dirty_pages`. UI verwirft `PageRendered`-Ergebnisse,
+  deren Epoch kleiner ist als die aktuelle Seiten-Epoch — aber noch laufende
+  Renderings für unberührte Seiten liefern ihr Ergebnis ganz normal ab.
+  Der Typst-Compile läuft nicht preemptiv ab, aber stale Ergebnisse werden
+  nie angezeigt.
+- **Thumbnails**: eigener Channel, niedrigere Priorität. Beim Scroll werden
+  die Epochen der Fotos invalidiert, die aus dem Viewport rausrutschen.
 - UI zeigt immer den letzten bekannten State — auch wenn Background noch arbeitet.
 
 ### Typst-Rendering: Lib-API statt GUI-Logik
@@ -416,14 +426,20 @@ pub struct LayoutPage {
     pub page: usize,
     pub photos: Vec<String>,
     pub slots: Vec<Slot>,
-    #[serde(default, skip_serializing_if = "is_auto_mode")]
-    pub mode: Option<PageMode>,   // None = Auto (Abwärtskompatibilität)
+    /// Abwärtskompatibilität kommt über `#[serde(default)]` + `#[default]`
+    /// auf PageMode — fehlendes `mode` im YAML → `Auto`.
+    #[serde(default, skip_serializing_if = "is_auto")]
+    pub mode: PageMode,
 }
 
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum PageMode { #[default] Auto, Manual }
+
+fn is_auto(mode: &PageMode) -> bool { *mode == PageMode::Auto }
 ```
 
-GUI-Toggle `[A|M]` setzt `mode = Some(Manual)` bzw. schreibt `None`
-(nicht `Some(Auto)`), damit bestehende YAMLs sauber bleiben.
+Zwei Zustände, zwei Bedeutungen — keine `Option`-Schicht obendrauf. Der
+GUI-Toggle `[A|M]` setzt direkt `PageMode::Auto` oder `PageMode::Manual`;
+beim Serialisieren verschwindet `Auto` aus dem YAML, damit Bestands-Files
+unverändert bleiben.

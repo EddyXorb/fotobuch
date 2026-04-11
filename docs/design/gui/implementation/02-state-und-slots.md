@@ -159,25 +159,34 @@ In `FotobuchApp::handle_input` (neue Methode, wird aus `update` aufgerufen):
 
 ## 2.5 — Layout-Migration: Toolbar + Statusbar
 
-Phase 1 nutzt den eframe-Shortcut `fn ui(&mut self, ui, frame)`, der implizit
-ein `CentralPanel` aufspannt. Für Top/Bottom-Panels **muss** auf
-`fn update(&mut self, ctx, frame)` migriert werden.
+Phase 1 implementiert nur `fn ui(&mut self, ui, frame)`. In eframe 0.34 ist
+`App::update` `#[deprecated = "Use Self::ui instead"]` — wir bleiben bei
+`ui`. Der übergebene `&mut egui::Ui` spannt den Root-Viewport auf, Top/Bottom-
+Panels werden mit **`show_inside(ui, …)`** darin genistet (nicht `show(ctx, …)`,
+das ist die Root-Variante).
+
+Zusätzlich ruft eframe vor jedem `ui`-Aufruf `fn logic(&mut self, ctx, frame)`
+auf — explizit ohne Painting. Channel-Drain, Input-Verarbeitung und
+Repaint-Requests wandern dort hinein.
 
 ```rust
 impl eframe::App for FotobuchApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.drain_results(ctx);
-        self.handle_input(ctx);     // Zoom + Klick + Hotkeys
+        self.handle_input(ctx);             // Zoom + Klick + Hotkeys
         self.request_repaint_if_loading(ctx);
+    }
 
-        egui::TopBottomPanel::top("toolbar").show(ctx, |ui| toolbar::show(ui));
-        egui::TopBottomPanel::bottom("statusbar").show(ctx, |ui| {
-            statusbar::show(ui, &self.state)
-        });
-        egui::CentralPanel::default().show(ctx, |ui| self.show_pages(ui));
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        egui::TopBottomPanel::top("toolbar")
+            .show_inside(ui, |ui| toolbar::show(ui));
+        egui::TopBottomPanel::bottom("statusbar")
+            .show_inside(ui, |ui| statusbar::show(ui, &self.state));
+        egui::CentralPanel::default()
+            .show_inside(ui, |ui| self.show_pages(ui));
 
         if self.state.timings.show {
-            overlay::show_timings_overlay(&self.state.timings, ctx);
+            overlay::show_timings_overlay(&self.state.timings, ui.ctx());
         }
     }
 }
@@ -190,7 +199,8 @@ impl eframe::App for FotobuchApp {
   Fotos · {unplaced} unplatziert · Sel: {n} auf Seite {p}` oder `–`. Alle Werte
   kommen aus `GuiState` / `DerivedState`.
 
-Der F2-Timings-Hotkey und Zoom wandern in `handle_input`.
+Der F2-Timings-Hotkey und Zoom wandern nach `handle_input` und werden aus
+`logic()` gerufen.
 
 ---
 
