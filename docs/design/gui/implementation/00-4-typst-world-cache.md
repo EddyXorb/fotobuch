@@ -30,9 +30,12 @@ Entscheidungen werfen jeden comemo-Cache-Hit weg.
 
 ## 0.4.1 — Neuer Typ `TypstWorld` in `src/output/typst_world.rs`
 
-Kein `mod.rs` (CLAUDE.md-Regel): `src/output/typst.rs` deklariert `pub mod typst_world;`
-oder das bestehende `typst.rs` wird in einen Ordner `typst/` aufgeteilt, wenn
-der Umfang zu groß wird. Start: einzelne Datei daneben.
+`TypstWorld` **ersetzt** die bisherige `SimpleWorld` vollständig (siehe 0.4.3) —
+es gibt am Ende nur noch eine `World`-Implementation im Codebase. Kein
+`mod.rs` (CLAUDE.md-Regel): `src/output/typst.rs` deklariert
+`pub mod typst_world;`, die Datei liegt als `src/output/typst_world.rs`
+daneben. Falls `typst.rs` später wächst, kann es zu einem Ordner `typst/`
+mit `typst.rs` auf derselben Ebene werden — nicht in dieser Phase.
 
 ```rust
 pub struct TypstWorld {
@@ -66,7 +69,8 @@ Konstruktor `TypstWorld::new(project_root: &Path, project_name: &str) -> Result<
 
 ### `World`-Trait-Impl
 
-Wie in der bisherigen `SimpleWorld`, mit einem Unterschied: `source()` und
+Struktur wie bei der gelöschten `SimpleWorld` (Font-Init, `main_id` aus
+`VirtualPath::within_root`), mit einem Unterschied: `source()` und
 `file()` konsultieren zuerst die `slots`. Bei Hit → `clone()` der bereits
 gespeicherten `Source`/`Bytes`. Bei Miss → von Disk lesen, `OnceCell` füllen,
 `mtime`/`len` merken, zurückgeben.
@@ -149,15 +153,51 @@ pub fn render_pages_with_world(
 Parallelisierung passiert **nicht** in der Lib — der Aufrufer entscheidet.
 Die GUI wird parallelisieren (siehe 0.4.4), der CLI-Pfad bleibt seriell.
 
-### CLI-Pfad bleibt simpel
+### CLI-Pfad nutzt ebenfalls `TypstWorld` — `SimpleWorld` wird entfernt
 
-`compile_preview`/`compile_final` brauchen das Caching nicht (ein CLI-Aufruf =
-ein Compile). Sie bekommen einen dünnen Wrapper, der intern `TypstWorld::new`
-baut und `compile_document` aufruft. Mehrkosten gegenüber dem bestehenden
-Code: einmaliges Anlegen der `TypstWorld`-Struktur, vernachlässigbar.
+Die bisherige `SimpleWorld` in `src/output/typst.rs` wird **komplett gelöscht**.
+`TypstWorld` ist die einzige `World`-Implementation im Codebase — kein Grund,
+Font-Init, File-Loading und `World`-Trait zweimal zu pflegen. Für
+CLI-Einmal-Aufrufe bringt das Caching nichts, schadet aber auch nicht:
+`TypstWorld::new` + ein einmaliger `compile_document` verhalten sich
+funktional identisch zur alten `SimpleWorld::new` + `typst::compile`.
+
+Damit die bestehenden Helper im File nicht alle umgebaut werden müssen,
+bekommt `TypstWorld` einen zweiten Konstruktor für den CLI-typischen "nur
+Template-Pfad"-Fall:
+
+```rust
+impl TypstWorld {
+    /// Projekt-root + Projektname (GUI-Pfad, Worker-persistent).
+    pub fn new(project_root: &Path, project_name: &str) -> Result<Self>;
+
+    /// Template-Pfad zerlegen in (parent, file_stem). Convenience für
+    /// `compile`, das historisch nur einen Pfad bekommt.
+    pub fn from_template_path(template_path: &Path) -> Result<Self>;
+}
+```
+
+`compile_to_intermediate_document` schrumpft damit auf drei Zeilen:
+
+```rust
+fn compile_to_intermediate_document(template_path: &Path)
+    -> Result<PagedDocument>
+{
+    let mut world = TypstWorld::from_template_path(template_path)?;
+    world.reload()?;                  // initiales Laden
+    world.compile_document()
+}
+```
+
+`compile_preview` / `compile_final` gehen denselben Weg, nur über
+`TypstWorld::new(project_root, project_name)`.
+
+Mehrkosten gegenüber dem alten `SimpleWorld`-Pfad: eine leere `HashMap` +
+ein `Cell<u32>`-Initialisierung pro CLI-Aufruf. Unmessbar.
 
 **Keine globale Singleton-World** — das würde Tests zerstören, die parallel
-mit unterschiedlichen Projekt-Roots laufen.
+mit unterschiedlichen Projekt-Roots laufen. Jeder Aufrufer konstruiert
+seine eigene `TypstWorld`.
 
 ---
 
@@ -251,13 +291,16 @@ hinter einem `#[cfg(test)]`).
 - [ ] `cargo build` und `cargo build --features gui` ohne Warnings.
 - [ ] `cargo clippy -- -D warnings` sauber, `cargo fmt --check` sauber.
 - [ ] `cargo test` inkl. neuer Tests grün.
+- [ ] `SimpleWorld` ist aus dem Codebase **verschwunden**; `TypstWorld` ist
+      die einzige `World`-Implementation. `grep -r SimpleWorld src/` leer.
 - [ ] In einem echten Projekt mit ≥ 5 Seiten und ≥ 10 Bildern: zweiter
       `compile_document`-Aufruf ist **mindestens 5× schneller** als der erste
       (nachprüfbar via F2-Timings-Overlay).
 - [ ] `render_pages` wird nicht mehr pro Seite im Parallelismus aufgerufen;
       `background.rs` macht einen Compile + N parallele Rasterisierungen.
 - [ ] CLI-Pfade (`compile`, `compile_preview`, `compile_final`) funktionieren
-      unverändert aus Nutzersicht; bestehende CLI-Tests grün.
+      unverändert aus Nutzersicht; bestehende CLI-Tests grün. Intern gehen sie
+      alle über `TypstWorld`.
 
 ## Was NICHT in dieser Phase gehört
 
