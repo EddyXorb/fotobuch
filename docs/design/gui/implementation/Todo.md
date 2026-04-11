@@ -9,6 +9,7 @@
 - [x] 00-neue-lib-commands.md - New Lib Commands
 - [x] 01-minimal-gui.md - Minimal GUI
 - [ ] 02-state-und-slots.md - State and Slots
+- [ ] 00-4-typst-world-cache.md - Persistente TypstWorld + comemo-Cache (vor Phase 3)
 - [ ] 03-commands-und-background.md - Commands and Background
 - [ ] 04-panels.md - Panels
 - [ ] 05-cross-page.md - Cross Page
