@@ -7,10 +7,6 @@ analog zur Strategie von `typst watch`.
 **Voraussetzung**: Keine. Reine Lib-Änderung in `src/output/`, CLI-Pfade
 bleiben nutzbar.
 
-**Wann einschieben**: Vor Phase 3 (Commands + Auto-Rebuild). Bis dahin ist
-Render-Latenz eine Messung im F2-Timings-Overlay; ab Phase 3 ist sie das
-fühlbare UX-Kriterium beim Slot-Swap.
-
 ---
 
 ## Hintergrund
