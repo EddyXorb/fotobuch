@@ -134,7 +134,7 @@ mod tests {
             page,
             photos: photo_ids.iter().map(|s| s.to_string()).collect(),
             slots: photo_ids.iter().map(|_| make_slot()).collect(),
-            mode: None,
+            mode: PageMode::Auto,
         }
     }
 

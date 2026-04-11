@@ -46,10 +46,7 @@ pub fn compute_outdated_pages(reference: &ProjectState, new: &ProjectState) -> V
     // Phase 2: Evaluate each new page
     for (page_index, new_page) in new.layout.iter().enumerate() {
         // Skip manual pages - they keep their manual layout and don't need rebuilding
-        if new_page
-            .mode
-            .is_some_and(|m| m == crate::dto_models::PageMode::Manual)
-        {
+        if new_page.mode == crate::dto_models::PageMode::Manual {
             debug!("page {page_index} is manual, skipping rebuild");
             continue;
         }
@@ -248,8 +245,8 @@ fn spine_changed(r: &SpineConfig, n: &SpineConfig, inner_count_changed: bool) ->
 mod tests {
     use super::*;
     use crate::dto_models::{
-        BookConfig, BookLayoutSolverConfig, LayoutPage, PhotoFile, PhotoGroup, ProjectConfig,
-        ProjectState, Slot,
+        BookConfig, BookLayoutSolverConfig, LayoutPage, PageMode, PhotoFile, PhotoGroup,
+        ProjectConfig, ProjectState, Slot,
     };
     use crate::dto_models::{CoverConfig, CoverMode};
 
@@ -304,7 +301,7 @@ mod tests {
             photos,
             slots,
 
-            mode: None,
+            mode: PageMode::Auto,
         }
     }
 

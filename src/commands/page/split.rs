@@ -3,7 +3,7 @@
 use std::path::Path;
 
 use crate::commands::CommandOutput;
-use crate::dto_models::LayoutPage;
+use crate::dto_models::{LayoutPage, PageMode};
 use crate::state_manager::StateManager;
 
 use super::helpers::page_idx;
@@ -47,7 +47,7 @@ pub fn execute_split(
             page: new_idx, // will be renumbered by finish()
             photos: moved_photos,
             slots: moved_slots,
-            mode: None, // Auto page
+            mode: PageMode::Auto,
         },
     );
 

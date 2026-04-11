@@ -53,7 +53,7 @@ pub struct PosResult {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 fn is_in_manual_mode(layout: &[LayoutPage], idx: usize) -> bool {
-    layout[idx].mode == Some(PageMode::Manual)
+    layout[idx].mode == PageMode::Manual
 }
 
 // ── execute_pos ───────────────────────────────────────────────────────────────

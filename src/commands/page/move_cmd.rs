@@ -3,7 +3,7 @@
 use std::path::Path;
 
 use crate::commands::CommandOutput;
-use crate::dto_models::LayoutPage;
+use crate::dto_models::{LayoutPage, PageMode};
 use crate::state_manager::StateManager;
 
 use super::helpers::{
@@ -120,8 +120,7 @@ fn execute_move_to(
                     page: new_page_num,
                     photos: vec![],
                     slots: vec![],
-
-                    mode: None,
+                    mode: PageMode::Auto,
                 },
             );
             (new_idx, Some(new_page_num as u32))

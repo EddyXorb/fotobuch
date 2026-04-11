@@ -3,7 +3,9 @@ use super::super::helpers::{build_photo_index, update_preview_pdf};
 use super::rebuild_single_page::rebuild_single_page;
 use crate::cache::preview;
 use crate::commands::CommandOutput;
-use crate::dto_models::{BookLayoutSolverConfig, CoverConfig, LayoutPage, PhotoFile, PhotoGroup};
+use crate::dto_models::{
+    BookLayoutSolverConfig, CoverConfig, LayoutPage, PageMode, PhotoFile, PhotoGroup,
+};
 use crate::solver::cover_solver::{compute_cover_slots, warn_slot_count_mismatch};
 use crate::solver::{Request, RequestType, run_solver};
 use crate::state_manager::{StateManager, renumber_pages};
@@ -193,7 +195,7 @@ fn build_cover_page(
         page: 0,
         photos: files.into_iter().map(|f| f.id).collect(),
         slots,
-        mode: None,
+        mode: PageMode::Auto,
     })
 }
 
