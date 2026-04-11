@@ -39,10 +39,18 @@ impl FotobuchApp {
     fn drain_results(&mut self, ctx: &egui::Context) {
         while let Ok(msg) = self.result_rx.try_recv() {
             match msg {
-                BackgroundResult::PageRendered { page: r, duration } => {
+                BackgroundResult::PageRendered {
+                    page: r,
+                    rasterize_duration,
+                    compile_duration,
+                } => {
                     let page_idx = r.page;
                     state::apply_rendered(&mut self.state, ctx, r);
-                    self.state.timings.record_render(page_idx, duration);
+                    self.state.timings.record_render(
+                        page_idx,
+                        rasterize_duration,
+                        compile_duration,
+                    );
                 }
                 BackgroundResult::Error(e) => {
                     tracing::error!(%e, "render error");

@@ -12,7 +12,11 @@ pub enum BackgroundTask {
 pub enum BackgroundResult {
     PageRendered {
         page: RenderedPage,
-        duration: Duration,
+        /// Time spent rasterising this single page.
+        rasterize_duration: Duration,
+        /// Time spent on `compile_document` for the task this page belongs to.
+        /// All pages from the same task share the same value.
+        compile_duration: Duration,
     },
     Error(String),
 }
