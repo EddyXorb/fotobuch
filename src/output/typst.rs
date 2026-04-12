@@ -6,8 +6,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use tracing::debug;
 
-pub use crate::output::typst_world::{TypstWorld, rasterize_page, render_pages_with_world};
-
+pub use crate::output::render::{rasterize_page, render_pages_with_world};
+pub use crate::output::typst_world::TypstWorld;
 /// A rasterized page ready for display (e.g. in egui).
 #[derive(Debug)]
 pub struct RenderedPage {

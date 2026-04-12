@@ -3,7 +3,8 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use crossbeam::channel::{Receiver, Sender, unbounded};
-use fotobuch::output::typst_world::{TypstWorld, rasterize_page};
+use fotobuch::output::render::rasterize_page;
+use fotobuch::output::typst_world::TypstWorld;
 
 use crate::task::{BackgroundResult, BackgroundTask};
 
