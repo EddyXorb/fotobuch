@@ -1,0 +1,31 @@
+use crate::state::{GuiState, Selection};
+
+/// Status bar: page indicator, photo counts, selection summary.
+pub fn show(ui: &mut egui::Ui, state: &GuiState) {
+    ui.horizontal(|ui| {
+        let total = state.project_state.layout.len();
+        let photos: usize = state
+            .project_state
+            .photos
+            .iter()
+            .map(|g| g.files.len())
+            .sum();
+        let unplaced = state.derived.unplaced_photos.len();
+
+        let page_str = match state.hovered_slot {
+            Some((page, _)) => format!("Seite {page}/{total}"),
+            None => format!("Seite \u{2013}/{total}"),
+        };
+
+        let sel_str = match &state.selection {
+            Selection::None => "Sel: \u{2013}".to_string(),
+            Selection::OnPage { page, slots, .. } => {
+                format!("Sel: {} auf Seite {page}", slots.len())
+            }
+        };
+
+        ui.label(format!(
+            "{page_str} \u{b7} {photos} Fotos \u{b7} {unplaced} unplatziert \u{b7} {sel_str}"
+        ));
+    });
+}

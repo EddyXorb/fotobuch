@@ -161,7 +161,7 @@ impl TypstWorld {
     fn load_source(&self, id: FileId) -> FileResult<Source> {
         let path = self.path_for_id(id);
         let mut slots = self.slots.lock().unwrap();
-        let slot = self.read_or_insert_slot(id, &path, &mut *slots);
+        let slot = self.read_or_insert_slot(id, &path, &mut slots);
 
         if slot.source.get().is_none() {
             #[cfg(test)]
@@ -177,7 +177,7 @@ impl TypstWorld {
     fn load_bytes(&self, id: FileId) -> FileResult<Bytes> {
         let path = self.path_for_id(id);
         let mut slots = self.slots.lock().unwrap();
-        let slot = self.read_or_insert_slot(id, &path, &mut *slots);
+        let slot = self.read_or_insert_slot(id, &path, &mut slots);
 
         if slot.bytes.get().is_none() {
             #[cfg(test)]
@@ -239,8 +239,6 @@ impl World for TypstWorld {
         Datetime::from_ymd(2026, 1, 1)
     }
 }
-
-
 
 #[cfg(test)]
 mod tests {
