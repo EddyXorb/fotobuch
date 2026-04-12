@@ -13,19 +13,19 @@ pub fn show(ui: &mut egui::Ui, state: &GuiState) {
         let unplaced = state.derived.unplaced_photos.len();
 
         let page_str = match state.hovered_slot {
-            Some((page, _)) => format!("Seite {page}/{total}"),
-            None => format!("Seite \u{2013}/{total}"),
+            Some((page, _)) => format!("Page {page}/{total}"),
+            None => format!("Page \u{2013}/{total}"),
         };
 
         let sel_str = match &state.selection {
             Selection::None => "Sel: \u{2013}".to_string(),
             Selection::OnPage { page, slots, .. } => {
-                format!("Sel: {} auf Seite {page}", slots.len())
+                format!("Sel: {} on page {page}", slots.len())
             }
         };
 
         ui.label(format!(
-            "{page_str} \u{b7} {photos} Fotos \u{b7} {unplaced} unplatziert \u{b7} {sel_str}"
+            "{page_str} \u{b7} {photos} photos \u{b7} {unplaced} unplaced \u{b7} {sel_str}"
         ));
     });
 }

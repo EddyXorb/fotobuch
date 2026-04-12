@@ -1,6 +1,6 @@
 use std::collections::BTreeSet;
 
-/// Which slots are currently selected. Selektion ist immer auf eine Seite beschränkt.
+/// Which slots are currently selected. Selection is always restricted to a single page.
 pub enum Selection {
     None,
     OnPage {

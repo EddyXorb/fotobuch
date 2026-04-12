@@ -1,4 +1,6 @@
+mod draw_page;
 mod geometry;
+mod input_handler;
 mod overlay;
 mod statusbar;
 mod toolbar;
@@ -8,7 +10,7 @@ use std::time::Instant;
 
 use crossbeam::channel::{Receiver, Sender};
 
-use crate::state::{self, GuiState, Selection};
+use crate::state::{self, GuiState};
 use crate::task::{BackgroundResult, BackgroundTask};
 
 pub struct FotobuchApp {
@@ -62,69 +64,6 @@ impl FotobuchApp {
         }
     }
 
-    fn handle_input(&mut self, ctx: &egui::Context) {
-        // F2: toggle timings overlay
-        if ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::F2)) {
-            self.state.timings.show = !self.state.timings.show;
-        }
-
-        // Ctrl+scroll: zoom
-        let zoom_delta = ctx.input(|i| {
-            if i.modifiers.ctrl {
-                i.zoom_delta()
-            } else {
-                1.0
-            }
-        });
-        if zoom_delta != 1.0 {
-            self.state.zoom = state::apply_zoom_delta(self.state.zoom, zoom_delta);
-        }
-
-        // Escape: clear selection
-        if ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Escape)) {
-            self.state.selection.clear();
-        }
-
-        // Ctrl+A: select all slots on current page
-        if ctx.input_mut(|i| i.consume_key(egui::Modifiers::CTRL, egui::Key::A)) {
-            let current_page =
-                self.state
-                    .hovered_slot
-                    .map(|(p, _)| p)
-                    .or(match &self.state.selection {
-                        Selection::OnPage { page, .. } => Some(*page),
-                        Selection::None => None,
-                    });
-            if let Some(page) = current_page {
-                let slot_count = self
-                    .state
-                    .project_state
-                    .layout
-                    .get(page)
-                    .map(|lp| lp.slots.len())
-                    .unwrap_or(0);
-                self.state.selection.select_all_on(page, slot_count);
-            }
-        }
-
-        // Primary click: update selection based on hovered_slot from previous frame
-        let clicked = ctx.input(|i| i.pointer.primary_clicked());
-        if clicked {
-            let modifiers = ctx.input(|i| i.modifiers);
-            if let Some((page, slot)) = self.state.hovered_slot {
-                if modifiers.shift {
-                    self.state.selection.range_to(page, slot);
-                } else if modifiers.ctrl || modifiers.command {
-                    self.state.selection.toggle(page, slot);
-                } else {
-                    self.state.selection = Selection::single(page, slot);
-                }
-            } else {
-                self.state.selection.clear();
-            }
-        }
-    }
-
     fn show_pages(&mut self, ui: &mut egui::Ui) {
         let num_pages = self.state.project_state.layout.len();
         let mut new_hovered: Option<(usize, usize)> = None;
@@ -159,7 +98,7 @@ impl eframe::App for FotobuchApp {
         self.request_repaint_if_loading(&ctx);
 
         let t = Instant::now();
-        self.handle_input(&ctx);
+        input_handler::handle(&mut self.state, &ctx);
         self.state.timings.apply_zoom = t.elapsed();
 
         egui::Panel::top("toolbar").show_inside(ui, toolbar::show);

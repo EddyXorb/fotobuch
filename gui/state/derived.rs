@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use fotobuch::dto_models::{PhotoFile, ProjectState};
+use fotobuch::dto_models::{LayoutPage, PhotoFile, ProjectState};
 
 /// Derived lookup tables computed from [`ProjectState`] on startup and after each command.
 ///
@@ -23,34 +23,10 @@ pub struct DerivedState {
 
 impl DerivedState {
     pub fn rebuild(project: &ProjectState) -> Self {
-        let mut photo_by_id: HashMap<String, PhotoFile> = HashMap::new();
-        let mut group_of_photo: HashMap<String, String> = HashMap::new();
-
-        for group in &project.photos {
-            for file in &group.files {
-                photo_by_id.insert(file.id.clone(), file.clone());
-                group_of_photo.insert(file.id.clone(), group.group.clone());
-            }
-        }
-
-        let mut placement_of_photo: HashMap<String, (usize, usize)> = HashMap::new();
-        let mut placed_per_group: HashMap<String, usize> = HashMap::new();
-
-        for layout_page in &project.layout {
-            for (slot_idx, photo_id) in layout_page.photos.iter().enumerate() {
-                placement_of_photo.insert(photo_id.clone(), (layout_page.page, slot_idx));
-                if let Some(group) = group_of_photo.get(photo_id) {
-                    *placed_per_group.entry(group.clone()).or_insert(0) += 1;
-                }
-            }
-        }
-
-        let mut unplaced_photos: Vec<String> = photo_by_id
-            .keys()
-            .filter(|id| !placement_of_photo.contains_key(*id))
-            .cloned()
-            .collect();
-        unplaced_photos.sort();
+        let (photo_by_id, group_of_photo) = build_photo_maps(project);
+        let (placement_of_photo, placed_per_group) =
+            build_placement_maps(&project.layout, &group_of_photo);
+        let unplaced_photos = build_unplaced_photos(&photo_by_id, &placement_of_photo);
 
         Self {
             photo_by_id,
@@ -60,6 +36,54 @@ impl DerivedState {
             placed_per_group,
         }
     }
+}
+
+fn build_photo_maps(
+    project: &ProjectState,
+) -> (HashMap<String, PhotoFile>, HashMap<String, String>) {
+    let mut photo_by_id: HashMap<String, PhotoFile> = HashMap::new();
+    let mut group_of_photo: HashMap<String, String> = HashMap::new();
+
+    for group in &project.photos {
+        for file in &group.files {
+            photo_by_id.insert(file.id.clone(), file.clone());
+            group_of_photo.insert(file.id.clone(), group.group.clone());
+        }
+    }
+
+    (photo_by_id, group_of_photo)
+}
+
+fn build_placement_maps(
+    layout: &[LayoutPage],
+    group_of_photo: &HashMap<String, String>,
+) -> (HashMap<String, (usize, usize)>, HashMap<String, usize>) {
+    let mut placement_of_photo: HashMap<String, (usize, usize)> = HashMap::new();
+    let mut placed_per_group: HashMap<String, usize> = HashMap::new();
+
+    for layout_page in layout {
+        for (slot_idx, photo_id) in layout_page.photos.iter().enumerate() {
+            placement_of_photo.insert(photo_id.clone(), (layout_page.page, slot_idx));
+            if let Some(group) = group_of_photo.get(photo_id) {
+                *placed_per_group.entry(group.clone()).or_insert(0) += 1;
+            }
+        }
+    }
+
+    (placement_of_photo, placed_per_group)
+}
+
+fn build_unplaced_photos(
+    photo_by_id: &HashMap<String, PhotoFile>,
+    placement_of_photo: &HashMap<String, (usize, usize)>,
+) -> Vec<String> {
+    let mut unplaced: Vec<String> = photo_by_id
+        .keys()
+        .filter(|id| !placement_of_photo.contains_key(*id))
+        .cloned()
+        .collect();
+    unplaced.sort();
+    unplaced
 }
 
 #[cfg(test)]
