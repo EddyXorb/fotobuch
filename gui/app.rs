@@ -2,6 +2,7 @@ mod draw_page;
 mod geometry;
 mod input_handler;
 mod overlay;
+mod pending;
 mod statusbar;
 mod toolbar;
 mod view;
@@ -13,10 +14,10 @@ use crossbeam::channel::{Receiver, Sender};
 use crate::state::{self, GuiState};
 use crate::task::{BackgroundResult, BackgroundTask};
 
+use pending::PendingCommand;
+
 pub struct FotobuchApp {
     state: GuiState,
-    // held to keep the background thread alive; will be used for re-render in Phase 3
-    #[allow(dead_code)]
     task_tx: Sender<BackgroundTask>,
     result_rx: Receiver<BackgroundResult>,
 }
@@ -51,6 +52,24 @@ impl FotobuchApp {
                         compile_duration,
                     );
                 }
+                BackgroundResult::CommandDone {
+                    new_state,
+                    dirty_pages,
+                } => {
+                    let num_pages = new_state.layout.len();
+                    self.state.project_state = *new_state;
+                    self.state.derived =
+                        crate::state::DerivedState::rebuild(&self.state.project_state);
+                    state::resize_page_vecs(&mut self.state, num_pages);
+                    for &p in &dirty_pages {
+                        if let Some(d) = self.state.page_dirty.get_mut(p) {
+                            *d = true;
+                        }
+                    }
+                }
+                BackgroundResult::CommandFailed(e) => {
+                    tracing::error!(%e, "command failed");
+                }
                 BackgroundResult::Error(e) => {
                     tracing::error!(%e, "render error");
                 }
@@ -59,8 +78,43 @@ impl FotobuchApp {
     }
 
     fn request_repaint_if_loading(&self, ctx: &egui::Context) {
-        if self.state.page_textures.iter().any(Option::is_none) {
+        if self.state.page_textures.iter().any(Option::is_none)
+            || self.state.page_dirty.iter().any(|&d| d)
+        {
             ctx.request_repaint();
+        }
+    }
+
+    fn dispatch(&mut self, cmds: Vec<PendingCommand>) {
+        let ppt = self.state.base_pixel_per_pt;
+        for cmd in cmds {
+            let task = match cmd {
+                PendingCommand::Swap {
+                    src_page,
+                    src_slot,
+                    dst_page,
+                    dst_slot,
+                } => BackgroundTask::SwapSlots {
+                    src_page,
+                    src_slot,
+                    dst_page,
+                    dst_slot,
+                    pixel_per_pt: ppt,
+                },
+                PendingCommand::Move {
+                    src_page,
+                    src_slot,
+                    dst_page,
+                } => BackgroundTask::MoveSlot {
+                    src_page,
+                    src_slot,
+                    dst_page,
+                    pixel_per_pt: ppt,
+                },
+                PendingCommand::Undo => BackgroundTask::Undo { pixel_per_pt: ppt },
+                PendingCommand::Redo => BackgroundTask::Redo { pixel_per_pt: ppt },
+            };
+            let _ = self.task_tx.send(task);
         }
     }
 
@@ -98,7 +152,8 @@ impl eframe::App for FotobuchApp {
         self.request_repaint_if_loading(&ctx);
 
         let t = Instant::now();
-        input_handler::handle(&mut self.state, &ctx);
+        let cmds = input_handler::handle(&mut self.state, &ctx);
+        self.dispatch(cmds);
         self.state.timings.apply_zoom = t.elapsed();
 
         egui::Panel::top("toolbar").show_inside(ui, toolbar::show);

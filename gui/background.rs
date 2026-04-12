@@ -3,6 +3,9 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use crossbeam::channel::{Receiver, Sender, unbounded};
+use fotobuch::commands::page::{DstMove, DstSwap, PageMoveCmd, SlotExpr, Src, execute_move};
+use fotobuch::commands::undo::{redo, undo};
+use fotobuch::dto_models::ProjectState;
 use fotobuch::output::render::rasterize_page;
 use fotobuch::output::typst_world::TypstWorld;
 
@@ -32,47 +35,201 @@ pub fn spawn(
                     pages,
                     pixel_per_pt,
                 } => {
-                    if let Err(e) = world.reload() {
-                        let _ = result_tx.send(BackgroundResult::Error(e.to_string()));
-                        continue;
-                    }
+                    render_pages(&mut world, &pool, &result_tx, pages, pixel_per_pt);
+                }
 
-                    let t_compile = Instant::now();
-                    let doc = match world.compile_document() {
-                        Ok(d) => d,
-                        Err(e) => {
-                            let _ = result_tx.send(BackgroundResult::Error(e.to_string()));
-                            continue;
-                        }
+                BackgroundTask::SwapSlots {
+                    src_page,
+                    src_slot,
+                    dst_page,
+                    dst_slot,
+                    pixel_per_pt,
+                } => {
+                    let cmd = PageMoveCmd::Swap {
+                        left: Src::Slots {
+                            page: src_page as u32,
+                            slots: SlotExpr::single(src_slot as u32),
+                        },
+                        right: DstSwap::Slots {
+                            page: dst_page as u32,
+                            slots: SlotExpr::single(dst_slot as u32),
+                        },
                     };
-                    let compile_duration = t_compile.elapsed();
+                    run_page_command(
+                        &project_root,
+                        cmd,
+                        &mut world,
+                        &pool,
+                        &result_tx,
+                        pixel_per_pt,
+                    );
+                }
 
-                    let doc = Arc::new(doc);
-                    for page in pages {
-                        let doc = Arc::clone(&doc);
-                        let tx = result_tx.clone();
-                        pool.spawn(move || {
-                            let t_raster = Instant::now();
-                            match rasterize_page(&doc, page, pixel_per_pt) {
-                                Ok(rendered) => {
-                                    let _ = tx.send(BackgroundResult::PageRendered {
-                                        page: rendered,
-                                        rasterize_duration: t_raster.elapsed(),
-                                        compile_duration,
-                                    });
-                                }
-                                Err(e) => {
-                                    let _ = tx.send(BackgroundResult::Error(e.to_string()));
-                                }
-                            }
-                        });
-                    }
+                BackgroundTask::MoveSlot {
+                    src_page,
+                    src_slot,
+                    dst_page,
+                    pixel_per_pt,
+                } => {
+                    let cmd = PageMoveCmd::Move {
+                        src: Src::Slots {
+                            page: src_page as u32,
+                            slots: SlotExpr::single(src_slot as u32),
+                        },
+                        dst: DstMove::Page(dst_page as u32),
+                    };
+                    run_page_command(
+                        &project_root,
+                        cmd,
+                        &mut world,
+                        &pool,
+                        &result_tx,
+                        pixel_per_pt,
+                    );
+                }
+
+                BackgroundTask::Undo { pixel_per_pt } => {
+                    run_undo_redo(
+                        &project_root,
+                        true,
+                        &mut world,
+                        &pool,
+                        &result_tx,
+                        pixel_per_pt,
+                    );
+                }
+
+                BackgroundTask::Redo { pixel_per_pt } => {
+                    run_undo_redo(
+                        &project_root,
+                        false,
+                        &mut world,
+                        &pool,
+                        &result_tx,
+                        pixel_per_pt,
+                    );
                 }
             }
         }
     });
 
     (task_tx, result_rx)
+}
+
+// ── Internal helpers ──────────────────────────────────────────────────────────
+
+fn run_page_command(
+    project_root: &std::path::Path,
+    cmd: PageMoveCmd,
+    world: &mut TypstWorld,
+    pool: &rayon::ThreadPool,
+    result_tx: &Sender<BackgroundResult>,
+    pixel_per_pt: f32,
+) {
+    match execute_move(project_root, cmd) {
+        Err(e) => {
+            let _ = result_tx.send(BackgroundResult::CommandFailed(e.to_string()));
+        }
+        Ok(output) => {
+            let new_state = output.changed_state.unwrap_or_default();
+            let dirty: Vec<usize> = output
+                .result
+                .pages_modified
+                .iter()
+                .map(|&p| p as usize)
+                .collect();
+            send_command_done(new_state, dirty, world, pool, result_tx, pixel_per_pt);
+        }
+    }
+}
+
+fn run_undo_redo(
+    project_root: &std::path::Path,
+    is_undo: bool,
+    world: &mut TypstWorld,
+    pool: &rayon::ThreadPool,
+    result_tx: &Sender<BackgroundResult>,
+    pixel_per_pt: f32,
+) {
+    let result = if is_undo {
+        undo(project_root, 1)
+    } else {
+        redo(project_root, 1)
+    };
+
+    match result {
+        Err(e) => {
+            let _ = result_tx.send(BackgroundResult::CommandFailed(e.to_string()));
+        }
+        Ok(output) => {
+            let new_state = output.changed_state.unwrap_or_default();
+            let all_pages: Vec<usize> = (0..new_state.layout.len()).collect();
+            send_command_done(new_state, all_pages, world, pool, result_tx, pixel_per_pt);
+        }
+    }
+}
+
+/// Sends `CommandDone` and then kicks off re-rendering of the dirty pages.
+fn send_command_done(
+    new_state: ProjectState,
+    dirty_pages: Vec<usize>,
+    world: &mut TypstWorld,
+    pool: &rayon::ThreadPool,
+    result_tx: &Sender<BackgroundResult>,
+    pixel_per_pt: f32,
+) {
+    let _ = result_tx.send(BackgroundResult::CommandDone {
+        new_state: Box::new(new_state),
+        dirty_pages: dirty_pages.clone(),
+    });
+    render_pages(world, pool, result_tx, dirty_pages, pixel_per_pt);
+}
+
+fn render_pages(
+    world: &mut TypstWorld,
+    pool: &rayon::ThreadPool,
+    result_tx: &Sender<BackgroundResult>,
+    pages: Vec<usize>,
+    pixel_per_pt: f32,
+) {
+    if pages.is_empty() {
+        return;
+    }
+    if let Err(e) = world.reload() {
+        let _ = result_tx.send(BackgroundResult::Error(e.to_string()));
+        return;
+    }
+
+    let t_compile = Instant::now();
+    let doc = match world.compile_document() {
+        Ok(d) => d,
+        Err(e) => {
+            let _ = result_tx.send(BackgroundResult::Error(e.to_string()));
+            return;
+        }
+    };
+    let compile_duration = t_compile.elapsed();
+
+    let doc = Arc::new(doc);
+    for page in pages {
+        let doc = Arc::clone(&doc);
+        let tx = result_tx.clone();
+        pool.spawn(move || {
+            let t_raster = Instant::now();
+            match rasterize_page(&doc, page, pixel_per_pt) {
+                Ok(rendered) => {
+                    let _ = tx.send(BackgroundResult::PageRendered {
+                        page: rendered,
+                        rasterize_duration: t_raster.elapsed(),
+                        compile_duration,
+                    });
+                }
+                Err(e) => {
+                    let _ = tx.send(BackgroundResult::Error(e.to_string()));
+                }
+            }
+        });
+    }
 }
 
 fn build_pool() -> rayon::ThreadPool {
@@ -131,6 +288,7 @@ mod tests {
                 assert!(compile_duration.as_secs() < 30);
             }
             BackgroundResult::Error(e) => panic!("worker error: {e}"),
+            other => panic!("unexpected result: {other:?}"),
         }
 
         match result_rx.recv_timeout(Duration::from_millis(100)) {
