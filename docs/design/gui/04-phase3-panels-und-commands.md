@@ -6,6 +6,8 @@ Die GUI bekommt das Drei-Panel-Layout (Foto-Pool, Hauptansicht, Seiten-Nav) und 
 
 ## Modul-Refactoring
 
+Panels werden unter `app/` angesiedelt (dort lebt bereits aller UI-Code), nicht auf Root-Ebene wie in 02-architektur skizziert. Grund: `app.rs` ist der einzige Consumer, ein Extra-Namespace auf Root-Ebene bringt keinen Vorteil.
+
 ```
 gui/app/
 +   panels.rs             deklariert main_view, photo_pool, page_nav
@@ -55,8 +57,10 @@ pub enum BackgroundTask {
     RunCommand(Box<dyn FnOnce() -> CommandDone + Send>),
 }
 
+/// Variante heißt `LayoutChange` statt `PageMove`, weil sie auch Unplace abdeckt
+/// (execute_unplace gibt ebenfalls CommandOutput<PageMoveResult> zurück).
 pub enum CommandDone {
-    PageMove(CommandOutput<PageMoveResult>),
+    LayoutChange(CommandOutput<PageMoveResult>),
     Undo(CommandOutput<UndoResult>),
     Failed(String),
 }
@@ -76,17 +80,24 @@ pub enum BackgroundResult {
 impl CommandDone {
     pub fn dirty_pages(&self, total: usize) -> Vec<usize> {
         match self {
-            Self::PageMove(o) => o.result.pages_modified.iter()
-                .chain(&o.result.pages_inserted)
-                .map(|p| *p as usize).collect(),
-            Self::Undo(_) => (0..total).collect(),  // State komplett neu
+            Self::LayoutChange(o) => {
+                // Wenn Seiten gelöscht wurden, verschieben sich alle Folge-Indices.
+                // Konservativ: alle Seiten neu rendern.
+                if !o.result.pages_deleted.is_empty() {
+                    return (0..total).collect();
+                }
+                o.result.pages_modified.iter()
+                    .chain(&o.result.pages_inserted)
+                    .map(|p| *p as usize).collect()
+            }
+            Self::Undo(_) => (0..total).collect(),
             Self::Failed(_) => vec![],
         }
     }
 
     pub fn take_state(&mut self) -> Option<ProjectState> {
         match self {
-            Self::PageMove(o) => o.changed_state.take(),
+            Self::LayoutChange(o) => o.changed_state.take(),
             Self::Undo(o) => o.changed_state.take(),
             Self::Failed(_) => None,
         }
@@ -115,13 +126,27 @@ Kein `world.reload()` hier — das passiert beim nächsten `RenderPages`.
 
 ```rust
 BackgroundResult::CommandDone(mut done) => {
-    let dirty = done.dirty_pages(self.state.page_textures.len());
-    if let Some(new_state) = done.take_state() {
+    if let CommandDone::Failed(msg) = &done {
+        tracing::error!("command failed: {msg}");
+        // TODO Phase 5: Toast-Notification anzeigen
+        return;
+    }
+    let new_state = done.take_state();
+    let new_total = new_state.as_ref()
+        .map(|s| s.layout.len())
+        .unwrap_or(self.state.page_textures.len());
+    let dirty = done.dirty_pages(new_total);
+    if let Some(new_state) = new_state {
         self.state.project_state = new_state;
         self.state.derived = DerivedState::rebuild(&self.state.project_state);
-        self.state.page_textures.resize_with(
-            self.state.project_state.layout.len(), || None,
-        );
+        // Texturen-Vec komplett neu aufbauen wenn Seitenanzahl sich ändert —
+        // resize_with würde bei Deletion die falschen Texturen behalten
+        // (T[i] bleibt stehen, obwohl layout[i] jetzt eine andere Seite ist).
+        let new_len = self.state.project_state.layout.len();
+        if new_len != self.state.page_textures.len() {
+            self.state.page_textures = vec![None; new_len];
+        }
+        self.state.selection.clear();
     }
     if !dirty.is_empty() {
         let _ = self.task_tx.send(BackgroundTask::RenderPages {
@@ -132,6 +157,8 @@ BackgroundResult::CommandDone(mut done) => {
 }
 ```
 
+**Wichtig**: `selection.clear()` passiert erst hier bei Erfolg — nicht beim Absenden des Commands.
+
 ## Erste Commands
 
 | Trigger | Lib-Aufruf | Selection → Argumente |
@@ -140,7 +167,7 @@ BackgroundResult::CommandDone(mut done) => {
 | `Ctrl+Z` | `undo(root, 1)` | keine |
 | `Ctrl+Y` | `redo(root, 1)` | keine |
 
-Alle drei werden in `handle_input` als `RunCommand`-Closure an den Worker geschickt. Nach dem Absenden: `Selection::clear()` (Unplace) bzw. keine UI-Aktion (Undo/Redo).
+Alle drei werden in `handle_input` als `RunCommand`-Closure an den Worker geschickt. Selektion wird **nicht** beim Absenden gecleart, sondern erst in `drain_results` nach erfolgreichem `CommandDone` (siehe oben).
 
 ## Nicht in Phase 3
 
