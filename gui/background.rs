@@ -1,8 +1,10 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::Instant;
 
 use crossbeam::channel::{Receiver, Sender, unbounded};
-use fotobuch::output::typst::render_pages;
+use fotobuch::output::render::rasterize_page;
+use fotobuch::output::typst_world::TypstWorld;
 
 use crate::task::{BackgroundResult, BackgroundTask};
 
@@ -15,17 +17,55 @@ pub fn spawn(
 
     std::thread::spawn(move || {
         let pool = build_pool();
+
+        let mut world = match TypstWorld::new(&project_root, &project_name) {
+            Ok(w) => w,
+            Err(e) => {
+                let _ = result_tx.send(BackgroundResult::Error(e.to_string()));
+                return;
+            }
+        };
+
         while let Ok(task) = task_rx.recv() {
             match task {
                 BackgroundTask::RenderPages {
                     pages,
                     pixel_per_pt,
                 } => {
+                    if let Err(e) = world.reload() {
+                        let _ = result_tx.send(BackgroundResult::Error(e.to_string()));
+                        continue;
+                    }
+
+                    let t_compile = Instant::now();
+                    let doc = match world.compile_document() {
+                        Ok(d) => d,
+                        Err(e) => {
+                            let _ = result_tx.send(BackgroundResult::Error(e.to_string()));
+                            continue;
+                        }
+                    };
+                    let compile_duration = t_compile.elapsed();
+
+                    let doc = Arc::new(doc);
                     for page in pages {
-                        let root = project_root.clone();
-                        let name = project_name.clone();
+                        let doc = Arc::clone(&doc);
                         let tx = result_tx.clone();
-                        pool.spawn(move || render_page(&root, &name, page, pixel_per_pt, &tx));
+                        pool.spawn(move || {
+                            let t_raster = Instant::now();
+                            match rasterize_page(&doc, page, pixel_per_pt) {
+                                Ok(rendered) => {
+                                    let _ = tx.send(BackgroundResult::PageRendered {
+                                        page: rendered,
+                                        rasterize_duration: t_raster.elapsed(),
+                                        compile_duration,
+                                    });
+                                }
+                                Err(e) => {
+                                    let _ = tx.send(BackgroundResult::Error(e.to_string()));
+                                }
+                            }
+                        });
                     }
                 }
             }
@@ -47,30 +87,10 @@ fn build_pool() -> rayon::ThreadPool {
         .expect("failed to build render thread pool")
 }
 
-fn render_page(
-    project_root: &Path,
-    project_name: &str,
-    page: usize,
-    pixel_per_pt: f32,
-    result_tx: &Sender<BackgroundResult>,
-) {
-    let t = Instant::now();
-    match render_pages(project_root, project_name, &[page], pixel_per_pt) {
-        Ok(rendered) => {
-            let duration = t.elapsed();
-            for r in rendered {
-                let _ = result_tx.send(BackgroundResult::PageRendered { page: r, duration });
-            }
-        }
-        Err(e) => {
-            let _ = result_tx.send(BackgroundResult::Error(e.to_string()));
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::fs;
+    use std::time::Duration;
 
     use crossbeam::channel::RecvTimeoutError;
     use tempfile::TempDir;
@@ -96,19 +116,24 @@ mod tests {
             .unwrap();
 
         let result = result_rx
-            .recv_timeout(std::time::Duration::from_secs(30))
+            .recv_timeout(Duration::from_secs(30))
             .expect("no result within timeout");
 
         match result {
-            BackgroundResult::PageRendered { page: r, duration } => {
+            BackgroundResult::PageRendered {
+                page: r,
+                rasterize_duration,
+                compile_duration,
+            } => {
                 assert_eq!(r.page, 0);
                 assert!(!r.pixels.is_empty());
-                assert!(duration.as_secs() < 30, "render took unexpectedly long");
+                assert!(rasterize_duration.as_secs() < 30);
+                assert!(compile_duration.as_secs() < 30);
             }
             BackgroundResult::Error(e) => panic!("worker error: {e}"),
         }
 
-        match result_rx.recv_timeout(std::time::Duration::from_millis(100)) {
+        match result_rx.recv_timeout(Duration::from_millis(100)) {
             Err(RecvTimeoutError::Timeout) | Err(RecvTimeoutError::Disconnected) => {}
             Ok(_) => panic!("unexpected second result"),
         }

@@ -25,6 +25,14 @@ pub fn show_timings_overlay(timings: &Timings, ctx: &egui::Context) {
                     ui.label("show_pages");
                     ui.label(fmt_ms(timings.show_pages.as_secs_f64()));
                     ui.end_row();
+
+                    ui.label("typst compile");
+                    ui.label(fmt_ms(timings.typst_compile.as_secs_f64()));
+                    ui.end_row();
+
+                    ui.label("typst rasterize avg");
+                    ui.label(fmt_ms(timings.typst_rasterize_avg.as_secs_f64()));
+                    ui.end_row();
                 });
 
             if !timings.render_pages.is_empty() {

@@ -1,18 +1,13 @@
-//! Typst template compilation to PDF
+//! Typst template compilation to PDF.
 
 use anyhow::{Context, Result};
 use lopdf::{Document, Object};
 use std::fs;
 use std::path::{Path, PathBuf};
 use tracing::debug;
-use typst::diag::{FileError, FileResult};
-use typst::foundations::{Bytes, Datetime};
-use typst::syntax::{FileId, Source, VirtualPath};
-use typst::text::{Font, FontBook};
-use typst::utils::LazyHash;
-use typst::{Library, LibraryExt, World};
-use typst_kit::fonts::{FontSlot, Fonts};
 
+pub use crate::output::render::{rasterize_page, render_pages_with_world};
+pub use crate::output::typst_world::TypstWorld;
 /// A rasterized page ready for display (e.g. in egui).
 #[derive(Debug)]
 pub struct RenderedPage {
@@ -26,27 +21,9 @@ pub struct RenderedPage {
 
 /// Compiles a Typst template to a `typst::layout::PagedDocument`.
 fn compile_to_intermediate_document(template_path: &Path) -> Result<typst::layout::PagedDocument> {
-    let content = fs::read_to_string(template_path)
-        .with_context(|| format!("Failed to read template: {}", template_path.display()))?;
-
-    let world = SimpleWorld::new(template_path, content)?;
-    let result = typst::compile(&world);
-
-    if !result.warnings.is_empty() {
-        eprintln!("Typst warnings:");
-        for warning in &result.warnings {
-            eprintln!("  {:?}", warning);
-        }
-    }
-
-    result.output.map_err(|errors| {
-        let error_msg = errors
-            .iter()
-            .map(|e| format!("{:?}", e))
-            .collect::<Vec<_>>()
-            .join("\n");
-        anyhow::anyhow!("Typst compilation failed:\n{}", error_msg)
-    })
+    let mut world = TypstWorld::from_template_path(template_path)?;
+    world.reload()?;
+    world.compile_document()
 }
 
 /// Compiles a Typst template and returns the raw PDF bytes.
@@ -62,67 +39,7 @@ fn compile_to_pdf_bytes(template_path: &Path) -> Result<Vec<u8>> {
     })
 }
 
-/// Converts premultiplied RGBA pixels to straight (non-premultiplied) alpha in-place.
-fn premultiplied_to_straight_alpha(pixels: &mut [u8]) {
-    for chunk in pixels.chunks_exact_mut(4) {
-        let a = chunk[3] as f32 / 255.0;
-        if a > 0.0 {
-            chunk[0] = (chunk[0] as f32 / a).min(255.0) as u8;
-            chunk[1] = (chunk[1] as f32 / a).min(255.0) as u8;
-            chunk[2] = (chunk[2] as f32 / a).min(255.0) as u8;
-        }
-    }
-}
-
-/// Render selected pages of a Typst template to RGBA pixel data.
-///
-/// # Arguments
-/// * `project_root` - Directory containing the template and assets
-/// * `project_name` - Base name of the `.typ` file (without extension)
-/// * `pages` - 0-based page indices to render
-/// * `pixel_per_pt` - Rasterisation resolution (e.g. 1.0 for 72 dpi, 2.0 for 144 dpi)
-///
-/// # Returns
-/// One `RenderedPage` per requested index, in the same order.
-pub fn render_pages(
-    project_root: &Path,
-    project_name: &str,
-    pages: &[usize],
-    pixel_per_pt: f32,
-) -> Result<Vec<RenderedPage>> {
-    let template = project_root.join(format!("{project_name}.typ"));
-    let document = compile_to_intermediate_document(&template)?;
-
-    let mut rendered = Vec::with_capacity(pages.len());
-    for &page_idx in pages {
-        let page = document.pages.get(page_idx).ok_or_else(|| {
-            anyhow::anyhow!(
-                "Page index {page_idx} out of range (document has {} page(s))",
-                document.pages.len()
-            )
-        })?;
-
-        let pixmap = typst_render::render(page, pixel_per_pt);
-
-        let width = pixmap.width();
-        let height = pixmap.height();
-        let mut pixels = pixmap.take();
-
-        premultiplied_to_straight_alpha(&mut pixels);
-
-        rendered.push(RenderedPage {
-            page: page_idx,
-            width,
-            height,
-            pixels,
-        });
-    }
-
-    Ok(rendered)
-}
-
 /// Compiles a Typst template to PDF.
-/// Uses the typst crate directly (no external binary needed).
 ///
 /// # Arguments
 /// * `template_path` - Path to the `.typ` template file
@@ -223,8 +140,6 @@ fn add_pdf_boxes(pdf_bytes: &[u8], bleed_mm: f64) -> Result<Vec<u8>> {
 
 /// Compiles the preview PDF with bleed and sets TrimBox/BleedBox in the output PDF.
 /// Template: `{project_root}/{name}.typ` → Output: `{project_root}/{name}.pdf`
-/// We *could* generate from string only, but reading it from the file makes it easier to debug and avoids surprises.
-/// This way we know for sure that we use only what was committed by the state manager.
 pub fn compile_preview(project_root: &Path, project_name: &str, bleed_mm: f64) -> Result<PathBuf> {
     let template = project_root.join(format!("{project_name}.typ"));
     let output = project_root.join(format!("{project_name}.pdf"));
@@ -244,16 +159,6 @@ pub fn compile_preview(project_root: &Path, project_name: &str, bleed_mm: f64) -
 ///
 /// Generates `final.typ` from `{name}.typ` with `is_final = true`.
 /// Template: `{project_root}/final.typ` → Output: `{project_root}/{name}_final.pdf`
-///
-/// When `bleed_mm > 0`, the PDF page size is `TrimSize + 2×bleed_mm` and the
-/// PDF boxes are set accordingly so professional print shops can read the
-/// correct trim and bleed areas.
-///
-/// The **reason** why the template is named "final.typ" is that the user should not edit it directly, but instead work on the {name}.typ
-/// template, otherwise there might be multiple sources of truth, which can lead to confusion.
-/// At the other hand the user should be able to inspect the final.typ to see how the final PDF is generated,
-/// and it can also be useful for debugging to have the final template available as a separate file,
-/// so we write it to disk instead of keeping it in memory.
 pub fn compile_final(project_root: &Path, project_name: &str, bleed_mm: f64) -> Result<PathBuf> {
     let source_template = project_root.join(format!("{project_name}.typ"));
     let final_template = project_root.join("final.typ");
@@ -276,9 +181,6 @@ pub fn compile_final(project_root: &Path, project_name: &str, bleed_mm: f64) -> 
 }
 
 /// Generates `final.typ` from the preview template with `is_final = true`.
-///
-/// Replaces `#let is_final = false` in the template instead of prepending a second
-/// binding, since a later Typst `let` binding would shadow an earlier one.
 fn generate_final_template(source: &Path, target: &Path) -> Result<()> {
     let content = fs::read_to_string(source)
         .with_context(|| format!("Failed to read template: {}", source.display()))?;
@@ -289,95 +191,6 @@ fn generate_final_template(source: &Path, target: &Path) -> Result<()> {
         .with_context(|| format!("Failed to write final template: {}", target.display()))?;
 
     Ok(())
-}
-
-/// Minimal Typst World implementation
-struct SimpleWorld {
-    /// The main template file ID
-    main_id: FileId,
-    /// The main template source
-    main_source: Source,
-    /// Root directory for resolving relative paths
-    root: PathBuf,
-    /// Font book
-    book: LazyHash<FontBook>,
-    /// Fonts
-    fonts: Vec<FontSlot>,
-    /// Standard library
-    library: LazyHash<Library>,
-}
-
-impl SimpleWorld {
-    fn new(path: &Path, content: String) -> Result<Self> {
-        // Load system fonts
-        let fonts = Fonts::searcher().search();
-
-        // Get root directory (parent of template file)
-        let root = path
-            .parent()
-            .ok_or_else(|| anyhow::anyhow!("Template path has no parent"))?
-            .to_path_buf();
-
-        // Create file ID relative to root so that as_rootless_path() returns
-        // just the filename, enabling correct path resolution in source()/file().
-        let vpath = VirtualPath::within_root(path, &root)
-            .ok_or_else(|| anyhow::anyhow!("Template path is not within root directory"))?;
-        let main_id = FileId::new(None, vpath);
-
-        Ok(Self {
-            main_id,
-            main_source: Source::new(main_id, content),
-            root,
-            book: LazyHash::new(fonts.book),
-            fonts: fonts.fonts,
-            library: LazyHash::new(Library::default()),
-        })
-    }
-}
-
-impl World for SimpleWorld {
-    fn library(&self) -> &LazyHash<Library> {
-        &self.library
-    }
-
-    fn book(&self) -> &LazyHash<FontBook> {
-        &self.book
-    }
-
-    fn main(&self) -> FileId {
-        self.main_id
-    }
-
-    fn source(&self, id: FileId) -> FileResult<Source> {
-        if id == self.main_id {
-            Ok(self.main_source.clone())
-        } else {
-            // Try to load file from filesystem
-            let relative_path = id.vpath().as_rootless_path();
-            let full_path = self.root.join(relative_path);
-
-            fs::read_to_string(&full_path)
-                .map(|content| Source::new(id, content))
-                .map_err(|_| FileError::NotFound(relative_path.into()))
-        }
-    }
-
-    fn file(&self, id: FileId) -> FileResult<Bytes> {
-        let relative_path = id.vpath().as_rootless_path();
-        let full_path = self.root.join(relative_path);
-
-        fs::read(&full_path)
-            .map(Bytes::new)
-            .map_err(|_| FileError::NotFound(relative_path.into()))
-    }
-
-    fn font(&self, index: usize) -> Option<Font> {
-        self.fonts.get(index).and_then(|slot| slot.get())
-    }
-
-    fn today(&self, _offset: Option<i64>) -> Option<Datetime> {
-        Datetime::from_ymd(2026, 1, 1)
-    }
 }
 
 #[cfg(test)]
@@ -414,16 +227,11 @@ mod tests {
         let template = temp.path().join("test.typ");
         let output = temp.path().join("test.pdf");
 
-        // Create a minimal Typst template
         fs::write(&template, "= Hello World\n\nThis is a test.").unwrap();
 
-        // Compile
         let result = compile(&template, &output);
 
-        // Should succeed
         assert!(result.is_ok(), "Compilation failed: {:?}", result.err());
-
-        // PDF should exist and have content
         assert!(output.exists());
         let metadata = fs::metadata(&output).unwrap();
         assert!(metadata.len() > 0);
@@ -462,7 +270,6 @@ mod tests {
         assert_eq!(pdf_path, temp.path().join("mybook_final.pdf"));
         assert!(pdf_path.exists());
 
-        // Verify final.typ was created with is_final = true (declaration replaced)
         let final_typ = temp.path().join("final.typ");
         assert!(final_typ.exists());
         let content = fs::read_to_string(&final_typ).unwrap();
@@ -472,7 +279,6 @@ mod tests {
 
     #[test]
     fn test_add_pdf_boxes_sets_trim_and_bleed_box() {
-        // Compile a minimal PDF with a known page size (A4: 595.28 × 841.89 pt)
         let temp = TempDir::new().unwrap();
         let template = temp.path().join("bleed_test.typ");
         fs::write(&template, "#set page(width: 210mm, height: 297mm)\nHello").unwrap();
@@ -483,7 +289,6 @@ mod tests {
         assert!(result.is_ok(), "add_pdf_boxes failed: {:?}", result.err());
         let annotated = result.unwrap();
 
-        // Parse the annotated PDF and check the boxes on the first page
         let doc = Document::load_mem(&annotated).unwrap();
         let page_ids: Vec<_> = doc.get_pages().values().copied().collect();
         assert_eq!(page_ids.len(), 1, "expected exactly one page");
@@ -497,26 +302,10 @@ mod tests {
         let my1 = media_box[3].as_float().unwrap();
 
         let bleed_box = page.get(b"BleedBox").unwrap().as_array().unwrap();
-        assert_eq!(
-            bleed_box[0].as_float().unwrap(),
-            mx0,
-            "BleedBox x0 must equal MediaBox x0"
-        );
-        assert_eq!(
-            bleed_box[1].as_float().unwrap(),
-            my0,
-            "BleedBox y0 must equal MediaBox y0"
-        );
-        assert_eq!(
-            bleed_box[2].as_float().unwrap(),
-            mx1,
-            "BleedBox x1 must equal MediaBox x1"
-        );
-        assert_eq!(
-            bleed_box[3].as_float().unwrap(),
-            my1,
-            "BleedBox y1 must equal MediaBox y1"
-        );
+        assert_eq!(bleed_box[0].as_float().unwrap(), mx0);
+        assert_eq!(bleed_box[1].as_float().unwrap(), my0);
+        assert_eq!(bleed_box[2].as_float().unwrap(), mx1);
+        assert_eq!(bleed_box[3].as_float().unwrap(), my1);
 
         let bleed_pt = bleed_mm as f32 * (72.0 / 25.4);
         let trim_box = page.get(b"TrimBox").unwrap().as_array().unwrap();
@@ -525,42 +314,28 @@ mod tests {
         let tx1 = trim_box[2].as_float().unwrap();
         let ty1 = trim_box[3].as_float().unwrap();
 
-        assert!(
-            (tx0 - (mx0 + bleed_pt)).abs() < 0.01,
-            "TrimBox x0 off: {tx0} vs {}",
-            mx0 + bleed_pt
-        );
-        assert!(
-            (ty0 - (my0 + bleed_pt)).abs() < 0.01,
-            "TrimBox y0 off: {ty0} vs {}",
-            my0 + bleed_pt
-        );
-        assert!(
-            (tx1 - (mx1 - bleed_pt)).abs() < 0.01,
-            "TrimBox x1 off: {tx1} vs {}",
-            mx1 - bleed_pt
-        );
-        assert!(
-            (ty1 - (my1 - bleed_pt)).abs() < 0.01,
-            "TrimBox y1 off: {ty1} vs {}",
-            my1 - bleed_pt
-        );
+        assert!((tx0 - (mx0 + bleed_pt)).abs() < 0.01);
+        assert!((ty0 - (my0 + bleed_pt)).abs() < 0.01);
+        assert!((tx1 - (mx1 - bleed_pt)).abs() < 0.01);
+        assert!((ty1 - (my1 - bleed_pt)).abs() < 0.01);
     }
 
     #[test]
     fn test_render_pages_correct_dimensions() {
         let temp = TempDir::new().unwrap();
-        let template = temp.path().join("test.typ");
-        // A4 in mm: 210 × 297 → in pt: ~595 × ~842
-        fs::write(&template, "#set page(width: 210mm, height: 297mm)\nHello").unwrap();
+        let mut world = TypstWorld::new(temp.path(), "test").unwrap();
+        fs::write(
+            temp.path().join("test.typ"),
+            "#set page(width: 210mm, height: 297mm)\nHello",
+        )
+        .unwrap();
 
-        let result = render_pages(temp.path(), "test", &[0], 1.0);
-        assert!(result.is_ok(), "render_pages failed: {:?}", result.err());
+        let result = render_pages_with_world(&mut world, &[0], 1.0);
+        assert!(result.is_ok(), "render failed: {:?}", result.err());
         let pages = result.unwrap();
         assert_eq!(pages.len(), 1);
         let page = &pages[0];
         assert_eq!(page.page, 0);
-        // 210mm × (72/25.4) pt/mm ≈ 595 pt; allow ±2 px tolerance
         assert!((page.width as i32 - 595).abs() <= 2, "width {}", page.width);
         assert!(
             (page.height as i32 - 842).abs() <= 2,
@@ -573,16 +348,14 @@ mod tests {
     #[test]
     fn test_render_pages_page_selection() {
         let temp = TempDir::new().unwrap();
-        let template = temp.path().join("multi.typ");
-        // Three pages
         fs::write(
-            &template,
+            temp.path().join("multi.typ"),
             "#set page(width: 50mm, height: 50mm)\nPage 1\n#pagebreak()\nPage 2\n#pagebreak()\nPage 3",
         )
         .unwrap();
+        let mut world = TypstWorld::new(temp.path(), "multi").unwrap();
 
-        // Only render page 1 (0-based)
-        let result = render_pages(temp.path(), "multi", &[1], 1.0);
+        let result = render_pages_with_world(&mut world, &[1], 1.0);
         assert!(result.is_ok(), "{:?}", result.err());
         let pages = result.unwrap();
         assert_eq!(pages.len(), 1);
@@ -592,10 +365,10 @@ mod tests {
     #[test]
     fn test_render_pages_out_of_range_returns_error() {
         let temp = TempDir::new().unwrap();
-        let template = temp.path().join("single.typ");
-        fs::write(&template, "Only one page").unwrap();
+        fs::write(temp.path().join("single.typ"), "Only one page").unwrap();
+        let mut world = TypstWorld::new(temp.path(), "single").unwrap();
 
-        let result = render_pages(temp.path(), "single", &[5], 1.0);
+        let result = render_pages_with_world(&mut world, &[5], 1.0);
         assert!(result.is_err());
         let msg = result.unwrap_err().to_string();
         assert!(msg.contains("out of range"), "unexpected error: {msg}");
@@ -603,23 +376,18 @@ mod tests {
 
     #[test]
     fn test_render_pages_straight_alpha_conversion() {
-        // Render a page with a semi-transparent element and verify that
-        // premultiplied alpha has been undone: for fully-opaque pixels
-        // the RGB values should be consistent (no darkening from premultiplication).
         let temp = TempDir::new().unwrap();
-        let template = temp.path().join("alpha.typ");
-        // White background page
         fs::write(
-            &template,
+            temp.path().join("alpha.typ"),
             "#set page(width: 20mm, height: 20mm, fill: white)\n#text(fill: black)[X]",
         )
         .unwrap();
+        let mut world = TypstWorld::new(temp.path(), "alpha").unwrap();
 
-        let result = render_pages(temp.path(), "alpha", &[0], 2.0);
+        let result = render_pages_with_world(&mut world, &[0], 2.0);
         assert!(result.is_ok(), "{:?}", result.err());
         let page = &result.unwrap()[0];
 
-        // Find a fully-opaque pixel (alpha == 255) and verify R == G == B for white pixels
         let has_opaque = page
             .pixels
             .chunks_exact(4)
