@@ -42,24 +42,30 @@ egui   = { version = "…", optional = true }
 
 ```
 gui/
-├── main.rs           eframe::run_native, lädt ProjectState, deklariert alle Submodule
-├── app.rs            FotobuchApp (impl eframe::App)
-├── state.rs          GuiState + DerivedState
-├── background.rs     Worker-Thread + Channel-Setup
-├── task.rs           BackgroundTask / BackgroundResult
-├── renderer.rs       Background-Rendering: fotobuch::output::typst::render_pages → egui-Texturen
-├── interactions.rs   Drag & Drop, Hotkeys, Selektion
-├── toolbar.rs        Top-Bar + Statusbar
-├── panels.rs         Panel-Modul-Wurzel (deklariert main_view, photo_pool, page_nav, config)
-└── panels/
-    ├── main_view.rs    Scrollbare Seitenansicht mit Slot-Overlays
-    ├── photo_pool.rs   Linkes Panel: Foto-Liste
-    ├── page_nav.rs     Rechtes Panel: Seiten-Thumbnails
-    └── config.rs       Config-Fenster (auto-generated aus serde_yaml::Value)
+├── main.rs           eframe::run_native, lädt ProjectState, startet Worker
+├── app.rs            FotobuchApp (impl eframe::App), Input-Handling
+├── app/
+│   ├── geometry.rs     Slot-Rect-Mapping, Hit-Test
+│   ├── overlay.rs      Timings-Overlay (F2)
+│   ├── statusbar.rs    Statusbar unten
+│   ├── toolbar.rs      Top-Bar
+│   ├── panels.rs       Panel-Modul-Wurzel (deklariert main_view, photo_pool, page_nav)
+│   └── panels/
+│       ├── main_view.rs    Scrollbare Seitenansicht mit Slot-Overlays
+│       ├── photo_pool.rs   Linkes Panel: Foto-Liste
+│       ├── page_nav.rs     Rechtes Panel: Seiten-Thumbnails
+│       └── config.rs       Config-Fenster (auto-generated aus serde_yaml::Value)
+├── state.rs          GuiState
+├── state/
+│   ├── derived.rs      DerivedState (Lookup-Caches)
+│   ├── selection.rs    Selection-Enum
+│   └── timings.rs      Per-Frame-Timings
+├── background.rs     Worker-Thread + Rayon-Pool + TypstWorld
+└── task.rs           BackgroundTask / BackgroundResult / CommandDone
 ```
 
-- `gui/main.rs` ist der Binary-Root und deklariert die Submodule direkt (`mod app; mod state; mod panels; …`). **Kein** Zwischen-Modul `gui::` — das Binary *ist* die GUI, ein zusätzlicher Namespace wäre redundant.
-- Geschachtelte Module nur dort, wo es inhaltlich sinnvoll ist (hier: `panels.rs` + `panels/`).
+- `gui/main.rs` ist der Binary-Root und deklariert die Submodule direkt (`mod app; mod state; …`).
+- UI-Rendering lebt komplett unter `app/`, State-Logik unter `state/`.
 - Konvention aus `.claude/CLAUDE.md`: kein `mod.rs`, stattdessen `foo.rs` neben `foo/`.
 - Alle Seitenindizes 0-basiert.
 
@@ -287,15 +293,15 @@ enum BackgroundTask {
 }
 
 /// Ein Enum pro Command-Gruppe, damit der UI-Thread typsicher branchen kann
-/// ohne Downcasting. `state` ist `None` bei No-Ops — dann kein Rebuild.
+/// ohne Downcasting. Nutzt direkt `CommandOutput<T>` aus der Lib —
+/// `changed_state` ist `None` bei No-Ops, dann kein Rebuild.
 enum CommandDone {
-    Build  { result: BuildResult,     state: Option<ProjectState> },
-    Place  { result: PlaceResult,     state: Option<ProjectState> },
-    Move   { result: PageMoveResult,  state: Option<ProjectState> },
-    Config { result: ConfigSetResult, state: Option<ProjectState> },
-    Undo   { result: UndoResult,      state: Option<ProjectState> },
+    LayoutChange(CommandOutput<PageMoveResult>),  // Swap, Move, Unplace, Split, Combine
+    Build(CommandOutput<BuildResult>),
+    Place(CommandOutput<PlaceResult>),
+    Undo(CommandOutput<UndoResult>),
     // …weitere Varianten nach Bedarf
-    Failed(anyhow::Error),
+    Failed(String),
 }
 
 // Background → UI
@@ -310,7 +316,7 @@ enum BackgroundResult {
 }
 ```
 
-`CommandDone::extract_dirty_pages()` kapselt die Mapping-Tabelle (Build → `pages_rebuilt ∪ pages_swapped`, Move → `pages_affected`, Undo/Config → alle Seiten).
+`CommandDone::dirty_pages()` kapselt die Mapping-Tabelle (Build → `pages_rebuilt`, LayoutChange → `pages_modified ∪ pages_inserted` (bei Deletion: alle Seiten), Undo → alle Seiten).
 
 ### Ablauf einer User-Aktion (z.B. Swap)
 

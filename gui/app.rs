@@ -1,4 +1,9 @@
+mod draw_page;
+mod geometry;
+mod input_handler;
 mod overlay;
+mod statusbar;
+mod toolbar;
 mod view;
 
 use std::time::Instant;
@@ -14,8 +19,6 @@ pub struct FotobuchApp {
     #[allow(dead_code)]
     task_tx: Sender<BackgroundTask>,
     result_rx: Receiver<BackgroundResult>,
-    page_width_mm: f64,
-    page_height_mm: f64,
 }
 
 impl FotobuchApp {
@@ -24,15 +27,11 @@ impl FotobuchApp {
         state: GuiState,
         task_tx: Sender<BackgroundTask>,
         result_rx: Receiver<BackgroundResult>,
-        page_width_mm: f64,
-        page_height_mm: f64,
     ) -> Self {
         Self {
             state,
             task_tx,
             result_rx,
-            page_width_mm,
-            page_height_mm,
         }
     }
 
@@ -65,35 +64,25 @@ impl FotobuchApp {
         }
     }
 
-    fn apply_zoom(&mut self, ctx: &egui::Context) {
-        let delta = ctx.input(|i| {
-            if i.modifiers.ctrl {
-                i.zoom_delta()
-            } else {
-                1.0
-            }
-        });
-        if delta != 1.0 {
-            self.state.zoom = state::apply_zoom_delta(self.state.zoom, delta);
-        }
-    }
+    fn show_pages(&mut self, ui: &mut egui::Ui) {
+        let num_pages = self.state.project_state.layout.len();
+        let mut new_hovered: Option<(usize, usize)> = None;
 
-    fn show_pages(&self, ui: &mut egui::Ui) {
         egui::ScrollArea::vertical()
             .auto_shrink([false; 2])
             .show(ui, |ui| {
                 ui.vertical_centered(|ui| {
-                    for i in 0..self.state.page_textures.len() {
-                        view::draw_page(
-                            ui,
-                            &self.state,
-                            i,
-                            self.page_width_mm,
-                            self.page_height_mm,
-                        );
+                    for i in 0..num_pages {
+                        if let Some(slot_idx) = view::draw_page(ui, &self.state, i)
+                            && new_hovered.is_none()
+                        {
+                            new_hovered = Some((i, slot_idx));
+                        }
                     }
                 });
             });
+
+        self.state.hovered_slot = new_hovered;
     }
 }
 
@@ -102,12 +91,6 @@ impl eframe::App for FotobuchApp {
         let t_frame = Instant::now();
         let ctx = ui.ctx().clone();
 
-        // consume_key ensures the toggle fires exactly once per key press,
-        // even if input() is called multiple times within the same frame.
-        if ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::F2)) {
-            self.state.timings.show = !self.state.timings.show;
-        }
-
         let t = Instant::now();
         self.drain_results(&ctx);
         self.state.timings.drain_results = t.elapsed();
@@ -115,11 +98,15 @@ impl eframe::App for FotobuchApp {
         self.request_repaint_if_loading(&ctx);
 
         let t = Instant::now();
-        self.apply_zoom(&ctx);
+        input_handler::handle(&mut self.state, &ctx);
         self.state.timings.apply_zoom = t.elapsed();
 
+        egui::Panel::top("toolbar").show_inside(ui, toolbar::show);
+
+        egui::Panel::bottom("statusbar").show_inside(ui, |ui| statusbar::show(ui, &self.state));
+
         let t = Instant::now();
-        self.show_pages(ui);
+        egui::CentralPanel::default().show_inside(ui, |ui| self.show_pages(ui));
         self.state.timings.show_pages = t.elapsed();
 
         self.state.timings.ui_frame = t_frame.elapsed();

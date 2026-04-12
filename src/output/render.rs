@@ -1,7 +1,7 @@
 use anyhow::Result;
 
-use typst::layout::PagedDocument;
 use crate::output::typst::{RenderedPage, TypstWorld};
+use typst::layout::PagedDocument;
 
 /// Rasterises a single page from an already-compiled document.
 /// Stateless and parallelisable — the caller decides the scheduling.

@@ -23,11 +23,10 @@ fn main() -> eframe::Result<()> {
 
     let project_name = mgr.project_name().to_owned();
     let num_pages = mgr.state.layout.len();
-    let page_width_mm = mgr.state.config.book.page_width_mm;
-    let page_height_mm = mgr.state.config.book.page_height_mm;
+    let project_state = mgr.state.clone();
     drop(mgr);
 
-    let gui_state = GuiState::new(num_pages);
+    let gui_state = GuiState::new(project_state);
     let (task_tx, result_rx) = background::spawn(project_root, project_name);
 
     let _ = task_tx.send(BackgroundTask::RenderPages {
@@ -40,12 +39,7 @@ fn main() -> eframe::Result<()> {
         eframe::NativeOptions::default(),
         Box::new(|cc| {
             Ok(Box::new(FotobuchApp::new(
-                cc,
-                gui_state,
-                task_tx,
-                result_rx,
-                page_width_mm,
-                page_height_mm,
+                cc, gui_state, task_tx, result_rx,
             )))
         }),
     )

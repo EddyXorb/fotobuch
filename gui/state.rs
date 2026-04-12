@@ -1,25 +1,41 @@
+mod derived;
+mod selection;
 mod timings;
 
+pub use derived::DerivedState;
+pub use selection::Selection;
 pub use timings::Timings;
 
 use egui::{ColorImage, Context, TextureHandle, TextureOptions};
+use fotobuch::dto_models::ProjectState;
 use fotobuch::output::typst::RenderedPage;
 
 pub struct GuiState {
+    pub project_state: ProjectState,
+    pub derived: DerivedState,
     pub page_textures: Vec<Option<TextureHandle>>,
     pub zoom: f32,
-    /// Constant in Phase 1 — used when sending initial render task; will drive re-render in Phase 3.
+    /// Constant in Phase 2 — will drive re-render in Phase 3.
     #[allow(dead_code)]
     pub base_pixel_per_pt: f32,
+    pub selection: Selection,
+    /// `(page_idx, slot_idx)` hovered in the previous frame.
+    pub hovered_slot: Option<(usize, usize)>,
     pub timings: Timings,
 }
 
 impl GuiState {
-    pub fn new(num_pages: usize) -> Self {
+    pub fn new(project_state: ProjectState) -> Self {
+        let num_pages = project_state.layout.len();
+        let derived = DerivedState::rebuild(&project_state);
         Self {
+            project_state,
+            derived,
             page_textures: vec![None; num_pages],
             zoom: 1.0,
             base_pixel_per_pt: 1.5,
+            selection: Selection::None,
+            hovered_slot: None,
             timings: Timings::default(),
         }
     }
@@ -41,7 +57,6 @@ pub fn apply_rendered(state: &mut GuiState, ctx: &Context, rendered: RenderedPag
 }
 
 /// Pure zoom step: `z * delta`, clamped to [0.1, 5.0].
-/// `delta` is a multiplier from `egui::InputState::zoom_delta()`: 1.0 = no change, >1.0 = in, <1.0 = out.
 pub fn apply_zoom_delta(z: f32, delta: f32) -> f32 {
     if delta == 1.0 {
         return z;
@@ -55,15 +70,31 @@ mod tests {
 
     use super::*;
 
+    fn minimal_project() -> ProjectState {
+        ProjectState::default()
+    }
+
+    #[test]
+    fn new_derives_num_pages() {
+        let state = GuiState::new(minimal_project());
+        assert_eq!(state.page_textures.len(), 0);
+    }
+
     #[test]
     fn apply_rendered_sets_slot() {
         let ctx = egui::Context::default();
-        let mut state = GuiState::new(1);
+        let mut project = minimal_project();
+        project.layout = vec![fotobuch::dto_models::LayoutPage {
+            page: 0,
+            photos: vec![],
+            slots: vec![],
+            mode: fotobuch::dto_models::PageMode::Auto,
+        }];
+        let mut state = GuiState::new(project);
         let rendered = RenderedPage {
             page: 0,
             width: 2,
             height: 2,
-            // straight-alpha white pixels
             pixels: vec![255u8; 2 * 2 * 4],
         };
         apply_rendered(&mut state, &ctx, rendered);

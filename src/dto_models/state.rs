@@ -46,6 +46,26 @@ impl ProjectState {
         self.config.book.cover.active
     }
 
+    /// Returns `(width_mm, height_mm)` for the given page index.
+    ///
+    /// Page 0 is the cover when `has_cover()` is true and uses cover dimensions
+    /// (spread width = front+back+spine, cover height). All other pages use the
+    /// standard book page dimensions.
+    pub fn page_dimensions_mm(&self, page: usize) -> (f64, f64) {
+        if self.has_cover() && page == 0 {
+            let inner_count = self.layout.len().saturating_sub(1);
+            (
+                self.config.book.cover.spread_width_mm(inner_count),
+                self.config.book.cover.height_mm,
+            )
+        } else {
+            (
+                self.config.book.page_width_mm,
+                self.config.book.page_height_mm,
+            )
+        }
+    }
+
     pub fn check_validity(&self) -> Result<()> {
         // Build known photo IDs, checking for duplicates within the photos section
         let mut known_ids: std::collections::HashSet<&str> = std::collections::HashSet::new();
@@ -277,5 +297,35 @@ mod tests {
         // Load
         let loaded = ProjectState::load(&yaml_path).unwrap();
         assert_eq!(loaded.config.book.page_width_mm, 420.0);
+    }
+
+    #[test]
+    fn page_dimensions_without_cover_returns_book_size() {
+        let state = minimal_state();
+        let (w, h) = state.page_dimensions_mm(0);
+        assert_eq!(w, state.config.book.page_width_mm);
+        assert_eq!(h, state.config.book.page_height_mm);
+    }
+
+    #[test]
+    fn page_dimensions_with_active_cover_returns_cover_size_for_page_0() {
+        let mut state = minimal_state();
+        state.config.book.cover = CoverConfig {
+            active: true,
+            front_back_width_mm: 400.0,
+            height_mm: 280.0,
+            spine: SpineConfig::Fixed {
+                spine_width_mm: 5.0,
+            },
+            ..CoverConfig::default()
+        };
+        // page 0 → cover dimensions (spread = front_back only when Fixed spine)
+        let (w, h) = state.page_dimensions_mm(0);
+        assert_eq!(w, 400.0);
+        assert_eq!(h, 280.0);
+        // page 1 → regular book dimensions
+        let (w1, h1) = state.page_dimensions_mm(1);
+        assert_eq!(w1, state.config.book.page_width_mm);
+        assert_eq!(h1, state.config.book.page_height_mm);
     }
 }
