@@ -162,16 +162,8 @@ impl TypstWorld {
 
     fn load_source(&self, id: FileId) -> FileResult<Source> {
         let path = self.path_for_id(id);
-        let rev = self.revision.load(Ordering::Relaxed);
         let mut slots = self.slots.lock().unwrap();
-
-        let slot = slots.entry(id).or_insert_with(|| {
-            let (mtime, len) = fs::metadata(&path)
-                .map(|m| (m.modified().unwrap_or(SystemTime::UNIX_EPOCH), m.len()))
-                .unwrap_or((SystemTime::UNIX_EPOCH, 0));
-            FileSlot::new(mtime, len)
-        });
-        slot.last_accessed = rev;
+        let slot = self.read_or_insert_slot(id, &path, &mut *slots);
 
         if slot.source.get().is_none() {
             #[cfg(test)]
@@ -186,16 +178,8 @@ impl TypstWorld {
 
     fn load_bytes(&self, id: FileId) -> FileResult<Bytes> {
         let path = self.path_for_id(id);
-        let rev = self.revision.load(Ordering::Relaxed);
         let mut slots = self.slots.lock().unwrap();
-
-        let slot = slots.entry(id).or_insert_with(|| {
-            let (mtime, len) = fs::metadata(&path)
-                .map(|m| (m.modified().unwrap_or(SystemTime::UNIX_EPOCH), m.len()))
-                .unwrap_or((SystemTime::UNIX_EPOCH, 0));
-            FileSlot::new(mtime, len)
-        });
-        slot.last_accessed = rev;
+        let slot = self.read_or_insert_slot(id, &path, &mut *slots);
 
         if slot.bytes.get().is_none() {
             #[cfg(test)]
@@ -206,6 +190,25 @@ impl TypstWorld {
         }
 
         Ok(slot.bytes.get().unwrap().clone())
+    }
+
+    fn read_or_insert_slot<'a>(
+        &self,
+        id: FileId,
+        path: &PathBuf,
+        slots: &'a mut HashMap<FileId, FileSlot>,
+    ) -> &'a mut FileSlot {
+        let slot = slots.entry(id).or_insert_with(|| {
+            let (mtime, len) = fs::metadata(path)
+                .map(|m| (m.modified().unwrap_or(SystemTime::UNIX_EPOCH), m.len()))
+                .unwrap_or((SystemTime::UNIX_EPOCH, 0));
+            FileSlot::new(mtime, len)
+        });
+
+        let rev = self.revision.load(Ordering::Relaxed);
+        slot.last_accessed = rev;
+
+        slot
     }
 }
 
