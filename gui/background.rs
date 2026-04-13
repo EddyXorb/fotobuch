@@ -136,6 +136,7 @@ fn run_page_command(
                 .result
                 .pages_modified
                 .iter()
+                .chain(output.result.pages_inserted.iter())
                 .map(|&p| p as usize)
                 .collect();
             send_command_done(new_state, dirty, world, pool, result_tx, pixel_per_pt);

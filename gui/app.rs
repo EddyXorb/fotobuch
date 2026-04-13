@@ -69,6 +69,11 @@ impl FotobuchApp {
                 }
                 BackgroundResult::CommandFailed(e) => {
                     tracing::error!(%e, "command failed");
+                    // Optimistic dirty-marking in input_handler has no matching render
+                    // coming — clear all dirty flags so the loading overlay disappears.
+                    for d in &mut self.state.page_dirty {
+                        *d = false;
+                    }
                 }
                 BackgroundResult::Error(e) => {
                     tracing::error!(%e, "render error");
