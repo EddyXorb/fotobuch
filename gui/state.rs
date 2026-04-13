@@ -4,7 +4,7 @@ mod selection;
 mod timings;
 
 pub use derived::DerivedState;
-pub use drag::{DragState, slot_ratio_similar};
+pub use drag::DragState;
 pub use selection::Selection;
 pub use timings::Timings;
 

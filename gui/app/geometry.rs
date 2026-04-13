@@ -1,5 +1,13 @@
 use fotobuch::dto_models::{LayoutPage, Slot};
 
+/// Returns `true` if two slot aspect ratios (w/h) are within 5 % of each other.
+pub fn slot_ratio_similar(ratio_a: f64, ratio_b: f64) -> bool {
+    if ratio_b == 0.0 {
+        return false;
+    }
+    (ratio_a / ratio_b - 1.0).abs() < 0.05
+}
+
 /// Maps a slot's mm coordinates to screen pixels, given the already-scaled page rect.
 ///
 /// `page_rect` is the egui rect the page image occupies (zoom already applied).

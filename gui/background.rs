@@ -89,25 +89,11 @@ pub fn spawn(
                 }
 
                 BackgroundTask::Undo { pixel_per_pt } => {
-                    run_undo_redo(
-                        &project_root,
-                        true,
-                        &mut world,
-                        &pool,
-                        &result_tx,
-                        pixel_per_pt,
-                    );
+                    run_undo(&project_root, &mut world, &pool, &result_tx, pixel_per_pt);
                 }
 
                 BackgroundTask::Redo { pixel_per_pt } => {
-                    run_undo_redo(
-                        &project_root,
-                        false,
-                        &mut world,
-                        &pool,
-                        &result_tx,
-                        pixel_per_pt,
-                    );
+                    run_redo(&project_root, &mut world, &pool, &result_tx, pixel_per_pt);
                 }
             }
         }
@@ -144,20 +130,33 @@ fn run_page_command(
     }
 }
 
-fn run_undo_redo(
+fn run_undo(
     project_root: &std::path::Path,
-    is_undo: bool,
     world: &mut TypstWorld,
     pool: &rayon::ThreadPool,
     result_tx: &Sender<BackgroundResult>,
     pixel_per_pt: f32,
 ) {
-    let result = if is_undo {
-        undo(project_root, 1)
-    } else {
-        redo(project_root, 1)
-    };
+    run_undo_or_redo(undo(project_root, 1), world, pool, result_tx, pixel_per_pt);
+}
 
+fn run_redo(
+    project_root: &std::path::Path,
+    world: &mut TypstWorld,
+    pool: &rayon::ThreadPool,
+    result_tx: &Sender<BackgroundResult>,
+    pixel_per_pt: f32,
+) {
+    run_undo_or_redo(redo(project_root, 1), world, pool, result_tx, pixel_per_pt);
+}
+
+fn run_undo_or_redo(
+    result: anyhow::Result<fotobuch::commands::CommandOutput<fotobuch::commands::UndoResult>>,
+    world: &mut TypstWorld,
+    pool: &rayon::ThreadPool,
+    result_tx: &Sender<BackgroundResult>,
+    pixel_per_pt: f32,
+) {
     match result {
         Err(e) => {
             let _ = result_tx.send(BackgroundResult::CommandFailed(e.to_string()));
