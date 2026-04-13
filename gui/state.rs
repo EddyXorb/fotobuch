@@ -58,8 +58,13 @@ pub fn apply_rendered(state: &mut GuiState, ctx: &Context, rendered: RenderedPag
         image,
         TextureOptions::LINEAR,
     );
-    state.page_textures[rendered.page] = Some(handle);
-    state.page_dirty[rendered.page] = false;
+    // Use get_mut to guard against stale renders arriving after a page was deleted.
+    if let Some(slot) = state.page_textures.get_mut(rendered.page) {
+        *slot = Some(handle);
+    }
+    if let Some(d) = state.page_dirty.get_mut(rendered.page) {
+        *d = false;
+    }
 }
 
 /// Pure zoom step: `z * delta`, clamped to [0.1, 5.0].

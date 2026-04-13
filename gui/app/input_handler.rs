@@ -95,9 +95,12 @@ fn handle_drag_complete(
         None => return true, // drag cancelled — no target
     };
 
-    // Phase 3: same-page only.
-    if dst_page != src_page || dst_slot == src_slot {
-        return dst_slot != src_slot; // different page → suppress click, same slot → allow
+    // Phase 3: same-page only. Cross-page drops are silently ignored.
+    if dst_page != src_page {
+        return true; // drag landed on a different page → suppress click
+    }
+    if dst_slot == src_slot {
+        return false; // same slot → treat as normal click
     }
 
     // Mark affected pages dirty immediately for instant visual feedback.
