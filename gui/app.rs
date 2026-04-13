@@ -156,11 +156,6 @@ impl eframe::App for FotobuchApp {
 
         self.request_repaint_if_loading(&ctx);
 
-        let t = Instant::now();
-        let cmds = input_handler::handle(&mut self.state, &ctx);
-        self.dispatch(cmds);
-        self.state.timings.apply_zoom = t.elapsed();
-
         egui::Panel::top("toolbar").show_inside(ui, toolbar::show);
 
         egui::Panel::bottom("statusbar").show_inside(ui, |ui| statusbar::show(ui, &self.state));
@@ -168,6 +163,13 @@ impl eframe::App for FotobuchApp {
         let t = Instant::now();
         egui::CentralPanel::default().show_inside(ui, |ui| self.show_pages(ui));
         self.state.timings.show_pages = t.elapsed();
+
+        // Input handling runs after show_pages so that hovered_slot reflects the current
+        // frame — prevents toolbar clicks from accidentally triggering a drag.
+        let t = Instant::now();
+        let cmds = input_handler::handle(&mut self.state, &ctx);
+        self.dispatch(cmds);
+        self.state.timings.apply_zoom = t.elapsed();
 
         self.state.timings.ui_frame = t_frame.elapsed();
 

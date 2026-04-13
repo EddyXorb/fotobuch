@@ -1,6 +1,6 @@
 use egui::vec2;
 
-use crate::state::{DragState, GuiState, slot_ratio_similar};
+use crate::state::{DragState, GuiState};
 
 use super::geometry;
 
@@ -132,7 +132,8 @@ fn draw_slot_overlays(
         if is_dragging && is_hovered {
             // Ratio feedback: green = same ratio, red = different.
             let target_ratio = slot.width_mm / slot.height_mm;
-            let same_ratio = drag_src_ratio.is_some_and(|r| slot_ratio_similar(r, target_ratio));
+            let same_ratio =
+                drag_src_ratio.is_some_and(|r| geometry::slot_ratio_similar(r, target_ratio));
             let color = if same_ratio {
                 egui::Color32::from_rgba_unmultiplied(0, 200, 80, 60)
             } else {
@@ -167,12 +168,13 @@ fn draw_drag_ghost(
     page_width_mm: f64,
     page_height_mm: f64,
 ) {
-    let (src_slot_idx, _is_move) = match &state.drag {
+    let (src_slot_idx, _is_move, cursor_at_drag_start) = match &state.drag {
         DragState::Dragging {
             src_page,
             src_slot,
             is_move,
-        } if *src_page == page_idx => (*src_slot, *is_move),
+            cursor_at_drag_start,
+        } if *src_page == page_idx => (*src_slot, *is_move, *cursor_at_drag_start),
         _ => return,
     };
 
@@ -197,7 +199,14 @@ fn draw_drag_ghost(
     let w = slot.width_mm as f32 * scale_x;
     let h = slot.height_mm as f32 * scale_y;
 
-    let ghost_rect = egui::Rect::from_center_size(cursor, vec2(w, h));
+    // Preserve grab offset: keep the pointer at the same position within the ghost
+    // as it was within the slot when the drag started.
+    let slot_top_left = egui::pos2(
+        page_rect.min.x + slot.x_mm as f32 * scale_x,
+        page_rect.min.y + slot.y_mm as f32 * scale_y,
+    );
+    let grab = cursor_at_drag_start - slot_top_left;
+    let ghost_rect = egui::Rect::from_min_size(cursor - grab, vec2(w, h));
 
     // Use a top-level painter so the ghost appears above all page content.
     let painter = ui.ctx().layer_painter(egui::LayerId::new(

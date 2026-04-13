@@ -75,7 +75,7 @@ fn handle_drag_complete(
     ctx: &egui::Context,
     cmds: &mut Vec<PendingCommand>,
 ) -> bool {
-    if !ctx.input(|i| i.pointer.primary_released()) {
+    if !ctx.input(|i| i.pointer.secondary_released()) {
         return false;
     }
 
@@ -84,6 +84,7 @@ fn handle_drag_complete(
             src_page,
             src_slot,
             is_move,
+            cursor_at_drag_start: _,
         } => (src_page, src_slot, is_move),
         DragState::Idle => return false,
     };
@@ -127,18 +128,23 @@ fn handle_drag_complete(
 }
 
 fn handle_drag_start(state: &mut GuiState, ctx: &egui::Context) {
-    if !ctx.input(|i| i.pointer.primary_pressed()) {
+    if !ctx.input(|i| i.pointer.secondary_pressed()) {
         return;
     }
     if !matches!(state.drag, DragState::Idle) {
         return;
     }
+    let cursor = match ctx.pointer_hover_pos() {
+        Some(p) => p,
+        None => return,
+    };
     if let Some((page, slot)) = state.hovered_slot {
         let is_move = ctx.input(|i| i.key_down(egui::Key::M));
         state.drag = DragState::Dragging {
             src_page: page,
             src_slot: slot,
             is_move,
+            cursor_at_drag_start: cursor,
         };
     }
 }
