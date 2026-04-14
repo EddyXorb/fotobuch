@@ -129,18 +129,15 @@ impl FotobuchApp {
 
         egui::ScrollArea::vertical()
             .auto_shrink([false; 2])
-            // Disable built-in drag-to-scroll (it responds to any button, including RMB).
-            // LMB drag is re-implemented below via scroll_with_delta.
-            .scroll_source(egui::containers::scroll_area::ScrollSource {
-                drag: false,
-                scroll_bar: true,
-                mouse_wheel: true,
-            })
             .show(ui, |ui| {
-                // Re-implement left-button drag scrolling manually.
-                if ui.input(|i| i.pointer.primary_down()) {
+                // The scroll area's drag handler runs *before* content and applies
+                // `offset -= pointer.delta()` for any button, including RMB.
+                // When RMB is down (and LMB is not), counteract that with
+                // `scroll_with_delta(-delta)` which is processed *after* content:
+                //   target_offset = (offset - delta) + delta = offset  →  no net scroll.
+                if ui.input(|i| i.pointer.secondary_down() && !i.pointer.primary_down()) {
                     let delta = ui.input(|i| i.pointer.delta());
-                    ui.scroll_with_delta(delta);
+                    ui.scroll_with_delta(-delta);
                 }
                 ui.vertical_centered(|ui| {
                     for i in 0..num_pages {
