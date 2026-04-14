@@ -127,18 +127,22 @@ impl FotobuchApp {
         let num_pages = self.state.project_state.layout.len();
         let mut new_hovered: Option<(usize, usize)> = None;
 
+        // Disable ScrollArea drag while RMB is active (down or just released) so that
+        // neither immediate offset changes nor kinetic velocity are applied by RMB.
+        // LMB drag and mouse-wheel keep their natural egui behaviour including momentum.
+        let rmbactive = ui.input(|i| {
+            (i.pointer.secondary_down() || i.pointer.secondary_released())
+                && !i.pointer.primary_down()
+        });
+
         egui::ScrollArea::vertical()
             .auto_shrink([false; 2])
+            .scroll_source(egui::containers::scroll_area::ScrollSource {
+                drag: !rmbactive,
+                scroll_bar: true,
+                mouse_wheel: true,
+            })
             .show(ui, |ui| {
-                // The scroll area's drag handler runs *before* content and applies
-                // `offset -= pointer.delta()` for any button, including RMB.
-                // When RMB is down (and LMB is not), counteract that with
-                // `scroll_with_delta(-delta)` which is processed *after* content:
-                //   target_offset = (offset - delta) + delta = offset  →  no net scroll.
-                if ui.input(|i| i.pointer.secondary_down() && !i.pointer.primary_down()) {
-                    let delta = ui.input(|i| i.pointer.delta());
-                    ui.scroll_with_delta(-delta);
-                }
                 ui.vertical_centered(|ui| {
                     for i in 0..num_pages {
                         if let Some(slot_idx) = view::draw_page(ui, &self.state, i)
