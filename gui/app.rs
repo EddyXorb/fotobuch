@@ -129,14 +129,18 @@ impl FotobuchApp {
 
         egui::ScrollArea::vertical()
             .auto_shrink([false; 2])
+            // Disable built-in drag-to-scroll (it responds to any button, including RMB).
+            // LMB drag is re-implemented below via scroll_with_delta.
+            .scroll_source(egui::containers::scroll_area::ScrollSource {
+                drag: false,
+                scroll_bar: true,
+                mouse_wheel: true,
+            })
             .show(ui, |ui| {
-                // The ScrollArea's background drag-to-scroll responds to any pointer button.
-                // Claim the drag sense for the content area while RMB is down so the scroll
-                // area never sees the right-button drag — RMB is reserved for drag-and-drop.
-                // Use `interact` (not `allocate_rect`) to avoid advancing the layout cursor.
-                if ui.input(|i| i.pointer.secondary_down()) {
-                    let rect = ui.clip_rect();
-                    let _ = ui.interact(rect, ui.id().with("rmb_guard"), egui::Sense::drag());
+                // Re-implement left-button drag scrolling manually.
+                if ui.input(|i| i.pointer.primary_down()) {
+                    let delta = ui.input(|i| i.pointer.delta());
+                    ui.scroll_with_delta(delta);
                 }
                 ui.vertical_centered(|ui| {
                     for i in 0..num_pages {
