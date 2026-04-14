@@ -10,7 +10,9 @@ pub enum PendingCommand {
     },
     Move {
         src_page: usize,
-        src_slot: usize,
+        /// All slots to move (from the selection if dragged slot is selected,
+        /// otherwise just the dragged slot).
+        src_slots: Vec<usize>,
         dst_page: usize,
     },
     Undo,

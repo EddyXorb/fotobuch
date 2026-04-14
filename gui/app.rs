@@ -108,11 +108,11 @@ impl FotobuchApp {
                 },
                 PendingCommand::Move {
                     src_page,
-                    src_slot,
+                    src_slots,
                     dst_page,
                 } => BackgroundTask::MoveSlot {
                     src_page,
-                    src_slot,
+                    src_slots,
                     dst_page,
                     pixel_per_pt: ppt,
                 },
@@ -130,6 +130,12 @@ impl FotobuchApp {
         egui::ScrollArea::vertical()
             .auto_shrink([false; 2])
             .show(ui, |ui| {
+                // The ScrollArea's background drag-to-scroll responds to any pointer button.
+                // Claim the drag sense for the content area while RMB is down so the scroll
+                // area never sees the right-button drag — RMB is reserved for drag-and-drop.
+                if ui.input(|i| i.pointer.secondary_down()) {
+                    let _ = ui.allocate_rect(ui.clip_rect(), egui::Sense::drag());
+                }
                 ui.vertical_centered(|ui| {
                     for i in 0..num_pages {
                         if let Some(slot_idx) = view::draw_page(ui, &self.state, i)

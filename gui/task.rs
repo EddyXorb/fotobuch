@@ -17,7 +17,7 @@ pub enum BackgroundTask {
     },
     MoveSlot {
         src_page: usize,
-        src_slot: usize,
+        src_slots: Vec<usize>,
         dst_page: usize,
         pixel_per_pt: f32,
     },

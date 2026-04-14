@@ -96,32 +96,10 @@ fn handle_drag_complete(
         None => return true, // drag cancelled — no target
     };
 
-    // Phase 3: same-page only. Cross-page drops are silently ignored.
-    if dst_page != src_page {
-        return true; // drag landed on a different page → suppress click
-    }
-    if dst_slot == src_slot {
-        return false; // same slot → treat as normal click
-    }
-
-    // Mark affected pages dirty immediately for instant visual feedback.
-    if let Some(d) = state.page_dirty.get_mut(src_page) {
-        *d = true;
-    }
-
     if is_move {
-        cmds.push(PendingCommand::Move {
-            src_page,
-            src_slot,
-            dst_page,
-        });
+        dispatch_move(state, cmds, src_page, src_slot, dst_page);
     } else {
-        cmds.push(PendingCommand::Swap {
-            src_page,
-            src_slot,
-            dst_page,
-            dst_slot,
-        });
+        dispatch_swap(state, cmds, src_page, src_slot, dst_page, dst_slot);
     }
 
     true
@@ -178,6 +156,64 @@ fn handle_select_all(state: &mut GuiState, ctx: &egui::Context) {
     }
 }
 
+/// Move: cross-page allowed. If the dragged slot is part of the current selection,
+/// all selected slots on the source page are moved together.
+fn dispatch_move(
+    state: &mut GuiState,
+    cmds: &mut Vec<PendingCommand>,
+    src_page: usize,
+    src_slot: usize,
+    dst_page: usize,
+) {
+    let src_slots: Vec<usize> = if state.selection.is_selected(src_page, src_slot) {
+        match &state.selection {
+            Selection::OnPage { page, slots, .. } if *page == src_page => {
+                slots.iter().copied().collect()
+            }
+            _ => vec![src_slot],
+        }
+    } else {
+        vec![src_slot]
+    };
+
+    for &p in &[src_page, dst_page] {
+        if let Some(d) = state.page_dirty.get_mut(p) {
+            *d = true;
+        }
+    }
+    cmds.push(PendingCommand::Move {
+        src_page,
+        src_slots,
+        dst_page,
+    });
+}
+
+/// Swap: same-page only, single slot.
+fn dispatch_swap(
+    state: &mut GuiState,
+    cmds: &mut Vec<PendingCommand>,
+    src_page: usize,
+    src_slot: usize,
+    dst_page: usize,
+    dst_slot: usize,
+) {
+    if dst_page != src_page {
+        return; // cross-page swap not supported
+    }
+    if dst_slot == src_slot {
+        return; // same slot → no-op
+    }
+    if let Some(d) = state.page_dirty.get_mut(src_page) {
+        *d = true;
+    }
+    cmds.push(PendingCommand::Swap {
+        src_page,
+        src_slot,
+        dst_page,
+        dst_slot,
+    });
+}
+
 fn handle_click(state: &mut GuiState, ctx: &egui::Context) {
     if !ctx.input(|i| i.pointer.primary_clicked()) {
         return;
@@ -193,5 +229,77 @@ fn handle_click(state: &mut GuiState, ctx: &egui::Context) {
         }
     } else {
         state.selection.clear();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::BTreeSet;
+
+    use fotobuch::dto_models::ProjectState;
+
+    use super::*;
+    use crate::state::GuiState;
+
+    fn state_with_selection(sel_page: usize, sel_slots: Vec<usize>) -> GuiState {
+        let mut state = GuiState::new(ProjectState::default());
+        if !sel_slots.is_empty() {
+            state.selection = Selection::OnPage {
+                page: sel_page,
+                slots: BTreeSet::from_iter(sel_slots),
+                anchor: 0,
+            };
+        }
+        state
+    }
+
+    #[test]
+    fn dispatch_move_uses_selection_when_dragged_slot_is_selected() {
+        let mut state = state_with_selection(0, vec![1, 2, 3]);
+        state.page_dirty = vec![false, false];
+        let mut cmds = Vec::new();
+        dispatch_move(&mut state, &mut cmds, 0, 2, 1);
+        assert_eq!(cmds.len(), 1);
+        let PendingCommand::Move {
+            src_page,
+            src_slots,
+            dst_page,
+        } = &cmds[0]
+        else {
+            panic!("expected Move");
+        };
+        assert_eq!(*src_page, 0);
+        assert_eq!(*dst_page, 1);
+        assert_eq!(*src_slots, vec![1, 2, 3]);
+    }
+
+    #[test]
+    fn dispatch_move_uses_single_slot_when_not_in_selection() {
+        let mut state = state_with_selection(0, vec![0, 1]);
+        state.page_dirty = vec![false, false];
+        let mut cmds = Vec::new();
+        dispatch_move(&mut state, &mut cmds, 0, 3, 1); // slot 3 not in selection
+        let PendingCommand::Move { src_slots, .. } = &cmds[0] else {
+            panic!()
+        };
+        assert_eq!(*src_slots, vec![3]);
+    }
+
+    #[test]
+    fn dispatch_swap_ignores_cross_page() {
+        let mut state = GuiState::new(ProjectState::default());
+        state.page_dirty = vec![false, false];
+        let mut cmds = Vec::new();
+        dispatch_swap(&mut state, &mut cmds, 0, 0, 1, 2);
+        assert!(cmds.is_empty(), "cross-page swap must be ignored");
+    }
+
+    #[test]
+    fn dispatch_swap_ignores_same_slot() {
+        let mut state = GuiState::new(ProjectState::default());
+        state.page_dirty = vec![false];
+        let mut cmds = Vec::new();
+        dispatch_swap(&mut state, &mut cmds, 0, 1, 0, 1);
+        assert!(cmds.is_empty(), "same-slot swap must be ignored");
     }
 }

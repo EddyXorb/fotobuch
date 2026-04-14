@@ -67,14 +67,16 @@ pub fn spawn(
 
                 BackgroundTask::MoveSlot {
                     src_page,
-                    src_slot,
+                    src_slots,
                     dst_page,
                     pixel_per_pt,
                 } => {
                     let cmd = PageMoveCmd::Move {
                         src: Src::Slots {
                             page: src_page as u32,
-                            slots: SlotExpr::single(src_slot as u32),
+                            slots: SlotExpr::from_list(
+                                src_slots.iter().map(|&s| s as u32).collect(),
+                            ),
                         },
                         dst: DstMove::Page(dst_page as u32),
                     };
