@@ -91,15 +91,23 @@ fn handle_drag_complete(
 
     state.drag = DragState::Idle;
 
-    let (dst_page, dst_slot) = match state.hovered_slot {
-        Some(s) => s,
-        None => return true, // drag cancelled — no target
-    };
-
-    if is_move {
-        dispatch_move(state, cmds, src_page, src_slot, dst_page);
-    } else {
-        dispatch_swap(state, cmds, src_page, src_slot, dst_page, dst_slot);
+    match (state.hovered_slot, is_move) {
+        (Some((dst_page, dst_slot)), false) => {
+            dispatch_swap(state, cmds, src_page, src_slot, dst_page, dst_slot);
+        }
+        (Some((dst_page, _)), true) => {
+            dispatch_move(state, cmds, src_page, src_slot, dst_page);
+        }
+        (None, true) => {
+            // Move: a page-level target is sufficient even without a specific slot.
+            if let Some(dst_page) = state.hovered_page {
+                dispatch_move(state, cmds, src_page, src_slot, dst_page);
+            }
+            // No page hovered → drag cancelled silently.
+        }
+        (None, false) => {
+            // Swap requires a concrete target slot — cancel silently.
+        }
     }
 
     true

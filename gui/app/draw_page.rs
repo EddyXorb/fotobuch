@@ -6,10 +6,13 @@ use super::geometry;
 
 /// Draw a single page at index `i`.
 ///
-/// Returns the slot index the pointer is hovering over (if any).
+/// Returns `(slot_idx, over_page)`:
+/// - `slot_idx`: which slot the pointer is hovering over (if any).
+/// - `over_page`: whether the pointer is anywhere over the page rect.
+///
 /// Overlays are drawn with the previous frame's `hovered_slot` and `selection` — one-frame lag,
 /// standard egui practice.
-pub fn draw_page(ui: &mut egui::Ui, state: &GuiState, page_idx: usize) -> Option<usize> {
+pub fn draw_page(ui: &mut egui::Ui, state: &GuiState, page_idx: usize) -> (Option<usize>, bool) {
     ui.label(format!("Page {page_idx}"));
 
     let (page_width_mm, page_height_mm) = state.project_state.page_dimensions_mm(page_idx);
@@ -25,7 +28,9 @@ pub fn draw_page(ui: &mut egui::Ui, state: &GuiState, page_idx: usize) -> Option
             page_width_mm,
             page_height_mm,
         );
-        let hovered = hit_test_pointer(ui, page_rect, layout_page, page_width_mm, page_height_mm);
+        let (hovered_slot, over_page) =
+            hit_test_pointer(ui, page_rect, layout_page, page_width_mm, page_height_mm);
+        draw_page_move_highlight(ui, state, page_idx, page_rect, over_page);
         draw_drag_ghost(
             ui,
             state,
@@ -34,9 +39,9 @@ pub fn draw_page(ui: &mut egui::Ui, state: &GuiState, page_idx: usize) -> Option
             page_width_mm,
             page_height_mm,
         );
-        hovered
+        (hovered_slot, over_page)
     } else {
-        None
+        (None, false)
     }
 }
 
@@ -227,16 +232,49 @@ fn draw_drag_ghost(
     );
 }
 
-/// Hit-tests the current pointer position against the page's slots. Returns the slot index or
-/// `None` when the pointer is outside the page or between slots.
+/// Hit-tests the pointer against the page.
+///
+/// Returns `(slot_idx, over_page)`: the hovered slot (if any) and whether the pointer
+/// is anywhere within `page_rect`.
 fn hit_test_pointer(
     ui: &mut egui::Ui,
     page_rect: egui::Rect,
     layout_page: &fotobuch::dto_models::LayoutPage,
     page_width_mm: f64,
     page_height_mm: f64,
-) -> Option<usize> {
-    ui.ctx().pointer_hover_pos().and_then(|pos| {
-        geometry::hit_test_slot(pos, page_rect, layout_page, page_width_mm, page_height_mm)
-    })
+) -> (Option<usize>, bool) {
+    match ui.ctx().pointer_hover_pos() {
+        None => (None, false),
+        Some(pos) => {
+            let slot =
+                geometry::hit_test_slot(pos, page_rect, layout_page, page_width_mm, page_height_mm);
+            (slot, page_rect.contains(pos))
+        }
+    }
+}
+
+/// Draws a subtle page-level highlight during a move drag when the pointer is over this page
+/// but not over a specific slot — signals that dropping here will move to this page.
+fn draw_page_move_highlight(
+    ui: &mut egui::Ui,
+    state: &GuiState,
+    page_idx: usize,
+    page_rect: egui::Rect,
+    over_page: bool,
+) {
+    let is_move_drag = matches!(state.drag, DragState::Dragging { is_move: true, .. });
+    if !is_move_drag || !over_page {
+        return;
+    }
+    // Only highlight when cursor is over the page but not over a specific slot.
+    let slot_hovered = state.hovered_slot.is_some_and(|(p, _)| p == page_idx);
+    if slot_hovered {
+        return;
+    }
+    ui.painter().rect_stroke(
+        page_rect,
+        0.0,
+        egui::Stroke::new(3.0, egui::Color32::from_rgba_unmultiplied(0, 200, 80, 180)),
+        egui::StrokeKind::Inside,
+    );
 }

@@ -126,6 +126,7 @@ impl FotobuchApp {
     fn show_pages(&mut self, ui: &mut egui::Ui) {
         let num_pages = self.state.project_state.layout.len();
         let mut new_hovered: Option<(usize, usize)> = None;
+        let mut new_hovered_page: Option<usize> = None;
 
         // Disable ScrollArea drag while RMB is active (down or just released) so that
         // neither immediate offset changes nor kinetic velocity are applied by RMB.
@@ -145,16 +146,21 @@ impl FotobuchApp {
             .show(ui, |ui| {
                 ui.vertical_centered(|ui| {
                     for i in 0..num_pages {
-                        if let Some(slot_idx) = view::draw_page(ui, &self.state, i)
+                        let (slot_idx, over_page) = view::draw_page(ui, &self.state, i);
+                        if let Some(slot_idx) = slot_idx
                             && new_hovered.is_none()
                         {
                             new_hovered = Some((i, slot_idx));
+                        }
+                        if over_page && new_hovered_page.is_none() {
+                            new_hovered_page = Some(i);
                         }
                     }
                 });
             });
 
         self.state.hovered_slot = new_hovered;
+        self.state.hovered_page = new_hovered_page;
     }
 }
 

@@ -23,6 +23,8 @@ pub struct GuiState {
     pub selection: Selection,
     /// `(page_idx, slot_idx)` hovered in the previous frame.
     pub hovered_slot: Option<(usize, usize)>,
+    /// Page index the pointer is hovering over (set even when no specific slot is hit).
+    pub hovered_page: Option<usize>,
     pub drag: DragState,
     pub timings: Timings,
 }
@@ -40,6 +42,7 @@ impl GuiState {
             base_pixel_per_pt: 1.5,
             selection: Selection::None,
             hovered_slot: None,
+            hovered_page: None,
             drag: DragState::Idle,
             timings: Timings::default(),
         }
