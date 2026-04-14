@@ -133,8 +133,10 @@ impl FotobuchApp {
                 // The ScrollArea's background drag-to-scroll responds to any pointer button.
                 // Claim the drag sense for the content area while RMB is down so the scroll
                 // area never sees the right-button drag — RMB is reserved for drag-and-drop.
+                // Use `interact` (not `allocate_rect`) to avoid advancing the layout cursor.
                 if ui.input(|i| i.pointer.secondary_down()) {
-                    let _ = ui.allocate_rect(ui.clip_rect(), egui::Sense::drag());
+                    let rect = ui.clip_rect();
+                    let _ = ui.interact(rect, ui.id().with("rmb_guard"), egui::Sense::drag());
                 }
                 ui.vertical_centered(|ui| {
                     for i in 0..num_pages {

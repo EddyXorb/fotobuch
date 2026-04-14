@@ -197,14 +197,13 @@ fn dispatch_swap(
     dst_page: usize,
     dst_slot: usize,
 ) {
-    if dst_page != src_page {
-        return; // cross-page swap not supported
-    }
-    if dst_slot == src_slot {
+    if src_page == dst_page && src_slot == dst_slot {
         return; // same slot → no-op
     }
-    if let Some(d) = state.page_dirty.get_mut(src_page) {
-        *d = true;
+    for &p in &[src_page, dst_page] {
+        if let Some(d) = state.page_dirty.get_mut(p) {
+            *d = true;
+        }
     }
     cmds.push(PendingCommand::Swap {
         src_page,
@@ -286,12 +285,13 @@ mod tests {
     }
 
     #[test]
-    fn dispatch_swap_ignores_cross_page() {
+    fn dispatch_swap_cross_page_emits_command() {
         let mut state = GuiState::new(ProjectState::default());
         state.page_dirty = vec![false, false];
         let mut cmds = Vec::new();
         dispatch_swap(&mut state, &mut cmds, 0, 0, 1, 2);
-        assert!(cmds.is_empty(), "cross-page swap must be ignored");
+        assert_eq!(cmds.len(), 1, "cross-page swap must emit a command");
+        assert!(state.page_dirty[0] && state.page_dirty[1]);
     }
 
     #[test]
