@@ -1,6 +1,7 @@
 /// Commands that the UI dispatches to the background worker.
 ///
 /// Constructed by `input_handler` and processed by `FotobuchApp::dispatch`.
+#[derive(Debug, Hash, PartialEq, Eq)]
 pub enum PendingCommand {
     Swap {
         src_page: usize,

@@ -7,6 +7,7 @@ mod statusbar;
 mod toolbar;
 mod view;
 
+use std::collections::HashSet;
 use std::time::Instant;
 
 use crossbeam::channel::{Receiver, Sender};
@@ -90,7 +91,7 @@ impl FotobuchApp {
         }
     }
 
-    fn dispatch(&mut self, cmds: Vec<PendingCommand>) {
+    fn dispatch(&mut self, cmds: HashSet<PendingCommand>) {
         let ppt = self.state.base_pixel_per_pt;
         for cmd in cmds {
             let task = match cmd {
@@ -167,6 +168,8 @@ impl FotobuchApp {
 impl eframe::App for FotobuchApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let t_frame = Instant::now();
+
+        self.state.timings.frame_cnt += 1;
         let ctx = ui.ctx().clone();
 
         let t = Instant::now();
@@ -175,7 +178,9 @@ impl eframe::App for FotobuchApp {
 
         self.request_repaint_if_loading(&ctx);
 
-        egui::Panel::top("toolbar").show_inside(ui, toolbar::show);
+        let mut cmds = egui::Panel::top("toolbar")
+            .show_inside(ui, toolbar::show)
+            .inner;
 
         egui::Panel::bottom("statusbar").show_inside(ui, |ui| statusbar::show(ui, &self.state));
 
@@ -186,9 +191,9 @@ impl eframe::App for FotobuchApp {
         // Input handling runs after show_pages so that hovered_slot reflects the current
         // frame — prevents toolbar clicks from accidentally triggering a drag.
         let t = Instant::now();
-        let cmds = input_handler::handle(&mut self.state, &ctx);
+        cmds.extend(input_handler::handle(&mut self.state, &ctx));
         self.dispatch(cmds);
-        self.state.timings.apply_zoom = t.elapsed();
+        self.state.timings.input_handlers = t.elapsed();
 
         self.state.timings.ui_frame = t_frame.elapsed();
 

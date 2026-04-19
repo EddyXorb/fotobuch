@@ -10,6 +10,10 @@ pub fn show_timings_overlay(timings: &Timings, ctx: &egui::Context) {
                 .num_columns(2)
                 .spacing([12.0, 2.0])
                 .show(ui, |ui| {
+                    ui.label("frame");
+                    ui.label(format!("{}", timings.frame_cnt));
+                    ui.end_row();
+
                     ui.label("ui frame");
                     ui.label(fmt_ms(timings.ui_frame.as_secs_f64()));
                     ui.end_row();
@@ -18,8 +22,8 @@ pub fn show_timings_overlay(timings: &Timings, ctx: &egui::Context) {
                     ui.label(fmt_ms(timings.drain_results.as_secs_f64()));
                     ui.end_row();
 
-                    ui.label("apply_zoom");
-                    ui.label(fmt_ms(timings.apply_zoom.as_secs_f64()));
+                    ui.label("input_handlers");
+                    ui.label(fmt_ms(timings.input_handlers.as_secs_f64()));
                     ui.end_row();
 
                     ui.label("show_pages");

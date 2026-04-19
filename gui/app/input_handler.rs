@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use crate::state::{self, DragState, GuiState, Selection};
 
 use super::pending::PendingCommand;
@@ -5,8 +7,8 @@ use super::pending::PendingCommand;
 /// Top-level input dispatcher — called once per frame before painting.
 ///
 /// Returns commands that require background execution.
-pub fn handle(state: &mut GuiState, ctx: &egui::Context) -> Vec<PendingCommand> {
-    let mut cmds = Vec::new();
+pub fn handle(state: &mut GuiState, ctx: &egui::Context) -> HashSet<PendingCommand> {
+    let mut cmds = HashSet::new();
 
     handle_timings_toggle(state, ctx);
     handle_zoom(state, ctx);
@@ -43,20 +45,20 @@ fn handle_zoom(state: &mut GuiState, ctx: &egui::Context) {
     }
 }
 
-fn handle_undo_redo(state: &mut GuiState, ctx: &egui::Context, cmds: &mut Vec<PendingCommand>) {
+fn handle_undo_redo(state: &mut GuiState, ctx: &egui::Context, cmds: &mut HashSet<PendingCommand>) {
     let redo = ctx.input_mut(|i| {
         i.consume_key(egui::Modifiers::CTRL, egui::Key::Y)
             || i.consume_key(egui::Modifiers::CTRL | egui::Modifiers::SHIFT, egui::Key::Z)
     });
     if redo {
         mark_all_dirty(state);
-        cmds.push(PendingCommand::Redo);
+        cmds.insert(PendingCommand::Redo);
         return;
     }
 
     if ctx.input_mut(|i| i.consume_key(egui::Modifiers::CTRL, egui::Key::Z)) {
         mark_all_dirty(state);
-        cmds.push(PendingCommand::Undo);
+        cmds.insert(PendingCommand::Undo);
     }
 }
 
@@ -73,7 +75,7 @@ fn mark_all_dirty(state: &mut GuiState) {
 fn handle_drag_complete(
     state: &mut GuiState,
     ctx: &egui::Context,
-    cmds: &mut Vec<PendingCommand>,
+    cmds: &mut HashSet<PendingCommand>,
 ) -> bool {
     if !ctx.input(|i| i.pointer.secondary_released()) {
         return false;
@@ -168,7 +170,7 @@ fn handle_select_all(state: &mut GuiState, ctx: &egui::Context) {
 /// all selected slots on the source page are moved together.
 fn dispatch_move(
     state: &mut GuiState,
-    cmds: &mut Vec<PendingCommand>,
+    cmds: &mut HashSet<PendingCommand>,
     src_page: usize,
     src_slot: usize,
     dst_page: usize,
@@ -189,7 +191,7 @@ fn dispatch_move(
             *d = true;
         }
     }
-    cmds.push(PendingCommand::Move {
+    cmds.insert(PendingCommand::Move {
         src_page,
         src_slots,
         dst_page,
@@ -199,7 +201,7 @@ fn dispatch_move(
 /// Swap: same-page only, single slot.
 fn dispatch_swap(
     state: &mut GuiState,
-    cmds: &mut Vec<PendingCommand>,
+    cmds: &mut HashSet<PendingCommand>,
     src_page: usize,
     src_slot: usize,
     dst_page: usize,
@@ -213,7 +215,7 @@ fn dispatch_swap(
             *d = true;
         }
     }
-    cmds.push(PendingCommand::Swap {
+    cmds.insert(PendingCommand::Swap {
         src_page,
         src_slot,
         dst_page,
@@ -264,14 +266,14 @@ mod tests {
     fn dispatch_move_uses_selection_when_dragged_slot_is_selected() {
         let mut state = state_with_selection(0, vec![1, 2, 3]);
         state.page_dirty = vec![false, false];
-        let mut cmds = Vec::new();
+        let mut cmds = HashSet::new();
         dispatch_move(&mut state, &mut cmds, 0, 2, 1);
         assert_eq!(cmds.len(), 1);
         let PendingCommand::Move {
             src_page,
             src_slots,
             dst_page,
-        } = &cmds[0]
+        } = cmds.iter().next().unwrap()
         else {
             panic!("expected Move");
         };
@@ -284,9 +286,9 @@ mod tests {
     fn dispatch_move_uses_single_slot_when_not_in_selection() {
         let mut state = state_with_selection(0, vec![0, 1]);
         state.page_dirty = vec![false, false];
-        let mut cmds = Vec::new();
+        let mut cmds = HashSet::new();
         dispatch_move(&mut state, &mut cmds, 0, 3, 1); // slot 3 not in selection
-        let PendingCommand::Move { src_slots, .. } = &cmds[0] else {
+        let PendingCommand::Move { src_slots, .. } = cmds.iter().next().unwrap() else {
             panic!()
         };
         assert_eq!(*src_slots, vec![3]);
@@ -296,7 +298,7 @@ mod tests {
     fn dispatch_swap_cross_page_emits_command() {
         let mut state = GuiState::new(ProjectState::default());
         state.page_dirty = vec![false, false];
-        let mut cmds = Vec::new();
+        let mut cmds = HashSet::new();
         dispatch_swap(&mut state, &mut cmds, 0, 0, 1, 2);
         assert_eq!(cmds.len(), 1, "cross-page swap must emit a command");
         assert!(state.page_dirty[0] && state.page_dirty[1]);
@@ -306,7 +308,7 @@ mod tests {
     fn dispatch_swap_ignores_same_slot() {
         let mut state = GuiState::new(ProjectState::default());
         state.page_dirty = vec![false];
-        let mut cmds = Vec::new();
+        let mut cmds = HashSet::new();
         dispatch_swap(&mut state, &mut cmds, 0, 1, 0, 1);
         assert!(cmds.is_empty(), "same-slot swap must be ignored");
     }
