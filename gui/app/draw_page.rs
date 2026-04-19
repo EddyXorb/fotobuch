@@ -140,9 +140,9 @@ fn draw_slot_overlays(
             let same_ratio =
                 drag_src_ratio.is_some_and(|r| geometry::slot_ratio_similar(r, target_ratio));
             let color = if same_ratio {
-                egui::Color32::from_rgba_unmultiplied(0, 200, 80, 60)
+                egui::Color32::from_rgba_unmultiplied(0, 200, 80, 140)
             } else {
-                egui::Color32::from_rgba_unmultiplied(220, 50, 50, 60)
+                egui::Color32::from_rgba_unmultiplied(220, 50, 50, 140)
             };
             painter.rect_filled(slot_rect, 0.0, color);
         } else if is_hovered {
