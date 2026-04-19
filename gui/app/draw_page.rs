@@ -1,6 +1,6 @@
 use egui::vec2;
 
-use crate::state::{DragState, GuiState};
+use crate::state::{DragMode, DragState, GuiState};
 
 use super::geometry;
 
@@ -173,13 +173,12 @@ fn draw_drag_ghost(
     page_width_mm: f64,
     page_height_mm: f64,
 ) {
-    let (src_slot_idx, _is_move, cursor_at_drag_start) = match &state.drag {
+    let (src_slot_idx, cursor_at_drag_start) = match &state.drag {
         DragState::Dragging {
             src_page,
             src_slot,
-            is_move,
             cursor_at_drag_start,
-        } if *src_page == page_idx => (*src_slot, *is_move, *cursor_at_drag_start),
+        } if *src_page == page_idx => (*src_slot, *cursor_at_drag_start),
         _ => return,
     };
 
@@ -230,6 +229,14 @@ fn draw_drag_ghost(
         egui::Stroke::new(2.0, egui::Color32::from_rgb(100, 149, 237)),
         egui::StrokeKind::Middle,
     );
+
+    painter.text(
+        ghost_rect.right_bottom() + vec2(6.0, -2.0),
+        egui::Align2::LEFT_BOTTOM,
+        state.drag_mode.label(),
+        egui::FontId::proportional(14.0),
+        egui::Color32::WHITE,
+    );
 }
 
 /// Hit-tests the pointer against the page.
@@ -262,7 +269,7 @@ fn draw_page_move_highlight(
     page_rect: egui::Rect,
     over_page: bool,
 ) {
-    let is_move_drag = matches!(state.drag, DragState::Dragging { is_move: true, .. });
+    let is_move_drag = !matches!(state.drag, DragState::Idle) && state.drag_mode == DragMode::Move;
     if !is_move_drag || !over_page {
         return;
     }

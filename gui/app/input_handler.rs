@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use crate::state::{self, DragState, GuiState, Selection};
+use crate::state::{self, DragMode, DragState, GuiState, Selection};
 
 use super::pending::PendingCommand;
 
@@ -11,6 +11,7 @@ pub fn handle(state: &mut GuiState, ctx: &egui::Context) -> HashSet<PendingComma
     let mut cmds = HashSet::new();
 
     handle_timings_toggle(state, ctx);
+    handle_drag_mode_toggle(state, ctx);
     handle_zoom(state, ctx);
     handle_undo_redo(state, ctx, &mut cmds);
 
@@ -24,6 +25,12 @@ pub fn handle(state: &mut GuiState, ctx: &egui::Context) -> HashSet<PendingComma
     }
 
     cmds
+}
+
+fn handle_drag_mode_toggle(state: &mut GuiState, ctx: &egui::Context) {
+    if ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::M)) {
+        state.drag_mode = state.drag_mode.toggle();
+    }
 }
 
 fn handle_timings_toggle(state: &mut GuiState, ctx: &egui::Context) {
@@ -81,33 +88,32 @@ fn handle_drag_complete(
         return false;
     }
 
-    let (src_page, src_slot, is_move) = match state.drag {
+    let (src_page, src_slot) = match state.drag {
         DragState::Dragging {
             src_page,
             src_slot,
-            is_move,
             cursor_at_drag_start: _,
-        } => (src_page, src_slot, is_move),
+        } => (src_page, src_slot),
         DragState::Idle => return false,
     };
 
     state.drag = DragState::Idle;
 
-    match (state.hovered_slot, is_move) {
-        (Some((dst_page, dst_slot)), false) => {
+    match (state.hovered_slot, state.drag_mode) {
+        (Some((dst_page, dst_slot)), DragMode::Swap) => {
             dispatch_swap(state, cmds, src_page, src_slot, dst_page, dst_slot);
         }
-        (Some((dst_page, _)), true) => {
+        (Some((dst_page, _)), DragMode::Move) => {
             dispatch_move(state, cmds, src_page, src_slot, dst_page);
         }
-        (None, true) => {
+        (None, DragMode::Move) => {
             // Move: a page-level target is sufficient even without a specific slot.
             if let Some(dst_page) = state.hovered_page {
                 dispatch_move(state, cmds, src_page, src_slot, dst_page);
             }
             // No page hovered → drag cancelled silently.
         }
-        (None, false) => {
+        (None, DragMode::Swap) => {
             // Swap requires a concrete target slot — cancel silently.
         }
     }
@@ -127,11 +133,9 @@ fn handle_drag_start(state: &mut GuiState, ctx: &egui::Context) {
         None => return,
     };
     if let Some((page, slot)) = state.hovered_slot {
-        let is_move = ctx.input(|i| i.key_down(egui::Key::M));
         state.drag = DragState::Dragging {
             src_page: page,
             src_slot: slot,
-            is_move,
             cursor_at_drag_start: cursor,
         };
     }

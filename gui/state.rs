@@ -4,7 +4,7 @@ mod selection;
 mod timings;
 
 pub use derived::DerivedState;
-pub use drag::DragState;
+pub use drag::{DragMode, DragState};
 pub use selection::Selection;
 pub use timings::Timings;
 
@@ -26,6 +26,7 @@ pub struct GuiState {
     /// Page index the pointer is hovering over (set even when no specific slot is hit).
     pub hovered_page: Option<usize>,
     pub drag: DragState,
+    pub drag_mode: DragMode,
     pub timings: Timings,
 }
 
@@ -44,6 +45,7 @@ impl GuiState {
             hovered_slot: None,
             hovered_page: None,
             drag: DragState::Idle,
+            drag_mode: DragMode::Swap,
             timings: Timings::default(),
         }
     }

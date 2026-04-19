@@ -1,3 +1,27 @@
+/// Whether the current drag gesture is a Swap or a Move operation.
+#[derive(Default, Clone, Copy, PartialEq, Eq)]
+pub enum DragMode {
+    #[default]
+    Swap,
+    Move,
+}
+
+impl DragMode {
+    pub fn label(self) -> &'static str {
+        match self {
+            DragMode::Swap => "Swap",
+            DragMode::Move => "Move",
+        }
+    }
+
+    pub fn toggle(self) -> Self {
+        match self {
+            DragMode::Swap => DragMode::Move,
+            DragMode::Move => DragMode::Swap,
+        }
+    }
+}
+
 /// Tracks an ongoing drag-and-drop gesture.
 #[derive(Default)]
 pub enum DragState {
@@ -6,8 +30,6 @@ pub enum DragState {
     Dragging {
         src_page: usize,
         src_slot: usize,
-        /// True when the M key is held → Move instead of Swap.
-        is_move: bool,
         /// Screen position of the pointer when drag was initiated.
         /// Used to compute the grab offset for the ghost rectangle.
         cursor_at_drag_start: egui::Pos2,
@@ -22,5 +44,11 @@ mod tests {
     fn drag_idle_by_default() {
         let d = DragState::default();
         assert!(matches!(d, DragState::Idle));
+    }
+
+    #[test]
+    fn drag_mode_toggle() {
+        assert_eq!(DragMode::Swap.toggle(), DragMode::Move);
+        assert_eq!(DragMode::Move.toggle(), DragMode::Swap);
     }
 }
