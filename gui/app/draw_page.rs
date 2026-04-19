@@ -134,6 +134,7 @@ fn draw_slot_overlays(
     };
 
     let is_dragging = !matches!(state.drag, DragState::Idle);
+    let is_swap_drag = is_dragging && state.drag_mode == DragMode::Swap;
 
     let painter = ui.painter();
     for (slot_idx, slot) in layout_page.slots.iter().enumerate() {
@@ -142,7 +143,7 @@ fn draw_slot_overlays(
 
         let is_hovered = state.hovered_slot == Some((page_idx, slot_idx));
 
-        if is_dragging && is_hovered {
+        if is_swap_drag && is_hovered {
             // Ratio feedback: green = same ratio, red = different.
             let target_ratio = slot.width_mm / slot.height_mm;
             let same_ratio =
@@ -153,7 +154,7 @@ fn draw_slot_overlays(
                 egui::Color32::from_rgba_unmultiplied(220, 50, 50, 140)
             };
             painter.rect_filled(slot_rect, 0.0, color);
-        } else if is_hovered {
+        } else if is_hovered && !is_dragging {
             painter.rect_filled(
                 slot_rect,
                 0.0,
@@ -351,9 +352,9 @@ fn draw_page_move_highlight(
     if !is_move_drag || !over_page {
         return;
     }
-    // Only highlight when cursor is over the page but not over a specific slot.
-    let slot_hovered = state.hovered_slot.is_some_and(|(p, _)| p == page_idx);
-    if slot_hovered {
+    let is_src_page =
+        matches!(state.drag, DragState::Dragging { src_page, .. } if src_page == page_idx);
+    if is_src_page {
         return;
     }
     ui.painter().rect_stroke(
