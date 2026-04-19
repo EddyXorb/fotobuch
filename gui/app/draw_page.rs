@@ -1,6 +1,6 @@
 use egui::vec2;
 
-use crate::state::{DragMode, DragState, GuiState};
+use crate::state::{DragMode, DragState, GuiState, Selection};
 
 use super::geometry;
 
@@ -32,6 +32,14 @@ pub fn draw_page(ui: &mut egui::Ui, state: &GuiState, page_idx: usize) -> (Optio
             hit_test_pointer(ui, page_rect, layout_page, page_width_mm, page_height_mm);
         draw_page_move_highlight(ui, state, page_idx, page_rect, over_page);
         draw_drag_ghost(
+            ui,
+            state,
+            page_idx,
+            page_rect,
+            page_width_mm,
+            page_height_mm,
+        );
+        draw_selection_ghosts(
             ui,
             state,
             page_idx,
@@ -237,6 +245,76 @@ fn draw_drag_ghost(
         egui::FontId::proportional(14.0),
         egui::Color32::WHITE,
     );
+}
+
+/// Draws semi-transparent blue filled rects for all selected slots during a Move drag.
+/// Alpha decreases with distance from the cursor so nearer slots appear more prominent.
+fn draw_selection_ghosts(
+    ui: &mut egui::Ui,
+    state: &GuiState,
+    page_idx: usize,
+    page_rect: egui::Rect,
+    page_width_mm: f64,
+    page_height_mm: f64,
+) {
+    if state.drag_mode != DragMode::Move {
+        return;
+    }
+    let src_page = match &state.drag {
+        DragState::Dragging { src_page, .. } if *src_page == page_idx => *src_page,
+        _ => return,
+    };
+    let sel_slots: Vec<usize> = match &state.selection {
+        Selection::OnPage { page, slots, .. } if *page == src_page && slots.len() > 1 => {
+            slots.iter().copied().collect()
+        }
+        _ => return,
+    };
+
+    let cursor = match ui.ctx().pointer_hover_pos() {
+        Some(p) => p,
+        None => return,
+    };
+
+    let layout_page = match state.project_state.layout.get(page_idx) {
+        Some(lp) => lp,
+        None => return,
+    };
+
+    let painter = ui.ctx().layer_painter(egui::LayerId::new(
+        egui::Order::Tooltip,
+        egui::Id::new("selection_ghosts"),
+    ));
+
+    let slot_rects: Vec<egui::Rect> = sel_slots
+        .iter()
+        .filter_map(|&idx| {
+            let slot = layout_page.slots.get(idx)?;
+            Some(geometry::slot_rect_on_screen(
+                page_rect,
+                page_width_mm,
+                page_height_mm,
+                slot,
+            ))
+        })
+        .collect();
+
+    let max_dist = slot_rects
+        .iter()
+        .map(|r| r.center().distance(cursor))
+        .fold(0.0f32, f32::max)
+        .max(1.0);
+
+    for slot_rect in slot_rects {
+        let dist = slot_rect.center().distance(cursor);
+        let t = (dist / max_dist).clamp(0.0, 1.0);
+        let alpha = (180.0 - 140.0 * t) as u8;
+        painter.rect_filled(
+            slot_rect,
+            0.0,
+            egui::Color32::from_rgba_unmultiplied(100, 149, 237, alpha),
+        );
+    }
 }
 
 /// Hit-tests the pointer against the page.
