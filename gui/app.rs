@@ -91,7 +91,7 @@ impl FotobuchApp {
         }
     }
 
-    fn dispatch(&mut self, cmds: HashSet<PendingCommand>) {
+    fn dispatch_commands(&mut self, cmds: HashSet<PendingCommand>) {
         let ppt = self.state.base_pixel_per_pt;
         for cmd in cmds {
             let task = match cmd {
@@ -192,7 +192,7 @@ impl eframe::App for FotobuchApp {
         // frame — prevents toolbar clicks from accidentally triggering a drag.
         let t = Instant::now();
         cmds.extend(input_handler::handle(&mut self.state, &ctx));
-        self.dispatch(cmds);
+        self.dispatch_commands(cmds);
         self.state.timings.input_handlers = t.elapsed();
 
         self.state.timings.ui_frame = t_frame.elapsed();
