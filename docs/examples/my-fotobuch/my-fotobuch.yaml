@@ -14,7 +14,7 @@ config:
       spine_clearance_mm: 5.0
       spine_mode: fixed
       spine_width_mm: 50.0
-      front_back_width_mm: 600.0
+      front_back_width_mm: 400.0
       height_mm: 300.0
       bleed_mm: 0.3
       margin_mm: 0.0
