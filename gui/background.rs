@@ -3,6 +3,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use crossbeam::channel::{Receiver, Sender, unbounded};
+use fotobuch::commands::build::{BuildConfig, build};
 use fotobuch::commands::page::{DstMove, DstSwap, PageMoveCmd, SlotExpr, Src, execute_move};
 use fotobuch::commands::undo::{redo, undo};
 use fotobuch::dto_models::ProjectState;
@@ -114,19 +115,42 @@ fn run_page_command(
     result_tx: &Sender<BackgroundResult>,
     pixel_per_pt: f32,
 ) {
-    match execute_move(project_root, cmd) {
+    let move_output = match execute_move(project_root, cmd) {
+        Err(e) => {
+            let _ = result_tx.send(BackgroundResult::CommandFailed(e.to_string()));
+            return;
+        }
+        Ok(o) => o,
+    };
+
+    let move_dirty: Vec<usize> = move_output
+        .result
+        .pages_modified
+        .iter()
+        .chain(move_output.result.pages_inserted.iter())
+        .map(|&p| p as usize)
+        .collect();
+
+    let build_cfg = BuildConfig {
+        release: false,
+        force: false,
+        pages: None,
+    };
+    match build(project_root, &build_cfg) {
         Err(e) => {
             let _ = result_tx.send(BackgroundResult::CommandFailed(e.to_string()));
         }
-        Ok(output) => {
-            let new_state = output.changed_state.unwrap_or_default();
-            let dirty: Vec<usize> = output
-                .result
-                .pages_modified
-                .iter()
-                .chain(output.result.pages_inserted.iter())
-                .map(|&p| p as usize)
-                .collect();
+        Ok(build_output) => {
+            let new_state = build_output
+                .changed_state
+                .or(move_output.changed_state)
+                .unwrap_or_default();
+            let mut dirty = move_dirty;
+            for p in build_output.result.pages_rebuilt {
+                if !dirty.contains(&p) {
+                    dirty.push(p);
+                }
+            }
             send_command_done(new_state, dirty, world, pool, result_tx, pixel_per_pt);
         }
     }
