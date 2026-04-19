@@ -17,6 +17,6 @@ pub fn show(ui: &mut egui::Ui) -> HashSet<PendingCommand> {
         }
         ui.add_enabled(false, egui::Button::new("⚙"));
     });
-    
+
     cmds
 }
