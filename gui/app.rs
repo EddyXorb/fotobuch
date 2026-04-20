@@ -179,7 +179,7 @@ impl eframe::App for FotobuchApp {
         self.request_repaint_if_loading(&ctx);
 
         let mut cmds = egui::Panel::top("toolbar")
-            .show_inside(ui, toolbar::show)
+            .show_inside(ui, |ui| toolbar::show(ui, &mut self.state.drag_mode))
             .inner;
 
         egui::Panel::bottom("statusbar").show_inside(ui, |ui| statusbar::show(ui, &self.state));
