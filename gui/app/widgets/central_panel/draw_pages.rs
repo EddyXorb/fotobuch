@@ -1,0 +1,39 @@
+use crate::state::GuiState;
+
+use super::draw_page;
+
+pub(super) fn draw_pages(ui: &mut egui::Ui, state: &mut GuiState) {
+    let num_pages = state.project_state.layout.len();
+    let mut new_hovered: Option<(usize, usize)> = None;
+    let mut new_hovered_page: Option<usize> = None;
+
+    let rmbactive = ui.input(|i| {
+        (i.pointer.secondary_down() || i.pointer.secondary_released()) && !i.pointer.primary_down()
+    });
+
+    egui::ScrollArea::vertical()
+        .auto_shrink([false; 2])
+        .scroll_source(egui::containers::scroll_area::ScrollSource {
+            drag: !rmbactive,
+            scroll_bar: true,
+            mouse_wheel: true,
+        })
+        .show(ui, |ui| {
+            ui.vertical_centered(|ui| {
+                for i in 0..num_pages {
+                    let (slot_idx, over_page) = draw_page::draw_page(ui, state, i);
+                    if let Some(slot_idx) = slot_idx
+                        && new_hovered.is_none()
+                    {
+                        new_hovered = Some((i, slot_idx));
+                    }
+                    if over_page && new_hovered_page.is_none() {
+                        new_hovered_page = Some(i);
+                    }
+                }
+            });
+        });
+
+    state.hovered_slot = new_hovered;
+    state.hovered_page = new_hovered_page;
+}
