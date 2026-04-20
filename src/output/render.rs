@@ -14,9 +14,11 @@ pub fn rasterize_page(doc: &PagedDocument, page: usize, pixel_per_pt: f32) -> Re
     })?;
 
     let pixmap = typst_render::render(p, pixel_per_pt);
+
     let width = pixmap.width();
     let height = pixmap.height();
     let mut pixels = pixmap.take();
+
     premultiplied_to_straight(&mut pixels);
 
     Ok(RenderedPage {

@@ -9,8 +9,8 @@ pub struct Timings {
     pub ui_frame: Duration,
     /// Time spent draining background results last frame.
     pub drain_results: Duration,
-    /// Time spent applying zoom input last frame.
-    pub apply_zoom: Duration,
+    /// Time spent handling input last frame.
+    pub input_handlers: Duration,
     /// Time spent drawing pages (scroll area) last frame.
     pub show_pages: Duration,
     /// Render duration per page, sorted by page index.
@@ -19,6 +19,8 @@ pub struct Timings {
     pub typst_compile: Duration,
     /// Average rasterisation time per page across all received pages.
     pub typst_rasterize_avg: Duration,
+
+    pub frame_cnt: usize,
 }
 
 impl Timings {

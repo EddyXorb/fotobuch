@@ -1,7 +1,10 @@
-use crate::state::{GuiState, Selection};
+use crate::state::{DragState, GuiState, Selection};
 
-/// Status bar: page indicator, photo counts, selection summary.
-pub fn show(ui: &mut egui::Ui, state: &GuiState) {
+pub fn draw(ui: &mut egui::Ui, state: &GuiState) {
+    egui::Panel::bottom("statusbar").show_inside(ui, |ui| show(ui, state));
+}
+
+fn show(ui: &mut egui::Ui, state: &GuiState) {
     ui.horizontal(|ui| {
         let total = state.project_state.layout.len();
         let photos: usize = state
@@ -24,8 +27,15 @@ pub fn show(ui: &mut egui::Ui, state: &GuiState) {
             }
         };
 
+        let mode_str = state.drag_mode.label();
+        let mode_display = if matches!(state.drag, DragState::Idle) {
+            mode_str.to_string()
+        } else {
+            format!("[{}]", mode_str)
+        };
+
         ui.label(format!(
-            "{page_str} \u{b7} {photos} photos \u{b7} {unplaced} unplaced \u{b7} {sel_str}"
+            "{page_str} \u{b7} {photos} photos \u{b7} {unplaced} unplaced \u{b7} {sel_str} \u{b7} {mode_display}"
         ));
     });
 }

@@ -97,7 +97,7 @@ impl Scanner {
         let folder_dt = folder_timestamp.map(naive_to_utc);
 
         let mut photo_files = self.scan_photos_from_dir(dir, &group_name, folder_dt)?;
-        photo_files.sort_by(|a, b| a.timestamp.cmp(&b.timestamp));
+        photo_files.sort_by_key(|a| a.timestamp);
 
         let sort_key = folder_dt
             .map(|dt| dt.to_rfc3339())
