@@ -31,15 +31,7 @@ pub fn draw_page(ui: &mut egui::Ui, state: &GuiState, page_idx: usize) -> (Optio
         let (hovered_slot, over_page) =
             hit_test_pointer(ui, page_rect, layout_page, page_width_mm, page_height_mm);
         draw_page_move_highlight(ui, state, page_idx, page_rect, over_page);
-        draw_drag_ghost(
-            ui,
-            state,
-            page_idx,
-            page_rect,
-            page_width_mm,
-            page_height_mm,
-        );
-        draw_selection_ghosts(
+        draw_drag_ghosts(
             ui,
             state,
             page_idx,
@@ -173,8 +165,12 @@ fn draw_slot_overlays(
     }
 }
 
-/// Draws the drag ghost (semi-transparent slot shape at cursor) on the source page.
-fn draw_drag_ghost(
+/// Draws all drag ghosts on the source page:
+/// - Primary ghost follows the cursor (with grab offset), stroke + mode label.
+/// - In Move mode: secondary ghosts for the other selected slots at their original
+///   positions, alpha decreasing with distance from cursor.
+/// - In Swap mode: stops after the primary ghost.
+fn draw_drag_ghosts(
     ui: &mut egui::Ui,
     state: &GuiState,
     page_idx: usize,
@@ -190,104 +186,63 @@ fn draw_drag_ghost(
         } if *src_page == page_idx => (*src_slot, *cursor_at_drag_start),
         _ => return,
     };
-
+    let cursor = match ui.ctx().pointer_hover_pos() {
+        Some(p) => p,
+        None => return,
+    };
     let layout_page = match state.project_state.layout.get(page_idx) {
         Some(lp) => lp,
         None => return,
     };
 
-    let slot = match layout_page.slots.get(src_slot_idx) {
-        Some(s) => s,
-        None => return,
-    };
-
-    let cursor = match ui.ctx().pointer_hover_pos() {
-        Some(p) => p,
-        None => return,
-    };
-
-    // Size of ghost = same as source slot in screen units.
     let scale_x = page_rect.width() / page_width_mm as f32;
     let scale_y = page_rect.height() / page_height_mm as f32;
-    let w = slot.width_mm as f32 * scale_x;
-    let h = slot.height_mm as f32 * scale_y;
-
-    // Preserve grab offset: keep the pointer at the same position within the ghost
-    // as it was within the slot when the drag started.
-    let slot_top_left = egui::pos2(
-        page_rect.min.x + slot.x_mm as f32 * scale_x,
-        page_rect.min.y + slot.y_mm as f32 * scale_y,
-    );
-    let grab = cursor_at_drag_start - slot_top_left;
-    let ghost_rect = egui::Rect::from_min_size(cursor - grab, vec2(w, h));
-
-    // Use a top-level painter so the ghost appears above all page content.
     let painter = ui.ctx().layer_painter(egui::LayerId::new(
         egui::Order::Tooltip,
-        egui::Id::new("drag_ghost"),
+        egui::Id::new("drag_ghosts"),
     ));
 
-    painter.rect_filled(
-        ghost_rect,
-        4.0,
-        egui::Color32::from_rgba_unmultiplied(100, 149, 237, 120),
-    );
-    painter.rect_stroke(
-        ghost_rect,
-        4.0,
-        egui::Stroke::new(2.0, egui::Color32::from_rgb(100, 149, 237)),
-        egui::StrokeKind::Middle,
-    );
+    // Primary ghost: follows cursor.
+    if let Some(slot) = layout_page.slots.get(src_slot_idx) {
+        let rect = primary_ghost_rect(
+            page_rect,
+            scale_x,
+            scale_y,
+            slot,
+            cursor,
+            cursor_at_drag_start,
+        );
+        paint_ghost_rect(&painter, rect, 120);
+        painter.rect_stroke(
+            rect,
+            4.0,
+            egui::Stroke::new(2.0, egui::Color32::from_rgb(100, 149, 237)),
+            egui::StrokeKind::Middle,
+        );
+        painter.text(
+            rect.right_bottom() + vec2(6.0, -2.0),
+            egui::Align2::LEFT_BOTTOM,
+            state.drag_mode.label(),
+            egui::FontId::proportional(14.0),
+            egui::Color32::WHITE,
+        );
+    }
 
-    painter.text(
-        ghost_rect.right_bottom() + vec2(6.0, -2.0),
-        egui::Align2::LEFT_BOTTOM,
-        state.drag_mode.label(),
-        egui::FontId::proportional(14.0),
-        egui::Color32::WHITE,
-    );
-}
-
-/// Draws semi-transparent blue filled rects for all selected slots during a Move drag.
-/// Alpha decreases with distance from the cursor so nearer slots appear more prominent.
-fn draw_selection_ghosts(
-    ui: &mut egui::Ui,
-    state: &GuiState,
-    page_idx: usize,
-    page_rect: egui::Rect,
-    page_width_mm: f64,
-    page_height_mm: f64,
-) {
-    if state.drag_mode != DragMode::Move {
+    if state.drag_mode == DragMode::Swap {
         return;
     }
-    let src_page = match &state.drag {
-        DragState::Dragging { src_page, .. } if *src_page == page_idx => *src_page,
+
+    // Secondary ghosts: other selected slots at their original screen positions.
+    let secondary: Vec<usize> = match &state.selection {
+        Selection::OnPage { page, slots, .. } if *page == page_idx && slots.len() > 1 => slots
+            .iter()
+            .filter(|&&s| s != src_slot_idx)
+            .copied()
+            .collect(),
         _ => return,
     };
-    let sel_slots: Vec<usize> = match &state.selection {
-        Selection::OnPage { page, slots, .. } if *page == src_page && slots.len() > 1 => {
-            slots.iter().copied().collect()
-        }
-        _ => return,
-    };
 
-    let cursor = match ui.ctx().pointer_hover_pos() {
-        Some(p) => p,
-        None => return,
-    };
-
-    let layout_page = match state.project_state.layout.get(page_idx) {
-        Some(lp) => lp,
-        None => return,
-    };
-
-    let painter = ui.ctx().layer_painter(egui::LayerId::new(
-        egui::Order::Tooltip,
-        egui::Id::new("selection_ghosts"),
-    ));
-
-    let slot_rects: Vec<egui::Rect> = sel_slots
+    let rects: Vec<egui::Rect> = secondary
         .iter()
         .filter_map(|&idx| {
             let slot = layout_page.slots.get(idx)?;
@@ -300,22 +255,45 @@ fn draw_selection_ghosts(
         })
         .collect();
 
-    let max_dist = slot_rects
+    let max_dist = rects
         .iter()
         .map(|r| r.center().distance(cursor))
         .fold(0.0f32, f32::max)
         .max(1.0);
 
-    for slot_rect in slot_rects {
-        let dist = slot_rect.center().distance(cursor);
-        let t = (dist / max_dist).clamp(0.0, 1.0);
-        let alpha = (180.0 - 140.0 * t) as u8;
-        painter.rect_filled(
-            slot_rect,
-            0.0,
-            egui::Color32::from_rgba_unmultiplied(100, 149, 237, alpha),
-        );
+    for rect in rects {
+        let t = (rect.center().distance(cursor) / max_dist).clamp(0.0, 1.0);
+        paint_ghost_rect(&painter, rect, (180.0 - 140.0 * t) as u8);
     }
+}
+
+/// Computes the rect for the primary ghost, which follows the cursor preserving the
+/// grab offset (the pointer stays at the same relative position within the slot).
+fn primary_ghost_rect(
+    page_rect: egui::Rect,
+    scale_x: f32,
+    scale_y: f32,
+    slot: &fotobuch::dto_models::Slot,
+    cursor: egui::Pos2,
+    cursor_at_drag_start: egui::Pos2,
+) -> egui::Rect {
+    let w = slot.width_mm as f32 * scale_x;
+    let h = slot.height_mm as f32 * scale_y;
+    let slot_top_left = egui::pos2(
+        page_rect.min.x + slot.x_mm as f32 * scale_x,
+        page_rect.min.y + slot.y_mm as f32 * scale_y,
+    );
+    let grab = cursor_at_drag_start - slot_top_left;
+    egui::Rect::from_min_size(cursor - grab, vec2(w, h))
+}
+
+/// Fills a ghost rect with the shared blue colour at the given alpha.
+fn paint_ghost_rect(painter: &egui::Painter, rect: egui::Rect, alpha: u8) {
+    painter.rect_filled(
+        rect,
+        4.0,
+        egui::Color32::from_rgba_unmultiplied(100, 149, 237, alpha),
+    );
 }
 
 /// Hit-tests the pointer against the page.
