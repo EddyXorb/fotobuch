@@ -3,6 +3,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use crossbeam::channel::{Receiver, Sender, unbounded};
+use egui::Context;
 use fotobuch::commands::build::{BuildConfig, build};
 use fotobuch::commands::page::{DstMove, DstSwap, PageMoveCmd, SlotExpr, Src, execute_move};
 use fotobuch::commands::undo::{redo, undo};
@@ -15,6 +16,7 @@ use crate::task::{BackgroundResult, BackgroundTask};
 pub fn spawn(
     project_root: PathBuf,
     project_name: String,
+    repaint_ctx: egui::Context,
 ) -> (Sender<BackgroundTask>, Receiver<BackgroundResult>) {
     let (task_tx, task_rx) = unbounded::<BackgroundTask>();
     let (result_tx, result_rx) = unbounded::<BackgroundResult>();
@@ -36,7 +38,14 @@ pub fn spawn(
                     pages,
                     pixel_per_pt,
                 } => {
-                    render_pages(&mut world, &pool, &result_tx, pages, pixel_per_pt);
+                    render_pages(
+                        &mut world,
+                        &pool,
+                        &result_tx,
+                        pages,
+                        pixel_per_pt,
+                        &repaint_ctx,
+                    );
                 }
 
                 BackgroundTask::SwapSlots {
@@ -62,6 +71,7 @@ pub fn spawn(
                         &mut world,
                         &pool,
                         &result_tx,
+                        &repaint_ctx,
                         pixel_per_pt,
                     );
                 }
@@ -87,16 +97,31 @@ pub fn spawn(
                         &mut world,
                         &pool,
                         &result_tx,
+                        &repaint_ctx,
                         pixel_per_pt,
                     );
                 }
 
                 BackgroundTask::Undo { pixel_per_pt } => {
-                    run_undo(&project_root, &mut world, &pool, &result_tx, pixel_per_pt);
+                    run_undo(
+                        &project_root,
+                        &mut world,
+                        &pool,
+                        &result_tx,
+                        &repaint_ctx,
+                        pixel_per_pt,
+                    );
                 }
 
                 BackgroundTask::Redo { pixel_per_pt } => {
-                    run_redo(&project_root, &mut world, &pool, &result_tx, pixel_per_pt);
+                    run_redo(
+                        &project_root,
+                        &mut world,
+                        &pool,
+                        &result_tx,
+                        &repaint_ctx,
+                        pixel_per_pt,
+                    );
                 }
             }
         }
@@ -113,6 +138,7 @@ fn run_page_command(
     world: &mut TypstWorld,
     pool: &rayon::ThreadPool,
     result_tx: &Sender<BackgroundResult>,
+    ctx: &Context,
     pixel_per_pt: f32,
 ) {
     let move_output = match execute_move(project_root, cmd) {
@@ -151,7 +177,7 @@ fn run_page_command(
                     dirty.push(p);
                 }
             }
-            send_command_done(new_state, dirty, world, pool, result_tx, pixel_per_pt);
+            send_command_done(new_state, dirty, world, pool, result_tx, ctx, pixel_per_pt);
         }
     }
 }
@@ -161,9 +187,17 @@ fn run_undo(
     world: &mut TypstWorld,
     pool: &rayon::ThreadPool,
     result_tx: &Sender<BackgroundResult>,
+    ctx: &Context,
     pixel_per_pt: f32,
 ) {
-    run_undo_or_redo(undo(project_root, 1), world, pool, result_tx, pixel_per_pt);
+    run_undo_or_redo(
+        undo(project_root, 1),
+        world,
+        pool,
+        result_tx,
+        ctx,
+        pixel_per_pt,
+    );
 }
 
 fn run_redo(
@@ -171,9 +205,17 @@ fn run_redo(
     world: &mut TypstWorld,
     pool: &rayon::ThreadPool,
     result_tx: &Sender<BackgroundResult>,
+    ctx: &Context,
     pixel_per_pt: f32,
 ) {
-    run_undo_or_redo(redo(project_root, 1), world, pool, result_tx, pixel_per_pt);
+    run_undo_or_redo(
+        redo(project_root, 1),
+        world,
+        pool,
+        result_tx,
+        ctx,
+        pixel_per_pt,
+    );
 }
 
 fn run_undo_or_redo(
@@ -181,6 +223,7 @@ fn run_undo_or_redo(
     world: &mut TypstWorld,
     pool: &rayon::ThreadPool,
     result_tx: &Sender<BackgroundResult>,
+    ctx: &Context,
     pixel_per_pt: f32,
 ) {
     match result {
@@ -190,7 +233,15 @@ fn run_undo_or_redo(
         Ok(output) => {
             let new_state = output.changed_state.unwrap_or_default();
             let all_pages: Vec<usize> = (0..new_state.layout.len()).collect();
-            send_command_done(new_state, all_pages, world, pool, result_tx, pixel_per_pt);
+            send_command_done(
+                new_state,
+                all_pages,
+                world,
+                pool,
+                result_tx,
+                ctx,
+                pixel_per_pt,
+            );
         }
     }
 }
@@ -202,13 +253,15 @@ fn send_command_done(
     world: &mut TypstWorld,
     pool: &rayon::ThreadPool,
     result_tx: &Sender<BackgroundResult>,
+    ctx: &Context,
     pixel_per_pt: f32,
 ) {
     let _ = result_tx.send(BackgroundResult::CommandDone {
         new_state: Box::new(new_state),
         dirty_pages: dirty_pages.clone(),
     });
-    render_pages(world, pool, result_tx, dirty_pages, pixel_per_pt);
+    ctx.request_repaint();
+    render_pages(world, pool, result_tx, dirty_pages, pixel_per_pt, ctx);
 }
 
 fn render_pages(
@@ -217,6 +270,7 @@ fn render_pages(
     result_tx: &Sender<BackgroundResult>,
     pages: Vec<usize>,
     pixel_per_pt: f32,
+    ctx: &Context,
 ) {
     if pages.is_empty() {
         return;
@@ -240,6 +294,7 @@ fn render_pages(
     for page in pages {
         let doc = Arc::clone(&doc);
         let tx = result_tx.clone();
+        let ctx = ctx.clone();
         pool.spawn(move || {
             let t_raster = Instant::now();
             match rasterize_page(&doc, page, pixel_per_pt) {
@@ -249,6 +304,7 @@ fn render_pages(
                         rasterize_duration: t_raster.elapsed(),
                         compile_duration,
                     });
+                    ctx.request_repaint();
                 }
                 Err(e) => {
                     let _ = tx.send(BackgroundResult::Error(e.to_string()));
@@ -290,7 +346,11 @@ mod tests {
         )
         .unwrap();
 
-        let (task_tx, result_rx) = spawn(temp.path().to_owned(), "test".to_owned());
+        let (task_tx, result_rx) = spawn(
+            temp.path().to_owned(),
+            "test".to_owned(),
+            egui::Context::default(),
+        );
         task_tx
             .send(BackgroundTask::RenderPages {
                 pages: vec![0],

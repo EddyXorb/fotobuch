@@ -8,9 +8,11 @@ mod toolbar;
 mod view;
 
 use std::collections::HashSet;
+use std::path::PathBuf;
 use std::time::Instant;
 
 use crossbeam::channel::{Receiver, Sender};
+use fotobuch::state_manager::StateManager;
 
 use crate::state::{self, GuiState};
 use crate::task::{BackgroundResult, BackgroundTask};
@@ -24,17 +26,26 @@ pub struct FotobuchApp {
 }
 
 impl FotobuchApp {
-    pub fn new(
-        _cc: &eframe::CreationContext,
-        state: GuiState,
-        task_tx: Sender<BackgroundTask>,
-        result_rx: Receiver<BackgroundResult>,
-    ) -> Self {
-        Self {
+    pub fn new(cc: &eframe::CreationContext, project_root: PathBuf) -> anyhow::Result<Self> {
+        let mgr = StateManager::open(&project_root)?;
+        let project_name = mgr.project_name().to_owned();
+        let num_pages = mgr.state.layout.len();
+        let project_state = mgr.state.clone();
+        drop(mgr);
+
+        let state = GuiState::new(project_state);
+        let (task_tx, result_rx) =
+            crate::background::spawn(project_root, project_name, cc.egui_ctx.clone());
+        let _ = task_tx.send(BackgroundTask::RenderPages {
+            pages: (0..num_pages).collect(),
+            pixel_per_pt: state.base_pixel_per_pt,
+        });
+
+        Ok(Self {
             state,
             task_tx,
             result_rx,
-        }
+        })
     }
 
     fn drain_results(&mut self, ctx: &egui::Context) {
@@ -80,14 +91,6 @@ impl FotobuchApp {
                     tracing::error!(%e, "render error");
                 }
             }
-        }
-    }
-
-    fn request_repaint_if_loading(&self, ctx: &egui::Context) {
-        if self.state.page_textures.iter().any(Option::is_none)
-            || self.state.page_dirty.iter().any(|&d| d)
-        {
-            ctx.request_repaint();
         }
     }
 
@@ -175,8 +178,6 @@ impl eframe::App for FotobuchApp {
         let t = Instant::now();
         self.drain_results(&ctx);
         self.state.timings.drain_results = t.elapsed();
-
-        self.request_repaint_if_loading(&ctx);
 
         let mut cmds = egui::Panel::top("toolbar")
             .show_inside(ui, |ui| toolbar::show(ui, &mut self.state.drag_mode))
