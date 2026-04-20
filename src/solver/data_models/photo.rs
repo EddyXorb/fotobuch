@@ -78,7 +78,7 @@ impl Photo {
     pub fn from_photo_groups(groups: &[PhotoGroup]) -> Vec<Self> {
         let mut groups_copy = groups.to_vec();
         for group in &mut groups_copy {
-            group.files.sort_by(|a, b| a.timestamp.cmp(&b.timestamp));
+            group.files.sort_by_key(|a| a.timestamp);
         }
         groups_copy
             .iter()
