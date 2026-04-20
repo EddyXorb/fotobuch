@@ -21,7 +21,7 @@ pub fn show(ui: &mut egui::Ui, drag_mode: &mut DragMode) -> HashSet<PendingComma
         ui.separator();
 
         if ui
-            .add(egui::SelectableLabel::new(
+            .add(egui::Button::selectable(
                 *drag_mode == DragMode::Swap,
                 "⇄ Swap",
             ))
@@ -30,7 +30,7 @@ pub fn show(ui: &mut egui::Ui, drag_mode: &mut DragMode) -> HashSet<PendingComma
             *drag_mode = DragMode::Swap;
         }
         if ui
-            .add(egui::SelectableLabel::new(
+            .add(egui::Button::selectable(
                 *drag_mode == DragMode::Move,
                 "→ Move",
             ))

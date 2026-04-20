@@ -5,7 +5,7 @@ pub fn slot_ratio_similar(ratio_a: f64, ratio_b: f64) -> bool {
     if ratio_b == 0.0 {
         return false;
     }
-    (ratio_a / ratio_b - 1.0).abs() < 0.05
+    (ratio_a / ratio_b - 1.0).abs() < 0.0005
 }
 
 /// Maps a slot's mm coordinates to screen pixels, given the already-scaled page rect.

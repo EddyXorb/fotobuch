@@ -135,7 +135,7 @@ fn draw_slot_overlays(
 
         let is_hovered = state.hovered_slot == Some((page_idx, slot_idx));
 
-        if is_swap_drag && is_hovered {
+        if is_swap_drag {
             // Ratio feedback: green = same ratio, red = different.
             let target_ratio = slot.width_mm / slot.height_mm;
             let same_ratio =
@@ -204,7 +204,7 @@ fn draw_drag_ghosts(
 
     // Primary ghost: follows cursor.
     if let Some(slot) = layout_page.slots.get(src_slot_idx) {
-        let rect = primary_ghost_rect(
+        let rect = calc_primary_ghost_rect(
             page_rect,
             scale_x,
             scale_y,
@@ -215,7 +215,7 @@ fn draw_drag_ghosts(
         paint_ghost_rect(&painter, rect, 120);
         painter.rect_stroke(
             rect,
-            4.0,
+            0.0,
             egui::Stroke::new(2.0, egui::Color32::from_rgb(100, 149, 237)),
             egui::StrokeKind::Middle,
         );
@@ -263,13 +263,13 @@ fn draw_drag_ghosts(
 
     for rect in rects {
         let t = (rect.center().distance(cursor) / max_dist).clamp(0.0, 1.0);
-        paint_ghost_rect(&painter, rect, (180.0 - 140.0 * t) as u8);
+        paint_ghost_rect(&painter, rect, (180.0 - 100.0 * t) as u8);
     }
 }
 
 /// Computes the rect for the primary ghost, which follows the cursor preserving the
 /// grab offset (the pointer stays at the same relative position within the slot).
-fn primary_ghost_rect(
+fn calc_primary_ghost_rect(
     page_rect: egui::Rect,
     scale_x: f32,
     scale_y: f32,
