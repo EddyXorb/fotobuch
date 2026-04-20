@@ -68,14 +68,21 @@ impl FotobuchApp {
                     new_state,
                     dirty_pages,
                 } => {
-                    let num_pages = new_state.layout.len();
-                    self.state.project_state = *new_state;
-                    self.state.derived =
-                        crate::state::DerivedState::rebuild(&self.state.project_state);
-                    state::resize_page_vecs(&mut self.state, num_pages);
-                    for &p in &dirty_pages {
-                        if let Some(d) = self.state.page_dirty.get_mut(p) {
-                            *d = true;
+                    if let Some(new_state) = new_state {
+                        let num_pages = new_state.layout.len();
+                        self.state.project_state = *new_state;
+                        self.state.derived =
+                            crate::state::DerivedState::rebuild(&self.state.project_state);
+                        state::resize_page_vecs(&mut self.state, num_pages);
+                        for &p in &dirty_pages {
+                            if let Some(d) = self.state.page_dirty.get_mut(p) {
+                                *d = true;
+                            }
+                        }
+                    } else {
+                        // No state change — no render is coming, clear optimistic dirty flags.
+                        for d in &mut self.state.page_dirty {
+                            *d = false;
                         }
                     }
                 }

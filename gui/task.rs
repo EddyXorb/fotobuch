@@ -41,7 +41,8 @@ pub enum BackgroundResult {
     },
     /// A command completed successfully.
     CommandDone {
-        new_state: Box<ProjectState>,
+        /// Updated project state, or `None` if the state did not change.
+        new_state: Option<Box<ProjectState>>,
         /// Page indices that changed and need re-rendering.
         dirty_pages: Vec<usize>,
     },

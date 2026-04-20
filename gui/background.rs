@@ -149,6 +149,11 @@ fn run_page_command(
         Ok(o) => o,
     };
 
+    if move_output.changed_state.is_none() {
+        send_command_done(None, vec![], world, pool, result_tx, ctx, pixel_per_pt);
+        return;
+    }
+
     let move_dirty: Vec<usize> = move_output
         .result
         .pages_modified
@@ -167,10 +172,7 @@ fn run_page_command(
             let _ = result_tx.send(BackgroundResult::CommandFailed(e.to_string()));
         }
         Ok(build_output) => {
-            let new_state = build_output
-                .changed_state
-                .or(move_output.changed_state)
-                .unwrap_or_default();
+            let new_state = build_output.changed_state.or(move_output.changed_state);
             let mut dirty = move_dirty;
             for p in build_output.result.pages_rebuilt {
                 if !dirty.contains(&p) {
@@ -231,8 +233,9 @@ fn run_undo_or_redo(
             let _ = result_tx.send(BackgroundResult::CommandFailed(e.to_string()));
         }
         Ok(output) => {
-            let new_state = output.changed_state.unwrap_or_default();
-            let all_pages: Vec<usize> = (0..new_state.layout.len()).collect();
+            let new_state = output.changed_state;
+            let num_pages = new_state.as_ref().map_or(0, |s| s.layout.len());
+            let all_pages: Vec<usize> = (0..num_pages).collect();
             send_command_done(
                 new_state,
                 all_pages,
@@ -248,7 +251,7 @@ fn run_undo_or_redo(
 
 /// Sends `CommandDone` and then kicks off re-rendering of the dirty pages.
 fn send_command_done(
-    new_state: ProjectState,
+    new_state: Option<ProjectState>,
     dirty_pages: Vec<usize>,
     world: &mut TypstWorld,
     pool: &rayon::ThreadPool,
@@ -256,12 +259,15 @@ fn send_command_done(
     ctx: &Context,
     pixel_per_pt: f32,
 ) {
+    let has_change = new_state.is_some();
     let _ = result_tx.send(BackgroundResult::CommandDone {
-        new_state: Box::new(new_state),
+        new_state: new_state.map(Box::new),
         dirty_pages: dirty_pages.clone(),
     });
+    if has_change {
+        render_pages(world, pool, result_tx, dirty_pages, pixel_per_pt, ctx);
+    }
     ctx.request_repaint();
-    render_pages(world, pool, result_tx, dirty_pages, pixel_per_pt, ctx);
 }
 
 fn render_pages(

@@ -30,6 +30,19 @@ fn execute_move_to(
     src: Src,
     dst: DstMove,
 ) -> Result<CommandOutput<PageMoveResult>, PageMoveError> {
+    if let Src::Slots { page, slots: _ } = &src
+        && let DstMove::Page(dst_page) = &dst
+            && *page == *dst_page {
+                return Ok(CommandOutput {
+                    result: PageMoveResult {
+                        pages_modified: vec![],
+                        pages_inserted: vec![],
+                        pages_deleted: vec![],
+                    },
+                    changed_state: None,
+                });
+            }
+
     let mut mgr = StateManager::open(project_root)?;
 
     // Handle unplace-destination: remove photos from layout (and delete pages for Src::Pages).
