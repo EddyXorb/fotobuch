@@ -1,6 +1,6 @@
 use crate::state::Timings;
 
-pub fn show_timings_overlay(timings: &Timings, ctx: &egui::Context) {
+pub fn draw(timings: &Timings, ctx: &egui::Context) {
     egui::Window::new("Timings [F2]")
         .anchor(egui::Align2::RIGHT_TOP, [-10.0, 10.0])
         .resizable(false)

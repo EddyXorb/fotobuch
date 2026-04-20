@@ -1,11 +1,6 @@
-mod draw_page;
-mod geometry;
 mod input_handler;
-mod overlay;
 mod pending;
-mod statusbar;
-mod toolbar;
-mod view;
+mod widgets;
 
 use std::collections::HashSet;
 use std::path::PathBuf;
@@ -80,7 +75,6 @@ impl FotobuchApp {
                             }
                         }
                     } else {
-                        // No state change — no render is coming, clear optimistic dirty flags.
                         for d in &mut self.state.page_dirty {
                             *d = false;
                         }
@@ -88,8 +82,6 @@ impl FotobuchApp {
                 }
                 BackgroundResult::CommandFailed(e) => {
                     tracing::error!(%e, "command failed");
-                    // Optimistic dirty-marking in input_handler has no matching render
-                    // coming — clear all dirty flags so the loading overlay disappears.
                     for d in &mut self.state.page_dirty {
                         *d = false;
                     }
@@ -133,52 +125,11 @@ impl FotobuchApp {
             let _ = self.task_tx.send(task);
         }
     }
-
-    fn show_pages(&mut self, ui: &mut egui::Ui) {
-        let num_pages = self.state.project_state.layout.len();
-        let mut new_hovered: Option<(usize, usize)> = None;
-        let mut new_hovered_page: Option<usize> = None;
-
-        // Disable ScrollArea drag while RMB is active (down or just released) so that
-        // neither immediate offset changes nor kinetic velocity are applied by RMB.
-        // LMB drag and mouse-wheel keep their natural egui behaviour including momentum.
-        let rmbactive = ui.input(|i| {
-            (i.pointer.secondary_down() || i.pointer.secondary_released())
-                && !i.pointer.primary_down()
-        });
-
-        egui::ScrollArea::vertical()
-            .auto_shrink([false; 2])
-            .scroll_source(egui::containers::scroll_area::ScrollSource {
-                drag: !rmbactive,
-                scroll_bar: true,
-                mouse_wheel: true,
-            })
-            .show(ui, |ui| {
-                ui.vertical_centered(|ui| {
-                    for i in 0..num_pages {
-                        let (slot_idx, over_page) = view::draw_page(ui, &self.state, i);
-                        if let Some(slot_idx) = slot_idx
-                            && new_hovered.is_none()
-                        {
-                            new_hovered = Some((i, slot_idx));
-                        }
-                        if over_page && new_hovered_page.is_none() {
-                            new_hovered_page = Some(i);
-                        }
-                    }
-                });
-            });
-
-        self.state.hovered_slot = new_hovered;
-        self.state.hovered_page = new_hovered_page;
-    }
 }
 
 impl eframe::App for FotobuchApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let t_frame = Instant::now();
-
         self.state.timings.frame_cnt += 1;
         let ctx = ui.ctx().clone();
 
@@ -186,17 +137,14 @@ impl eframe::App for FotobuchApp {
         self.drain_results(&ctx);
         self.state.timings.drain_results = t.elapsed();
 
-        let mut cmds = egui::Panel::top("toolbar")
-            .show_inside(ui, |ui| toolbar::show(ui, &mut self.state.drag_mode))
-            .inner;
-
-        egui::Panel::bottom("statusbar").show_inside(ui, |ui| statusbar::show(ui, &self.state));
+        let mut cmds = widgets::toolbar::draw(ui, &mut self.state);
+        widgets::statusbar::draw(ui, &self.state);
 
         let t = Instant::now();
-        egui::CentralPanel::default().show_inside(ui, |ui| self.show_pages(ui));
+        widgets::central_panel::draw(ui, &mut self.state);
         self.state.timings.show_pages = t.elapsed();
 
-        // Input handling runs after show_pages so that hovered_slot reflects the current
+        // Input handling runs after central panel so that hovered_slot reflects the current
         // frame — prevents toolbar clicks from accidentally triggering a drag.
         let t = Instant::now();
         cmds.extend(input_handler::handle(&mut self.state, &ctx));
@@ -206,7 +154,7 @@ impl eframe::App for FotobuchApp {
         self.state.timings.ui_frame = t_frame.elapsed();
 
         if self.state.timings.show {
-            overlay::show_timings_overlay(&self.state.timings, &ctx);
+            widgets::timings_panel::draw(&self.state.timings, &ctx);
         }
     }
 }

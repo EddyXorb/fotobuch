@@ -1,7 +1,10 @@
 use crate::state::{DragState, GuiState, Selection};
 
-/// Status bar: page indicator, photo counts, selection summary.
-pub fn show(ui: &mut egui::Ui, state: &GuiState) {
+pub fn draw(ui: &mut egui::Ui, state: &GuiState) {
+    egui::Panel::bottom("statusbar").show_inside(ui, |ui| show(ui, state));
+}
+
+fn show(ui: &mut egui::Ui, state: &GuiState) {
     ui.horizontal(|ui| {
         let total = state.project_state.layout.len();
         let photos: usize = state

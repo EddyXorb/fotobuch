@@ -1,10 +1,15 @@
 use std::collections::HashSet;
 
 use crate::app::pending::PendingCommand;
-use crate::state::DragMode;
+use crate::state::{DragMode, GuiState};
 
-/// Toolbar with action buttons and drag-mode toggle.
-pub fn show(ui: &mut egui::Ui, drag_mode: &mut DragMode) -> HashSet<PendingCommand> {
+pub fn draw(ui: &mut egui::Ui, state: &mut GuiState) -> HashSet<PendingCommand> {
+    egui::Panel::top("toolbar")
+        .show_inside(ui, |ui| show(ui, &mut state.drag_mode))
+        .inner
+}
+
+fn show(ui: &mut egui::Ui, drag_mode: &mut DragMode) -> HashSet<PendingCommand> {
     let mut cmds = HashSet::new();
 
     ui.horizontal(|ui| {

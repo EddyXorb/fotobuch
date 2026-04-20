@@ -4,15 +4,11 @@ use crate::state::{DragMode, DragState, GuiState, Selection};
 
 use super::geometry;
 
-/// Draw a single page at index `i`.
-///
-/// Returns `(slot_idx, over_page)`:
-/// - `slot_idx`: which slot the pointer is hovering over (if any).
-/// - `over_page`: whether the pointer is anywhere over the page rect.
-///
-/// Overlays are drawn with the previous frame's `hovered_slot` and `selection` — one-frame lag,
-/// standard egui practice.
-pub fn draw_page(ui: &mut egui::Ui, state: &GuiState, page_idx: usize) -> (Option<usize>, bool) {
+pub fn draw(ui: &mut egui::Ui, state: &mut GuiState) {
+    egui::CentralPanel::default().show_inside(ui, |ui| draw_pages(ui, state));
+}
+
+fn draw_page(ui: &mut egui::Ui, state: &GuiState, page_idx: usize) -> (Option<usize>, bool) {
     ui.label(format!("Page {page_idx}"));
 
     let (page_width_mm, page_height_mm) = state.project_state.page_dimensions_mm(page_idx);
@@ -45,7 +41,6 @@ pub fn draw_page(ui: &mut egui::Ui, state: &GuiState, page_idx: usize) -> (Optio
     }
 }
 
-/// Computes the on-screen size of a page in egui points.
 fn page_display_size(zoom: f32, page_width_mm: f64, page_height_mm: f64) -> egui::Vec2 {
     let mm_to_pt = 72.0_f32 / 25.4_f32;
     vec2(
@@ -54,9 +49,6 @@ fn page_display_size(zoom: f32, page_width_mm: f64, page_height_mm: f64) -> egui
     )
 }
 
-/// Renders the page texture or a grey placeholder. Returns the allocated page rect.
-///
-/// If the page is dirty, draws an overlay + loading indicator over the existing texture.
 fn render_page_image(
     ui: &mut egui::Ui,
     state: &GuiState,
@@ -73,7 +65,6 @@ fn render_page_image(
         r
     };
 
-    // Loading overlay when page is dirty (command in progress).
     if state.page_dirty.get(page_idx).copied().unwrap_or(false) {
         ui.painter().rect_filled(
             rect,
@@ -92,9 +83,6 @@ fn render_page_image(
     rect
 }
 
-/// Paints hover and selection overlays for each slot.
-///
-/// During a drag: the hovered target slot is coloured green (same ratio) or red (different).
 fn draw_slot_overlays(
     ui: &mut egui::Ui,
     page_rect: egui::Rect,
@@ -108,7 +96,6 @@ fn draw_slot_overlays(
         None => return,
     };
 
-    // Precompute drag source ratio for target-slot colour during drag.
     let drag_src_ratio: Option<f64> = if let DragState::Dragging {
         src_page, src_slot, ..
     } = &state.drag
@@ -136,7 +123,6 @@ fn draw_slot_overlays(
         let is_hovered = state.hovered_slot == Some((page_idx, slot_idx));
 
         if is_swap_drag {
-            // Ratio feedback: green = same ratio, red = different.
             let target_ratio = slot.width_mm / slot.height_mm;
             let same_ratio =
                 drag_src_ratio.is_some_and(|r| geometry::slot_ratio_similar(r, target_ratio));
@@ -165,11 +151,6 @@ fn draw_slot_overlays(
     }
 }
 
-/// Draws all drag ghosts on the source page:
-/// - Primary ghost follows the cursor (with grab offset), stroke + mode label.
-/// - In Move mode: secondary ghosts for the other selected slots at their original
-///   positions, alpha decreasing with distance from cursor.
-/// - In Swap mode: stops after the primary ghost.
 fn draw_drag_ghosts(
     ui: &mut egui::Ui,
     state: &GuiState,
@@ -202,7 +183,6 @@ fn draw_drag_ghosts(
         egui::Id::new("drag_ghosts"),
     ));
 
-    // Primary ghost: follows cursor.
     if let Some(slot) = layout_page.slots.get(src_slot_idx) {
         let rect = calc_primary_ghost_rect(
             page_rect,
@@ -232,7 +212,6 @@ fn draw_drag_ghosts(
         return;
     }
 
-    // Secondary ghosts: other selected slots at their original screen positions.
     let secondary: Vec<usize> = match &state.selection {
         Selection::OnPage { page, slots, .. } if *page == page_idx && slots.len() > 1 => slots
             .iter()
@@ -267,8 +246,6 @@ fn draw_drag_ghosts(
     }
 }
 
-/// Computes the rect for the primary ghost, which follows the cursor preserving the
-/// grab offset (the pointer stays at the same relative position within the slot).
 fn calc_primary_ghost_rect(
     page_rect: egui::Rect,
     scale_x: f32,
@@ -287,7 +264,6 @@ fn calc_primary_ghost_rect(
     egui::Rect::from_min_size(cursor - grab, vec2(w, h))
 }
 
-/// Fills a ghost rect with the shared blue colour at the given alpha.
 fn paint_ghost_rect(painter: &egui::Painter, rect: egui::Rect, alpha: u8) {
     painter.rect_filled(
         rect,
@@ -296,10 +272,6 @@ fn paint_ghost_rect(painter: &egui::Painter, rect: egui::Rect, alpha: u8) {
     );
 }
 
-/// Hit-tests the pointer against the page.
-///
-/// Returns `(slot_idx, over_page)`: the hovered slot (if any) and whether the pointer
-/// is anywhere within `page_rect`.
 fn hit_test_pointer(
     ui: &mut egui::Ui,
     page_rect: egui::Rect,
@@ -317,8 +289,6 @@ fn hit_test_pointer(
     }
 }
 
-/// Draws a subtle page-level highlight during a move drag when the pointer is over this page
-/// but not over a specific slot — signals that dropping here will move to this page.
 fn draw_page_move_highlight(
     ui: &mut egui::Ui,
     state: &GuiState,
@@ -341,4 +311,40 @@ fn draw_page_move_highlight(
         egui::Stroke::new(3.0, egui::Color32::from_rgba_unmultiplied(0, 200, 80, 180)),
         egui::StrokeKind::Inside,
     );
+}
+
+fn draw_pages(ui: &mut egui::Ui, state: &mut GuiState) {
+    let num_pages = state.project_state.layout.len();
+    let mut new_hovered: Option<(usize, usize)> = None;
+    let mut new_hovered_page: Option<usize> = None;
+
+    let rmbactive = ui.input(|i| {
+        (i.pointer.secondary_down() || i.pointer.secondary_released()) && !i.pointer.primary_down()
+    });
+
+    egui::ScrollArea::vertical()
+        .auto_shrink([false; 2])
+        .scroll_source(egui::containers::scroll_area::ScrollSource {
+            drag: !rmbactive,
+            scroll_bar: true,
+            mouse_wheel: true,
+        })
+        .show(ui, |ui| {
+            ui.vertical_centered(|ui| {
+                for i in 0..num_pages {
+                    let (slot_idx, over_page) = draw_page(ui, state, i);
+                    if let Some(slot_idx) = slot_idx
+                        && new_hovered.is_none()
+                    {
+                        new_hovered = Some((i, slot_idx));
+                    }
+                    if over_page && new_hovered_page.is_none() {
+                        new_hovered_page = Some(i);
+                    }
+                }
+            });
+        });
+
+    state.hovered_slot = new_hovered;
+    state.hovered_page = new_hovered_page;
 }
