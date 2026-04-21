@@ -16,7 +16,7 @@ persistente `TypstWorld` sind vorhanden (`gui/background.rs`).
 |---|---|
 | Layout-Migration | `gui/app.rs`, `gui/app/widgets.rs`, `gui/app/widgets/page_nav.rs` (neu), `gui/app/widgets/photo_pool.rs` (neu), `gui/app/widgets/config_window.rs` (neu) |
 | Seiten-Nav       | `gui/app/widgets/page_nav.rs`, `gui/state.rs` (Thumb-Textur-Feld), `gui/task.rs` (`PageRendered` erweitert), `gui/background.rs` (Downsample-Postprocess) |
-| Foto-Pool        | `gui/app/widgets/photo_pool.rs`, `gui/state/pool.rs` (neu), `gui/state.rs`, `gui/task.rs` (`LoadThumbnails`, `ThumbnailReady`), `gui/background.rs` (Thumb-Worker) |
+| Foto-Pool        | `gui/app/widgets/photo_pool.rs`, `gui/state/pool.rs` (neu), `gui/state.rs`, `gui/task.rs` (`LoadPhotoThumbnails`, `PhotoThumbnailReady`), `gui/thumbnail.rs` (neu, Decoder), `gui/background.rs` (Thumb-Worker) |
 | Place-Dispatch   | `gui/app/pending.rs`, `gui/app/input_handler.rs`, `gui/app/widgets/toolbar.rs` |
 | Config-Panel     | `gui/app/widgets/config_window.rs`, `gui/state/config_panel.rs` (neu), `gui/task.rs` (`ConfigSet`), `gui/background.rs` |
 
@@ -29,26 +29,48 @@ Keine neuen Lib-Commands — `place` (Filter + `into_page`), `execute_move`
 
 Ein einziger Commit, der die Gerüste stellt. Danach erst die drei Feature-Commits.
 
-### 4.0.1 SidePanels statt alleinigem CentralPanel
+### 4.0.1 Zwei neue Widgets + Config-Window im `FotobuchApp::ui`
 
-`FotobuchApp::ui` rahmt das Central-Panel künftig mit zwei `SidePanel`s:
+Bisheriger Stand in `gui/app.rs`: `widgets::toolbar::draw` (Panel::top, liefert
+`cmds`), `widgets::statusbar::draw` (Panel::bottom), `widgets::central_panel::draw`
+(CentralPanel). Jedes Widget rahmt sein Panel intern — diesem Muster folgen auch
+die neuen Widgets.
 
 ```rust
-egui::SidePanel::left("photo_pool")
-    .resizable(true).min_width(220.0).max_width(400.0).default_width(260.0)
-    .show_inside(ui, |ui| photo_pool::draw(ui, &mut self.state));
-egui::SidePanel::right("page_nav")
-    .resizable(true).min_width(100.0).max_width(200.0).default_width(120.0)
-    .show_inside(ui, |ui| page_nav::draw(ui, &mut self.state));
-egui::CentralPanel::default().show_inside(ui, |ui| central_panel::draw(ui, &mut self.state));
+// gui/app.rs — ui()
+let mut cmds = widgets::toolbar::draw(ui, &mut self.state);
+widgets::statusbar::draw(ui, &self.state);
+widgets::photo_pool::draw(ui, &mut self.state, &mut cmds);
+widgets::page_nav::draw(ui, &mut self.state, &mut cmds);
+widgets::central_panel::draw(ui, &mut self.state);
 
 if self.state.config_panel.open {
-    config_window::show(ctx, &mut self.state, &mut cmds);
+    widgets::config_window::show(&ctx, &mut self.state, &mut cmds);
 }
 ```
 
-Die Side-Panels enthalten in 4.0 nur einen `ui.label("Photo pool")` bzw.
-`ui.label("Pages")`. Inhalt folgt in 4.1/4.2.
+Reihenfolge: TopBottom-Panels zuerst (Toolbar, Statusbar), dann Side-Panels,
+zuletzt CentralPanel — so verlangt es egui.
+
+Jedes neue Widget rahmt sein Panel intern, analog zur Toolbar:
+
+```rust
+// widgets/photo_pool.rs
+pub fn draw(ui: &mut egui::Ui, state: &mut GuiState, cmds: &mut HashSet<PendingCommand>) {
+    egui::SidePanel::left("photo_pool")
+        .resizable(true).min_width(220.0).max_width(400.0).default_width(260.0)
+        .show_inside(ui, |ui| show(ui, state, cmds));
+}
+
+// widgets/page_nav.rs
+pub fn draw(ui: &mut egui::Ui, state: &mut GuiState, cmds: &mut HashSet<PendingCommand>) {
+    egui::SidePanel::right("page_nav")
+        .resizable(true).min_width(100.0).max_width(200.0).default_width(120.0)
+        .show_inside(ui, |ui| show(ui, state, cmds));
+}
+```
+
+In 4.0 enthält `show` nur einen Platzhalter-Label; echter Inhalt folgt in 4.1/4.2.
 
 ### 4.0.2 `GuiState` erweitern
 
@@ -61,7 +83,7 @@ pub struct GuiState {
 
     /// Foto-Thumbnails (256 px längste Kante).
     pub photo_thumbs: HashMap<String, TextureHandle>,
-    /// IDs, für die ein LoadThumbnails-Task unterwegs ist — verhindert Doppel-Requests.
+    /// IDs, für die ein LoadPhotoThumbnails-Task unterwegs ist — verhindert Doppel-Requests.
     pub photo_thumb_in_flight: HashSet<String>,
     /// FIFO für Hintergrund-Prefetch (Fotos außerhalb des Viewports).
     pub photo_thumb_prefetch: VecDeque<String>,
@@ -73,6 +95,11 @@ pub struct GuiState {
 
     /// Zielseite, zu der beim nächsten Frame gescrollt werden soll (Nav-Klick).
     pub scroll_to_page: Option<usize>,
+
+    /// Einmalig pro Frame: wenn `true`, zeichnet `draw_page` ein rotes Overlay
+    /// über alle Slots mit mehrfach platziertem Foto. Wird am Ende von `ui()`
+    /// wieder auf `false` gesetzt (Trigger: Hover über Statusbar-Duplikatsegment).
+    pub highlight_duplicates: bool,
 
     /// State des Config-Fensters.
     pub config_panel: ConfigPanelState,
@@ -87,13 +114,17 @@ pub struct GuiState {
 pub enum BackgroundTask {
     // … bestehende Varianten …
 
-    /// Foto-Thumbnails laden. UI sendet pro Frame die sichtbaren IDs zuerst,
-    /// Rest-IDs tröpfelnd in Chunks — FIFO reicht als Priorisierung.
-    LoadThumbnails { items: Vec<(String /* id */, PathBuf /* source */)> },
+    /// Foto-Thumbnails laden (Pool-Panel, Quell-Dateien auf Disk). UI sendet
+    /// pro Frame die sichtbaren IDs zuerst, Rest tröpfelnd in Chunks — FIFO
+    /// reicht als Priorisierung. Abgrenzung: Seiten-Thumbs im Nav werden als
+    /// Downsample im `PageRendered`-Pfad transportiert, nicht hier.
+    LoadPhotoThumbnails { items: Vec<(String /* id */, PathBuf /* source */)> },
 
-    /// Place selektierte Fotos auf eine Zielseite (Variante a — Slot-Auswahl
-    /// übernimmt der Solver beim nächsten Build).
-    PlacePhotos { photo_ids: Vec<String>, dst_page: usize, pixel_per_pt: f32 },
+    /// Place selektierte Fotos — entweder auf eine konkrete Zielseite
+    /// (`dst_page = Some(_)`, z.B. aus Pool→Page-Drag) oder ohne Zielseite
+    /// (`None` → Lib verteilt timestamp-basiert über alle Seiten). Slot-Auswahl
+    /// übernimmt der Solver beim nächsten Build.
+    PlacePhotos { photo_ids: Vec<String>, dst_page: Option<usize>, pixel_per_pt: f32 },
 
     /// `config set key value` im Background.
     ConfigSet { key: String, value: String, pixel_per_pt: f32 },
@@ -110,7 +141,7 @@ pub enum BackgroundResult {
     },
     // … CommandDone/CommandFailed/Error …
 
-    ThumbnailReady {
+    PhotoThumbnailReady {
         id: String,
         width: u32,
         height: u32,
@@ -124,7 +155,7 @@ pub enum BackgroundResult {
 ```rust
 pub enum PendingCommand {
     // … Swap/Move/Undo/Redo …
-    Place       { photo_ids: Vec<String>, dst_page: usize },
+    Place       { photo_ids: Vec<String>, dst_page: Option<usize> },
     PageSwap    { left: usize, right: usize },   // Nav-Drag Seite↔Seite
     ConfigSet   { key: String, value: String },
 }
@@ -308,14 +339,14 @@ des Drags weiter verändern, der Drag selbst bleibt stabil.
 `gui/background.rs` um neuen Match-Arm erweitern:
 
 ```rust
-BackgroundTask::LoadThumbnails { items } => {
+BackgroundTask::LoadPhotoThumbnails { items } => {
     for (id, source) in items {
         let tx = result_tx.clone();
         let ctx = repaint_ctx.clone();
         pool.spawn(move || {
-            match load_thumbnail(&source, POOL_THUMB_MAX_EDGE_PX) {
+            match crate::thumbnail::load(&source, POOL_THUMB_MAX_EDGE_PX) {
                 Ok((w, h, pixels)) => {
-                    let _ = tx.send(BackgroundResult::ThumbnailReady { id, width: w, height: h, pixels });
+                    let _ = tx.send(BackgroundResult::PhotoThumbnailReady { id, width: w, height: h, pixels });
                     ctx.request_repaint();
                 }
                 Err(e) => tracing::warn!(%e, photo=%id, "thumb load failed"),
@@ -325,14 +356,19 @@ BackgroundTask::LoadThumbnails { items } => {
 }
 ```
 
-`load_thumbnail(path, max_edge)` lebt in `src/output/thumbnails.rs` (Lib):
+Der Decoder lebt im GUI-Crate (`gui/thumbnail.rs`) — keine Kernfunktionalität
+der Lib, wird nur vom Pool-Worker benötigt:
 
 ```rust
-pub fn load_thumbnail(path: &Path, max_edge: u32) -> Result<(u32, u32, Vec<u8>)> {
+// gui/thumbnail.rs
+use std::path::Path;
+use anyhow::Result;
+
+pub fn load(path: &Path, max_edge: u32) -> Result<(u32, u32, Vec<u8>)> {
     let img = image::ImageReader::open(path)?
         .with_guessed_format()?
         .decode()?
-        .thumbnail(max_edge, max_edge);    // nutzt EXIF-Thumb wenn vorhanden
+        .thumbnail(max_edge, max_edge); // nutzt EXIF-Thumb wenn vorhanden
     let rgba = img.to_rgba8();
     let (w, h) = rgba.dimensions();
     Ok((w, h, rgba.into_raw()))
@@ -341,16 +377,16 @@ pub fn load_thumbnail(path: &Path, max_edge: u32) -> Result<(u32, u32, Vec<u8>)>
 
 Konstante `POOL_THUMB_MAX_EDGE_PX = 256` in `gui/app/widgets/photo_pool.rs`.
 
-Tests (Lib): `load_thumbnail_decodes_jpeg`, `load_thumbnail_respects_max_edge`,
-`load_thumbnail_missing_file_errors`. Fixtures aus `tests/` recyceln (kleines
+Tests (GUI-Crate): `thumbnail::decodes_jpeg`, `thumbnail::respects_max_edge`,
+`thumbnail::missing_file_errors`. Fixtures aus `tests/` recyceln (kleines
 JPEG bereits vorhanden).
 
 ### 4.2.4 Upload, Duplikat-Schutz und Stale-Drop
 
-`FotobuchApp::drain_results` um `ThumbnailReady` erweitern:
+`FotobuchApp::drain_results` um `PhotoThumbnailReady` erweitern:
 
 ```rust
-BackgroundResult::ThumbnailReady { id, width, height, pixels } => {
+BackgroundResult::PhotoThumbnailReady { id, width, height, pixels } => {
     // Stale-Schutz: wenn id nicht mehr im Pool, stillschweigend verwerfen
     if !self.state.derived.photo_by_id.contains_key(&id) {
         self.state.photo_thumb_in_flight.remove(&id);
@@ -385,7 +421,7 @@ if !visible_needed.is_empty() {
 `dispatch_thumb_load`:
 - filtert IDs, die schon in `photo_thumbs` oder `photo_thumb_in_flight` sind,
 - schlägt alle verbleibenden in `photo_thumb_in_flight` ein,
-- sendet **einen** `LoadThumbnails`-Task mit `(id, source_path)`-Paaren.
+- sendet **einen** `LoadPhotoThumbnails`-Task mit `(id, source_path)`-Paaren.
 
 Die Prefetch-Queue wird einmal beim Start (nach `DerivedState::rebuild`) und
 nach jedem `CommandDone` befüllt: alle IDs aus `derived.photo_by_id`, die weder
@@ -399,7 +435,7 @@ Konstante `THUMB_FILL_CHUNK = 8` in `photo_pool.rs`.
 2. `feat(gui): photo thumbnail worker + prefetch queue`
 
 Tests:
-- `load_thumbnail_*` (Lib, s. o.).
+- `thumbnail::*` (GUI-Crate, s. o.).
 - `pool::selection_*` (rein logisch).
 - `photo_pool::dispatch_thumb_load_skips_cached_and_in_flight` (pure, mockt
   `photo_thumbs` + `photo_thumb_in_flight`).
@@ -428,8 +464,15 @@ Eine `ui.horizontal`-Zeile pro Foto:
   Placeholder (`ui.painter().rect_filled(...)`). Wird in `visible_ids_this_frame`
   eingetragen für die Worker-Priorisierung (4.2.5).
 - Filename: `file_name().to_string_lossy()`, Ellipse links wenn zu lang.
-- Badge-Punkt (rechts): sichtbar wenn `derived.photo_is_placed(id)` → grün,
-  sonst unsichtbar (Platzhalter-Breite fix, damit Rows nicht zittern).
+- Badge-Punkt (rechts), dreistufig (Breite fix, damit Rows nicht zittern):
+  - unsichtbar: Foto nicht platziert (`placed_count == 0`),
+  - grün: **genau einmal** platziert (`placed_count == 1`),
+  - rot: **mehrfach** platziert (`placed_count > 1`, s. 4.2.14).
+  Hover auf den Punkt öffnet einen Tooltip, der für jede Platzierung genau eine
+  Zeile im Format `Page {p} Slot {s}` ausgibt (Reihenfolge: page asc, dann
+  slot asc). Umsetzung via eigener `ui.interact`-Rect für den Punkt +
+  `.on_hover_ui(|ui| …)` — der Lupen-Tooltip der Row wird dadurch **nicht**
+  ausgelöst, weil der Punkt die Pointer-Interaction konsumiert.
 - Die gesamte Row ist **eine** `ui.interact`-Area mit stabilem `Id`
   (`egui::Id::new(("pool_row", id))`), liefert `Response` für Click/Drag/Hover.
 
@@ -495,8 +538,11 @@ fn handle_pool_drag_complete(state, ctx, cmds) -> bool {
     let PoolDragState::Dragging { photo_ids } = std::mem::take(&mut state.pool_drag)
         else { return false; };
     if let Some(dst_page) = state.hovered_page {
-        cmds.insert(PendingCommand::Place { photo_ids: photo_ids.into_iter().collect(),
-                                            dst_page });
+        // Pool→Page-Drag liefert immer eine konkrete Zielseite.
+        cmds.insert(PendingCommand::Place {
+            photo_ids: photo_ids.into_iter().collect(),
+            dst_page: Some(dst_page),
+        });
         mark_page_dirty(state, dst_page);
     }
     true
@@ -504,6 +550,11 @@ fn handle_pool_drag_complete(state, ctx, cmds) -> bool {
 ```
 
 Rückgabewert unterdrückt wie bei Slot-Drag den folgenden Click-Handler.
+
+*Re-Place erlaubt:* Falls Fotos aus `photo_ids` bereits auf einer Seite liegen,
+wird das nicht blockiert — sie werden zusätzlich platziert. Die daraus
+resultierende Mehrfach-Platzierung wird in 4.2.14 optisch kenntlich gemacht und
+kann vom User per Unplace selbst aufgelöst werden.
 
 ### 4.2.13 Blaue Page-Overlay während Pool-Drag
 
@@ -520,37 +571,122 @@ if matches!(state.pool_drag, PoolDragState::Dragging { .. })
 
 Kein per-Slot-Highlight — Pool-Drop ist seitenweit.
 
-### 4.2.14 Toolbar-Button „Place“ + Hotkey `P`
+### 4.2.14 Duplikat-Indikatoren
 
-In `toolbar.rs`: `ui.button("Place")` sichtbar wenn
-`!state.pool_selection.is_empty() && state.hovered_page.is_some()`, sonst
-`ui.add_enabled(false, ...)`. Click → gleiche Dispatch-Logik wie unten.
+Drei Stellen teilen sich dieselbe Datenquelle — einen neuen Eintrag in
+`DerivedState`:
+
+```rust
+// gui/state/derived.rs
+pub struct DerivedState {
+    // … bestehende Felder …
+    /// photo-id → Liste aller Slots, die das Foto belegen. Leere Liste =
+    /// Foto liegt im Pool (nicht platziert). `rebuild` baut das in einem
+    /// Durchlauf über `layout` auf.
+    pub placed_locations: HashMap<String, Vec<(usize /*page*/, usize /*slot*/)>>,
+}
+
+impl DerivedState {
+    pub fn placed_count(&self, id: &str) -> usize {
+        self.placed_locations.get(id).map(|v| v.len()).unwrap_or(0)
+    }
+    pub fn duplicate_ids(&self) -> impl Iterator<Item = &String> {
+        self.placed_locations.iter().filter(|(_,v)| v.len() > 1).map(|(k,_)| k)
+    }
+}
+```
+
+`photo_is_placed(id) = placed_count(id) > 0` — bestehende Callsites ziehen mit.
+
+**Drei Indikatoren lesen daraus:**
+
+1. **Pool-Row-Badge** (4.2.8): Farbe aus `placed_count`; Tooltip-Zeilen aus
+   `placed_locations[id]`.
+2. **Statusbar-Segment** in `widgets/statusbar.rs`, nur sichtbar wenn
+   `derived.duplicate_ids().count() > 0`:
+
+   ```rust
+   let dup_count = state.derived.duplicate_ids().count();
+   if dup_count > 0 {
+       let resp = ui.label(format!("· {dup_count} Duplikate"));
+       if resp.hovered() { state.highlight_duplicates = true; }
+   }
+   ```
+
+   Neues GuiState-Feld `highlight_duplicates: bool` — wird pro Frame am
+   Ende von `ui()` wieder auf `false` gesetzt (einfach zu resetten, kein
+   komplexer Lifecycle).
+3. **Central-Overlay**: wenn `state.highlight_duplicates` gesetzt, zeichnet
+   `draw_page` über jeden Slot, dessen `photo_id` in
+   `derived.duplicate_ids()` enthalten ist, ein rotes Overlay
+   (`Color32::from_rgba_unmultiplied(220, 40, 40, 80)`). Lookup einmal pro
+   Frame cachen (`HashSet<&str>`), nicht pro Slot neu iterieren.
+
+Tests (pur):
+- `derived::placed_locations_counts_across_pages`.
+- `derived::duplicate_ids_lists_only_multiply_placed`.
+- `statusbar::duplicate_segment_hidden_when_none`.
+
+### 4.2.15 Toolbar-Button „Place“ + Hotkey `P`
+
+Das Lib-Command `place` ohne `--into-page` verteilt Fotos automatisch
+zeitstempel-basiert auf die Seiten. Der Button braucht daher **keine
+Zielseite** — er ist immer aktivierbar, sobald die Pool-Selektion nicht leer
+ist.
+
+`PendingCommand::Place` wird entsprechend auf optionale Zielseite erweitert:
+
+```rust
+PendingCommand::Place { photo_ids: Vec<String>, dst_page: Option<usize> }
+```
+
+- Drag Pool → Seite (4.2.12) setzt `dst_page = Some(hovered_page)`.
+- Button / Hotkey setzt `dst_page = None` → Lib verteilt automatisch.
+
+In `toolbar.rs`:
+
+```rust
+let enabled = !state.pool_selection.is_empty();
+if ui.add_enabled(enabled, egui::Button::new("Place")).clicked() {
+    cmds.insert(PendingCommand::Place {
+        photo_ids: state.pool_selection.ids().clone(),
+        dst_page: state.hovered_page,   // Some → into page, None → auto
+    });
+}
+```
 
 In `input_handler::handle`:
 
 ```rust
 fn handle_place_hotkey(state, ctx, cmds) {
     if !ctx.input_mut(|i| i.consume_key(Modifiers::NONE, Key::P)) { return; }
-    let Some(dst_page) = state.hovered_page else { return; };
     let ids = state.pool_selection.ids();
-    if ids.is_empty() { return; }
-    cmds.insert(PendingCommand::Place { photo_ids: ids.clone(), dst_page });
-    mark_page_dirty(state, dst_page);
+    if ids.is_empty() { return; }   // silent no-op
+    cmds.insert(PendingCommand::Place {
+        photo_ids: ids.clone(),
+        dst_page: state.hovered_page, // same semantics as button
+    });
 }
 ```
 
-Kein Toast-System in Phase 4 — silent no-op wenn `hovered_page=None` oder
-Selection leer. (Toast kommt in Phase 6.)
+Auf welche Seiten sich das Auto-Place auswirkt, entscheidet erst das
+Lib-Command im Worker — daher markiert der Dispatcher in diesem Fall **alle**
+`page_dirty`-Einträge (pauschal, analog zu `ConfigSet`), bevor er den Task
+sendet.
 
-### 4.2.15 Commits (Teil 2)
+### 4.2.16 Commits (Teil 2)
 
 3. `feat(gui): photo pool panel with selection + hover preview`
 4. `feat(gui): drag photos from pool to page`
-5. `feat(gui): place button and P hotkey`
+5. `feat(gui): duplicate indicators in pool, statusbar, central overlay`
+6. `feat(gui): place button and P hotkey (auto-distribute without target)`
 
 Tests:
-- `input_handler::place_hotkey_uses_hovered_page` (Commands enthält `Place`).
-- `input_handler::place_hotkey_no_op_without_hovered_page`.
+- `input_handler::place_hotkey_emits_place_with_hovered_page`
+  (→ `dst_page = Some(_)`).
+- `input_handler::place_hotkey_emits_place_without_target_when_no_hover`
+  (→ `dst_page = None`).
+- `input_handler::place_hotkey_no_op_when_selection_empty`.
 - `input_handler::pool_drag_complete_emits_place_on_hovered_page`.
 - `input_handler::pool_drag_complete_cancels_without_hovered_page`.
 
@@ -695,9 +831,17 @@ Tests:
 - [ ] Hover auf Pool-Row zeigt 256 px-Lupe.
 - [ ] Pool-Selection: Click / Ctrl+Click / Shift+Click funktionieren analog zur
       Slot-Selection.
-- [ ] RMB-Drag Pool → Seite platziert ausgewählte Fotos (`Place`).
-- [ ] Toolbar-Button „Place“ + `P` platzieren Selection auf gehoverter Seite.
+- [ ] RMB-Drag Pool → Seite platziert ausgewählte Fotos auf diese Seite.
+- [ ] Toolbar-Button „Place“ + `P` sind aktiv, sobald Selektion nicht leer ist;
+      ohne gehoverte Seite verteilt die Lib zeitstempel-basiert auf alle Seiten,
+      mit gehoverter Seite wird diese als Ziel genommen.
 - [ ] Seite unter Pool-Drag wird blau getönt (flat, nicht per-slot).
+- [ ] Badge am Pool-Eintrag: unsichtbar / grün / rot je nach
+      `placed_count` 0/1/>1. Hover listet alle Platzierungen als
+      `Page {p} Slot {s}`.
+- [ ] Statusbar zeigt „· N Duplikate“ wenn mindestens ein Foto mehrfach
+      platziert ist; Hover darauf überzieht alle betroffenen Slots im Central
+      mit einem roten Overlay.
 - [ ] Config-Fenster öffnet mit `Ctrl+,`, zeigt rekursiv alle BookConfig-Felder.
 - [ ] Edit eines Feldes committed erst bei Blur/Enter; Escape verwirft.
 - [ ] Config-Änderungen rendern alle Seiten neu.
