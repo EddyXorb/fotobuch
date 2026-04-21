@@ -1,5 +1,5 @@
 /// Whether the current drag gesture is a Swap or a Move operation.
-#[derive(Default, Clone, Copy, PartialEq, Eq)]
+#[derive(Default, Clone, Copy, PartialEq, Eq, Debug)]
 pub enum DragMode {
     #[default]
     Swap,
@@ -34,6 +34,25 @@ pub enum DragState {
         /// Used to compute the grab offset for the ghost rectangle.
         cursor_at_drag_start: egui::Pos2,
     },
+}
+
+/// Drag innerhalb des Nav-Panels (Seite ↔ Seite tauschen).
+#[derive(Default)]
+pub enum NavDragState {
+    #[default]
+    Idle,
+    Dragging {
+        src_page: usize,
+    },
+}
+
+/// Drag vom Foto-Pool auf eine Seite.
+#[derive(Default)]
+pub enum PoolDragState {
+    #[default]
+    Idle,
+    /// `photo_ids` ist ein Snapshot der Selektion beim drag_started.
+    Dragging { photo_ids: Vec<String> },
 }
 
 #[cfg(test)]

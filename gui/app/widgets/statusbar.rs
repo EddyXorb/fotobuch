@@ -1,10 +1,10 @@
 use crate::state::{DragState, GuiState, Selection};
 
-pub fn draw(ui: &mut egui::Ui, state: &GuiState) {
+pub fn draw(ui: &mut egui::Ui, state: &mut GuiState) {
     egui::Panel::bottom("statusbar").show_inside(ui, |ui| show(ui, state));
 }
 
-fn show(ui: &mut egui::Ui, state: &GuiState) {
+fn show(ui: &mut egui::Ui, state: &mut GuiState) {
     ui.horizontal(|ui| {
         let total = state.project_state.layout.len();
         let photos: usize = state

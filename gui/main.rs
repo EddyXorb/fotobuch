@@ -2,6 +2,7 @@ mod app;
 mod background;
 mod state;
 mod task;
+mod thumbnail;
 
 use app::FotobuchApp;
 

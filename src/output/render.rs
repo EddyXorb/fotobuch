@@ -1,4 +1,5 @@
 use anyhow::Result;
+use image::imageops::FilterType;
 
 use crate::output::typst::{RenderedPage, TypstWorld};
 use typst::layout::PagedDocument;
@@ -43,6 +44,38 @@ pub fn render_pages_with_world(
         .collect()
 }
 
+/// Verkleinert `src` so, dass die längste Kante ≤ `max_edge_px` ist.
+///
+/// Seitenverhältnis bleibt erhalten. Wenn `src` bereits kleiner ist, wird eine
+/// Kopie mit unveränderter Größe zurückgegeben.
+pub fn downsample(src: &RenderedPage, max_edge_px: u32) -> RenderedPage {
+    let (w, h) = (src.width, src.height);
+    let max_edge = w.max(h);
+    if max_edge <= max_edge_px || max_edge == 0 {
+        return RenderedPage {
+            page: src.page,
+            width: w,
+            height: h,
+            pixels: src.pixels.clone(),
+        };
+    }
+
+    let scale = max_edge_px as f64 / max_edge as f64;
+    let new_w = ((w as f64 * scale).round() as u32).max(1);
+    let new_h = ((h as f64 * scale).round() as u32).max(1);
+
+    let img = image::RgbaImage::from_raw(w, h, src.pixels.clone())
+        .expect("pixels must match width*height*4");
+    let resized = image::imageops::resize(&img, new_w, new_h, FilterType::Triangle);
+
+    RenderedPage {
+        page: src.page,
+        width: new_w,
+        height: new_h,
+        pixels: resized.into_raw(),
+    }
+}
+
 fn premultiplied_to_straight(pixels: &mut [u8]) {
     for chunk in pixels.chunks_exact_mut(4) {
         let a = chunk[3] as f32 / 255.0;
@@ -51,5 +84,46 @@ fn premultiplied_to_straight(pixels: &mut [u8]) {
             chunk[1] = (chunk[1] as f32 / a).min(255.0) as u8;
             chunk[2] = (chunk[2] as f32 / a).min(255.0) as u8;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_page(w: u32, h: u32) -> RenderedPage {
+        RenderedPage {
+            page: 0,
+            width: w,
+            height: h,
+            pixels: vec![128u8; (w * h * 4) as usize],
+        }
+    }
+
+    #[test]
+    fn downsample_clamps_to_max_edge() {
+        let src = make_page(400, 200);
+        let out = downsample(&src, 120);
+        assert!(out.width.max(out.height) <= 120);
+    }
+
+    #[test]
+    fn downsample_keeps_aspect_ratio() {
+        let src = make_page(400, 200); // 2:1
+        let out = downsample(&src, 120);
+        let ratio_src = src.width as f64 / src.height as f64;
+        let ratio_out = out.width as f64 / out.height as f64;
+        assert!(
+            (ratio_src - ratio_out).abs() < 0.05,
+            "aspect ratio changed: {ratio_src:.3} vs {ratio_out:.3}"
+        );
+    }
+
+    #[test]
+    fn downsample_noop_when_already_small() {
+        let src = make_page(80, 60);
+        let out = downsample(&src, 120);
+        assert_eq!(out.width, 80);
+        assert_eq!(out.height, 60);
     }
 }

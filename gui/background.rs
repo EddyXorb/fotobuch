@@ -5,13 +5,18 @@ use std::time::Instant;
 use crossbeam::channel::{Receiver, Sender, unbounded};
 use egui::Context;
 use fotobuch::commands::build::{BuildConfig, build};
+use fotobuch::commands::config::config_set;
 use fotobuch::commands::page::{DstMove, DstSwap, PageMoveCmd, SlotExpr, Src, execute_move};
+use fotobuch::commands::place::{PlaceConfig, place};
 use fotobuch::commands::undo::{redo, undo};
 use fotobuch::dto_models::ProjectState;
-use fotobuch::output::render::rasterize_page;
+use fotobuch::output::render::{downsample, rasterize_page};
 use fotobuch::output::typst_world::TypstWorld;
 
 use crate::task::{BackgroundResult, BackgroundTask};
+
+const NAV_THUMB_MAX_EDGE_PX: u32 = 120;
+const POOL_THUMB_MAX_EDGE_PX: u32 = 256;
 
 pub fn spawn(
     project_root: PathBuf,
@@ -116,6 +121,84 @@ pub fn spawn(
                 BackgroundTask::Redo { pixel_per_pt } => {
                     run_redo(
                         &project_root,
+                        &mut world,
+                        &pool,
+                        &result_tx,
+                        &repaint_ctx,
+                        pixel_per_pt,
+                    );
+                }
+
+                BackgroundTask::PageSwap {
+                    left,
+                    right,
+                    pixel_per_pt,
+                } => {
+                    use fotobuch::commands::page::{DstSwap, PageMoveCmd, PagesExpr, Src};
+                    let cmd = PageMoveCmd::Swap {
+                        left: Src::Pages(PagesExpr::single(left as u32)),
+                        right: DstSwap::Pages(PagesExpr::single(right as u32)),
+                    };
+                    run_page_command(
+                        &project_root,
+                        cmd,
+                        &mut world,
+                        &pool,
+                        &result_tx,
+                        &repaint_ctx,
+                        pixel_per_pt,
+                    );
+                }
+
+                BackgroundTask::LoadPhotoThumbnails { items } => {
+                    for (id, source) in items {
+                        let tx = result_tx.clone();
+                        let ctx = repaint_ctx.clone();
+                        pool.spawn(move || {
+                            match crate::thumbnail::load(&source, POOL_THUMB_MAX_EDGE_PX) {
+                                Ok((w, h, pixels)) => {
+                                    let _ = tx.send(BackgroundResult::PhotoThumbnailReady {
+                                        id,
+                                        width: w,
+                                        height: h,
+                                        pixels,
+                                    });
+                                    ctx.request_repaint();
+                                }
+                                Err(e) => {
+                                    tracing::warn!(%e, photo=%id, "thumb load failed");
+                                }
+                            }
+                        });
+                    }
+                }
+
+                BackgroundTask::PlacePhotos {
+                    photo_ids,
+                    dst_page,
+                    pixel_per_pt,
+                } => {
+                    run_place_photos(
+                        &project_root,
+                        photo_ids,
+                        dst_page,
+                        &mut world,
+                        &pool,
+                        &result_tx,
+                        &repaint_ctx,
+                        pixel_per_pt,
+                    );
+                }
+
+                BackgroundTask::ConfigSet {
+                    key,
+                    value,
+                    pixel_per_pt,
+                } => {
+                    run_config_set(
+                        &project_root,
+                        &key,
+                        &value,
                         &mut world,
                         &pool,
                         &result_tx,
@@ -305,8 +388,10 @@ fn render_pages(
             let t_raster = Instant::now();
             match rasterize_page(&doc, page, pixel_per_pt) {
                 Ok(rendered) => {
+                    let thumb = downsample(&rendered, NAV_THUMB_MAX_EDGE_PX);
                     let _ = tx.send(BackgroundResult::PageRendered {
                         page: rendered,
+                        thumb,
                         rasterize_duration: t_raster.elapsed(),
                         compile_duration,
                     });
@@ -317,6 +402,76 @@ fn render_pages(
                 }
             }
         });
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn run_place_photos(
+    project_root: &std::path::Path,
+    photo_ids: Vec<String>,
+    dst_page: Option<usize>,
+    world: &mut TypstWorld,
+    pool: &rayon::ThreadPool,
+    result_tx: &Sender<BackgroundResult>,
+    ctx: &Context,
+    pixel_per_pt: f32,
+) {
+    let config = PlaceConfig {
+        filters: vec![],
+        into_page: dst_page,
+    };
+    match place(project_root, &config) {
+        Err(e) => {
+            let _ = result_tx.send(BackgroundResult::CommandFailed(e.to_string()));
+        }
+        Ok(output) => {
+            let dirty = output.result.pages_affected;
+            let _ = photo_ids; // IDs were used to determine intent; place handles unplaced logic
+            send_command_done(
+                output.changed_state,
+                dirty,
+                world,
+                pool,
+                result_tx,
+                ctx,
+                pixel_per_pt,
+            );
+        }
+    }
+}
+
+fn run_config_set(
+    project_root: &std::path::Path,
+    key: &str,
+    value: &str,
+    world: &mut TypstWorld,
+    pool: &rayon::ThreadPool,
+    result_tx: &Sender<BackgroundResult>,
+    ctx: &Context,
+    pixel_per_pt: f32,
+) {
+    match config_set(project_root, key, value) {
+        Err(e) => {
+            let _ = result_tx.send(BackgroundResult::CommandFailed(e.to_string()));
+        }
+        Ok(output) => {
+            // Config change may affect all pages (e.g. page size, margins)
+            let num_pages = output
+                .changed_state
+                .as_ref()
+                .map(|s| s.layout.len())
+                .unwrap_or(0);
+            let all_pages: Vec<usize> = (0..num_pages).collect();
+            send_command_done(
+                output.changed_state,
+                all_pages,
+                world,
+                pool,
+                result_tx,
+                ctx,
+                pixel_per_pt,
+            );
+        }
     }
 }
 
@@ -371,11 +526,14 @@ mod tests {
         match result {
             BackgroundResult::PageRendered {
                 page: r,
+                thumb,
                 rasterize_duration,
                 compile_duration,
             } => {
                 assert_eq!(r.page, 0);
                 assert!(!r.pixels.is_empty());
+                assert_eq!(thumb.page, 0);
+                assert!(thumb.width <= 120 && thumb.height <= 120);
                 assert!(rasterize_duration.as_secs() < 30);
                 assert!(compile_duration.as_secs() < 30);
             }

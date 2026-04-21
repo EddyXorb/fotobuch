@@ -47,12 +47,13 @@ impl FotobuchApp {
         while let Ok(msg) = self.result_rx.try_recv() {
             match msg {
                 BackgroundResult::PageRendered {
-                    page: r,
+                    page: full,
+                    thumb,
                     rasterize_duration,
                     compile_duration,
                 } => {
-                    let page_idx = r.page;
-                    state::apply_rendered(&mut self.state, ctx, r);
+                    let page_idx = full.page;
+                    state::apply_rendered(&mut self.state, ctx, full, thumb);
                     self.state.timings.record_render(
                         page_idx,
                         rasterize_duration,
@@ -69,6 +70,22 @@ impl FotobuchApp {
                         self.state.derived =
                             crate::state::DerivedState::rebuild(&self.state.project_state);
                         state::resize_page_vecs(&mut self.state, num_pages);
+                        // Rebuild prefetch queue after command
+                        let loaded_or_inflight: HashSet<String> = self
+                            .state
+                            .photo_thumbs
+                            .keys()
+                            .chain(self.state.photo_thumb_in_flight.iter())
+                            .cloned()
+                            .collect();
+                        self.state.photo_thumb_prefetch = self
+                            .state
+                            .derived
+                            .photo_by_id
+                            .keys()
+                            .filter(|id| !loaded_or_inflight.contains(*id))
+                            .cloned()
+                            .collect();
                         for &p in &dirty_pages {
                             if let Some(d) = self.state.page_dirty.get_mut(p) {
                                 *d = true;
@@ -88,6 +105,25 @@ impl FotobuchApp {
                 }
                 BackgroundResult::Error(e) => {
                     tracing::error!(%e, "render error");
+                }
+                BackgroundResult::PhotoThumbnailReady {
+                    id,
+                    width,
+                    height,
+                    pixels,
+                } => {
+                    if !self.state.derived.photo_by_id.contains_key(&id) {
+                        self.state.photo_thumb_in_flight.remove(&id);
+                        continue;
+                    }
+                    let img = egui::ColorImage::from_rgba_unmultiplied(
+                        [width as _, height as _],
+                        &pixels,
+                    );
+                    let tex =
+                        ctx.load_texture(format!("thumb_{id}"), img, egui::TextureOptions::LINEAR);
+                    self.state.photo_thumbs.insert(id.clone(), tex);
+                    self.state.photo_thumb_in_flight.remove(&id);
                 }
             }
         }
@@ -121,6 +157,36 @@ impl FotobuchApp {
                 },
                 PendingCommand::Undo => BackgroundTask::Undo { pixel_per_pt: ppt },
                 PendingCommand::Redo => BackgroundTask::Redo { pixel_per_pt: ppt },
+                PendingCommand::Place {
+                    photo_ids,
+                    dst_page,
+                } => BackgroundTask::PlacePhotos {
+                    photo_ids,
+                    dst_page,
+                    pixel_per_pt: ppt,
+                },
+                PendingCommand::PageSwap { left, right } => {
+                    for &p in &[left, right] {
+                        if let Some(d) = self.state.page_dirty.get_mut(p) {
+                            *d = true;
+                        }
+                    }
+                    BackgroundTask::PageSwap {
+                        left,
+                        right,
+                        pixel_per_pt: ppt,
+                    }
+                }
+                PendingCommand::ConfigSet { key, value } => {
+                    for d in &mut self.state.page_dirty {
+                        *d = true;
+                    }
+                    BackgroundTask::ConfigSet {
+                        key,
+                        value,
+                        pixel_per_pt: ppt,
+                    }
+                }
             };
             let _ = self.task_tx.send(task);
         }
@@ -138,11 +204,22 @@ impl eframe::App for FotobuchApp {
         self.state.timings.drain_results = t.elapsed();
 
         let mut cmds = widgets::toolbar::draw(ui, &mut self.state);
-        widgets::statusbar::draw(ui, &self.state);
+        widgets::statusbar::draw(ui, &mut self.state);
+
+        // Side panels must come before the central panel (egui ordering requirement).
+        widgets::photo_pool::draw(ui, &mut self.state, &mut cmds);
+        widgets::page_nav::draw(ui, &mut self.state, &mut cmds);
 
         let t = Instant::now();
         widgets::central_panel::draw(ui, &mut self.state);
         self.state.timings.show_pages = t.elapsed();
+
+        if self.state.config_panel.open {
+            widgets::config_window::show(&ctx, &mut self.state, &mut cmds);
+        }
+
+        // Reset per-frame flag after all widgets have drawn.
+        self.state.highlight_duplicates = false;
 
         // Input handling runs after central panel so that hovered_slot reflects the current
         // frame — prevents toolbar clicks from accidentally triggering a drag.

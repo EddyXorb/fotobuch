@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use std::time::Duration;
 
 use fotobuch::dto_models::ProjectState;
@@ -27,12 +28,36 @@ pub enum BackgroundTask {
     Redo {
         pixel_per_pt: f32,
     },
+    /// Nav-Drag: ganze Seiten tauschen.
+    PageSwap {
+        left: usize,
+        right: usize,
+        pixel_per_pt: f32,
+    },
+    /// Foto-Thumbnails laden (Pool-Panel).
+    LoadPhotoThumbnails {
+        items: Vec<(String, PathBuf)>,
+    },
+    /// Fotos platzieren — konkrete Zielseite oder auto-distribute.
+    PlacePhotos {
+        photo_ids: Vec<String>,
+        dst_page: Option<usize>,
+        pixel_per_pt: f32,
+    },
+    /// `config set key value` im Background.
+    ConfigSet {
+        key: String,
+        value: String,
+        pixel_per_pt: f32,
+    },
 }
 
 #[derive(Debug)]
 pub enum BackgroundResult {
     PageRendered {
         page: RenderedPage,
+        /// Downsample (längste Kante ~120 px) für das Nav-Panel.
+        thumb: RenderedPage,
         /// Time spent rasterising this single page.
         rasterize_duration: Duration,
         /// Time spent on `compile_document` for the task this page belongs to.
@@ -49,4 +74,11 @@ pub enum BackgroundResult {
     /// A command failed (user-visible error, not a render error).
     CommandFailed(String),
     Error(String),
+    PhotoThumbnailReady {
+        id: String,
+        width: u32,
+        height: u32,
+        /// Straight-alpha RGBA.
+        pixels: Vec<u8>,
+    },
 }
