@@ -221,6 +221,11 @@ impl eframe::App for FotobuchApp {
         // Reset per-frame flag after all widgets have drawn.
         self.state.highlight_duplicates = false;
 
+        // Flush pending thumbnail loads collected during widget drawing.
+        if let Some(task) = widgets::photo_pool::flush_thumb_loads(&mut self.state) {
+            let _ = self.task_tx.send(task);
+        }
+
         // Input handling runs after central panel so that hovered_slot reflects the current
         // frame — prevents toolbar clicks from accidentally triggering a drag.
         let t = Instant::now();

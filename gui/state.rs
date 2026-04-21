@@ -13,6 +13,7 @@ pub use selection::Selection;
 pub use timings::Timings;
 
 use std::collections::{HashMap, HashSet, VecDeque};
+use std::path::PathBuf;
 
 use egui::{ColorImage, Context, TextureHandle, TextureOptions};
 use fotobuch::dto_models::ProjectState;
@@ -50,6 +51,8 @@ pub struct GuiState {
     pub highlight_duplicates: bool,
     pub config_panel: ConfigPanelState,
     pub timings: Timings,
+    /// Thumbnail-Lade-Aufträge, die am Frame-Ende als BackgroundTask geflusht werden.
+    pub pending_thumb_loads: Vec<(String, PathBuf)>,
 }
 
 impl GuiState {
@@ -79,6 +82,7 @@ impl GuiState {
             highlight_duplicates: false,
             config_panel: ConfigPanelState::default(),
             timings: Timings::default(),
+            pending_thumb_loads: Vec::new(),
         }
     }
 }
