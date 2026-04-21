@@ -1,13 +1,14 @@
-use crate::state::{DragMode, DragState, GuiState};
+use crate::state::{DragMode, DragState, GuiState, PoolDragState};
 
 use super::super::geometry;
 use super::{draw_drag_ghosts, helpers};
 
+/// Returns `(hovered_slot, over_page, page_rect)`.
 pub(super) fn draw_page(
     ui: &mut egui::Ui,
     state: &GuiState,
     page_idx: usize,
-) -> (Option<usize>, bool) {
+) -> (Option<usize>, bool, egui::Rect) {
     ui.label(format!("Page {page_idx}"));
 
     let (page_width_mm, page_height_mm) = state.project_state.page_dimensions_mm(page_idx);
@@ -26,6 +27,15 @@ pub(super) fn draw_page(
         let (hovered_slot, over_page) =
             hit_test_pointer(ui, page_rect, layout_page, page_width_mm, page_height_mm);
         draw_page_move_highlight(ui, state, page_idx, page_rect, over_page);
+        draw_pool_drag_overlay(ui, state, page_idx, page_rect);
+        draw_duplicate_overlay(
+            ui,
+            state,
+            page_idx,
+            page_rect,
+            page_width_mm,
+            page_height_mm,
+        );
         draw_drag_ghosts::draw_drag_ghosts(
             ui,
             state,
@@ -34,9 +44,9 @@ pub(super) fn draw_page(
             page_width_mm,
             page_height_mm,
         );
-        (hovered_slot, over_page)
+        (hovered_slot, over_page, page_rect)
     } else {
-        (None, false)
+        (None, false, page_rect)
     }
 }
 
@@ -181,4 +191,65 @@ fn draw_page_move_highlight(
         egui::Stroke::new(3.0, egui::Color32::from_rgba_unmultiplied(0, 200, 80, 180)),
         egui::StrokeKind::Inside,
     );
+}
+
+/// Blaues Overlay, wenn ein Pool-Drag über dieser Seite ist.
+fn draw_pool_drag_overlay(
+    ui: &mut egui::Ui,
+    state: &GuiState,
+    page_idx: usize,
+    page_rect: egui::Rect,
+) {
+    if matches!(state.pool_drag, PoolDragState::Dragging { .. })
+        && state.hovered_page == Some(page_idx)
+    {
+        ui.painter().rect_filled(
+            page_rect,
+            0.0,
+            egui::Color32::from_rgba_unmultiplied(64, 128, 255, 48),
+        );
+    }
+}
+
+/// Rotes Overlay über Slots, die mehrfach platzierte Fotos belegen (wenn highlight_duplicates).
+fn draw_duplicate_overlay(
+    ui: &mut egui::Ui,
+    state: &GuiState,
+    page_idx: usize,
+    page_rect: egui::Rect,
+    page_width_mm: f64,
+    page_height_mm: f64,
+) {
+    if !state.highlight_duplicates {
+        return;
+    }
+    let layout_page = match state.project_state.layout.get(page_idx) {
+        Some(lp) => lp,
+        None => return,
+    };
+    let dup_ids: std::collections::HashSet<&str> = state
+        .derived
+        .placed_locations
+        .iter()
+        .filter(|(_, locs)| locs.len() > 1)
+        .map(|(id, _)| id.as_str())
+        .collect();
+
+    let painter = ui.painter();
+    for (slot_idx, slot) in layout_page.slots.iter().enumerate() {
+        let photo_id = layout_page
+            .photos
+            .get(slot_idx)
+            .map(String::as_str)
+            .unwrap_or("");
+        if dup_ids.contains(photo_id) {
+            let slot_rect =
+                geometry::slot_rect_on_screen(page_rect, page_width_mm, page_height_mm, slot);
+            painter.rect_filled(
+                slot_rect,
+                0.0,
+                egui::Color32::from_rgba_unmultiplied(220, 40, 40, 80),
+            );
+        }
+    }
 }

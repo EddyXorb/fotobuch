@@ -1,5 +1,6 @@
 use crate::state::GuiState;
 
+use super::super::page_nav;
 use super::draw_page;
 
 pub(super) fn draw_pages(ui: &mut egui::Ui, state: &mut GuiState) {
@@ -21,7 +22,7 @@ pub(super) fn draw_pages(ui: &mut egui::Ui, state: &mut GuiState) {
         .show(ui, |ui| {
             ui.vertical_centered(|ui| {
                 for i in 0..num_pages {
-                    let (slot_idx, over_page) = draw_page::draw_page(ui, state, i);
+                    let (slot_idx, over_page, page_rect) = draw_page::draw_page(ui, state, i);
                     if let Some(slot_idx) = slot_idx
                         && new_hovered.is_none()
                     {
@@ -30,6 +31,7 @@ pub(super) fn draw_pages(ui: &mut egui::Ui, state: &mut GuiState) {
                     if over_page && new_hovered_page.is_none() {
                         new_hovered_page = Some(i);
                     }
+                    page_nav::apply_scroll_if_needed(ui, state, i, page_rect);
                 }
             });
         });
