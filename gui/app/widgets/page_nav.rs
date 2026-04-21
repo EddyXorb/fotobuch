@@ -81,28 +81,28 @@ fn show(ui: &mut egui::Ui, state: &mut GuiState, cmds: &mut HashSet<PendingComma
                 }
 
                 // --- Nav-Drag: page ↔ page swap (right mouse button) ---
-                if response.drag_started_by(egui::PointerButton::Secondary) {
-                    if matches!(state.nav_drag, NavDragState::Idle) {
-                        state.nav_drag = NavDragState::Dragging { src_page: i };
-                    }
+                if response.drag_started_by(egui::PointerButton::Secondary)
+                    && matches!(state.nav_drag, NavDragState::Idle)
+                {
+                    state.nav_drag = NavDragState::Dragging { src_page: i };
                 }
 
-                if response.drag_stopped_by(egui::PointerButton::Secondary) {
-                    if let NavDragState::Dragging { src_page } = state.nav_drag {
-                        if src_page != i {
-                            cmds.insert(PendingCommand::PageSwap {
-                                left: src_page,
-                                right: i,
-                            });
-                            if let Some(d) = state.page_dirty.get_mut(src_page) {
-                                *d = true;
-                            }
-                            if let Some(d) = state.page_dirty.get_mut(i) {
-                                *d = true;
-                            }
+                if response.drag_stopped_by(egui::PointerButton::Secondary)
+                    && let NavDragState::Dragging { src_page } = state.nav_drag
+                {
+                    if src_page != i {
+                        cmds.insert(PendingCommand::PageSwap {
+                            left: src_page,
+                            right: i,
+                        });
+                        if let Some(d) = state.page_dirty.get_mut(src_page) {
+                            *d = true;
                         }
-                        state.nav_drag = NavDragState::Idle;
+                        if let Some(d) = state.page_dirty.get_mut(i) {
+                            *d = true;
+                        }
                     }
+                    state.nav_drag = NavDragState::Idle;
                 }
 
                 ui.add_space(4.0);
@@ -110,10 +110,10 @@ fn show(ui: &mut egui::Ui, state: &mut GuiState, cmds: &mut HashSet<PendingComma
         });
 
     // Central-drag over nav thumb → set hovered_page so existing drop logic fires.
-    if let Some(nav_page) = hovered_nav_page {
-        if !matches!(state.drag, crate::state::DragState::Idle) {
-            state.hovered_page = Some(nav_page);
-        }
+    if let Some(nav_page) = hovered_nav_page
+        && !matches!(state.drag, crate::state::DragState::Idle)
+    {
+        state.hovered_page = Some(nav_page);
     }
 }
 
