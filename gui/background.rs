@@ -1,27 +1,21 @@
+mod commands;
+mod render;
+
 use std::path::PathBuf;
-use std::sync::Arc;
-use std::time::Instant;
 
 use crossbeam::channel::{Receiver, Sender, unbounded};
 use egui::Context;
-use fotobuch::commands::build::{BuildConfig, build};
-use fotobuch::commands::config::config_set;
-use fotobuch::commands::page::{DstMove, DstSwap, PageMoveCmd, SlotExpr, Src, execute_move};
-use fotobuch::commands::place::{PlaceConfig, place};
-use fotobuch::commands::undo::{redo, undo};
-use fotobuch::dto_models::ProjectState;
-use fotobuch::output::render::{downsample, rasterize_page};
 use fotobuch::output::typst_world::TypstWorld;
 
 use crate::task::{BackgroundResult, BackgroundTask};
 
-const NAV_THUMB_MAX_EDGE_PX: u32 = 512;
-const POOL_THUMB_MAX_EDGE_PX: u32 = 256;
+pub(super) const NAV_THUMB_MAX_EDGE_PX: u32 = 512;
+pub(super) const POOL_THUMB_MAX_EDGE_PX: u32 = 256;
 
 pub fn spawn(
     project_root: PathBuf,
     project_name: String,
-    repaint_ctx: egui::Context,
+    repaint_ctx: Context,
 ) -> (Sender<BackgroundTask>, Receiver<BackgroundResult>) {
     let (task_tx, task_rx) = unbounded::<BackgroundTask>();
     let (result_tx, result_rx) = unbounded::<BackgroundResult>();
@@ -43,7 +37,7 @@ pub fn spawn(
                     pages,
                     pixel_per_pt,
                 } => {
-                    render_pages(
+                    render::render_pages(
                         &mut world,
                         &pool,
                         &result_tx,
@@ -52,7 +46,6 @@ pub fn spawn(
                         &repaint_ctx,
                     );
                 }
-
                 BackgroundTask::SwapSlots {
                     src_page,
                     src_slot,
@@ -60,19 +53,12 @@ pub fn spawn(
                     dst_slot,
                     pixel_per_pt,
                 } => {
-                    let cmd = PageMoveCmd::Swap {
-                        left: Src::Slots {
-                            page: src_page as u32,
-                            slots: SlotExpr::single(src_slot as u32),
-                        },
-                        right: DstSwap::Slots {
-                            page: dst_page as u32,
-                            slots: SlotExpr::single(dst_slot as u32),
-                        },
-                    };
-                    run_page_command(
+                    commands::run_swap_slots(
                         &project_root,
-                        cmd,
+                        src_page,
+                        src_slot,
+                        dst_page,
+                        dst_slot,
                         &mut world,
                         &pool,
                         &result_tx,
@@ -80,25 +66,17 @@ pub fn spawn(
                         pixel_per_pt,
                     );
                 }
-
                 BackgroundTask::MoveSlot {
                     src_page,
                     src_slots,
                     dst_page,
                     pixel_per_pt,
                 } => {
-                    let cmd = PageMoveCmd::Move {
-                        src: Src::Slots {
-                            page: src_page as u32,
-                            slots: SlotExpr::from_list(
-                                src_slots.iter().map(|&s| s as u32).collect(),
-                            ),
-                        },
-                        dst: DstMove::Page(dst_page as u32),
-                    };
-                    run_page_command(
+                    commands::run_move_slot(
                         &project_root,
-                        cmd,
+                        src_page,
+                        src_slots,
+                        dst_page,
                         &mut world,
                         &pool,
                         &result_tx,
@@ -106,9 +84,8 @@ pub fn spawn(
                         pixel_per_pt,
                     );
                 }
-
                 BackgroundTask::Undo { pixel_per_pt } => {
-                    run_undo(
+                    commands::run_undo(
                         &project_root,
                         &mut world,
                         &pool,
@@ -117,9 +94,8 @@ pub fn spawn(
                         pixel_per_pt,
                     );
                 }
-
                 BackgroundTask::Redo { pixel_per_pt } => {
-                    run_redo(
+                    commands::run_redo(
                         &project_root,
                         &mut world,
                         &pool,
@@ -128,20 +104,15 @@ pub fn spawn(
                         pixel_per_pt,
                     );
                 }
-
                 BackgroundTask::PageSwap {
                     left,
                     right,
                     pixel_per_pt,
                 } => {
-                    use fotobuch::commands::page::{DstSwap, PageMoveCmd, PagesExpr, Src};
-                    let cmd = PageMoveCmd::Swap {
-                        left: Src::Pages(PagesExpr::single(left as u32)),
-                        right: DstSwap::Pages(PagesExpr::single(right as u32)),
-                    };
-                    run_page_command(
+                    commands::run_page_swap(
                         &project_root,
-                        cmd,
+                        left,
+                        right,
                         &mut world,
                         &pool,
                         &result_tx,
@@ -149,17 +120,15 @@ pub fn spawn(
                         pixel_per_pt,
                     );
                 }
-
                 BackgroundTask::LoadPhotoThumbnails { items } => {
-                    run_load_photo_thumbnails(items, &pool, &result_tx, &repaint_ctx);
+                    commands::run_load_photo_thumbnails(items, &pool, &result_tx, &repaint_ctx);
                 }
-
                 BackgroundTask::PlacePhotos {
                     photo_ids,
                     dst_page,
                     pixel_per_pt,
                 } => {
-                    run_place_photos(
+                    commands::run_place_photos(
                         &project_root,
                         photo_ids,
                         dst_page,
@@ -170,13 +139,12 @@ pub fn spawn(
                         pixel_per_pt,
                     );
                 }
-
                 BackgroundTask::ConfigSet {
                     key,
                     value,
                     pixel_per_pt,
                 } => {
-                    run_config_set(
+                    commands::run_config_set(
                         &project_root,
                         &key,
                         &value,
@@ -192,308 +160,6 @@ pub fn spawn(
     });
 
     (task_tx, result_rx)
-}
-
-// ── Internal helpers ──────────────────────────────────────────────────────────
-
-fn run_load_photo_thumbnails(
-    items: Vec<(String, std::path::PathBuf)>,
-    pool: &rayon::ThreadPool,
-    result_tx: &Sender<BackgroundResult>,
-    repaint_ctx: &Context,
-) {
-    for (id, source) in items {
-        let tx = result_tx.clone();
-        let ctx = repaint_ctx.clone();
-        pool.spawn(
-            move || match crate::thumbnail::load(&source, POOL_THUMB_MAX_EDGE_PX) {
-                Ok((w, h, pixels)) => {
-                    let _ = tx.send(BackgroundResult::PhotoThumbnailReady {
-                        id,
-                        width: w,
-                        height: h,
-                        pixels,
-                    });
-                    ctx.request_repaint();
-                }
-                Err(e) => {
-                    tracing::warn!(%e, photo=%id, "thumb load failed");
-                }
-            },
-        );
-    }
-}
-
-fn run_page_command(
-    project_root: &std::path::Path,
-    cmd: PageMoveCmd,
-    world: &mut TypstWorld,
-    pool: &rayon::ThreadPool,
-    result_tx: &Sender<BackgroundResult>,
-    ctx: &Context,
-    pixel_per_pt: f32,
-) {
-    let move_output = match execute_move(project_root, cmd) {
-        Err(e) => {
-            let _ = result_tx.send(BackgroundResult::CommandFailed(e.to_string()));
-            return;
-        }
-        Ok(o) => o,
-    };
-
-    if move_output.changed_state.is_none() {
-        send_command_done(None, vec![], world, pool, result_tx, ctx, pixel_per_pt);
-        return;
-    }
-
-    let move_dirty: Vec<usize> = move_output
-        .result
-        .pages_modified
-        .iter()
-        .chain(move_output.result.pages_inserted.iter())
-        .map(|&p| p as usize)
-        .collect();
-
-    let build_cfg = BuildConfig {
-        release: false,
-        force: false,
-        pages: None,
-    };
-    match build(project_root, &build_cfg) {
-        Err(e) => {
-            let _ = result_tx.send(BackgroundResult::CommandFailed(e.to_string()));
-        }
-        Ok(build_output) => {
-            let new_state = build_output.changed_state.or(move_output.changed_state);
-            let mut dirty = move_dirty;
-            for p in build_output.result.pages_rebuilt {
-                if !dirty.contains(&p) {
-                    dirty.push(p);
-                }
-            }
-            send_command_done(new_state, dirty, world, pool, result_tx, ctx, pixel_per_pt);
-        }
-    }
-}
-
-fn run_undo(
-    project_root: &std::path::Path,
-    world: &mut TypstWorld,
-    pool: &rayon::ThreadPool,
-    result_tx: &Sender<BackgroundResult>,
-    ctx: &Context,
-    pixel_per_pt: f32,
-) {
-    run_undo_or_redo(
-        undo(project_root, 1),
-        world,
-        pool,
-        result_tx,
-        ctx,
-        pixel_per_pt,
-    );
-}
-
-fn run_redo(
-    project_root: &std::path::Path,
-    world: &mut TypstWorld,
-    pool: &rayon::ThreadPool,
-    result_tx: &Sender<BackgroundResult>,
-    ctx: &Context,
-    pixel_per_pt: f32,
-) {
-    run_undo_or_redo(
-        redo(project_root, 1),
-        world,
-        pool,
-        result_tx,
-        ctx,
-        pixel_per_pt,
-    );
-}
-
-fn run_undo_or_redo(
-    result: anyhow::Result<fotobuch::commands::CommandOutput<fotobuch::commands::UndoResult>>,
-    world: &mut TypstWorld,
-    pool: &rayon::ThreadPool,
-    result_tx: &Sender<BackgroundResult>,
-    ctx: &Context,
-    pixel_per_pt: f32,
-) {
-    match result {
-        Err(e) => {
-            let _ = result_tx.send(BackgroundResult::CommandFailed(e.to_string()));
-        }
-        Ok(output) => {
-            let new_state = output.changed_state;
-            let num_pages = new_state.as_ref().map_or(0, |s| s.layout.len());
-            let all_pages: Vec<usize> = (0..num_pages).collect();
-            send_command_done(
-                new_state,
-                all_pages,
-                world,
-                pool,
-                result_tx,
-                ctx,
-                pixel_per_pt,
-            );
-        }
-    }
-}
-
-/// Sends `CommandDone` and then kicks off re-rendering of the dirty pages.
-fn send_command_done(
-    new_state: Option<ProjectState>,
-    dirty_pages: Vec<usize>,
-    world: &mut TypstWorld,
-    pool: &rayon::ThreadPool,
-    result_tx: &Sender<BackgroundResult>,
-    ctx: &Context,
-    pixel_per_pt: f32,
-) {
-    let has_change = new_state.is_some();
-    let _ = result_tx.send(BackgroundResult::CommandDone {
-        new_state: new_state.map(Box::new),
-        dirty_pages: dirty_pages.clone(),
-    });
-    if has_change {
-        render_pages(world, pool, result_tx, dirty_pages, pixel_per_pt, ctx);
-    }
-    ctx.request_repaint();
-}
-
-fn render_pages(
-    world: &mut TypstWorld,
-    pool: &rayon::ThreadPool,
-    result_tx: &Sender<BackgroundResult>,
-    pages: Vec<usize>,
-    pixel_per_pt: f32,
-    ctx: &Context,
-) {
-    if pages.is_empty() {
-        return;
-    }
-    if let Err(e) = world.reload() {
-        let _ = result_tx.send(BackgroundResult::Error(e.to_string()));
-        return;
-    }
-
-    let t_compile = Instant::now();
-    let doc = match world.compile_document() {
-        Ok(d) => d,
-        Err(e) => {
-            let _ = result_tx.send(BackgroundResult::Error(e.to_string()));
-            return;
-        }
-    };
-    let compile_duration = t_compile.elapsed();
-    let doc_page_count = doc.pages.len();
-
-    // Notify the GUI of the real page count so it can resize its vectors.
-    // This is sent before any PageRendered so the slots exist when textures arrive.
-    let _ = result_tx.send(BackgroundResult::TotalPageCount(doc_page_count));
-
-    // Extend the render list with any extra pages beyond the requested set
-    // (e.g. appendix pages that live past layout.len()).
-    let max_requested = pages.iter().copied().max().unwrap_or(0);
-    let extra_pages = (max_requested + 1)..doc_page_count;
-    let all_pages: Vec<usize> = pages.into_iter().chain(extra_pages).collect();
-
-    let doc = Arc::new(doc);
-    for page in all_pages {
-        let doc = Arc::clone(&doc);
-        let tx = result_tx.clone();
-        let ctx = ctx.clone();
-        pool.spawn(move || {
-            let t_raster = Instant::now();
-            match rasterize_page(&doc, page, pixel_per_pt) {
-                Ok(rendered) => {
-                    let thumb = downsample(&rendered, NAV_THUMB_MAX_EDGE_PX);
-                    let _ = tx.send(BackgroundResult::PageRendered {
-                        page: rendered,
-                        thumb,
-                        rasterize_duration: t_raster.elapsed(),
-                        compile_duration,
-                    });
-                    ctx.request_repaint();
-                }
-                Err(e) => {
-                    let _ = tx.send(BackgroundResult::Error(e.to_string()));
-                }
-            }
-        });
-    }
-}
-
-#[allow(clippy::too_many_arguments)]
-fn run_place_photos(
-    project_root: &std::path::Path,
-    photo_ids: Vec<String>,
-    dst_page: Option<usize>,
-    world: &mut TypstWorld,
-    pool: &rayon::ThreadPool,
-    result_tx: &Sender<BackgroundResult>,
-    ctx: &Context,
-    pixel_per_pt: f32,
-) {
-    let config = PlaceConfig {
-        filters: vec![],
-        into_page: dst_page,
-    };
-    match place(project_root, &config) {
-        Err(e) => {
-            let _ = result_tx.send(BackgroundResult::CommandFailed(e.to_string()));
-        }
-        Ok(output) => {
-            let dirty = output.result.pages_affected;
-            let _ = photo_ids; // IDs were used to determine intent; place handles unplaced logic
-            send_command_done(
-                output.changed_state,
-                dirty,
-                world,
-                pool,
-                result_tx,
-                ctx,
-                pixel_per_pt,
-            );
-        }
-    }
-}
-
-#[allow(clippy::too_many_arguments)]
-fn run_config_set(
-    project_root: &std::path::Path,
-    key: &str,
-    value: &str,
-    world: &mut TypstWorld,
-    pool: &rayon::ThreadPool,
-    result_tx: &Sender<BackgroundResult>,
-    ctx: &Context,
-    pixel_per_pt: f32,
-) {
-    match config_set(project_root, key, value) {
-        Err(e) => {
-            let _ = result_tx.send(BackgroundResult::CommandFailed(e.to_string()));
-        }
-        Ok(output) => {
-            // Config change may affect all pages (e.g. page size, margins)
-            let num_pages = output
-                .changed_state
-                .as_ref()
-                .map(|s| s.layout.len())
-                .unwrap_or(0);
-            let all_pages: Vec<usize> = (0..num_pages).collect();
-            send_command_done(
-                output.changed_state,
-                all_pages,
-                world,
-                pool,
-                result_tx,
-                ctx,
-                pixel_per_pt,
-            );
-        }
-    }
 }
 
 fn build_pool() -> rayon::ThreadPool {
@@ -540,8 +206,6 @@ mod tests {
             })
             .unwrap();
 
-        // render_pages sends TotalPageCount first, then PageRendered from a rayon thread.
-        // Receive both within 30s; accept either order.
         let timeout = Duration::from_secs(30);
         let mut page_rendered = false;
         let mut total_page_count: Option<usize> = None;
