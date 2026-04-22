@@ -55,7 +55,7 @@ fn place_button(ui: &mut egui::Ui, state: &mut GuiState, cmds: &mut HashSet<Pend
         .add_enabled(place_enabled, egui::Button::new("Place"))
         .clicked()
     {
-        for d in &mut state.page_dirty {
+        for d in &mut state.cache.dirty {
             *d = true;
         }
         cmds.insert(PendingCommand::Place {

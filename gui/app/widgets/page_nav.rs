@@ -18,7 +18,7 @@ pub fn draw(ui: &mut egui::Ui, state: &mut GuiState, cmds: &mut HashSet<PendingC
 
 fn show(ui: &mut egui::Ui, state: &mut GuiState, _cmds: &mut HashSet<PendingCommand>) {
     let panel_width = ui.available_width();
-    let num_pages = state.page_thumb_textures.len();
+    let num_pages = state.cache.thumb_textures.len();
 
     egui::ScrollArea::vertical()
         .auto_shrink([false; 2])
@@ -49,7 +49,7 @@ fn show(ui: &mut egui::Ui, state: &mut GuiState, _cmds: &mut HashSet<PendingComm
 }
 
 fn draw_thumb(state: &GuiState, page_idx: usize, rect: egui::Rect, painter: &egui::Painter) {
-    if let Some(Some(tex)) = state.page_thumb_textures.get(page_idx) {
+    if let Some(Some(tex)) = state.cache.thumb_textures.get(page_idx) {
         painter.image(
             tex.id(),
             rect,
@@ -116,7 +116,7 @@ fn compute_thumb_size(state: &GuiState, page_idx: usize, panel_width: f32) -> eg
         w * A4_ASPECT
     };
 
-    if let Some(Some(tex)) = state.page_thumb_textures.get(page_idx) {
+    if let Some(Some(tex)) = state.cache.thumb_textures.get(page_idx) {
         let sz = tex.size_vec2();
         if sz.x > 0.0 {
             return egui::vec2(w, w * sz.y / sz.x);

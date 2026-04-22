@@ -40,7 +40,7 @@ fn render_page_image(
     page_idx: usize,
     size: egui::Vec2,
 ) -> egui::Rect {
-    let rect = if let Some(tex) = &state.page_textures[page_idx] {
+    let rect = if let Some(tex) = &state.cache.textures[page_idx] {
         ui.add(egui::Image::from_texture(tex).fit_to_exact_size(size))
             .rect
     } else {
@@ -50,7 +50,7 @@ fn render_page_image(
         r
     };
 
-    if state.page_dirty.get(page_idx).copied().unwrap_or(false) {
+    if state.cache.dirty.get(page_idx).copied().unwrap_or(false) {
         ui.painter().rect_filled(
             rect,
             0.0,

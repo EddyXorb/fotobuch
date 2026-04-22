@@ -6,7 +6,7 @@ use super::draw_page;
 pub(super) fn draw_pages(ui: &mut egui::Ui, state: &mut GuiState) -> Option<HoveredTarget> {
     // Use page_textures.len() rather than layout.len() so that extra pages
     // produced by Typst (e.g. appendix) are also rendered and displayed.
-    let num_pages = state.page_textures.len();
+    let num_pages = state.cache.textures.len();
     let mut hovered: Option<HoveredTarget> = None;
 
     let rmbactive = ui.input(|i| {

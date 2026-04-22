@@ -133,12 +133,12 @@ impl FotobuchApp {
                 .cloned()
                 .collect();
             for &p in &dirty_pages {
-                if let Some(d) = self.state.page_dirty.get_mut(p) {
+                if let Some(d) = self.state.cache.dirty.get_mut(p) {
                     *d = true;
                 }
             }
         } else {
-            for d in &mut self.state.page_dirty {
+            for d in &mut self.state.cache.dirty {
                 *d = false;
             }
         }
@@ -146,7 +146,7 @@ impl FotobuchApp {
 
     fn handle_command_failed(&mut self, e: String) {
         tracing::error!(%e, "command failed");
-        for d in &mut self.state.page_dirty {
+        for d in &mut self.state.cache.dirty {
             *d = false;
         }
     }
@@ -209,7 +209,7 @@ impl FotobuchApp {
                 },
                 PendingCommand::PageSwap { left, right } => {
                     for &p in &[left, right] {
-                        if let Some(d) = self.state.page_dirty.get_mut(p) {
+                        if let Some(d) = self.state.cache.dirty.get_mut(p) {
                             *d = true;
                         }
                     }
@@ -220,7 +220,7 @@ impl FotobuchApp {
                     }
                 }
                 PendingCommand::ConfigSet { key, value } => {
-                    for d in &mut self.state.page_dirty {
+                    for d in &mut self.state.cache.dirty {
                         *d = true;
                     }
                     BackgroundTask::ConfigSet {

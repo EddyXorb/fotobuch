@@ -128,7 +128,7 @@ pub(crate) fn draw_nav_drag_ghost(ctx: &egui::Context, state: &GuiState) {
 
     // Ghost size: fixed width, A4-ish aspect or taken from texture
     let ghost_w = 80.0_f32;
-    let ghost_h = if let Some(Some(tex)) = state.page_thumb_textures.get(src_page) {
+    let ghost_h = if let Some(Some(tex)) = state.cache.thumb_textures.get(src_page) {
         let sz = tex.size_vec2();
         if sz.x > 0.0 {
             ghost_w * sz.y / sz.x
@@ -141,7 +141,7 @@ pub(crate) fn draw_nav_drag_ghost(ctx: &egui::Context, state: &GuiState) {
 
     let rect = egui::Rect::from_center_size(cursor, vec2(ghost_w, ghost_h));
 
-    if let Some(Some(tex)) = state.page_thumb_textures.get(src_page) {
+    if let Some(Some(tex)) = state.cache.thumb_textures.get(src_page) {
         painter.image(
             tex.id(),
             rect,

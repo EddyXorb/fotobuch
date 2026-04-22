@@ -2,6 +2,7 @@ mod config_panel;
 mod derived;
 mod drag;
 mod hover;
+mod page_cache;
 mod pool;
 mod selection;
 mod selections;
@@ -12,13 +13,14 @@ pub use config_panel::ConfigPanelState;
 pub use derived::DerivedState;
 pub use drag::{DragMode, DragSource, DragState};
 pub use hover::HoveredTarget;
+pub use page_cache::PageCache;
 pub use pool::PhotoSelection;
 pub use selection::SlotSelection;
 pub use selections::Selections;
 pub use thumb::PhotoThumbState;
 pub use timings::Timings;
 
-use egui::{ColorImage, Context, TextureHandle, TextureOptions};
+use egui::{ColorImage, Context, TextureOptions};
 use fotobuch::dto_models::ProjectState;
 use fotobuch::output::typst::RenderedPage;
 
@@ -34,9 +36,7 @@ pub struct CentralScrollState {
 pub struct GuiState {
     pub project_state: ProjectState,
     pub derived: DerivedState,
-    pub page_textures: Vec<Option<TextureHandle>>,
-    pub page_dirty: Vec<bool>,
-    pub page_thumb_textures: Vec<Option<TextureHandle>>,
+    pub cache: PageCache,
     pub zoom: f32,
     pub base_pixel_per_pt: f32,
     pub selections: Selections,
@@ -57,9 +57,7 @@ impl GuiState {
         Self {
             project_state,
             derived,
-            page_textures: vec![None; num_pages],
-            page_dirty: vec![false; num_pages],
-            page_thumb_textures: vec![None; num_pages],
+            cache: PageCache::new(num_pages),
             zoom: 1.0,
             base_pixel_per_pt: 1.5,
             selections: Selections::default(),
@@ -85,10 +83,10 @@ pub fn apply_rendered(
     let page = full.page;
     let img = ColorImage::from_rgba_unmultiplied([full.width as _, full.height as _], &full.pixels);
     let handle = ctx.load_texture(format!("page_{page}"), img, TextureOptions::LINEAR);
-    if let Some(slot) = state.page_textures.get_mut(page) {
+    if let Some(slot) = state.cache.textures.get_mut(page) {
         *slot = Some(handle);
     }
-    if let Some(d) = state.page_dirty.get_mut(page) {
+    if let Some(d) = state.cache.dirty.get_mut(page) {
         *d = false;
     }
 
@@ -99,7 +97,7 @@ pub fn apply_rendered(
         thumb_img,
         TextureOptions::LINEAR,
     );
-    if let Some(s) = state.page_thumb_textures.get_mut(page) {
+    if let Some(s) = state.cache.thumb_textures.get_mut(page) {
         *s = Some(thumb_tex);
     }
 }
@@ -112,11 +110,9 @@ pub fn apply_zoom_delta(z: f32, delta: f32) -> f32 {
     (z * delta).clamp(0.1, 5.0)
 }
 
-/// Resize `page_textures`, `page_dirty` and `page_thumb_textures` to match a new page count.
+/// Resize all page cache vecs to match a new page count.
 pub fn resize_page_vecs(state: &mut GuiState, new_len: usize) {
-    state.page_textures.resize(new_len, None);
-    state.page_dirty.resize(new_len, false);
-    state.page_thumb_textures.resize(new_len, None);
+    state.cache.resize(new_len);
 }
 
 #[cfg(test)]
@@ -132,8 +128,8 @@ mod tests {
     #[test]
     fn new_derives_num_pages() {
         let state = GuiState::new(minimal_project());
-        assert_eq!(state.page_textures.len(), 0);
-        assert_eq!(state.page_dirty.len(), 0);
+        assert_eq!(state.cache.textures.len(), 0);
+        assert_eq!(state.cache.dirty.len(), 0);
     }
 
     #[test]
@@ -147,7 +143,7 @@ mod tests {
             mode: fotobuch::dto_models::PageMode::Auto,
         }];
         let mut state = GuiState::new(project);
-        state.page_dirty[0] = true;
+        state.cache.dirty[0] = true;
         let full = RenderedPage {
             page: 0,
             width: 2,
@@ -161,18 +157,18 @@ mod tests {
             pixels: vec![255u8; 4],
         };
         apply_rendered(&mut state, &ctx, full, thumb);
-        assert!(state.page_textures[0].is_some());
-        assert!(state.page_thumb_textures[0].is_some());
-        assert!(!state.page_dirty[0]);
+        assert!(state.cache.textures[0].is_some());
+        assert!(state.cache.thumb_textures[0].is_some());
+        assert!(!state.cache.dirty[0]);
     }
 
     #[test]
     fn resize_page_vecs_also_resizes_thumb_vec() {
         let mut state = GuiState::new(minimal_project());
         resize_page_vecs(&mut state, 4);
-        assert_eq!(state.page_thumb_textures.len(), 4);
+        assert_eq!(state.cache.thumb_textures.len(), 4);
         resize_page_vecs(&mut state, 2);
-        assert_eq!(state.page_thumb_textures.len(), 2);
+        assert_eq!(state.cache.thumb_textures.len(), 2);
     }
 
     #[test]
@@ -188,9 +184,9 @@ mod tests {
     fn resize_page_vecs_grows_and_shrinks() {
         let mut state = GuiState::new(minimal_project());
         resize_page_vecs(&mut state, 3);
-        assert_eq!(state.page_textures.len(), 3);
-        assert_eq!(state.page_dirty.len(), 3);
+        assert_eq!(state.cache.textures.len(), 3);
+        assert_eq!(state.cache.dirty.len(), 3);
         resize_page_vecs(&mut state, 1);
-        assert_eq!(state.page_textures.len(), 1);
+        assert_eq!(state.cache.textures.len(), 1);
     }
 }
