@@ -11,6 +11,8 @@ pub(super) fn draw_drag_ghosts(
     page_rect: egui::Rect,
     page_width_mm: f64,
     page_height_mm: f64,
+    bleed_mm: f64,
+    margin_mm: f64,
 ) {
     let (src_slot_idx, cursor_at_drag_start) = match &state.drag {
         DragState::Dragging(DragSource::Slot {
@@ -29,8 +31,11 @@ pub(super) fn draw_drag_ghosts(
         None => return,
     };
 
-    let scale_x = page_rect.width() / page_width_mm as f32;
-    let scale_y = page_rect.height() / page_height_mm as f32;
+    let full_w = (page_width_mm + 2.0 * bleed_mm) as f32;
+    let full_h = (page_height_mm + 2.0 * bleed_mm) as f32;
+    let scale_x = page_rect.width() / full_w;
+    let scale_y = page_rect.height() / full_h;
+    let offset_mm = (bleed_mm + margin_mm) as f32;
     let painter = ui.ctx().layer_painter(egui::LayerId::new(
         egui::Order::Tooltip,
         egui::Id::new("drag_ghosts"),
@@ -41,6 +46,7 @@ pub(super) fn draw_drag_ghosts(
             page_rect,
             scale_x,
             scale_y,
+            offset_mm,
             slot,
             cursor,
             cursor_at_drag_start,
@@ -82,6 +88,8 @@ pub(super) fn draw_drag_ghosts(
                 page_rect,
                 page_width_mm,
                 page_height_mm,
+                bleed_mm,
+                margin_mm,
                 slot,
             ))
         })
@@ -103,6 +111,7 @@ fn calc_primary_ghost_rect(
     page_rect: egui::Rect,
     scale_x: f32,
     scale_y: f32,
+    offset_mm: f32,
     slot: &fotobuch::dto_models::Slot,
     cursor: egui::Pos2,
     cursor_at_drag_start: egui::Pos2,
@@ -110,8 +119,8 @@ fn calc_primary_ghost_rect(
     let w = slot.width_mm as f32 * scale_x;
     let h = slot.height_mm as f32 * scale_y;
     let slot_top_left = egui::pos2(
-        page_rect.min.x + slot.x_mm as f32 * scale_x,
-        page_rect.min.y + slot.y_mm as f32 * scale_y,
+        page_rect.min.x + (offset_mm + slot.x_mm as f32) * scale_x,
+        page_rect.min.y + (offset_mm + slot.y_mm as f32) * scale_y,
     );
     let grab = cursor_at_drag_start - slot_top_left;
     egui::Rect::from_min_size(cursor - grab, vec2(w, h))
