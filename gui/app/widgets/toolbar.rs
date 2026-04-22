@@ -50,7 +50,7 @@ fn config_button(ui: &mut egui::Ui, state: &mut GuiState) {
 }
 
 fn place_button(ui: &mut egui::Ui, state: &mut GuiState, cmds: &mut HashSet<PendingCommand>) {
-    let place_enabled = !state.pool_selection.is_empty();
+    let place_enabled = !state.selections.photos.is_empty();
     if ui
         .add_enabled(place_enabled, egui::Button::new("Place"))
         .clicked()
@@ -59,7 +59,7 @@ fn place_button(ui: &mut egui::Ui, state: &mut GuiState, cmds: &mut HashSet<Pend
             *d = true;
         }
         cmds.insert(PendingCommand::Place {
-            photo_ids: state.pool_selection.ids(),
+            photo_ids: state.selections.photos.ids(),
             dst_page: state.hovered.as_ref().and_then(HoveredTarget::central_page),
         });
     }

@@ -1,7 +1,9 @@
 use std::collections::BTreeSet;
 
 /// Which slots are currently selected. SlotSelection is always restricted to a single page.
+#[derive(Default)]
 pub enum SlotSelection {
+    #[default]
     None,
     OnPage {
         page: usize,

@@ -11,7 +11,7 @@ pub(super) fn draw_row(
     order: &[String],
     visible_needed: &mut Vec<String>,
 ) {
-    let is_selected = state.pool_selection.is_selected(id);
+    let is_selected = state.selections.photos.is_selected(id);
     let is_pool_dragging = matches!(state.drag, DragState::Dragging(DragSource::Pool { .. }));
 
     let mut badge_hovered = false;
@@ -155,17 +155,17 @@ fn handle_selection_click(
     }
     let mods = ui.input(|i| i.modifiers);
     if mods.shift {
-        state.pool_selection.range_to(id.to_string(), order);
+        state.selections.photos.range_to(id.to_string(), order);
     } else if mods.ctrl || mods.command {
-        state.pool_selection.toggle(id.to_string());
+        state.selections.photos.toggle(id.to_string());
     } else {
-        state.pool_selection = PhotoSelection::single(id.to_string());
+        state.selections.photos = PhotoSelection::single(id.to_string());
         if let Some(locs) = state.derived.placed_locations.get(id)
             && locs.len() == 1
         {
             let (page, slot) = locs[0];
             state.scroll_to_page = Some(page);
-            state.selection = SlotSelection::single(page, slot);
+            state.selections.slots = SlotSelection::single(page, slot);
         }
     }
 }

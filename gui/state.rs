@@ -4,6 +4,7 @@ mod drag;
 mod hover;
 mod pool;
 mod selection;
+mod selections;
 mod thumb;
 mod timings;
 
@@ -13,6 +14,7 @@ pub use drag::{DragMode, DragSource, DragState};
 pub use hover::HoveredTarget;
 pub use pool::PhotoSelection;
 pub use selection::SlotSelection;
+pub use selections::Selections;
 pub use thumb::PhotoThumbState;
 pub use timings::Timings;
 
@@ -37,11 +39,10 @@ pub struct GuiState {
     pub page_thumb_textures: Vec<Option<TextureHandle>>,
     pub zoom: f32,
     pub base_pixel_per_pt: f32,
-    pub selection: SlotSelection,
+    pub selections: Selections,
     pub hovered: Option<HoveredTarget>,
     pub drag: DragState,
     pub drag_mode: DragMode,
-    pub pool_selection: PhotoSelection,
     pub thumb: PhotoThumbState,
     pub scroll_to_page: Option<usize>,
     pub config_panel: ConfigPanelState,
@@ -61,11 +62,10 @@ impl GuiState {
             page_thumb_textures: vec![None; num_pages],
             zoom: 1.0,
             base_pixel_per_pt: 1.5,
-            selection: SlotSelection::None,
+            selections: Selections::default(),
             hovered: None,
             drag: DragState::Idle,
             drag_mode: DragMode::Swap,
-            pool_selection: PhotoSelection::None,
             thumb: PhotoThumbState::default(),
             scroll_to_page: None,
             config_panel: ConfigPanelState::default(),

@@ -20,7 +20,7 @@ fn show(ui: &mut egui::Ui, state: &GuiState) {
             None => format!("Page \u{2013}/{total}"),
         };
 
-        let sel_str = match &state.selection {
+        let sel_str = match &state.selections.slots {
             SlotSelection::None => "Sel: \u{2013}".to_string(),
             SlotSelection::OnPage { page, slots, .. } => {
                 format!("Sel: {} on page {page}", slots.len())

@@ -114,8 +114,8 @@ fn handle_drag_start(state: &mut GuiState, ctx: &egui::Context) {
         })
     } else if let Some(HoveredTarget::PoolItem(pool_id)) = &state.hovered {
         let pool_id = pool_id.clone();
-        let ids = if state.pool_selection.is_selected(&pool_id) {
-            state.pool_selection.ids()
+        let ids = if state.selections.photos.is_selected(&pool_id) {
+            state.selections.photos.ids()
         } else {
             vec![pool_id]
         };
@@ -216,7 +216,7 @@ fn complete_pool_drag(
 fn handle_escape(state: &mut GuiState, ctx: &egui::Context) {
     if ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Escape)) {
         state.drag = DragState::Idle;
-        state.selection.clear();
+        state.selections.slots.clear();
     }
 }
 
@@ -229,7 +229,7 @@ fn handle_select_all(state: &mut GuiState, ctx: &egui::Context) {
         .as_ref()
         .and_then(|h| h.slot())
         .map(|(p, _)| p)
-        .or(match &state.selection {
+        .or(match &state.selections.slots {
             SlotSelection::OnPage { page, .. } => Some(*page),
             SlotSelection::None => None,
         });
@@ -240,7 +240,7 @@ fn handle_select_all(state: &mut GuiState, ctx: &egui::Context) {
             .get(page)
             .map(|lp| lp.slots.len())
             .unwrap_or(0);
-        state.selection.select_all_on(page, slot_count);
+        state.selections.slots.select_all_on(page, slot_count);
     }
 }
 
@@ -258,7 +258,7 @@ fn handle_place_hotkey(
     if !ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::P)) {
         return;
     }
-    let ids = state.pool_selection.ids();
+    let ids = state.selections.photos.ids();
     if ids.is_empty() {
         return;
     }
@@ -278,8 +278,8 @@ fn dispatch_move(
     src_slot: usize,
     dst_page: usize,
 ) {
-    let src_slots: Vec<usize> = if state.selection.is_selected(src_page, src_slot) {
-        match &state.selection {
+    let src_slots: Vec<usize> = if state.selections.slots.is_selected(src_page, src_slot) {
+        match &state.selections.slots {
             SlotSelection::OnPage { page, slots, .. } if *page == src_page => {
                 slots.iter().copied().collect()
             }
@@ -333,14 +333,14 @@ fn handle_click(state: &mut GuiState, ctx: &egui::Context) {
     let modifiers = ctx.input(|i| i.modifiers);
     if let Some((page, slot)) = state.hovered.as_ref().and_then(|h| h.slot()) {
         if modifiers.shift {
-            state.selection.range_to(page, slot);
+            state.selections.slots.range_to(page, slot);
         } else if modifiers.ctrl || modifiers.command {
-            state.selection.toggle(page, slot);
+            state.selections.slots.toggle(page, slot);
         } else {
-            state.selection = SlotSelection::single(page, slot);
+            state.selections.slots = SlotSelection::single(page, slot);
         }
     } else {
-        state.selection.clear();
+        state.selections.slots.clear();
     }
 }
 
@@ -356,7 +356,7 @@ mod tests {
     fn state_with_selection(sel_page: usize, sel_slots: Vec<usize>) -> GuiState {
         let mut state = GuiState::new(ProjectState::default());
         if !sel_slots.is_empty() {
-            state.selection = SlotSelection::OnPage {
+            state.selections.slots = SlotSelection::OnPage {
                 page: sel_page,
                 slots: BTreeSet::from_iter(sel_slots),
                 anchor: 0,
@@ -419,7 +419,7 @@ mod tests {
     fn state_with_pool_selection(ids: Vec<&str>) -> GuiState {
         let mut state = GuiState::new(ProjectState::default());
         for id in &ids {
-            state.pool_selection.toggle(id.to_string());
+            state.selections.photos.toggle(id.to_string());
         }
         state
     }
@@ -437,7 +437,7 @@ mod tests {
             *d = true;
         }
         cmds.insert(PendingCommand::Place {
-            photo_ids: state.pool_selection.ids(),
+            photo_ids: state.selections.photos.ids(),
             dst_page: state.hovered.as_ref().and_then(HoveredTarget::central_page),
         });
         let PendingCommand::Place { dst_page, .. } = cmds.iter().next().unwrap() else {
@@ -452,7 +452,7 @@ mod tests {
         state.hovered = None;
         let mut cmds = HashSet::new();
         cmds.insert(PendingCommand::Place {
-            photo_ids: state.pool_selection.ids(),
+            photo_ids: state.selections.photos.ids(),
             dst_page: state.hovered.as_ref().and_then(HoveredTarget::central_page),
         });
         let PendingCommand::Place { dst_page, .. } = cmds.iter().next().unwrap() else {
@@ -464,7 +464,7 @@ mod tests {
     #[test]
     fn place_hotkey_no_op_when_selection_empty() {
         let state = GuiState::new(ProjectState::default());
-        let ids = state.pool_selection.ids();
+        let ids = state.selections.photos.ids();
         assert!(ids.is_empty());
     }
 

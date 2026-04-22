@@ -56,7 +56,7 @@ pub(super) fn draw_drag_ghosts(
         return;
     }
 
-    let secondary: Vec<usize> = match &state.selection {
+    let secondary: Vec<usize> = match &state.selections.slots {
         SlotSelection::OnPage { page, slots, .. } if *page == page_idx && slots.len() > 1 => slots
             .iter()
             .filter(|&&s| s != src_slot_idx)

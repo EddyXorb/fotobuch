@@ -124,7 +124,7 @@ fn draw_slot_overlays(
             );
         }
 
-        if state.selection.is_selected(page_idx, slot_idx) {
+        if state.selections.slots.is_selected(page_idx, slot_idx) {
             painter.rect_stroke(
                 slot_rect,
                 0.0,

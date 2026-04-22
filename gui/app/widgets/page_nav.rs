@@ -103,7 +103,7 @@ fn draw_highlights(
 
 fn on_click(state: &mut GuiState, page_idx: usize) {
     state.scroll_to_page = Some(page_idx);
-    state.selection.clear();
+    state.selections.slots.clear();
 }
 
 /// Computes thumb display size, preserving page aspect ratio at panel width - margin.
