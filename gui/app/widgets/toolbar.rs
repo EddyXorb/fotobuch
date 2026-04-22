@@ -12,6 +12,7 @@ pub fn draw(ui: &mut egui::Ui, state: &mut GuiState) -> HashSet<PendingCommand> 
 fn show(ui: &mut egui::Ui, state: &mut GuiState) -> HashSet<PendingCommand> {
     let mut cmds = HashSet::new();
     ui.horizontal(|ui| {
+        build_buttons(ui);
         history_buttons(ui, &mut cmds);
         config_button(ui, state);
         ui.separator();
@@ -22,9 +23,12 @@ fn show(ui: &mut egui::Ui, state: &mut GuiState) -> HashSet<PendingCommand> {
     cmds
 }
 
-fn history_buttons(ui: &mut egui::Ui, cmds: &mut HashSet<PendingCommand>) {
+fn build_buttons(ui: &mut egui::Ui) {
     ui.add_enabled(false, egui::Button::new("Build"));
     ui.add_enabled(false, egui::Button::new("Release"));
+}
+
+fn history_buttons(ui: &mut egui::Ui, cmds: &mut HashSet<PendingCommand>) {
     if ui.add(egui::Button::new("↩")).clicked() {
         cmds.insert(PendingCommand::Undo);
     }
