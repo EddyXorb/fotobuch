@@ -1,4 +1,4 @@
-mod draw_drag_ghosts;
+pub(crate) mod draw_drag_ghosts;
 mod draw_page;
 mod draw_pages;
 mod helpers;

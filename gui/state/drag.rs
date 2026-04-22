@@ -32,7 +32,10 @@ pub enum DragSource {
         cursor_at_drag_start: egui::Pos2,
     },
     /// Right-mouse drag from a page thumbnail in the nav panel.
-    NavPage { src_page: usize },
+    NavPage {
+        src_page: usize,
+        cursor_at_drag_start: egui::Pos2,
+    },
     /// Right-mouse drag from a photo row in the pool panel.
     Pool { photo_ids: Vec<String> },
 }
