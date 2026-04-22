@@ -2,7 +2,7 @@ use egui::vec2;
 
 use crate::state::{DragMode, DragSource, DragState, GuiState, Selection};
 
-use super::super::geometry::{self, A4_ASPECT, PageDimensions};
+use super::super::geometry::{self, A4_ASPECT, PageDimensions, PageScale};
 
 pub(super) fn draw_drag_ghosts(
     ui: &mut egui::Ui,
@@ -28,26 +28,14 @@ pub(super) fn draw_drag_ghosts(
         None => return,
     };
 
-    let full_w = (dims.width_mm + 2.0 * dims.bleed_mm) as f32;
-    let full_h = (dims.height_mm + 2.0 * dims.bleed_mm) as f32;
-    let scale_x = page_rect.width() / full_w;
-    let scale_y = page_rect.height() / full_h;
-    let offset_mm = (dims.bleed_mm + dims.margin_mm) as f32;
+    let scale = dims.page_scale(page_rect);
     let painter = ui.ctx().layer_painter(egui::LayerId::new(
         egui::Order::Tooltip,
         egui::Id::new("drag_ghosts"),
     ));
 
     if let Some(slot) = layout_page.slots.get(src_slot_idx) {
-        let rect = calc_primary_ghost_rect(
-            page_rect,
-            scale_x,
-            scale_y,
-            offset_mm,
-            slot,
-            cursor,
-            cursor_at_drag_start,
-        );
+        let rect = calc_primary_ghost_rect(page_rect, &scale, slot, cursor, cursor_at_drag_start);
         paint_ghost_rect(&painter, rect, 120);
         painter.rect_stroke(
             rect,
@@ -99,18 +87,16 @@ pub(super) fn draw_drag_ghosts(
 
 fn calc_primary_ghost_rect(
     page_rect: egui::Rect,
-    scale_x: f32,
-    scale_y: f32,
-    offset_mm: f32,
+    scale: &PageScale,
     slot: &fotobuch::dto_models::Slot,
     cursor: egui::Pos2,
     cursor_at_drag_start: egui::Pos2,
 ) -> egui::Rect {
-    let w = slot.width_mm as f32 * scale_x;
-    let h = slot.height_mm as f32 * scale_y;
+    let w = slot.width_mm as f32 * scale.scale_x;
+    let h = slot.height_mm as f32 * scale.scale_y;
     let slot_top_left = egui::pos2(
-        page_rect.min.x + (offset_mm + slot.x_mm as f32) * scale_x,
-        page_rect.min.y + (offset_mm + slot.y_mm as f32) * scale_y,
+        page_rect.min.x + (scale.offset_mm + slot.x_mm as f32) * scale.scale_x,
+        page_rect.min.y + (scale.offset_mm + slot.y_mm as f32) * scale.scale_y,
     );
     let grab = cursor_at_drag_start - slot_top_left;
     egui::Rect::from_min_size(cursor - grab, vec2(w, h))
