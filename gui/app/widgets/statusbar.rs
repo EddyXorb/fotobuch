@@ -1,10 +1,10 @@
 use crate::state::{DragState, GuiState, Selection};
 
-pub fn draw(ui: &mut egui::Ui, state: &mut GuiState) {
+pub fn draw(ui: &mut egui::Ui, state: &GuiState) {
     egui::Panel::bottom("statusbar").show_inside(ui, |ui| show(ui, state));
 }
 
-fn show(ui: &mut egui::Ui, state: &mut GuiState) {
+fn show(ui: &mut egui::Ui, state: &GuiState) {
     ui.horizontal(|ui| {
         let total = state.project_state.layout.len();
         let photos: usize = state
@@ -37,14 +37,5 @@ fn show(ui: &mut egui::Ui, state: &mut GuiState) {
         ui.label(format!(
             "{page_str} \u{b7} {photos} photos \u{b7} {unplaced} unplaced \u{b7} {sel_str} \u{b7} {mode_display}"
         ));
-
-        // Duplikat-Indikator
-        let dup_count = state.derived.duplicate_ids().count();
-        if dup_count > 0 {
-            let resp = ui.label(format!("\u{b7} {dup_count} Duplikate"));
-            if resp.hovered() {
-                state.highlight_duplicates = true;
-            }
-        }
     });
 }

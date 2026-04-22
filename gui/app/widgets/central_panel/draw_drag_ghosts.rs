@@ -1,6 +1,6 @@
 use egui::vec2;
 
-use crate::state::{DragMode, DragState, GuiState, Selection};
+use crate::state::{DragMode, DragSource, DragState, GuiState, Selection};
 
 use super::super::geometry;
 
@@ -13,11 +13,11 @@ pub(super) fn draw_drag_ghosts(
     page_height_mm: f64,
 ) {
     let (src_slot_idx, cursor_at_drag_start) = match &state.drag {
-        DragState::Dragging {
+        DragState::Dragging(DragSource::Slot {
             src_page,
             src_slot,
             cursor_at_drag_start,
-        } if *src_page == page_idx => (*src_slot, *cursor_at_drag_start),
+        }) if *src_page == page_idx => (*src_slot, *cursor_at_drag_start),
         _ => return,
     };
     let cursor = match ui.ctx().pointer_hover_pos() {

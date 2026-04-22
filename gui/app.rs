@@ -204,7 +204,7 @@ impl eframe::App for FotobuchApp {
         self.state.timings.drain_results = t.elapsed();
 
         let mut cmds = widgets::toolbar::draw(ui, &mut self.state);
-        widgets::statusbar::draw(ui, &mut self.state);
+        widgets::statusbar::draw(ui, &self.state);
 
         // Side panels must come before the central panel (egui ordering requirement).
         widgets::photo_pool::draw(ui, &mut self.state, &mut cmds);
@@ -217,9 +217,6 @@ impl eframe::App for FotobuchApp {
         if self.state.config_panel.open {
             widgets::config_window::show(&ctx, &mut self.state, &mut cmds);
         }
-
-        // Reset per-frame flag after all widgets have drawn.
-        self.state.highlight_duplicates = false;
 
         // Flush pending thumbnail loads collected during widget drawing.
         if let Some(task) = widgets::photo_pool::flush_thumb_loads(&mut self.state) {

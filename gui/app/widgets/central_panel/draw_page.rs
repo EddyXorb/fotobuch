@@ -1,4 +1,4 @@
-use crate::state::{DragMode, DragState, GuiState, PoolDragState};
+use crate::state::{DragMode, DragSource, DragState, GuiState};
 
 use super::super::geometry;
 use super::{draw_drag_ghosts, helpers};
@@ -28,14 +28,6 @@ pub(super) fn draw_page(
             hit_test_pointer(ui, page_rect, layout_page, page_width_mm, page_height_mm);
         draw_page_move_highlight(ui, state, page_idx, page_rect, over_page);
         draw_pool_drag_overlay(ui, state, page_idx, page_rect);
-        draw_duplicate_overlay(
-            ui,
-            state,
-            page_idx,
-            page_rect,
-            page_width_mm,
-            page_height_mm,
-        );
         draw_drag_ghosts::draw_drag_ghosts(
             ui,
             state,
@@ -97,30 +89,30 @@ fn draw_slot_overlays(
         None => return,
     };
 
-    let drag_src_ratio: Option<f64> = if let DragState::Dragging {
-        src_page, src_slot, ..
-    } = &state.drag
-    {
-        if *src_page == page_idx {
-            layout_page
-                .slots
-                .get(*src_slot)
-                .map(|s| s.width_mm / s.height_mm)
+    let is_slot_drag = matches!(state.drag, DragState::Dragging(DragSource::Slot { .. }));
+    let is_swap_drag = is_slot_drag && state.drag_mode == DragMode::Swap;
+
+    let drag_src_ratio: Option<f64> =
+        if let DragState::Dragging(DragSource::Slot {
+            src_page, src_slot, ..
+        }) = &state.drag
+        {
+            if *src_page == page_idx {
+                layout_page
+                    .slots
+                    .get(*src_slot)
+                    .map(|s| s.width_mm / s.height_mm)
+            } else {
+                None
+            }
         } else {
             None
-        }
-    } else {
-        None
-    };
-
-    let is_dragging = !matches!(state.drag, DragState::Idle);
-    let is_swap_drag = is_dragging && state.drag_mode == DragMode::Swap;
+        };
 
     let painter = ui.painter();
     for (slot_idx, slot) in layout_page.slots.iter().enumerate() {
         let slot_rect =
             geometry::slot_rect_on_screen(page_rect, page_width_mm, page_height_mm, slot);
-
         let is_hovered = state.hovered_slot == Some((page_idx, slot_idx));
 
         if is_swap_drag {
@@ -133,7 +125,7 @@ fn draw_slot_overlays(
                 egui::Color32::from_rgba_unmultiplied(220, 50, 50, 140)
             };
             painter.rect_filled(slot_rect, 0.0, color);
-        } else if is_hovered && !is_dragging {
+        } else if is_hovered && !is_slot_drag {
             painter.rect_filled(
                 slot_rect,
                 0.0,
@@ -176,12 +168,15 @@ fn draw_page_move_highlight(
     page_rect: egui::Rect,
     over_page: bool,
 ) {
-    let is_move_drag = !matches!(state.drag, DragState::Idle) && state.drag_mode == DragMode::Move;
+    let is_move_drag = matches!(state.drag, DragState::Dragging(DragSource::Slot { .. }))
+        && state.drag_mode == DragMode::Move;
     if !is_move_drag || !over_page {
         return;
     }
-    let is_src_page =
-        matches!(state.drag, DragState::Dragging { src_page, .. } if src_page == page_idx);
+    let is_src_page = matches!(
+        state.drag,
+        DragState::Dragging(DragSource::Slot { src_page, .. }) if src_page == page_idx
+    );
     if is_src_page {
         return;
     }
@@ -193,14 +188,13 @@ fn draw_page_move_highlight(
     );
 }
 
-/// Blaues Overlay, wenn ein Pool-Drag über dieser Seite ist.
 fn draw_pool_drag_overlay(
     ui: &mut egui::Ui,
     state: &GuiState,
     page_idx: usize,
     page_rect: egui::Rect,
 ) {
-    if matches!(state.pool_drag, PoolDragState::Dragging { .. })
+    if matches!(state.drag, DragState::Dragging(DragSource::Pool { .. }))
         && state.hovered_page == Some(page_idx)
     {
         ui.painter().rect_filled(
@@ -208,48 +202,5 @@ fn draw_pool_drag_overlay(
             0.0,
             egui::Color32::from_rgba_unmultiplied(64, 128, 255, 48),
         );
-    }
-}
-
-/// Rotes Overlay über Slots, die mehrfach platzierte Fotos belegen (wenn highlight_duplicates).
-fn draw_duplicate_overlay(
-    ui: &mut egui::Ui,
-    state: &GuiState,
-    page_idx: usize,
-    page_rect: egui::Rect,
-    page_width_mm: f64,
-    page_height_mm: f64,
-) {
-    if !state.highlight_duplicates {
-        return;
-    }
-    let layout_page = match state.project_state.layout.get(page_idx) {
-        Some(lp) => lp,
-        None => return,
-    };
-    let dup_ids: std::collections::HashSet<&str> = state
-        .derived
-        .placed_locations
-        .iter()
-        .filter(|(_, locs)| locs.len() > 1)
-        .map(|(id, _)| id.as_str())
-        .collect();
-
-    let painter = ui.painter();
-    for (slot_idx, slot) in layout_page.slots.iter().enumerate() {
-        let photo_id = layout_page
-            .photos
-            .get(slot_idx)
-            .map(String::as_str)
-            .unwrap_or("");
-        if dup_ids.contains(photo_id) {
-            let slot_rect =
-                geometry::slot_rect_on_screen(page_rect, page_width_mm, page_height_mm, slot);
-            painter.rect_filled(
-                slot_rect,
-                0.0,
-                egui::Color32::from_rgba_unmultiplied(220, 40, 40, 80),
-            );
-        }
     }
 }

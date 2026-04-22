@@ -7,7 +7,7 @@ mod timings;
 
 pub use config_panel::ConfigPanelState;
 pub use derived::DerivedState;
-pub use drag::{DragMode, DragState, NavDragState, PoolDragState};
+pub use drag::{DragMode, DragSource, DragState};
 pub use pool::PoolSelection;
 pub use selection::Selection;
 pub use timings::Timings;
@@ -23,35 +23,26 @@ pub struct GuiState {
     pub project_state: ProjectState,
     pub derived: DerivedState,
     pub page_textures: Vec<Option<TextureHandle>>,
-    /// Which pages are currently waiting for a fresh render (command running).
     pub page_dirty: Vec<bool>,
-    /// Downsample-Textur pro Seite, index-coupled mit page_textures.
     pub page_thumb_textures: Vec<Option<TextureHandle>>,
     pub zoom: f32,
     pub base_pixel_per_pt: f32,
     pub selection: Selection,
-    /// `(page_idx, slot_idx)` hovered in the previous frame.
     pub hovered_slot: Option<(usize, usize)>,
-    /// Page index the pointer is hovering over (set even when no specific slot is hit).
     pub hovered_page: Option<usize>,
+    /// Nav-panel page currently under the pointer (set each frame by page_nav).
+    pub hovered_nav_page: Option<usize>,
+    /// Pool row currently under the pointer (set each frame by photo_pool).
+    pub hovered_pool_id: Option<String>,
     pub drag: DragState,
     pub drag_mode: DragMode,
-    pub nav_drag: NavDragState,
-    pub pool_drag: PoolDragState,
     pub pool_selection: PoolSelection,
-    /// Foto-Thumbnails (256 px längste Kante).
     pub photo_thumbs: HashMap<String, TextureHandle>,
-    /// IDs, für die ein LoadPhotoThumbnails-Task unterwegs ist.
     pub photo_thumb_in_flight: HashSet<String>,
-    /// FIFO für Hintergrund-Prefetch.
     pub photo_thumb_prefetch: VecDeque<String>,
-    /// Zielseite, zu der beim nächsten Frame gescrollt werden soll.
     pub scroll_to_page: Option<usize>,
-    /// Wenn `true`, zeichnet draw_page ein rotes Overlay über alle Slots mit mehrfach platziertem Foto.
-    pub highlight_duplicates: bool,
     pub config_panel: ConfigPanelState,
     pub timings: Timings,
-    /// Thumbnail-Lade-Aufträge, die am Frame-Ende als BackgroundTask geflusht werden.
     pub pending_thumb_loads: Vec<(String, PathBuf)>,
 }
 
@@ -70,16 +61,15 @@ impl GuiState {
             selection: Selection::None,
             hovered_slot: None,
             hovered_page: None,
+            hovered_nav_page: None,
+            hovered_pool_id: None,
             drag: DragState::Idle,
             drag_mode: DragMode::Swap,
-            nav_drag: NavDragState::Idle,
-            pool_drag: PoolDragState::Idle,
             pool_selection: PoolSelection::None,
             photo_thumbs: HashMap::new(),
             photo_thumb_in_flight: HashSet::new(),
             photo_thumb_prefetch: VecDeque::new(),
             scroll_to_page: None,
-            highlight_duplicates: false,
             config_panel: ConfigPanelState::default(),
             timings: Timings::default(),
             pending_thumb_loads: Vec::new(),
@@ -88,8 +78,6 @@ impl GuiState {
 }
 
 /// Uploads a rendered page (full + thumb) into the egui texture cache and clears its dirty flag.
-///
-/// `full` contains straight-alpha RGBA pixels — `from_rgba_unmultiplied` is correct here.
 pub fn apply_rendered(
     state: &mut GuiState,
     ctx: &Context,

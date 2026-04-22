@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use egui::Align;
 
 use crate::app::pending::PendingCommand;
-use crate::state::{GuiState, NavDragState};
+use crate::state::{DragSource, DragState, GuiState};
 
 pub const NAV_THUMB_MAX_EDGE_PX: u32 = 120;
 
@@ -16,105 +16,85 @@ pub fn draw(ui: &mut egui::Ui, state: &mut GuiState, cmds: &mut HashSet<PendingC
         .show_inside(ui, |ui| show(ui, state, cmds));
 }
 
-fn show(ui: &mut egui::Ui, state: &mut GuiState, cmds: &mut HashSet<PendingCommand>) {
+fn show(ui: &mut egui::Ui, state: &mut GuiState, _cmds: &mut HashSet<PendingCommand>) {
     let panel_width = ui.available_width();
     let num_pages = state.project_state.layout.len();
 
-    // Track which page is hovered during nav-drag or central-drag as drop target.
-    let mut hovered_nav_page: Option<usize> = None;
+    state.hovered_nav_page = None;
 
     egui::ScrollArea::vertical()
         .auto_shrink([false; 2])
         .show(ui, |ui| {
             for i in 0..num_pages {
-                let is_selected = state.scroll_to_page == Some(i);
-
-                // Thumb image or placeholder
                 let thumb_size = compute_thumb_size(state, i, panel_width);
                 let (response, painter) =
                     ui.allocate_painter(thumb_size, egui::Sense::click_and_drag());
                 let rect = response.rect;
 
-                // Draw thumb or grey placeholder
-                if let Some(Some(tex)) = state.page_thumb_textures.get(i) {
-                    painter.image(
-                        tex.id(),
-                        rect,
-                        egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
-                        egui::Color32::WHITE,
-                    );
-                } else {
-                    painter.rect_filled(rect, 2.0, egui::Color32::from_gray(180));
-                }
-
-                // Page label below thumb
+                draw_thumb(state, i, rect, &painter);
                 ui.label(egui::RichText::new(format!("P{i}")).small());
+                draw_highlights(state, i, rect, &painter, &response);
 
-                // Highlight frame if selected / hovered drop target
-                let is_nav_drag_hover =
-                    matches!(state.nav_drag, NavDragState::Dragging { .. }) && response.hovered();
-                let is_central_drag_hover =
-                    !matches!(state.drag, crate::state::DragState::Idle) && response.hovered();
-
-                if is_selected {
-                    painter.rect_stroke(
-                        rect,
-                        2.0,
-                        egui::Stroke::new(2.0, egui::Color32::from_rgb(50, 150, 255)),
-                        egui::StrokeKind::Inside,
-                    );
-                }
-                if is_nav_drag_hover || is_central_drag_hover {
-                    hovered_nav_page = Some(i);
-                    painter.rect_stroke(
-                        rect,
-                        2.0,
-                        egui::Stroke::new(2.0, egui::Color32::from_rgb(0, 200, 80)),
-                        egui::StrokeKind::Inside,
-                    );
+                if response.hovered() {
+                    state.hovered_nav_page = Some(i);
                 }
 
-                // Click → scroll central panel to this page
                 if response.clicked() {
-                    state.scroll_to_page = Some(i);
-                    state.selection.clear();
-                }
-
-                // --- Nav-Drag: page ↔ page swap (right mouse button) ---
-                if response.drag_started_by(egui::PointerButton::Secondary)
-                    && matches!(state.nav_drag, NavDragState::Idle)
-                {
-                    state.nav_drag = NavDragState::Dragging { src_page: i };
-                }
-
-                if response.drag_stopped_by(egui::PointerButton::Secondary)
-                    && let NavDragState::Dragging { src_page } = state.nav_drag
-                {
-                    if src_page != i {
-                        cmds.insert(PendingCommand::PageSwap {
-                            left: src_page,
-                            right: i,
-                        });
-                        if let Some(d) = state.page_dirty.get_mut(src_page) {
-                            *d = true;
-                        }
-                        if let Some(d) = state.page_dirty.get_mut(i) {
-                            *d = true;
-                        }
-                    }
-                    state.nav_drag = NavDragState::Idle;
+                    on_click(state, i);
                 }
 
                 ui.add_space(4.0);
             }
         });
+}
 
-    // Central-drag over nav thumb → set hovered_page so existing drop logic fires.
-    if let Some(nav_page) = hovered_nav_page
-        && !matches!(state.drag, crate::state::DragState::Idle)
-    {
-        state.hovered_page = Some(nav_page);
+fn draw_thumb(state: &GuiState, page_idx: usize, rect: egui::Rect, painter: &egui::Painter) {
+    if let Some(Some(tex)) = state.page_thumb_textures.get(page_idx) {
+        painter.image(
+            tex.id(),
+            rect,
+            egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
+            egui::Color32::WHITE,
+        );
+    } else {
+        painter.rect_filled(rect, 2.0, egui::Color32::from_gray(180));
     }
+}
+
+fn draw_highlights(
+    state: &GuiState,
+    page_idx: usize,
+    rect: egui::Rect,
+    painter: &egui::Painter,
+    response: &egui::Response,
+) {
+    let is_scroll_target = state.scroll_to_page == Some(page_idx);
+    let is_nav_drag_target =
+        matches!(state.drag, DragState::Dragging(DragSource::NavPage { .. })) && response.hovered();
+    let is_slot_drag_target =
+        matches!(state.drag, DragState::Dragging(DragSource::Slot { .. })) && response.hovered();
+
+    if is_scroll_target {
+        painter.rect_stroke(
+            rect,
+            2.0,
+            egui::Stroke::new(2.0, egui::Color32::from_rgb(50, 150, 255)),
+            egui::StrokeKind::Inside,
+        );
+    }
+    if is_nav_drag_target || is_slot_drag_target {
+        painter.rect_stroke(
+            rect,
+            2.0,
+            egui::Stroke::new(2.0, egui::Color32::from_rgb(0, 200, 80)),
+            egui::StrokeKind::Inside,
+        );
+    }
+}
+
+fn on_click(state: &mut GuiState, page_idx: usize) {
+    state.scroll_to_page = Some(page_idx);
+    state.selection.clear();
 }
 
 /// Computes thumb display size, preserving page aspect ratio at panel width - margin.
@@ -124,10 +104,9 @@ fn compute_thumb_size(state: &GuiState, page_idx: usize, panel_width: f32) -> eg
     let h = if pw > 0.0 {
         w * (ph as f32 / pw as f32)
     } else {
-        w * 1.41 // A4 fallback
+        w * 1.41
     };
 
-    // If a thumb texture is available, use its aspect ratio instead.
     if let Some(Some(tex)) = state.page_thumb_textures.get(page_idx) {
         let sz = tex.size_vec2();
         if sz.x > 0.0 {

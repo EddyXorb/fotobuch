@@ -1,12 +1,10 @@
 use std::collections::HashSet;
 
-use crate::state::{self, DragMode, DragState, GuiState, PoolDragState, Selection};
+use crate::state::{self, DragMode, DragSource, DragState, GuiState, Selection};
 
 use super::pending::PendingCommand;
 
 /// Top-level input dispatcher — called once per frame before painting.
-///
-/// Returns commands that require background execution.
 pub fn handle(state: &mut GuiState, ctx: &egui::Context) -> HashSet<PendingCommand> {
     let mut cmds = HashSet::new();
 
@@ -17,12 +15,7 @@ pub fn handle(state: &mut GuiState, ctx: &egui::Context) -> HashSet<PendingComma
     handle_config_panel_toggle(state, ctx);
     handle_place_hotkey(state, ctx, &mut cmds);
 
-    let pool_drag_action = handle_pool_drag_complete(state, ctx, &mut cmds);
-    let drag_action = if !pool_drag_action {
-        handle_drag_complete(state, ctx, &mut cmds)
-    } else {
-        true
-    };
+    let drag_action = handle_drag_complete(state, ctx, &mut cmds);
     handle_drag_start(state, ctx);
 
     if !drag_action {
@@ -82,52 +75,7 @@ fn mark_all_dirty(state: &mut GuiState) {
     }
 }
 
-/// Checks whether a drag-and-drop gesture has completed.
-///
-/// Returns `true` when a drag action was taken (command emitted or drag cancelled
-/// on a different target), so that click handling can be suppressed.
-fn handle_drag_complete(
-    state: &mut GuiState,
-    ctx: &egui::Context,
-    cmds: &mut HashSet<PendingCommand>,
-) -> bool {
-    if !ctx.input(|i| i.pointer.secondary_released()) {
-        return false;
-    }
-
-    let (src_page, src_slot) = match state.drag {
-        DragState::Dragging {
-            src_page,
-            src_slot,
-            cursor_at_drag_start: _,
-        } => (src_page, src_slot),
-        DragState::Idle => return false,
-    };
-
-    state.drag = DragState::Idle;
-
-    match (state.hovered_slot, state.drag_mode) {
-        (Some((dst_page, dst_slot)), DragMode::Swap) => {
-            dispatch_swap(state, cmds, src_page, src_slot, dst_page, dst_slot);
-        }
-        (Some((dst_page, _)), DragMode::Move) => {
-            dispatch_move(state, cmds, src_page, src_slot, dst_page);
-        }
-        (None, DragMode::Move) => {
-            // Move: a page-level target is sufficient even without a specific slot.
-            if let Some(dst_page) = state.hovered_page {
-                dispatch_move(state, cmds, src_page, src_slot, dst_page);
-            }
-            // No page hovered → drag cancelled silently.
-        }
-        (None, DragMode::Swap) => {
-            // Swap requires a concrete target slot — cancel silently.
-        }
-    }
-
-    true
-}
-
+/// Detects the start of a drag from any source (slot, nav page, pool row).
 fn handle_drag_start(state: &mut GuiState, ctx: &egui::Context) {
     if !ctx.input(|i| i.pointer.secondary_pressed()) {
         return;
@@ -139,12 +87,107 @@ fn handle_drag_start(state: &mut GuiState, ctx: &egui::Context) {
         Some(p) => p,
         None => return,
     };
+
     if let Some((page, slot)) = state.hovered_slot {
-        state.drag = DragState::Dragging {
+        state.drag = DragState::Dragging(DragSource::Slot {
             src_page: page,
             src_slot: slot,
             cursor_at_drag_start: cursor,
+        });
+    } else if let Some(nav_page) = state.hovered_nav_page {
+        state.drag = DragState::Dragging(DragSource::NavPage { src_page: nav_page });
+    } else if let Some(pool_id) = state.hovered_pool_id.clone() {
+        let ids = if state.pool_selection.is_selected(&pool_id) {
+            state.pool_selection.ids()
+        } else {
+            vec![pool_id]
         };
+        state.drag = DragState::Dragging(DragSource::Pool { photo_ids: ids });
+    }
+}
+
+/// Handles RMB release for all drag sources. Returns `true` when a drag action was taken.
+fn handle_drag_complete(
+    state: &mut GuiState,
+    ctx: &egui::Context,
+    cmds: &mut HashSet<PendingCommand>,
+) -> bool {
+    if !ctx.input(|i| i.pointer.secondary_released()) {
+        return false;
+    }
+    let source = match std::mem::replace(&mut state.drag, DragState::Idle) {
+        DragState::Dragging(src) => src,
+        DragState::Idle => return false,
+    };
+    match source {
+        DragSource::Slot {
+            src_page, src_slot, ..
+        } => {
+            complete_slot_drag(state, cmds, src_page, src_slot);
+        }
+        DragSource::NavPage { src_page } => {
+            complete_nav_drag(state, cmds, src_page);
+        }
+        DragSource::Pool { photo_ids } => {
+            complete_pool_drag(state, cmds, photo_ids);
+        }
+    }
+    true
+}
+
+fn complete_slot_drag(
+    state: &mut GuiState,
+    cmds: &mut HashSet<PendingCommand>,
+    src_page: usize,
+    src_slot: usize,
+) {
+    let effective_page = state.hovered_page.or(state.hovered_nav_page);
+    match (state.hovered_slot, state.drag_mode) {
+        (Some((dst_page, dst_slot)), DragMode::Swap) => {
+            dispatch_swap(state, cmds, src_page, src_slot, dst_page, dst_slot);
+        }
+        (Some((dst_page, _)), DragMode::Move) => {
+            dispatch_move(state, cmds, src_page, src_slot, dst_page);
+        }
+        (None, DragMode::Move) => {
+            if let Some(dst_page) = effective_page {
+                dispatch_move(state, cmds, src_page, src_slot, dst_page);
+            }
+        }
+        (None, DragMode::Swap) => {}
+    }
+}
+
+fn complete_nav_drag(state: &mut GuiState, cmds: &mut HashSet<PendingCommand>, src_page: usize) {
+    let dst_page = match state.hovered_nav_page {
+        Some(p) if p != src_page => p,
+        _ => return,
+    };
+    for &p in &[src_page, dst_page] {
+        if let Some(d) = state.page_dirty.get_mut(p) {
+            *d = true;
+        }
+    }
+    cmds.insert(PendingCommand::PageSwap {
+        left: src_page,
+        right: dst_page,
+    });
+}
+
+fn complete_pool_drag(
+    state: &mut GuiState,
+    cmds: &mut HashSet<PendingCommand>,
+    photo_ids: Vec<String>,
+) {
+    let dst_page = state.hovered_page.or(state.hovered_nav_page);
+    if let Some(dst_page) = dst_page {
+        if let Some(d) = state.page_dirty.get_mut(dst_page) {
+            *d = true;
+        }
+        cmds.insert(PendingCommand::Place {
+            photo_ids,
+            dst_page: Some(dst_page),
+        });
     }
 }
 
@@ -175,6 +218,31 @@ fn handle_select_all(state: &mut GuiState, ctx: &egui::Context) {
             .unwrap_or(0);
         state.selection.select_all_on(page, slot_count);
     }
+}
+
+fn handle_config_panel_toggle(state: &mut GuiState, ctx: &egui::Context) {
+    if ctx.input_mut(|i| i.consume_key(egui::Modifiers::CTRL, egui::Key::Comma)) {
+        state.config_panel.open = !state.config_panel.open;
+    }
+}
+
+fn handle_place_hotkey(
+    state: &mut GuiState,
+    ctx: &egui::Context,
+    cmds: &mut HashSet<PendingCommand>,
+) {
+    if !ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::P)) {
+        return;
+    }
+    let ids = state.pool_selection.ids();
+    if ids.is_empty() {
+        return;
+    }
+    mark_all_dirty(state);
+    cmds.insert(PendingCommand::Place {
+        photo_ids: ids,
+        dst_page: state.hovered_page,
+    });
 }
 
 /// Move: cross-page allowed. If the dragged slot is part of the current selection,
@@ -219,7 +287,7 @@ fn dispatch_swap(
     dst_slot: usize,
 ) {
     if src_page == dst_page && src_slot == dst_slot {
-        return; // same slot → no-op
+        return;
     }
     for &p in &[src_page, dst_page] {
         if let Some(d) = state.page_dirty.get_mut(p) {
@@ -232,58 +300,6 @@ fn dispatch_swap(
         dst_page,
         dst_slot,
     });
-}
-
-fn handle_config_panel_toggle(state: &mut GuiState, ctx: &egui::Context) {
-    if ctx.input_mut(|i| i.consume_key(egui::Modifiers::CTRL, egui::Key::Comma)) {
-        state.config_panel.open = !state.config_panel.open;
-    }
-}
-
-fn handle_place_hotkey(
-    state: &mut GuiState,
-    ctx: &egui::Context,
-    cmds: &mut HashSet<PendingCommand>,
-) {
-    if !ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::P)) {
-        return;
-    }
-    let ids = state.pool_selection.ids();
-    if ids.is_empty() {
-        return;
-    }
-    // Mark all pages dirty because auto-place may affect any page.
-    for d in &mut state.page_dirty {
-        *d = true;
-    }
-    cmds.insert(PendingCommand::Place {
-        photo_ids: ids,
-        dst_page: state.hovered_page,
-    });
-}
-
-/// Returns `true` if a pool drag was completed (suppresses click handling).
-fn handle_pool_drag_complete(
-    state: &mut GuiState,
-    ctx: &egui::Context,
-    cmds: &mut HashSet<PendingCommand>,
-) -> bool {
-    if !ctx.input(|i| i.pointer.secondary_released()) {
-        return false;
-    }
-    let PoolDragState::Dragging { photo_ids } = std::mem::take(&mut state.pool_drag) else {
-        return false;
-    };
-    if let Some(dst_page) = state.hovered_page {
-        if let Some(d) = state.page_dirty.get_mut(dst_page) {
-            *d = true;
-        }
-        cmds.insert(PendingCommand::Place {
-            photo_ids,
-            dst_page: Some(dst_page),
-        });
-    }
-    true
 }
 
 fn handle_click(state: &mut GuiState, ctx: &egui::Context) {
@@ -350,7 +366,7 @@ mod tests {
         let mut state = state_with_selection(0, vec![0, 1]);
         state.page_dirty = vec![false, false];
         let mut cmds = HashSet::new();
-        dispatch_move(&mut state, &mut cmds, 0, 3, 1); // slot 3 not in selection
+        dispatch_move(&mut state, &mut cmds, 0, 3, 1);
         let PendingCommand::Move { src_slots, .. } = cmds.iter().next().unwrap() else {
             panic!()
         };
@@ -377,7 +393,6 @@ mod tests {
     }
 
     fn state_with_pool_selection(ids: Vec<&str>) -> GuiState {
-        use crate::state::PoolSelection;
         let mut state = GuiState::new(ProjectState::default());
         for id in &ids {
             state.pool_selection.toggle(id.to_string());
@@ -391,7 +406,6 @@ mod tests {
         state.hovered_page = Some(2);
         state.page_dirty = vec![false, false, false];
         let mut cmds = HashSet::new();
-        // Simulate hotkey by calling dispatch directly
         for d in &mut state.page_dirty {
             *d = true;
         }
@@ -399,8 +413,7 @@ mod tests {
             photo_ids: state.pool_selection.ids(),
             dst_page: state.hovered_page,
         });
-        let cmd = cmds.iter().next().unwrap();
-        let PendingCommand::Place { dst_page, .. } = cmd else {
+        let PendingCommand::Place { dst_page, .. } = cmds.iter().next().unwrap() else {
             panic!()
         };
         assert_eq!(*dst_page, Some(2));
@@ -423,35 +436,18 @@ mod tests {
 
     #[test]
     fn place_hotkey_no_op_when_selection_empty() {
-        let mut state = GuiState::new(ProjectState::default());
+        let state = GuiState::new(ProjectState::default());
         let ids = state.pool_selection.ids();
-        assert!(ids.is_empty(), "must not emit when selection empty");
+        assert!(ids.is_empty());
     }
 
     #[test]
     fn pool_drag_complete_emits_place_on_hovered_page() {
-        use crate::state::PoolDragState;
         let mut state = GuiState::new(ProjectState::default());
-        state.pool_drag = PoolDragState::Dragging {
-            photo_ids: vec!["a.jpg".into()],
-        };
         state.hovered_page = Some(1);
         state.page_dirty = vec![false, false];
-
-        // Simulate secondary_released by calling the logic directly
-        let PoolDragState::Dragging { photo_ids } = std::mem::take(&mut state.pool_drag) else {
-            panic!()
-        };
         let mut cmds = HashSet::new();
-        if let Some(dst_page) = state.hovered_page {
-            if let Some(d) = state.page_dirty.get_mut(dst_page) {
-                *d = true;
-            }
-            cmds.insert(PendingCommand::Place {
-                photo_ids,
-                dst_page: Some(dst_page),
-            });
-        }
+        complete_pool_drag(&mut state, &mut cmds, vec!["a.jpg".into()]);
         assert_eq!(cmds.len(), 1);
         let PendingCommand::Place { dst_page, .. } = cmds.iter().next().unwrap() else {
             panic!()
@@ -461,23 +457,36 @@ mod tests {
 
     #[test]
     fn pool_drag_complete_cancels_without_hovered_page() {
-        use crate::state::PoolDragState;
         let mut state = GuiState::new(ProjectState::default());
-        state.pool_drag = PoolDragState::Dragging {
-            photo_ids: vec!["a.jpg".into()],
-        };
         state.hovered_page = None;
+        state.hovered_nav_page = None;
+        let mut cmds = HashSet::new();
+        complete_pool_drag(&mut state, &mut cmds, vec!["a.jpg".into()]);
+        assert!(cmds.is_empty(), "no hovered page → no command");
+    }
 
-        let PoolDragState::Dragging { photo_ids } = std::mem::take(&mut state.pool_drag) else {
+    #[test]
+    fn nav_drag_complete_emits_page_swap() {
+        let mut state = GuiState::new(ProjectState::default());
+        state.hovered_nav_page = Some(2);
+        state.page_dirty = vec![false, false, false];
+        let mut cmds = HashSet::new();
+        complete_nav_drag(&mut state, &mut cmds, 0);
+        assert_eq!(cmds.len(), 1);
+        let PendingCommand::PageSwap { left, right } = cmds.iter().next().unwrap() else {
             panic!()
         };
+        assert_eq!(*left, 0);
+        assert_eq!(*right, 2);
+    }
+
+    #[test]
+    fn nav_drag_complete_noop_when_same_page() {
+        let mut state = GuiState::new(ProjectState::default());
+        state.hovered_nav_page = Some(1);
+        state.page_dirty = vec![false, false];
         let mut cmds = HashSet::new();
-        if let Some(dst_page) = state.hovered_page {
-            cmds.insert(PendingCommand::Place {
-                photo_ids,
-                dst_page: Some(dst_page),
-            });
-        }
-        assert!(cmds.is_empty(), "no hovered page → no command");
+        complete_nav_drag(&mut state, &mut cmds, 1);
+        assert!(cmds.is_empty(), "same page → no-op");
     }
 }

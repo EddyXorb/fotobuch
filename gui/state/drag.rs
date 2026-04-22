@@ -22,37 +22,27 @@ impl DragMode {
     }
 }
 
-/// Tracks an ongoing drag-and-drop gesture.
-#[derive(Default)]
+/// What initiated the current drag gesture.
+#[derive(Debug, Clone)]
+pub enum DragSource {
+    /// Right-mouse drag from a slot in the central panel.
+    Slot {
+        src_page: usize,
+        src_slot: usize,
+        cursor_at_drag_start: egui::Pos2,
+    },
+    /// Right-mouse drag from a page thumbnail in the nav panel.
+    NavPage { src_page: usize },
+    /// Right-mouse drag from a photo row in the pool panel.
+    Pool { photo_ids: Vec<String> },
+}
+
+/// Unified drag state covering all drag sources.
+#[derive(Default, Debug)]
 pub enum DragState {
     #[default]
     Idle,
-    Dragging {
-        src_page: usize,
-        src_slot: usize,
-        /// Screen position of the pointer when drag was initiated.
-        /// Used to compute the grab offset for the ghost rectangle.
-        cursor_at_drag_start: egui::Pos2,
-    },
-}
-
-/// Drag innerhalb des Nav-Panels (Seite ↔ Seite tauschen).
-#[derive(Default)]
-pub enum NavDragState {
-    #[default]
-    Idle,
-    Dragging {
-        src_page: usize,
-    },
-}
-
-/// Drag vom Foto-Pool auf eine Seite.
-#[derive(Default)]
-pub enum PoolDragState {
-    #[default]
-    Idle,
-    /// `photo_ids` ist ein Snapshot der Selektion beim drag_started.
-    Dragging { photo_ids: Vec<String> },
+    Dragging(DragSource),
 }
 
 #[cfg(test)]
