@@ -15,7 +15,7 @@ use fotobuch::output::typst_world::TypstWorld;
 
 use crate::task::{BackgroundResult, BackgroundTask};
 
-const NAV_THUMB_MAX_EDGE_PX: u32 = 120;
+const NAV_THUMB_MAX_EDGE_PX: u32 = 512;
 const POOL_THUMB_MAX_EDGE_PX: u32 = 256;
 
 pub fn spawn(
@@ -440,6 +440,7 @@ fn run_place_photos(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn run_config_set(
     project_root: &std::path::Path,
     key: &str,

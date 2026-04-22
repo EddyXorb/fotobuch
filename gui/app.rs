@@ -29,6 +29,8 @@ impl FotobuchApp {
         drop(mgr);
 
         let state = GuiState::new(project_state);
+        cc.egui_ctx
+            .global_style_mut(|s| s.interaction.tooltip_delay = 0.05);
         let (task_tx, result_rx) =
             crate::background::spawn(project_root, project_name, cc.egui_ctx.clone());
         let _ = task_tx.send(BackgroundTask::RenderPages {

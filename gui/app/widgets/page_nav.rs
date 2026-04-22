@@ -3,16 +3,15 @@ use std::collections::HashSet;
 use egui::Align;
 
 use crate::app::pending::PendingCommand;
+use crate::app::widgets::central_panel::draw_drag_ghosts;
 use crate::state::{DragSource, DragState, GuiState};
 
-pub const NAV_THUMB_MAX_EDGE_PX: u32 = 120;
-
 pub fn draw(ui: &mut egui::Ui, state: &mut GuiState, cmds: &mut HashSet<PendingCommand>) {
-    egui::SidePanel::right("page_nav")
+    egui::Panel::right("page_nav")
         .resizable(true)
-        .min_width(100.0)
-        .max_width(200.0)
-        .default_width(120.0)
+        .min_size(100.0)
+        .max_size(200.0)
+        .default_size(120.0)
         .show_inside(ui, |ui| show(ui, state, cmds));
 }
 
@@ -46,6 +45,8 @@ fn show(ui: &mut egui::Ui, state: &mut GuiState, _cmds: &mut HashSet<PendingComm
                 ui.add_space(4.0);
             }
         });
+
+    draw_drag_ghosts::draw_nav_drag_ghost(ui.ctx(), state);
 }
 
 fn draw_thumb(state: &GuiState, page_idx: usize, rect: egui::Rect, painter: &egui::Painter) {
@@ -73,7 +74,16 @@ fn draw_highlights(
         matches!(state.drag, DragState::Dragging(DragSource::NavPage { .. })) && response.hovered();
     let is_slot_drag_target =
         matches!(state.drag, DragState::Dragging(DragSource::Slot { .. })) && response.hovered();
+    let is_pool_drag_target =
+        matches!(state.drag, DragState::Dragging(DragSource::Pool { .. })) && response.hovered();
 
+    if is_pool_drag_target {
+        painter.rect_filled(
+            rect,
+            0.0,
+            egui::Color32::from_rgba_unmultiplied(64, 128, 255, 48),
+        );
+    }
     if is_scroll_target {
         painter.rect_stroke(
             rect,

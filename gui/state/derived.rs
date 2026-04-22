@@ -44,6 +44,7 @@ impl DerivedState {
         self.placed_locations.get(id).map(|v| v.len()).unwrap_or(0)
     }
 
+    #[allow(dead_code)]
     pub fn duplicate_ids(&self) -> impl Iterator<Item = &String> {
         self.placed_locations
             .iter()
@@ -68,6 +69,7 @@ fn build_photo_maps(
     (photo_by_id, group_of_photo)
 }
 
+#[allow(clippy::type_complexity)]
 fn build_placement_maps(
     layout: &[LayoutPage],
     group_of_photo: &HashMap<String, String>,

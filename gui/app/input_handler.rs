@@ -95,7 +95,10 @@ fn handle_drag_start(state: &mut GuiState, ctx: &egui::Context) {
             cursor_at_drag_start: cursor,
         });
     } else if let Some(nav_page) = state.hovered_nav_page {
-        state.drag = DragState::Dragging(DragSource::NavPage { src_page: nav_page });
+        state.drag = DragState::Dragging(DragSource::NavPage {
+            src_page: nav_page,
+            cursor_at_drag_start: cursor,
+        });
     } else if let Some(pool_id) = state.hovered_pool_id.clone() {
         let ids = if state.pool_selection.is_selected(&pool_id) {
             state.pool_selection.ids()
@@ -125,7 +128,7 @@ fn handle_drag_complete(
         } => {
             complete_slot_drag(state, cmds, src_page, src_slot);
         }
-        DragSource::NavPage { src_page } => {
+        DragSource::NavPage { src_page, .. } => {
             complete_nav_drag(state, cmds, src_page);
         }
         DragSource::Pool { photo_ids } => {

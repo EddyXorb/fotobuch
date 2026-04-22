@@ -69,6 +69,7 @@ impl PoolSelection {
         *self = Self::Some { ids, anchor };
     }
 
+    #[allow(dead_code)]
     pub fn clear(&mut self) {
         *self = Self::None;
     }

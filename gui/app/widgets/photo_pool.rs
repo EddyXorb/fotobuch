@@ -1,19 +1,18 @@
 use std::collections::HashSet;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crate::app::pending::PendingCommand;
-use crate::state::{DragSource, DragState, GuiState, PoolSelection};
+use crate::state::{DragSource, DragState, GuiState, PoolSelection, Selection};
 use crate::task::BackgroundTask;
 
-pub const POOL_THUMB_MAX_EDGE_PX: u32 = 256;
 const THUMB_FILL_CHUNK: usize = 8;
 
 pub fn draw(ui: &mut egui::Ui, state: &mut GuiState, cmds: &mut HashSet<PendingCommand>) {
-    egui::SidePanel::left("photo_pool")
+    egui::Panel::left("photo_pool")
         .resizable(true)
-        .min_width(220.0)
-        .max_width(400.0)
-        .default_width(260.0)
+        .min_size(220.0)
+        .max_size(400.0)
+        .default_size(260.0)
         .show_inside(ui, |ui| show(ui, state, cmds));
 }
 
@@ -64,12 +63,18 @@ fn draw_row(
     let is_pool_dragging = matches!(state.drag, DragState::Dragging(DragSource::Pool { .. }));
 
     let row_response = ui.push_id(egui::Id::new(("pool_row", id)), |ui| {
-        ui.horizontal(|ui| {
-            draw_thumb_cell(ui, state, id, visible_needed);
-            draw_filename_label(ui, source, id);
-            draw_placement_badge(ui, state, id);
-        })
-        .response
+        let layout_resp = ui
+            .horizontal(|ui| {
+                draw_thumb_cell(ui, state, id, visible_needed);
+                draw_filename_label(ui, source, id);
+                draw_placement_badge(ui, state, id);
+            })
+            .response;
+        ui.interact(
+            layout_resp.rect,
+            layout_resp.id,
+            egui::Sense::click_and_drag(),
+        )
     });
 
     let row_resp = row_response.inner;
@@ -114,7 +119,7 @@ fn draw_thumb_cell(
     }
 }
 
-fn draw_filename_label(ui: &mut egui::Ui, source: &PathBuf, id: &str) {
+fn draw_filename_label(ui: &mut egui::Ui, source: &Path, id: &str) {
     let filename = source
         .file_name()
         .map(|n| n.to_string_lossy().to_string())
@@ -197,6 +202,13 @@ fn handle_selection_click(
         state.pool_selection.toggle(id.to_string());
     } else {
         state.pool_selection = PoolSelection::single(id.to_string());
+        if let Some(locs) = state.derived.placed_locations.get(id)
+            && locs.len() == 1
+        {
+            let (page, slot) = locs[0];
+            state.scroll_to_page = Some(page);
+            state.selection = Selection::single(page, slot);
+        }
     }
 }
 
