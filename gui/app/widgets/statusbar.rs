@@ -1,4 +1,4 @@
-use crate::state::{DragState, GuiState, Selection};
+use crate::state::{DragState, GuiState, HoveredTarget, Selection};
 
 pub fn draw(ui: &mut egui::Ui, state: &GuiState) {
     egui::Panel::bottom("statusbar").show_inside(ui, |ui| show(ui, state));
@@ -15,7 +15,7 @@ fn show(ui: &mut egui::Ui, state: &GuiState) {
             .sum();
         let unplaced = state.derived.unplaced_photos.len();
 
-        let page_str = match state.hovered_slot {
+        let page_str = match state.hovered.as_ref().and_then(HoveredTarget::slot) {
             Some((page, _)) => format!("Page {page}/{total}"),
             None => format!("Page \u{2013}/{total}"),
         };

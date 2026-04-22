@@ -103,7 +103,8 @@ fn draw_slot_overlays(
     let painter = ui.painter();
     for (slot_idx, slot) in layout_page.slots.iter().enumerate() {
         let slot_rect = geometry::slot_rect_on_screen(page_rect, dims, slot);
-        let is_hovered = state.hovered_slot == Some((page_idx, slot_idx));
+        let is_hovered =
+            state.hovered.as_ref().and_then(|h| h.slot()) == Some((page_idx, slot_idx));
 
         if is_swap_drag {
             let target_ratio = slot.width_mm / slot.height_mm;
@@ -183,7 +184,7 @@ fn draw_pool_drag_overlay(
     page_rect: egui::Rect,
 ) {
     if matches!(state.drag, DragState::Dragging(DragSource::Pool { .. }))
-        && state.hovered_page == Some(page_idx)
+        && state.hovered.as_ref().and_then(|h| h.central_page()) == Some(page_idx)
     {
         ui.painter().rect_filled(
             page_rect,

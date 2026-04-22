@@ -5,7 +5,7 @@ use egui::Align;
 use crate::app::pending::PendingCommand;
 use crate::app::widgets::central_panel::draw_drag_ghosts;
 use crate::app::widgets::geometry::A4_ASPECT;
-use crate::state::{DragSource, DragState, GuiState};
+use crate::state::{DragSource, DragState, GuiState, HoveredTarget};
 
 pub fn draw(ui: &mut egui::Ui, state: &mut GuiState, cmds: &mut HashSet<PendingCommand>) {
     egui::Panel::right("page_nav")
@@ -34,7 +34,7 @@ fn show(ui: &mut egui::Ui, state: &mut GuiState, _cmds: &mut HashSet<PendingComm
                 draw_highlights(state, i, rect, &painter, &response);
 
                 if response.hovered() {
-                    state.hovered_nav_page = Some(i);
+                    state.hovered = Some(HoveredTarget::NavPage(i));
                 }
 
                 if response.clicked() {

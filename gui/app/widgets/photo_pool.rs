@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
-use crate::state::{DragSource, DragState, GuiState, PoolSelection, Selection};
+use crate::state::{DragSource, DragState, GuiState, HoveredTarget, PoolSelection, Selection};
 use crate::task::BackgroundTask;
 
 const THUMB_FILL_CHUNK: usize = 8;
@@ -104,7 +104,7 @@ fn draw_row(
     }
 
     if row_resp.hovered() {
-        state.hovered_pool_id = Some(id.to_string());
+        state.hovered = Some(HoveredTarget::PoolItem(id.to_string()));
     }
 
     handle_selection_click(ui, state, id, order, &row_resp);

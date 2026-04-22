@@ -1,6 +1,7 @@
 mod config_panel;
 mod derived;
 mod drag;
+mod hover;
 mod pool;
 mod selection;
 mod timings;
@@ -8,6 +9,7 @@ mod timings;
 pub use config_panel::ConfigPanelState;
 pub use derived::DerivedState;
 pub use drag::{DragMode, DragSource, DragState};
+pub use hover::HoveredTarget;
 pub use pool::PoolSelection;
 pub use selection::Selection;
 pub use timings::Timings;
@@ -37,12 +39,7 @@ pub struct GuiState {
     pub zoom: f32,
     pub base_pixel_per_pt: f32,
     pub selection: Selection,
-    pub hovered_slot: Option<(usize, usize)>,
-    pub hovered_page: Option<usize>,
-    /// Nav-panel page currently under the pointer (set each frame by page_nav).
-    pub hovered_nav_page: Option<usize>,
-    /// Pool row currently under the pointer (set each frame by photo_pool).
-    pub hovered_pool_id: Option<String>,
+    pub hovered: Option<HoveredTarget>,
     pub drag: DragState,
     pub drag_mode: DragMode,
     pub pool_selection: PoolSelection,
@@ -69,10 +66,7 @@ impl GuiState {
             zoom: 1.0,
             base_pixel_per_pt: 1.5,
             selection: Selection::None,
-            hovered_slot: None,
-            hovered_page: None,
-            hovered_nav_page: None,
-            hovered_pool_id: None,
+            hovered: None,
             drag: DragState::Idle,
             drag_mode: DragMode::Swap,
             pool_selection: PoolSelection::None,

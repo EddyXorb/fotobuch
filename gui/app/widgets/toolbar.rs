@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use crate::app::pending::PendingCommand;
-use crate::state::{DragMode, GuiState};
+use crate::state::{DragMode, GuiState, HoveredTarget};
 
 pub fn draw(ui: &mut egui::Ui, state: &mut GuiState) -> HashSet<PendingCommand> {
     egui::Panel::top("toolbar")
@@ -60,7 +60,7 @@ fn place_button(ui: &mut egui::Ui, state: &mut GuiState, cmds: &mut HashSet<Pend
         }
         cmds.insert(PendingCommand::Place {
             photo_ids: state.pool_selection.ids(),
-            dst_page: state.hovered_page,
+            dst_page: state.hovered.as_ref().and_then(HoveredTarget::central_page),
         });
     }
 }
