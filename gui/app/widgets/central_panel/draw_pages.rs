@@ -3,7 +3,10 @@ use crate::state::GuiState;
 use super::super::page_nav;
 use super::draw_page;
 
-pub(super) fn draw_pages(ui: &mut egui::Ui, state: &mut GuiState) {
+pub(super) fn draw_pages(
+    ui: &mut egui::Ui,
+    state: &mut GuiState,
+) -> (Option<(usize, usize)>, Option<usize>) {
     // Use page_textures.len() rather than layout.len() so that extra pages
     // produced by Typst (e.g. appendix) are also rendered and displayed.
     let num_pages = state.page_textures.len();
@@ -44,6 +47,5 @@ pub(super) fn draw_pages(ui: &mut egui::Ui, state: &mut GuiState) {
     state.central_scroll_y = output.state.offset.y;
     state.central_viewport_top = output.inner_rect.min.y;
 
-    state.hovered_slot = new_hovered;
-    state.hovered_page = new_hovered_page;
+    (new_hovered, new_hovered_page)
 }
