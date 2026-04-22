@@ -1,22 +1,21 @@
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
-use crate::app::pending::PendingCommand;
 use crate::state::{DragSource, DragState, GuiState, PoolSelection, Selection};
 use crate::task::BackgroundTask;
 
 const THUMB_FILL_CHUNK: usize = 8;
 
-pub fn draw(ui: &mut egui::Ui, state: &mut GuiState, cmds: &mut HashSet<PendingCommand>) {
+pub fn draw(ui: &mut egui::Ui, state: &mut GuiState) {
     egui::Panel::left("photo_pool")
         .resizable(true)
         .min_size(220.0)
         .max_size(400.0)
         .default_size(260.0)
-        .show_inside(ui, |ui| show(ui, state, cmds));
+        .show_inside(ui, |ui| show(ui, state));
 }
 
-fn show(ui: &mut egui::Ui, state: &mut GuiState, _cmds: &mut HashSet<PendingCommand>) {
+fn show(ui: &mut egui::Ui, state: &mut GuiState) {
     let order: Vec<String> = state
         .project_state
         .photos

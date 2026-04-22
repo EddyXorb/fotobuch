@@ -212,7 +212,7 @@ impl eframe::App for FotobuchApp {
         widgets::statusbar::draw(ui, &self.state);
 
         // Side panels must come before the central panel (egui ordering requirement).
-        widgets::photo_pool::draw(ui, &mut self.state, &mut cmds);
+        widgets::photo_pool::draw(ui, &mut self.state);
         widgets::page_nav::draw(ui, &mut self.state, &mut cmds);
 
         let t = Instant::now();
