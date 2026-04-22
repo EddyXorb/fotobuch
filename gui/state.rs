@@ -4,6 +4,7 @@ mod drag;
 mod hover;
 mod pool;
 mod selection;
+mod thumb;
 mod timings;
 
 pub use config_panel::ConfigPanelState;
@@ -12,10 +13,8 @@ pub use drag::{DragMode, DragSource, DragState};
 pub use hover::HoveredTarget;
 pub use pool::PoolSelection;
 pub use selection::Selection;
+pub use thumb::PhotoThumbState;
 pub use timings::Timings;
-
-use std::collections::{HashMap, HashSet, VecDeque};
-use std::path::PathBuf;
 
 use egui::{ColorImage, Context, TextureHandle, TextureOptions};
 use fotobuch::dto_models::ProjectState;
@@ -43,13 +42,10 @@ pub struct GuiState {
     pub drag: DragState,
     pub drag_mode: DragMode,
     pub pool_selection: PoolSelection,
-    pub photo_thumbs: HashMap<String, TextureHandle>,
-    pub photo_thumb_in_flight: HashSet<String>,
-    pub photo_thumb_prefetch: VecDeque<String>,
+    pub thumb: PhotoThumbState,
     pub scroll_to_page: Option<usize>,
     pub config_panel: ConfigPanelState,
     pub timings: Timings,
-    pub pending_thumb_loads: Vec<(String, PathBuf)>,
     pub central_scroll: CentralScrollState,
 }
 
@@ -70,13 +66,10 @@ impl GuiState {
             drag: DragState::Idle,
             drag_mode: DragMode::Swap,
             pool_selection: PoolSelection::None,
-            photo_thumbs: HashMap::new(),
-            photo_thumb_in_flight: HashSet::new(),
-            photo_thumb_prefetch: VecDeque::new(),
+            thumb: PhotoThumbState::default(),
             scroll_to_page: None,
             config_panel: ConfigPanelState::default(),
             timings: Timings::default(),
-            pending_thumb_loads: Vec::new(),
             central_scroll: CentralScrollState::default(),
         }
     }

@@ -118,12 +118,13 @@ impl FotobuchApp {
             state::resize_page_vecs(&mut self.state, num_pages);
             let loaded_or_inflight: HashSet<String> = self
                 .state
-                .photo_thumbs
+                .thumb
+                .thumbs
                 .keys()
-                .chain(self.state.photo_thumb_in_flight.iter())
+                .chain(self.state.thumb.in_flight.iter())
                 .cloned()
                 .collect();
-            self.state.photo_thumb_prefetch = self
+            self.state.thumb.prefetch = self
                 .state
                 .derived
                 .photo_by_id
@@ -160,13 +161,13 @@ impl FotobuchApp {
         pixels: Vec<u8>,
     ) -> bool {
         if !self.state.derived.photo_by_id.contains_key(&id) {
-            self.state.photo_thumb_in_flight.remove(&id);
+            self.state.thumb.in_flight.remove(&id);
             return false;
         }
         let img = egui::ColorImage::from_rgba_unmultiplied([width as _, height as _], &pixels);
         let tex = ctx.load_texture(format!("thumb_{id}"), img, egui::TextureOptions::LINEAR);
-        self.state.photo_thumbs.insert(id.clone(), tex);
-        self.state.photo_thumb_in_flight.remove(&id);
+        self.state.thumb.thumbs.insert(id.clone(), tex);
+        self.state.thumb.in_flight.remove(&id);
         true
     }
 

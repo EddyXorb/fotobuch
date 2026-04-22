@@ -118,7 +118,7 @@ fn draw_thumb_cell(
 ) {
     let thumb_size = egui::vec2(24.0, 24.0);
     let (thumb_rect, _) = ui.allocate_exact_size(thumb_size, egui::Sense::hover());
-    if let Some(tex) = state.photo_thumbs.get(id) {
+    if let Some(tex) = state.thumb.thumbs.get(id) {
         ui.painter().image(
             tex.id(),
             thumb_rect,
@@ -190,7 +190,7 @@ fn draw_hover_preview(_ui: &mut egui::Ui, state: &GuiState, id: &str, row_resp: 
     if !row_resp.hovered() {
         return;
     }
-    if let Some(tex) = state.photo_thumbs.get(id) {
+    if let Some(tex) = state.thumb.thumbs.get(id) {
         let tex = tex.clone();
         row_resp.clone().on_hover_ui_at_pointer(|ui| {
             let sz = tex.size_vec2();
@@ -231,16 +231,14 @@ fn handle_selection_click(
 }
 
 fn needs_thumb_load(state: &GuiState, id: &str) -> bool {
-    !state.photo_thumbs.contains_key(id) && !state.photo_thumb_in_flight.contains(id)
+    !state.thumb.thumbs.contains_key(id) && !state.thumb.in_flight.contains(id)
 }
 
 /// Dispatches thumbnail loading tasks: visible items first, then prefetch.
 pub fn dispatch_thumb_loads(state: &mut GuiState, visible_needed: Vec<String>) {
     let mut visible_filtered: Vec<(String, PathBuf)> = visible_needed
         .into_iter()
-        .filter(|id| {
-            !state.photo_thumbs.contains_key(id) && !state.photo_thumb_in_flight.contains(id)
-        })
+        .filter(|id| !state.thumb.thumbs.contains_key(id) && !state.thumb.in_flight.contains(id))
         .filter_map(|id| {
             state
                 .derived
@@ -255,12 +253,12 @@ pub fn dispatch_thumb_loads(state: &mut GuiState, visible_needed: Vec<String>) {
 
     if !visible_filtered.is_empty() {
         for (id, _) in &visible_filtered {
-            state.photo_thumb_in_flight.insert(id.clone());
+            state.thumb.in_flight.insert(id.clone());
         }
-        state.pending_thumb_loads.extend(visible_filtered);
-    } else if !state.photo_thumb_prefetch.is_empty() {
-        let chunk_len = THUMB_FILL_CHUNK.min(state.photo_thumb_prefetch.len());
-        let chunk: Vec<String> = state.photo_thumb_prefetch.drain(..chunk_len).collect();
+        state.thumb.pending_loads.extend(visible_filtered);
+    } else if !state.thumb.prefetch.is_empty() {
+        let chunk_len = THUMB_FILL_CHUNK.min(state.thumb.prefetch.len());
+        let chunk: Vec<String> = state.thumb.prefetch.drain(..chunk_len).collect();
         let items: Vec<(String, PathBuf)> = chunk
             .into_iter()
             .filter(|id| needs_thumb_load(state, id))
@@ -273,17 +271,17 @@ pub fn dispatch_thumb_loads(state: &mut GuiState, visible_needed: Vec<String>) {
             })
             .collect();
         for (id, _) in &items {
-            state.photo_thumb_in_flight.insert(id.clone());
+            state.thumb.in_flight.insert(id.clone());
         }
-        state.pending_thumb_loads.extend(items);
+        state.thumb.pending_loads.extend(items);
     }
 }
 
 /// Flushes pending thumb loads as a single BackgroundTask.
 pub fn flush_thumb_loads(state: &mut GuiState) -> Option<BackgroundTask> {
-    if state.pending_thumb_loads.is_empty() {
+    if state.thumb.pending_loads.is_empty() {
         return None;
     }
-    let items: Vec<(String, PathBuf)> = state.pending_thumb_loads.drain(..).collect();
+    let items: Vec<(String, PathBuf)> = state.thumb.pending_loads.drain(..).collect();
     Some(BackgroundTask::LoadPhotoThumbnails { items })
 }
