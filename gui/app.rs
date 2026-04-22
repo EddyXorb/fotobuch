@@ -33,10 +33,15 @@ impl FotobuchApp {
             .global_style_mut(|s| s.interaction.tooltip_delay = 0.05);
         let (task_tx, result_rx) =
             crate::background::spawn(project_root, project_name, cc.egui_ctx.clone());
-        let _ = task_tx.send(BackgroundTask::RenderPages {
-            pages: (0..num_pages).collect(),
-            pixel_per_pt: state.base_pixel_per_pt,
-        });
+        if task_tx
+            .send(BackgroundTask::RenderPages {
+                pages: (0..num_pages).collect(),
+                pixel_per_pt: state.base_pixel_per_pt,
+            })
+            .is_err()
+        {
+            tracing::error!("background worker closed before initial render was sent");
+        }
 
         Ok(Self {
             state,
@@ -193,7 +198,9 @@ impl FotobuchApp {
                     }
                 }
             };
-            let _ = self.task_tx.send(task);
+            if self.task_tx.send(task).is_err() {
+                tracing::error!("background worker closed; command dropped");
+            }
         }
     }
 }
@@ -225,7 +232,9 @@ impl eframe::App for FotobuchApp {
 
         // Flush pending thumbnail loads collected during widget drawing.
         if let Some(task) = widgets::photo_pool::flush_thumb_loads(&mut self.state) {
-            let _ = self.task_tx.send(task);
+            if self.task_tx.send(task).is_err() {
+                tracing::error!("background worker closed; thumbnail load dropped");
+            }
         }
 
         // Input handling runs after central panel so that hovered_slot reflects the current
