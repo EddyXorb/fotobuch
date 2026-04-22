@@ -74,6 +74,9 @@ pub enum BackgroundResult {
     /// A command failed (user-visible error, not a render error).
     CommandFailed(String),
     Error(String),
+    /// Total number of pages in the compiled Typst document (may exceed layout.len()
+    /// when appendix or other extra pages are active).
+    TotalPageCount(usize),
     PhotoThumbnailReady {
         id: String,
         width: u32,

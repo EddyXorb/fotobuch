@@ -108,6 +108,9 @@ impl FotobuchApp {
                 BackgroundResult::Error(e) => {
                     tracing::error!(%e, "render error");
                 }
+                BackgroundResult::TotalPageCount(n) => {
+                    state::resize_page_vecs(&mut self.state, n);
+                }
                 BackgroundResult::PhotoThumbnailReady {
                     id,
                     width,

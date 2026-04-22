@@ -378,9 +378,20 @@ fn render_pages(
         }
     };
     let compile_duration = t_compile.elapsed();
+    let doc_page_count = doc.pages.len();
+
+    // Notify the GUI of the real page count so it can resize its vectors.
+    // This is sent before any PageRendered so the slots exist when textures arrive.
+    let _ = result_tx.send(BackgroundResult::TotalPageCount(doc_page_count));
+
+    // Extend the render list with any extra pages beyond the requested set
+    // (e.g. appendix pages that live past layout.len()).
+    let max_requested = pages.iter().copied().max().unwrap_or(0);
+    let extra_pages = (max_requested + 1)..doc_page_count;
+    let all_pages: Vec<usize> = pages.into_iter().chain(extra_pages).collect();
 
     let doc = Arc::new(doc);
-    for page in pages {
+    for page in all_pages {
         let doc = Arc::clone(&doc);
         let tx = result_tx.clone();
         let ctx = ctx.clone();
@@ -520,31 +531,41 @@ mod tests {
             })
             .unwrap();
 
-        let result = result_rx
-            .recv_timeout(Duration::from_secs(30))
-            .expect("no result within timeout");
-
-        match result {
-            BackgroundResult::PageRendered {
-                page: r,
-                thumb,
-                rasterize_duration,
-                compile_duration,
-            } => {
-                assert_eq!(r.page, 0);
-                assert!(!r.pixels.is_empty());
-                assert_eq!(thumb.page, 0);
-                assert!(thumb.width <= 512 && thumb.height <= 512);
-                assert!(rasterize_duration.as_secs() < 30);
-                assert!(compile_duration.as_secs() < 30);
+        // render_pages sends TotalPageCount first, then PageRendered from a rayon thread.
+        // Receive both within 30s; accept either order.
+        let timeout = Duration::from_secs(30);
+        let mut page_rendered = false;
+        let mut total_page_count: Option<usize> = None;
+        for _ in 0..2 {
+            match result_rx
+                .recv_timeout(timeout)
+                .expect("no result within timeout")
+            {
+                BackgroundResult::TotalPageCount(n) => total_page_count = Some(n),
+                BackgroundResult::PageRendered {
+                    page: r,
+                    thumb,
+                    rasterize_duration,
+                    compile_duration,
+                } => {
+                    assert_eq!(r.page, 0);
+                    assert!(!r.pixels.is_empty());
+                    assert_eq!(thumb.page, 0);
+                    assert!(thumb.width <= 512 && thumb.height <= 512);
+                    assert!(rasterize_duration.as_secs() < 30);
+                    assert!(compile_duration.as_secs() < 30);
+                    page_rendered = true;
+                }
+                BackgroundResult::Error(e) => panic!("worker error: {e}"),
+                other => panic!("unexpected result: {other:?}"),
             }
-            BackgroundResult::Error(e) => panic!("worker error: {e}"),
-            other => panic!("unexpected result: {other:?}"),
         }
+        assert!(page_rendered, "no PageRendered received");
+        assert_eq!(total_page_count, Some(1), "expected TotalPageCount(1)");
 
-        match result_rx.recv_timeout(Duration::from_millis(100)) {
+        match result_rx.recv_timeout(Duration::from_millis(200)) {
             Err(RecvTimeoutError::Timeout) | Err(RecvTimeoutError::Disconnected) => {}
-            Ok(_) => panic!("unexpected second result"),
+            Ok(_) => panic!("unexpected third result"),
         }
     }
 }

@@ -17,7 +17,7 @@ pub fn draw(ui: &mut egui::Ui, state: &mut GuiState, cmds: &mut HashSet<PendingC
 
 fn show(ui: &mut egui::Ui, state: &mut GuiState, _cmds: &mut HashSet<PendingCommand>) {
     let panel_width = ui.available_width();
-    let num_pages = state.project_state.layout.len();
+    let num_pages = state.page_thumb_textures.len();
 
     state.hovered_nav_page = None;
 

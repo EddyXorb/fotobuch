@@ -4,7 +4,9 @@ use super::super::page_nav;
 use super::draw_page;
 
 pub(super) fn draw_pages(ui: &mut egui::Ui, state: &mut GuiState) {
-    let num_pages = state.project_state.layout.len();
+    // Use page_textures.len() rather than layout.len() so that extra pages
+    // produced by Typst (e.g. appendix) are also rendered and displayed.
+    let num_pages = state.page_textures.len();
     let mut new_hovered: Option<(usize, usize)> = None;
     let mut new_hovered_page: Option<usize> = None;
 
