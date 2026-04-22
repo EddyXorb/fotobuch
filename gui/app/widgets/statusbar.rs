@@ -1,4 +1,4 @@
-use crate::state::{DragState, GuiState, HoveredTarget, Selection};
+use crate::state::{DragState, GuiState, HoveredTarget, SlotSelection};
 
 pub fn draw(ui: &mut egui::Ui, state: &GuiState) {
     egui::Panel::bottom("statusbar").show_inside(ui, |ui| show(ui, state));
@@ -21,8 +21,8 @@ fn show(ui: &mut egui::Ui, state: &GuiState) {
         };
 
         let sel_str = match &state.selection {
-            Selection::None => "Sel: \u{2013}".to_string(),
-            Selection::OnPage { page, slots, .. } => {
+            SlotSelection::None => "Sel: \u{2013}".to_string(),
+            SlotSelection::OnPage { page, slots, .. } => {
                 format!("Sel: {} on page {page}", slots.len())
             }
         };

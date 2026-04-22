@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use crate::state::{self, DragMode, DragSource, DragState, GuiState, HoveredTarget, Selection};
+use crate::state::{self, DragMode, DragSource, DragState, GuiState, HoveredTarget, SlotSelection};
 
 use super::pending::PendingCommand;
 
@@ -230,8 +230,8 @@ fn handle_select_all(state: &mut GuiState, ctx: &egui::Context) {
         .and_then(|h| h.slot())
         .map(|(p, _)| p)
         .or(match &state.selection {
-            Selection::OnPage { page, .. } => Some(*page),
-            Selection::None => None,
+            SlotSelection::OnPage { page, .. } => Some(*page),
+            SlotSelection::None => None,
         });
     if let Some(page) = current_page {
         let slot_count = state
@@ -280,7 +280,7 @@ fn dispatch_move(
 ) {
     let src_slots: Vec<usize> = if state.selection.is_selected(src_page, src_slot) {
         match &state.selection {
-            Selection::OnPage { page, slots, .. } if *page == src_page => {
+            SlotSelection::OnPage { page, slots, .. } if *page == src_page => {
                 slots.iter().copied().collect()
             }
             _ => vec![src_slot],
@@ -337,7 +337,7 @@ fn handle_click(state: &mut GuiState, ctx: &egui::Context) {
         } else if modifiers.ctrl || modifiers.command {
             state.selection.toggle(page, slot);
         } else {
-            state.selection = Selection::single(page, slot);
+            state.selection = SlotSelection::single(page, slot);
         }
     } else {
         state.selection.clear();
@@ -356,7 +356,7 @@ mod tests {
     fn state_with_selection(sel_page: usize, sel_slots: Vec<usize>) -> GuiState {
         let mut state = GuiState::new(ProjectState::default());
         if !sel_slots.is_empty() {
-            state.selection = Selection::OnPage {
+            state.selection = SlotSelection::OnPage {
                 page: sel_page,
                 slots: BTreeSet::from_iter(sel_slots),
                 anchor: 0,

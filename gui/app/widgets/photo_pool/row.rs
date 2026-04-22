@@ -1,7 +1,7 @@
 use std::path::Path;
 use std::path::PathBuf;
 
-use crate::state::{DragSource, DragState, GuiState, HoveredTarget, PoolSelection, Selection};
+use crate::state::{DragSource, DragState, GuiState, HoveredTarget, PhotoSelection, SlotSelection};
 
 pub(super) fn draw_row(
     ui: &mut egui::Ui,
@@ -159,13 +159,13 @@ fn handle_selection_click(
     } else if mods.ctrl || mods.command {
         state.pool_selection.toggle(id.to_string());
     } else {
-        state.pool_selection = PoolSelection::single(id.to_string());
+        state.pool_selection = PhotoSelection::single(id.to_string());
         if let Some(locs) = state.derived.placed_locations.get(id)
             && locs.len() == 1
         {
             let (page, slot) = locs[0];
             state.scroll_to_page = Some(page);
-            state.selection = Selection::single(page, slot);
+            state.selection = SlotSelection::single(page, slot);
         }
     }
 }

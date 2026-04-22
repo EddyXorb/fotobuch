@@ -1,6 +1,6 @@
 use egui::vec2;
 
-use crate::state::{DragMode, DragSource, DragState, GuiState, Selection};
+use crate::state::{DragMode, DragSource, DragState, GuiState, SlotSelection};
 
 use super::super::geometry::{self, A4_ASPECT, PageDimensions, PageScale};
 
@@ -57,7 +57,7 @@ pub(super) fn draw_drag_ghosts(
     }
 
     let secondary: Vec<usize> = match &state.selection {
-        Selection::OnPage { page, slots, .. } if *page == page_idx && slots.len() > 1 => slots
+        SlotSelection::OnPage { page, slots, .. } if *page == page_idx && slots.len() > 1 => slots
             .iter()
             .filter(|&&s| s != src_slot_idx)
             .copied()

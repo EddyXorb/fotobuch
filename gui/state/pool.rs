@@ -1,8 +1,8 @@
 use std::collections::BTreeSet;
 
-/// Mehrfach-Selektion im Foto-Pool, analog zu [`crate::state::Selection`] für Slots.
+/// Mehrfach-Selektion im Foto-Pool, analog zu [`crate::state::SlotSelection`] für Slots.
 #[derive(Default)]
-pub enum PoolSelection {
+pub enum PhotoSelection {
     #[default]
     None,
     Some {
@@ -11,7 +11,7 @@ pub enum PoolSelection {
     },
 }
 
-impl PoolSelection {
+impl PhotoSelection {
     pub fn single(id: String) -> Self {
         let anchor = id.clone();
         let mut ids = BTreeSet::new();
@@ -99,15 +99,15 @@ mod tests {
 
     #[test]
     fn single_replaces_previous() {
-        let mut sel = PoolSelection::single("a".into());
-        sel = PoolSelection::single("b".into());
+        let mut sel = PhotoSelection::single("a".into());
+        sel = PhotoSelection::single("b".into());
         assert!(sel.is_selected("b"));
         assert!(!sel.is_selected("a"));
     }
 
     #[test]
     fn toggle_adds_then_removes() {
-        let mut sel = PoolSelection::single("a".into());
+        let mut sel = PhotoSelection::single("a".into());
         sel.toggle("b".into());
         assert!(sel.is_selected("a"));
         assert!(sel.is_selected("b"));
@@ -123,7 +123,7 @@ mod tests {
             .map(|s| s.to_string())
             .collect();
 
-        let mut sel = PoolSelection::single("b".into());
+        let mut sel = PhotoSelection::single("b".into());
         sel.range_to("d".into(), &order);
         assert!(sel.is_selected("b"));
         assert!(sel.is_selected("c"));
@@ -132,7 +132,7 @@ mod tests {
         assert!(!sel.is_selected("e"));
 
         // backwards
-        let mut sel2 = PoolSelection::single("d".into());
+        let mut sel2 = PhotoSelection::single("d".into());
         sel2.range_to("b".into(), &order);
         assert!(sel2.is_selected("b"));
         assert!(sel2.is_selected("c"));
@@ -141,7 +141,7 @@ mod tests {
 
     #[test]
     fn clear_resets() {
-        let mut sel = PoolSelection::single("a".into());
+        let mut sel = PhotoSelection::single("a".into());
         sel.clear();
         assert!(sel.is_empty());
     }

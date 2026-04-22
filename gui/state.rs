@@ -11,8 +11,8 @@ pub use config_panel::ConfigPanelState;
 pub use derived::DerivedState;
 pub use drag::{DragMode, DragSource, DragState};
 pub use hover::HoveredTarget;
-pub use pool::PoolSelection;
-pub use selection::Selection;
+pub use pool::PhotoSelection;
+pub use selection::SlotSelection;
 pub use thumb::PhotoThumbState;
 pub use timings::Timings;
 
@@ -37,11 +37,11 @@ pub struct GuiState {
     pub page_thumb_textures: Vec<Option<TextureHandle>>,
     pub zoom: f32,
     pub base_pixel_per_pt: f32,
-    pub selection: Selection,
+    pub selection: SlotSelection,
     pub hovered: Option<HoveredTarget>,
     pub drag: DragState,
     pub drag_mode: DragMode,
-    pub pool_selection: PoolSelection,
+    pub pool_selection: PhotoSelection,
     pub thumb: PhotoThumbState,
     pub scroll_to_page: Option<usize>,
     pub config_panel: ConfigPanelState,
@@ -61,11 +61,11 @@ impl GuiState {
             page_thumb_textures: vec![None; num_pages],
             zoom: 1.0,
             base_pixel_per_pt: 1.5,
-            selection: Selection::None,
+            selection: SlotSelection::None,
             hovered: None,
             drag: DragState::Idle,
             drag_mode: DragMode::Swap,
-            pool_selection: PoolSelection::None,
+            pool_selection: PhotoSelection::None,
             thumb: PhotoThumbState::default(),
             scroll_to_page: None,
             config_panel: ConfigPanelState::default(),
