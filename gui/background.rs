@@ -151,26 +151,7 @@ pub fn spawn(
                 }
 
                 BackgroundTask::LoadPhotoThumbnails { items } => {
-                    for (id, source) in items {
-                        let tx = result_tx.clone();
-                        let ctx = repaint_ctx.clone();
-                        pool.spawn(move || {
-                            match crate::thumbnail::load(&source, POOL_THUMB_MAX_EDGE_PX) {
-                                Ok((w, h, pixels)) => {
-                                    let _ = tx.send(BackgroundResult::PhotoThumbnailReady {
-                                        id,
-                                        width: w,
-                                        height: h,
-                                        pixels,
-                                    });
-                                    ctx.request_repaint();
-                                }
-                                Err(e) => {
-                                    tracing::warn!(%e, photo=%id, "thumb load failed");
-                                }
-                            }
-                        });
-                    }
+                    run_load_photo_thumbnails(items, &pool, &result_tx, &repaint_ctx);
                 }
 
                 BackgroundTask::PlacePhotos {
@@ -214,6 +195,34 @@ pub fn spawn(
 }
 
 // ── Internal helpers ──────────────────────────────────────────────────────────
+
+fn run_load_photo_thumbnails(
+    items: Vec<(String, std::path::PathBuf)>,
+    pool: &rayon::ThreadPool,
+    result_tx: &Sender<BackgroundResult>,
+    repaint_ctx: &Context,
+) {
+    for (id, source) in items {
+        let tx = result_tx.clone();
+        let ctx = repaint_ctx.clone();
+        pool.spawn(
+            move || match crate::thumbnail::load(&source, POOL_THUMB_MAX_EDGE_PX) {
+                Ok((w, h, pixels)) => {
+                    let _ = tx.send(BackgroundResult::PhotoThumbnailReady {
+                        id,
+                        width: w,
+                        height: h,
+                        pixels,
+                    });
+                    ctx.request_repaint();
+                }
+                Err(e) => {
+                    tracing::warn!(%e, photo=%id, "thumb load failed");
+                }
+            },
+        );
+    }
+}
 
 fn run_page_command(
     project_root: &std::path::Path,
