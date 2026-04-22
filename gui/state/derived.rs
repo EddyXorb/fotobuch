@@ -26,8 +26,11 @@ pub struct DerivedState {
 impl DerivedState {
     pub fn rebuild(project: &ProjectState) -> Self {
         let (photo_by_id, group_of_photo) = build_photo_maps(project);
-        let (placement_of_photo, placed_per_group, placed_locations) =
-            build_placement_maps(&project.layout, &group_of_photo);
+        let PlacementMaps {
+            placement_of_photo,
+            placed_per_group,
+            placed_locations,
+        } = build_placement_maps(&project.layout, &group_of_photo);
         let unplaced_photos = build_unplaced_photos(&photo_by_id, &placed_locations);
 
         Self {
@@ -53,6 +56,12 @@ impl DerivedState {
     }
 }
 
+struct PlacementMaps {
+    placement_of_photo: HashMap<String, (usize, usize)>,
+    placed_per_group: HashMap<String, usize>,
+    placed_locations: HashMap<String, Vec<(usize, usize)>>,
+}
+
 fn build_photo_maps(
     project: &ProjectState,
 ) -> (HashMap<String, PhotoFile>, HashMap<String, String>) {
@@ -69,15 +78,10 @@ fn build_photo_maps(
     (photo_by_id, group_of_photo)
 }
 
-#[allow(clippy::type_complexity)]
 fn build_placement_maps(
     layout: &[LayoutPage],
     group_of_photo: &HashMap<String, String>,
-) -> (
-    HashMap<String, (usize, usize)>,
-    HashMap<String, usize>,
-    HashMap<String, Vec<(usize, usize)>>,
-) {
+) -> PlacementMaps {
     let mut placement_of_photo: HashMap<String, (usize, usize)> = HashMap::new();
     let mut placed_per_group: HashMap<String, usize> = HashMap::new();
     let mut placed_locations: HashMap<String, Vec<(usize, usize)>> = HashMap::new();
@@ -98,7 +102,11 @@ fn build_placement_maps(
         }
     }
 
-    (placement_of_photo, placed_per_group, placed_locations)
+    PlacementMaps {
+        placement_of_photo,
+        placed_per_group,
+        placed_locations,
+    }
 }
 
 fn build_unplaced_photos(
