@@ -1,4 +1,4 @@
-use crate::state::{DragMode, DragSource, DragState, GuiState};
+use crate::state::{ActiveDrag, DragMode, DragSource, GuiState};
 
 use super::super::geometry::{self, PageDimensions};
 use super::{draw_drag_ghosts, helpers};
@@ -80,13 +80,16 @@ fn draw_slot_overlays(
         None => return,
     };
 
-    let is_slot_drag = matches!(state.drag, DragState::Dragging(DragSource::Slot { .. }));
-    let is_swap_drag = is_slot_drag && state.drag_mode == DragMode::Swap;
+    let is_slot_drag = matches!(
+        state.drag.active,
+        ActiveDrag::Dragging(DragSource::Slot { .. })
+    );
+    let is_swap_drag = is_slot_drag && state.drag.mode == DragMode::Swap;
 
     let drag_src_ratio: Option<f64> =
-        if let DragState::Dragging(DragSource::Slot {
+        if let ActiveDrag::Dragging(DragSource::Slot {
             src_page, src_slot, ..
-        }) = &state.drag
+        }) = &state.drag.active
         {
             if *src_page == page_idx {
                 layout_page
@@ -157,14 +160,16 @@ fn draw_page_move_highlight(
     page_rect: egui::Rect,
     over_page: bool,
 ) {
-    let is_move_drag = matches!(state.drag, DragState::Dragging(DragSource::Slot { .. }))
-        && state.drag_mode == DragMode::Move;
+    let is_move_drag = matches!(
+        state.drag.active,
+        ActiveDrag::Dragging(DragSource::Slot { .. })
+    ) && state.drag.mode == DragMode::Move;
     if !is_move_drag || !over_page {
         return;
     }
     let is_src_page = matches!(
-        state.drag,
-        DragState::Dragging(DragSource::Slot { src_page, .. }) if src_page == page_idx
+        state.drag.active,
+        ActiveDrag::Dragging(DragSource::Slot { src_page, .. }) if src_page == page_idx
     );
     if is_src_page {
         return;
@@ -183,8 +188,10 @@ fn draw_pool_drag_overlay(
     page_idx: usize,
     page_rect: egui::Rect,
 ) {
-    if matches!(state.drag, DragState::Dragging(DragSource::Pool { .. }))
-        && state.hovered.as_ref().and_then(|h| h.central_page()) == Some(page_idx)
+    if matches!(
+        state.drag.active,
+        ActiveDrag::Dragging(DragSource::Pool { .. })
+    ) && state.hovered.as_ref().and_then(|h| h.central_page()) == Some(page_idx)
     {
         ui.painter().rect_filled(
             page_rect,

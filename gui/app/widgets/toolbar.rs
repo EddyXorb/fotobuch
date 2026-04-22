@@ -68,20 +68,20 @@ fn place_button(ui: &mut egui::Ui, state: &mut GuiState, cmds: &mut HashSet<Pend
 fn drag_mode_buttons(ui: &mut egui::Ui, state: &mut GuiState) {
     if ui
         .add(egui::Button::selectable(
-            state.drag_mode == DragMode::Swap,
+            state.drag.mode == DragMode::Swap,
             "⇄ Swap",
         ))
         .clicked()
     {
-        state.drag_mode = DragMode::Swap;
+        state.drag.mode = DragMode::Swap;
     }
     if ui
         .add(egui::Button::selectable(
-            state.drag_mode == DragMode::Move,
+            state.drag.mode == DragMode::Move,
             "→ Move",
         ))
         .clicked()
     {
-        state.drag_mode = DragMode::Move;
+        state.drag.mode = DragMode::Move;
     }
 }

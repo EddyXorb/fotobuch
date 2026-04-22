@@ -5,7 +5,7 @@ use egui::Align;
 use crate::app::pending::PendingCommand;
 use crate::app::widgets::central_panel::draw_drag_ghosts;
 use crate::app::widgets::geometry::A4_ASPECT;
-use crate::state::{DragSource, DragState, GuiState, HoveredTarget};
+use crate::state::{ActiveDrag, DragSource, GuiState, HoveredTarget};
 
 pub fn draw(ui: &mut egui::Ui, state: &mut GuiState, cmds: &mut HashSet<PendingCommand>) {
     egui::Panel::right("page_nav")
@@ -69,12 +69,18 @@ fn draw_highlights(
     response: &egui::Response,
 ) {
     let is_scroll_target = state.scroll_to_page == Some(page_idx);
-    let is_nav_drag_target =
-        matches!(state.drag, DragState::Dragging(DragSource::NavPage { .. })) && response.hovered();
-    let is_slot_drag_target =
-        matches!(state.drag, DragState::Dragging(DragSource::Slot { .. })) && response.hovered();
-    let is_pool_drag_target =
-        matches!(state.drag, DragState::Dragging(DragSource::Pool { .. })) && response.hovered();
+    let is_nav_drag_target = matches!(
+        state.drag.active,
+        ActiveDrag::Dragging(DragSource::NavPage { .. })
+    ) && response.hovered();
+    let is_slot_drag_target = matches!(
+        state.drag.active,
+        ActiveDrag::Dragging(DragSource::Slot { .. })
+    ) && response.hovered();
+    let is_pool_drag_target = matches!(
+        state.drag.active,
+        ActiveDrag::Dragging(DragSource::Pool { .. })
+    ) && response.hovered();
 
     if is_pool_drag_target {
         painter.rect_filled(

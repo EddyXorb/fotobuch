@@ -1,4 +1,4 @@
-use crate::state::{DragState, GuiState, HoveredTarget, SlotSelection};
+use crate::state::{ActiveDrag, GuiState, HoveredTarget, SlotSelection};
 
 pub fn draw(ui: &mut egui::Ui, state: &GuiState) {
     egui::Panel::bottom("statusbar").show_inside(ui, |ui| show(ui, state));
@@ -27,8 +27,8 @@ fn show(ui: &mut egui::Ui, state: &GuiState) {
             }
         };
 
-        let mode_str = state.drag_mode.label();
-        let mode_display = if matches!(state.drag, DragState::Idle) {
+        let mode_str = state.drag.mode.label();
+        let mode_display = if matches!(state.drag.active, ActiveDrag::Idle) {
             mode_str.to_string()
         } else {
             format!("[{}]", mode_str)

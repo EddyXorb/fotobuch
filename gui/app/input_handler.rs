@@ -1,6 +1,8 @@
 use std::collections::HashSet;
 
-use crate::state::{self, DragMode, DragSource, DragState, GuiState, HoveredTarget, SlotSelection};
+use crate::state::{
+    self, ActiveDrag, DragMode, DragSource, DragState, GuiState, HoveredTarget, SlotSelection,
+};
 
 use super::pending::PendingCommand;
 
@@ -29,7 +31,7 @@ pub fn handle(state: &mut GuiState, ctx: &egui::Context) -> HashSet<PendingComma
 
 fn handle_drag_mode_toggle(state: &mut GuiState, ctx: &egui::Context) {
     if ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::M)) {
-        state.drag_mode = state.drag_mode.toggle();
+        state.drag.mode = state.drag.mode.toggle();
     }
 }
 
@@ -89,7 +91,7 @@ fn handle_drag_start(state: &mut GuiState, ctx: &egui::Context) {
     if !ctx.input(|i| i.pointer.secondary_pressed()) {
         return;
     }
-    if !matches!(state.drag, DragState::Idle) {
+    if !matches!(state.drag.active, ActiveDrag::Idle) {
         return;
     }
     let cursor = match ctx.pointer_hover_pos() {
@@ -124,7 +126,7 @@ fn handle_drag_start(state: &mut GuiState, ctx: &egui::Context) {
         None
     };
     if let Some(src) = drag_source {
-        state.drag = DragState::Dragging(src);
+        state.drag.active = ActiveDrag::Dragging(src);
     }
 }
 
@@ -137,9 +139,9 @@ fn handle_drag_complete(
     if !ctx.input(|i| i.pointer.secondary_released()) {
         return false;
     }
-    let source = match std::mem::replace(&mut state.drag, DragState::Idle) {
-        DragState::Dragging(src) => src,
-        DragState::Idle => return false,
+    let source = match std::mem::replace(&mut state.drag.active, ActiveDrag::Idle) {
+        ActiveDrag::Dragging(src) => src,
+        ActiveDrag::Idle => return false,
     };
     match source {
         DragSource::Slot {
@@ -165,7 +167,7 @@ fn complete_slot_drag(
 ) {
     let hovered_slot = state.hovered.as_ref().and_then(|h| h.slot());
     let effective_page = state.hovered.as_ref().and_then(|h| h.page_idx());
-    match (hovered_slot, state.drag_mode) {
+    match (hovered_slot, state.drag.mode) {
         (Some((dst_page, dst_slot)), DragMode::Swap) => {
             dispatch_swap(state, cmds, src_page, src_slot, dst_page, dst_slot);
         }
@@ -215,7 +217,7 @@ fn complete_pool_drag(
 
 fn handle_escape(state: &mut GuiState, ctx: &egui::Context) {
     if ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Escape)) {
-        state.drag = DragState::Idle;
+        state.drag.active = ActiveDrag::Idle;
         state.selections.slots.clear();
     }
 }

@@ -1,6 +1,6 @@
 use egui::vec2;
 
-use crate::state::{DragMode, DragSource, DragState, GuiState, SlotSelection};
+use crate::state::{ActiveDrag, DragMode, DragSource, GuiState, SlotSelection};
 
 use super::super::geometry::{self, A4_ASPECT, PageDimensions, PageScale};
 
@@ -11,8 +11,8 @@ pub(super) fn draw_drag_ghosts(
     page_rect: egui::Rect,
     dims: PageDimensions,
 ) {
-    let (src_slot_idx, cursor_at_drag_start) = match &state.drag {
-        DragState::Dragging(DragSource::Slot {
+    let (src_slot_idx, cursor_at_drag_start) = match &state.drag.active {
+        ActiveDrag::Dragging(DragSource::Slot {
             src_page,
             src_slot,
             cursor_at_drag_start,
@@ -46,13 +46,13 @@ pub(super) fn draw_drag_ghosts(
         painter.text(
             rect.right_bottom() + vec2(6.0, -2.0),
             egui::Align2::LEFT_BOTTOM,
-            state.drag_mode.label(),
+            state.drag.mode.label(),
             egui::FontId::proportional(14.0),
             egui::Color32::WHITE,
         );
     }
 
-    if state.drag_mode == DragMode::Swap {
+    if state.drag.mode == DragMode::Swap {
         return;
     }
 
@@ -112,8 +112,8 @@ fn paint_ghost_rect(painter: &egui::Painter, rect: egui::Rect, alpha: u8) {
 
 /// Draws a floating page-thumbnail ghost while dragging a nav page.
 pub(crate) fn draw_nav_drag_ghost(ctx: &egui::Context, state: &GuiState) {
-    let src_page = match &state.drag {
-        DragState::Dragging(DragSource::NavPage { src_page, .. }) => *src_page,
+    let src_page = match &state.drag.active {
+        ActiveDrag::Dragging(DragSource::NavPage { src_page, .. }) => *src_page,
         _ => return,
     };
     let cursor = match ctx.pointer_hover_pos() {

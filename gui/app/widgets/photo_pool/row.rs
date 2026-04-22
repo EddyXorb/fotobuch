@@ -1,7 +1,9 @@
 use std::path::Path;
 use std::path::PathBuf;
 
-use crate::state::{DragSource, DragState, GuiState, HoveredTarget, PhotoSelection, SlotSelection};
+use crate::state::{
+    ActiveDrag, DragSource, GuiState, HoveredTarget, PhotoSelection, SlotSelection,
+};
 
 pub(super) fn draw_row(
     ui: &mut egui::Ui,
@@ -12,7 +14,10 @@ pub(super) fn draw_row(
     visible_needed: &mut Vec<String>,
 ) {
     let is_selected = state.selections.photos.is_selected(id);
-    let is_pool_dragging = matches!(state.drag, DragState::Dragging(DragSource::Pool { .. }));
+    let is_pool_dragging = matches!(
+        state.drag.active,
+        ActiveDrag::Dragging(DragSource::Pool { .. })
+    );
 
     let mut badge_hovered = false;
     let row_response = ui.push_id(egui::Id::new(("pool_row", id)), |ui| {

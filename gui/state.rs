@@ -11,7 +11,7 @@ mod timings;
 
 pub use config_panel::ConfigPanelState;
 pub use derived::DerivedState;
-pub use drag::{DragMode, DragSource, DragState};
+pub use drag::{ActiveDrag, DragMode, DragSource, DragState};
 pub use hover::HoveredTarget;
 pub use page_cache::PageCache;
 pub use pool::PhotoSelection;
@@ -42,7 +42,6 @@ pub struct GuiState {
     pub selections: Selections,
     pub hovered: Option<HoveredTarget>,
     pub drag: DragState,
-    pub drag_mode: DragMode,
     pub thumb: PhotoThumbState,
     pub scroll_to_page: Option<usize>,
     pub config_panel: ConfigPanelState,
@@ -62,8 +61,7 @@ impl GuiState {
             base_pixel_per_pt: 1.5,
             selections: Selections::default(),
             hovered: None,
-            drag: DragState::Idle,
-            drag_mode: DragMode::Swap,
+            drag: DragState::default(),
             thumb: PhotoThumbState::default(),
             scroll_to_page: None,
             config_panel: ConfigPanelState::default(),

@@ -40,12 +40,19 @@ pub enum DragSource {
     Pool { photo_ids: Vec<String> },
 }
 
-/// Unified drag state covering all drag sources.
+/// Active drag activity: idle or dragging with a source.
 #[derive(Default, Debug)]
-pub enum DragState {
+pub enum ActiveDrag {
     #[default]
     Idle,
     Dragging(DragSource),
+}
+
+/// Unified drag state: current activity and persistent mode (Swap/Move).
+#[derive(Default, Debug)]
+pub struct DragState {
+    pub active: ActiveDrag,
+    pub mode: DragMode,
 }
 
 #[cfg(test)]
@@ -55,7 +62,7 @@ mod tests {
     #[test]
     fn drag_idle_by_default() {
         let d = DragState::default();
-        assert!(matches!(d, DragState::Idle));
+        assert!(matches!(d.active, ActiveDrag::Idle));
     }
 
     #[test]
