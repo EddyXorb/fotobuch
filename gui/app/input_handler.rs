@@ -55,9 +55,10 @@ fn handle_zoom(state: &mut GuiState, ctx: &egui::Context) {
     let ratio = state.zoom / old_zoom;
     let cursor_y = ctx
         .pointer_hover_pos()
-        .map_or(state.central_viewport_top, |p| p.y);
-    let rel = cursor_y - state.central_viewport_top;
-    state.pending_central_scroll_y = Some(state.central_scroll_y * ratio + rel * (ratio - 1.0));
+        .map_or(state.central_scroll.viewport_top, |p| p.y);
+    let rel = cursor_y - state.central_scroll.viewport_top;
+    state.central_scroll.pending_scroll_y =
+        Some(state.central_scroll.scroll_y * ratio + rel * (ratio - 1.0));
 }
 
 fn handle_undo_redo(state: &mut GuiState, ctx: &egui::Context, cmds: &mut HashSet<PendingCommand>) {

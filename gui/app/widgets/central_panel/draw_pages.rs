@@ -17,7 +17,7 @@ pub(super) fn draw_pages(
         (i.pointer.secondary_down() || i.pointer.secondary_released()) && !i.pointer.primary_down()
     });
 
-    let pending_scroll = state.pending_central_scroll_y.take();
+    let pending_scroll = state.central_scroll.pending_scroll_y.take();
     let mut sa = egui::ScrollArea::vertical()
         .auto_shrink([false; 2])
         .scroll_source(egui::containers::scroll_area::ScrollSource {
@@ -44,8 +44,8 @@ pub(super) fn draw_pages(
             }
         });
     });
-    state.central_scroll_y = output.state.offset.y;
-    state.central_viewport_top = output.inner_rect.min.y;
+    state.central_scroll.scroll_y = output.state.offset.y;
+    state.central_scroll.viewport_top = output.inner_rect.min.y;
 
     (new_hovered, new_hovered_page)
 }

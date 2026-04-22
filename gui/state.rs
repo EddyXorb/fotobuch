@@ -19,6 +19,15 @@ use egui::{ColorImage, Context, TextureHandle, TextureOptions};
 use fotobuch::dto_models::ProjectState;
 use fotobuch::output::typst::RenderedPage;
 
+/// Scroll and zoom-correction state for the central panel. Updated each frame by draw_pages,
+/// read by handle_zoom to compute corrected offsets.
+#[derive(Default)]
+pub struct CentralScrollState {
+    pub scroll_y: f32,
+    pub viewport_top: f32,
+    pub pending_scroll_y: Option<f32>,
+}
+
 pub struct GuiState {
     pub project_state: ProjectState,
     pub derived: DerivedState,
@@ -44,12 +53,7 @@ pub struct GuiState {
     pub config_panel: ConfigPanelState,
     pub timings: Timings,
     pub pending_thumb_loads: Vec<(String, PathBuf)>,
-    /// Current vertical scroll offset of the central panel (updated each frame).
-    pub central_scroll_y: f32,
-    /// Y coordinate of the top edge of the central scroll viewport (updated each frame).
-    pub central_viewport_top: f32,
-    /// Set by handle_zoom to request a corrected scroll offset on the next draw.
-    pub pending_central_scroll_y: Option<f32>,
+    pub central_scroll: CentralScrollState,
 }
 
 impl GuiState {
@@ -79,9 +83,7 @@ impl GuiState {
             config_panel: ConfigPanelState::default(),
             timings: Timings::default(),
             pending_thumb_loads: Vec::new(),
-            central_scroll_y: 0.0,
-            central_viewport_top: 0.0,
-            pending_central_scroll_y: None,
+            central_scroll: CentralScrollState::default(),
         }
     }
 }
