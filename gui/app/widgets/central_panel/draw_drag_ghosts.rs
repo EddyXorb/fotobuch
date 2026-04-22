@@ -2,7 +2,7 @@ use egui::vec2;
 
 use crate::state::{DragMode, DragSource, DragState, GuiState, Selection};
 
-use super::super::geometry;
+use super::super::geometry::{self, A4_ASPECT};
 
 pub(super) fn draw_drag_ghosts(
     ui: &mut egui::Ui,
@@ -157,10 +157,10 @@ pub(crate) fn draw_nav_drag_ghost(ctx: &egui::Context, state: &GuiState) {
         if sz.x > 0.0 {
             ghost_w * sz.y / sz.x
         } else {
-            ghost_w * 1.414
+            ghost_w * A4_ASPECT
         }
     } else {
-        ghost_w * 1.414
+        ghost_w * A4_ASPECT
     };
 
     let rect = egui::Rect::from_center_size(cursor, vec2(ghost_w, ghost_h));

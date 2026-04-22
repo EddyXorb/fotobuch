@@ -1,5 +1,8 @@
 use fotobuch::dto_models::{LayoutPage, Slot};
 
+/// Fallback aspect ratio (height/width) used when no texture size is available. Approximates A4 (√2).
+pub const A4_ASPECT: f32 = std::f32::consts::SQRT_2;
+
 /// Returns `true` if two slot aspect ratios (w/h) are within 5 % of each other.
 pub fn slot_ratio_similar(ratio_a: f64, ratio_b: f64) -> bool {
     if ratio_b == 0.0 {

@@ -4,6 +4,7 @@ use egui::Align;
 
 use crate::app::pending::PendingCommand;
 use crate::app::widgets::central_panel::draw_drag_ghosts;
+use crate::app::widgets::geometry::A4_ASPECT;
 use crate::state::{DragSource, DragState, GuiState};
 
 pub fn draw(ui: &mut egui::Ui, state: &mut GuiState, cmds: &mut HashSet<PendingCommand>) {
@@ -114,7 +115,7 @@ fn compute_thumb_size(state: &GuiState, page_idx: usize, panel_width: f32) -> eg
     let h = if pw > 0.0 {
         w * (ph as f32 / pw as f32)
     } else {
-        w * 1.41
+        w * A4_ASPECT
     };
 
     if let Some(Some(tex)) = state.page_thumb_textures.get(page_idx) {
