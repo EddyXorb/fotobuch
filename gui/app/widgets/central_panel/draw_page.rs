@@ -19,7 +19,7 @@ pub(super) fn draw_page(
         bleed_mm,
         margin_mm,
     };
-    let size = helpers::page_display_size(state.zoom, dims);
+    let size = helpers::page_display_size(state.viewport.zoom, dims);
     let page_rect = render_page_image(ui, state, page_idx, size);
 
     if let Some(layout_page) = state.project_state.layout.get(page_idx) {

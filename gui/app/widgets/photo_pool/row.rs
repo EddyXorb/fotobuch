@@ -169,7 +169,7 @@ fn handle_selection_click(
             && locs.len() == 1
         {
             let (page, slot) = locs[0];
-            state.scroll_to_page = Some(page);
+            state.viewport.scroll_to_page = Some(page);
             state.selections.slots = SlotSelection::single(page, slot);
         }
     }

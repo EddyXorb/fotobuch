@@ -8,6 +8,7 @@ mod selection;
 mod selections;
 mod thumb;
 mod timings;
+mod viewport;
 
 pub use config_panel::ConfigPanelState;
 pub use derived::DerivedState;
@@ -19,34 +20,23 @@ pub use selection::SlotSelection;
 pub use selections::Selections;
 pub use thumb::PhotoThumbState;
 pub use timings::Timings;
+pub use viewport::{ScrollState, Viewport};
 
 use egui::{ColorImage, Context, TextureOptions};
 use fotobuch::dto_models::ProjectState;
 use fotobuch::output::typst::RenderedPage;
 
-/// Scroll and zoom-correction state for the central panel. Updated each frame by draw_pages,
-/// read by handle_zoom to compute corrected offsets.
-#[derive(Default)]
-pub struct CentralScrollState {
-    pub scroll_y: f32,
-    pub viewport_top: f32,
-    pub pending_scroll_y: Option<f32>,
-}
-
 pub struct GuiState {
     pub project_state: ProjectState,
     pub derived: DerivedState,
     pub cache: PageCache,
-    pub zoom: f32,
-    pub base_pixel_per_pt: f32,
     pub selections: Selections,
     pub hovered: Option<HoveredTarget>,
     pub drag: DragState,
     pub thumb: PhotoThumbState,
-    pub scroll_to_page: Option<usize>,
+    pub viewport: Viewport,
     pub config_panel: ConfigPanelState,
     pub timings: Timings,
-    pub central_scroll: CentralScrollState,
 }
 
 impl GuiState {
@@ -57,16 +47,13 @@ impl GuiState {
             project_state,
             derived,
             cache: PageCache::new(num_pages),
-            zoom: 1.0,
-            base_pixel_per_pt: 1.5,
             selections: Selections::default(),
             hovered: None,
             drag: DragState::default(),
             thumb: PhotoThumbState::default(),
-            scroll_to_page: None,
+            viewport: Viewport::default(),
             config_panel: ConfigPanelState::default(),
             timings: Timings::default(),
-            central_scroll: CentralScrollState::default(),
         }
     }
 }

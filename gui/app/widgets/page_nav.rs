@@ -68,7 +68,7 @@ fn draw_highlights(
     painter: &egui::Painter,
     response: &egui::Response,
 ) {
-    let is_scroll_target = state.scroll_to_page == Some(page_idx);
+    let is_scroll_target = state.viewport.scroll_to_page == Some(page_idx);
     let is_nav_drag_target = matches!(
         state.drag.active,
         ActiveDrag::Dragging(DragSource::NavPage { .. })
@@ -108,7 +108,7 @@ fn draw_highlights(
 }
 
 fn on_click(state: &mut GuiState, page_idx: usize) {
-    state.scroll_to_page = Some(page_idx);
+    state.viewport.scroll_to_page = Some(page_idx);
     state.selections.slots.clear();
 }
 
@@ -141,8 +141,8 @@ pub fn apply_scroll_if_needed(
     page_idx: usize,
     page_rect: egui::Rect,
 ) {
-    if state.scroll_to_page == Some(page_idx) {
+    if state.viewport.scroll_to_page == Some(page_idx) {
         ui.scroll_to_rect(page_rect, Some(Align::TOP));
-        state.scroll_to_page = None;
+        state.viewport.scroll_to_page = None;
     }
 }

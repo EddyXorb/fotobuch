@@ -39,7 +39,7 @@ impl FotobuchApp {
         if task_tx
             .send(BackgroundTask::RenderPages {
                 pages: (0..num_pages).collect(),
-                pixel_per_pt: state.base_pixel_per_pt,
+                pixel_per_pt: state.viewport.pixel_per_pt,
             })
             .is_err()
         {
@@ -172,7 +172,7 @@ impl FotobuchApp {
     }
 
     fn dispatch_commands(&mut self, cmds: HashSet<PendingCommand>) {
-        let ppt = self.state.base_pixel_per_pt;
+        let ppt = self.state.viewport.pixel_per_pt;
         for cmd in cmds {
             let task = match cmd {
                 PendingCommand::Swap {
