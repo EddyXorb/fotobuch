@@ -136,7 +136,7 @@ fn draw_thumb_cell(
     } else {
         ui.painter()
             .rect_filled(thumb_rect, 0.0, egui::Color32::from_gray(160));
-        if !state.photo_thumbs.contains_key(id) && !state.photo_thumb_in_flight.contains(id) {
+        if needs_thumb_load(state, id) {
             visible_needed.push(id.to_string());
         }
     }
@@ -238,6 +238,10 @@ fn handle_selection_click(
     }
 }
 
+fn needs_thumb_load(state: &GuiState, id: &str) -> bool {
+    !state.photo_thumbs.contains_key(id) && !state.photo_thumb_in_flight.contains(id)
+}
+
 /// Dispatches thumbnail loading tasks: visible items first, then prefetch.
 pub fn dispatch_thumb_loads(state: &mut GuiState, visible_needed: Vec<String>) {
     let mut visible_filtered: Vec<(String, PathBuf)> = visible_needed
@@ -267,9 +271,7 @@ pub fn dispatch_thumb_loads(state: &mut GuiState, visible_needed: Vec<String>) {
         let chunk: Vec<String> = state.photo_thumb_prefetch.drain(..chunk_len).collect();
         let items: Vec<(String, PathBuf)> = chunk
             .into_iter()
-            .filter(|id| {
-                !state.photo_thumbs.contains_key(id) && !state.photo_thumb_in_flight.contains(id)
-            })
+            .filter(|id| needs_thumb_load(state, id))
             .filter_map(|id| {
                 state
                     .derived
