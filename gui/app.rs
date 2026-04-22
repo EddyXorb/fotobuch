@@ -11,6 +11,9 @@ use fotobuch::state_manager::StateManager;
 
 use crate::state::{self, GuiState};
 use crate::task::{BackgroundResult, BackgroundTask};
+use fotobuch::dto_models::ProjectState;
+use fotobuch::output::typst::RenderedPage;
+use std::time::Duration;
 
 use pending::PendingCommand;
 
@@ -58,85 +61,113 @@ impl FotobuchApp {
                     thumb,
                     rasterize_duration,
                     compile_duration,
-                } => {
-                    let page_idx = full.page;
-                    state::apply_rendered(&mut self.state, ctx, full, thumb);
-                    self.state.timings.record_render(
-                        page_idx,
-                        rasterize_duration,
-                        compile_duration,
-                    );
-                }
+                } => self.handle_page_rendered(
+                    ctx,
+                    full,
+                    thumb,
+                    rasterize_duration,
+                    compile_duration,
+                ),
                 BackgroundResult::CommandDone {
                     new_state,
                     dirty_pages,
                 } => {
-                    if let Some(new_state) = new_state {
-                        let num_pages = new_state.layout.len();
-                        self.state.project_state = *new_state;
-                        self.state.derived =
-                            crate::state::DerivedState::rebuild(&self.state.project_state);
-                        state::resize_page_vecs(&mut self.state, num_pages);
-                        // Rebuild prefetch queue after command
-                        let loaded_or_inflight: HashSet<String> = self
-                            .state
-                            .photo_thumbs
-                            .keys()
-                            .chain(self.state.photo_thumb_in_flight.iter())
-                            .cloned()
-                            .collect();
-                        self.state.photo_thumb_prefetch = self
-                            .state
-                            .derived
-                            .photo_by_id
-                            .keys()
-                            .filter(|id| !loaded_or_inflight.contains(*id))
-                            .cloned()
-                            .collect();
-                        for &p in &dirty_pages {
-                            if let Some(d) = self.state.page_dirty.get_mut(p) {
-                                *d = true;
-                            }
-                        }
-                    } else {
-                        for d in &mut self.state.page_dirty {
-                            *d = false;
-                        }
-                    }
+                    self.handle_command_done(new_state, dirty_pages);
                 }
-                BackgroundResult::CommandFailed(e) => {
-                    tracing::error!(%e, "command failed");
-                    for d in &mut self.state.page_dirty {
-                        *d = false;
-                    }
-                }
-                BackgroundResult::Error(e) => {
-                    tracing::error!(%e, "render error");
-                }
-                BackgroundResult::TotalPageCount(n) => {
-                    state::resize_page_vecs(&mut self.state, n);
-                }
+                BackgroundResult::CommandFailed(e) => self.handle_command_failed(e),
+                BackgroundResult::Error(e) => tracing::error!(%e, "render error"),
+                BackgroundResult::TotalPageCount(n) => state::resize_page_vecs(&mut self.state, n),
                 BackgroundResult::PhotoThumbnailReady {
                     id,
                     width,
                     height,
                     pixels,
                 } => {
-                    if !self.state.derived.photo_by_id.contains_key(&id) {
-                        self.state.photo_thumb_in_flight.remove(&id);
+                    if !self.handle_photo_thumbnail_ready(ctx, id, width, height, pixels) {
                         continue;
                     }
-                    let img = egui::ColorImage::from_rgba_unmultiplied(
-                        [width as _, height as _],
-                        &pixels,
-                    );
-                    let tex =
-                        ctx.load_texture(format!("thumb_{id}"), img, egui::TextureOptions::LINEAR);
-                    self.state.photo_thumbs.insert(id.clone(), tex);
-                    self.state.photo_thumb_in_flight.remove(&id);
                 }
             }
         }
+    }
+
+    fn handle_page_rendered(
+        &mut self,
+        ctx: &egui::Context,
+        full: RenderedPage,
+        thumb: RenderedPage,
+        rasterize_duration: Duration,
+        compile_duration: Duration,
+    ) {
+        let page_idx = full.page;
+        state::apply_rendered(&mut self.state, ctx, full, thumb);
+        self.state
+            .timings
+            .record_render(page_idx, rasterize_duration, compile_duration);
+    }
+
+    fn handle_command_done(
+        &mut self,
+        new_state: Option<Box<ProjectState>>,
+        dirty_pages: Vec<usize>,
+    ) {
+        if let Some(new_state) = new_state {
+            let num_pages = new_state.layout.len();
+            self.state.project_state = *new_state;
+            self.state.derived = crate::state::DerivedState::rebuild(&self.state.project_state);
+            state::resize_page_vecs(&mut self.state, num_pages);
+            let loaded_or_inflight: HashSet<String> = self
+                .state
+                .photo_thumbs
+                .keys()
+                .chain(self.state.photo_thumb_in_flight.iter())
+                .cloned()
+                .collect();
+            self.state.photo_thumb_prefetch = self
+                .state
+                .derived
+                .photo_by_id
+                .keys()
+                .filter(|id| !loaded_or_inflight.contains(*id))
+                .cloned()
+                .collect();
+            for &p in &dirty_pages {
+                if let Some(d) = self.state.page_dirty.get_mut(p) {
+                    *d = true;
+                }
+            }
+        } else {
+            for d in &mut self.state.page_dirty {
+                *d = false;
+            }
+        }
+    }
+
+    fn handle_command_failed(&mut self, e: String) {
+        tracing::error!(%e, "command failed");
+        for d in &mut self.state.page_dirty {
+            *d = false;
+        }
+    }
+
+    /// Returns `false` if the loop should `continue` (photo not in project).
+    fn handle_photo_thumbnail_ready(
+        &mut self,
+        ctx: &egui::Context,
+        id: String,
+        width: u32,
+        height: u32,
+        pixels: Vec<u8>,
+    ) -> bool {
+        if !self.state.derived.photo_by_id.contains_key(&id) {
+            self.state.photo_thumb_in_flight.remove(&id);
+            return false;
+        }
+        let img = egui::ColorImage::from_rgba_unmultiplied([width as _, height as _], &pixels);
+        let tex = ctx.load_texture(format!("thumb_{id}"), img, egui::TextureOptions::LINEAR);
+        self.state.photo_thumbs.insert(id.clone(), tex);
+        self.state.photo_thumb_in_flight.remove(&id);
+        true
     }
 
     fn dispatch_commands(&mut self, cmds: HashSet<PendingCommand>) {
