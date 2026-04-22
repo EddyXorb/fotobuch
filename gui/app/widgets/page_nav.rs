@@ -20,8 +20,6 @@ fn show(ui: &mut egui::Ui, state: &mut GuiState, _cmds: &mut HashSet<PendingComm
     let panel_width = ui.available_width();
     let num_pages = state.page_thumb_textures.len();
 
-    state.hovered_nav_page = None;
-
     egui::ScrollArea::vertical()
         .auto_shrink([false; 2])
         .show(ui, |ui| {

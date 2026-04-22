@@ -35,7 +35,6 @@ fn show(ui: &mut egui::Ui, state: &mut GuiState) {
         .flat_map(|(_, files)| files.iter().map(|(id, _)| id.clone()))
         .collect();
 
-    state.hovered_pool_id = None;
     let mut visible_needed: Vec<String> = Vec::new();
 
     let rmbactive = ui.input(|i| {
