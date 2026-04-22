@@ -3,6 +3,16 @@ use fotobuch::dto_models::{LayoutPage, Slot};
 /// Fallback aspect ratio (height/width) used when no texture size is available. Approximates A4 (√2).
 pub const A4_ASPECT: f32 = std::f32::consts::SQRT_2;
 
+/// Physical dimensions and print margins for one page. Bleed extends the physical image beyond the
+/// trim box; margin is the inset before the content area begins.
+#[derive(Clone, Copy)]
+pub struct PageDimensions {
+    pub width_mm: f64,
+    pub height_mm: f64,
+    pub bleed_mm: f64,
+    pub margin_mm: f64,
+}
+
 /// Returns `true` if two slot aspect ratios (w/h) are within 5 % of each other.
 pub fn slot_ratio_similar(ratio_a: f64, ratio_b: f64) -> bool {
     if ratio_b == 0.0 {
@@ -19,17 +29,14 @@ pub fn slot_ratio_similar(ratio_a: f64, ratio_b: f64) -> bool {
 /// physical page corner).
 pub fn slot_rect_on_screen(
     page_rect: egui::Rect,
-    page_width_mm: f64,
-    page_height_mm: f64,
-    bleed_mm: f64,
-    margin_mm: f64,
+    dims: PageDimensions,
     slot: &Slot,
 ) -> egui::Rect {
-    let full_w = (page_width_mm + 2.0 * bleed_mm) as f32;
-    let full_h = (page_height_mm + 2.0 * bleed_mm) as f32;
+    let full_w = (dims.width_mm + 2.0 * dims.bleed_mm) as f32;
+    let full_h = (dims.height_mm + 2.0 * dims.bleed_mm) as f32;
     let scale_x = page_rect.width() / full_w;
     let scale_y = page_rect.height() / full_h;
-    let offset = (bleed_mm + margin_mm) as f32;
+    let offset = (dims.bleed_mm + dims.margin_mm) as f32;
 
     let min = egui::pos2(
         page_rect.min.x + (offset + slot.x_mm as f32) * scale_x,
@@ -50,24 +57,13 @@ pub fn hit_test_slot(
     pos: egui::Pos2,
     page_rect: egui::Rect,
     layout_page: &LayoutPage,
-    page_width_mm: f64,
-    page_height_mm: f64,
-    bleed_mm: f64,
-    margin_mm: f64,
+    dims: PageDimensions,
 ) -> Option<usize> {
     if !page_rect.contains(pos) {
         return None;
     }
     for (idx, slot) in layout_page.slots.iter().enumerate().rev() {
-        let slot_rect = slot_rect_on_screen(
-            page_rect,
-            page_width_mm,
-            page_height_mm,
-            bleed_mm,
-            margin_mm,
-            slot,
-        );
-        if slot_rect.contains(pos) {
+        if slot_rect_on_screen(page_rect, dims, slot).contains(pos) {
             return Some(idx);
         }
     }
@@ -111,7 +107,8 @@ mod tests {
             width_mm: 50.0,
             height_mm: 25.0,
         };
-        let rect = slot_rect_on_screen(page_rect(), 200.0, 100.0, 0.0, 0.0, &slot);
+        let dims = PageDimensions { width_mm: 200.0, height_mm: 100.0, bleed_mm: 0.0, margin_mm: 0.0 };
+        let rect = slot_rect_on_screen(page_rect(), dims, &slot);
         assert_eq!(rect.min, page_rect().min);
     }
 
@@ -128,7 +125,8 @@ mod tests {
             height_mm: 1.0,
         };
         let pr = page_rect(); // 200×100 px
-        let rect = slot_rect_on_screen(pr, 200.0, 100.0, 5.0, 10.0, &slot);
+        let dims = PageDimensions { width_mm: 200.0, height_mm: 100.0, bleed_mm: 5.0, margin_mm: 10.0 };
+        let rect = slot_rect_on_screen(pr, dims, &slot);
         let expected_x = pr.min.x + 15.0 * (200.0 / 210.0);
         let expected_y = pr.min.y + 15.0 * (100.0 / 110.0);
         assert!(
@@ -148,14 +146,12 @@ mod tests {
     #[test]
     fn hit_test_outside_page_returns_none() {
         let lp = layout_page(vec![full_slot(200.0, 100.0)]);
+        let dims = PageDimensions { width_mm: 200.0, height_mm: 100.0, bleed_mm: 0.0, margin_mm: 0.0 };
         let result = hit_test_slot(
             egui::pos2(0.0, 0.0), // far outside page_rect which starts at (10, 20)
             page_rect(),
             &lp,
-            200.0,
-            100.0,
-            0.0,
-            0.0,
+            dims,
         );
         assert!(result.is_none());
     }
@@ -165,7 +161,8 @@ mod tests {
         // Two slots that both cover the full page (no bleed/margin) — second (idx 1) should win
         let lp = layout_page(vec![full_slot(200.0, 100.0), full_slot(200.0, 100.0)]);
         let center = page_rect().center();
-        let result = hit_test_slot(center, page_rect(), &lp, 200.0, 100.0, 0.0, 0.0);
+        let dims = PageDimensions { width_mm: 200.0, height_mm: 100.0, bleed_mm: 0.0, margin_mm: 0.0 };
+        let result = hit_test_slot(center, page_rect(), &lp, dims);
         assert_eq!(result, Some(1));
     }
 
@@ -187,7 +184,8 @@ mod tests {
         let lp = layout_page(vec![left, right]);
         // Center of page is at x=110 (page_rect x: 10..210, center=110), y=70
         let center = page_rect().center();
-        let result = hit_test_slot(center, page_rect(), &lp, 200.0, 100.0, 0.0, 0.0);
+        let dims = PageDimensions { width_mm: 200.0, height_mm: 100.0, bleed_mm: 0.0, margin_mm: 0.0 };
+        let result = hit_test_slot(center, page_rect(), &lp, dims);
         assert!(result.is_none());
     }
 }

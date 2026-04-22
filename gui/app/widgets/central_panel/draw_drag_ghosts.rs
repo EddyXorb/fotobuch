@@ -2,17 +2,14 @@ use egui::vec2;
 
 use crate::state::{DragMode, DragSource, DragState, GuiState, Selection};
 
-use super::super::geometry::{self, A4_ASPECT};
+use super::super::geometry::{self, A4_ASPECT, PageDimensions};
 
 pub(super) fn draw_drag_ghosts(
     ui: &mut egui::Ui,
     state: &GuiState,
     page_idx: usize,
     page_rect: egui::Rect,
-    page_width_mm: f64,
-    page_height_mm: f64,
-    bleed_mm: f64,
-    margin_mm: f64,
+    dims: PageDimensions,
 ) {
     let (src_slot_idx, cursor_at_drag_start) = match &state.drag {
         DragState::Dragging(DragSource::Slot {
@@ -31,11 +28,11 @@ pub(super) fn draw_drag_ghosts(
         None => return,
     };
 
-    let full_w = (page_width_mm + 2.0 * bleed_mm) as f32;
-    let full_h = (page_height_mm + 2.0 * bleed_mm) as f32;
+    let full_w = (dims.width_mm + 2.0 * dims.bleed_mm) as f32;
+    let full_h = (dims.height_mm + 2.0 * dims.bleed_mm) as f32;
     let scale_x = page_rect.width() / full_w;
     let scale_y = page_rect.height() / full_h;
-    let offset_mm = (bleed_mm + margin_mm) as f32;
+    let offset_mm = (dims.bleed_mm + dims.margin_mm) as f32;
     let painter = ui.ctx().layer_painter(egui::LayerId::new(
         egui::Order::Tooltip,
         egui::Id::new("drag_ghosts"),
@@ -84,14 +81,7 @@ pub(super) fn draw_drag_ghosts(
         .iter()
         .filter_map(|&idx| {
             let slot = layout_page.slots.get(idx)?;
-            Some(geometry::slot_rect_on_screen(
-                page_rect,
-                page_width_mm,
-                page_height_mm,
-                bleed_mm,
-                margin_mm,
-                slot,
-            ))
+            Some(geometry::slot_rect_on_screen(page_rect, dims, slot))
         })
         .collect();
 

@@ -1,6 +1,6 @@
 use crate::state::{DragMode, DragSource, DragState, GuiState};
 
-use super::super::geometry;
+use super::super::geometry::{self, PageDimensions};
 use super::{draw_drag_ghosts, helpers};
 
 /// Returns `(hovered_slot, over_page, page_rect)`.
@@ -11,43 +11,18 @@ pub(super) fn draw_page(
 ) -> (Option<usize>, bool, egui::Rect) {
     ui.label(format!("Page {page_idx}"));
 
-    let (page_width_mm, page_height_mm) = state.project_state.page_dimensions_mm(page_idx);
+    let (width_mm, height_mm) = state.project_state.page_dimensions_mm(page_idx);
     let (bleed_mm, margin_mm) = state.project_state.page_bleed_margin_mm(page_idx);
-    let size = helpers::page_display_size(state.zoom, page_width_mm, page_height_mm, bleed_mm);
+    let dims = PageDimensions { width_mm, height_mm, bleed_mm, margin_mm };
+    let size = helpers::page_display_size(state.zoom, dims);
     let page_rect = render_page_image(ui, state, page_idx, size);
 
     if let Some(layout_page) = state.project_state.layout.get(page_idx) {
-        draw_slot_overlays(
-            ui,
-            page_rect,
-            state,
-            page_idx,
-            page_width_mm,
-            page_height_mm,
-            bleed_mm,
-            margin_mm,
-        );
-        let (hovered_slot, over_page) = hit_test_pointer(
-            ui,
-            page_rect,
-            layout_page,
-            page_width_mm,
-            page_height_mm,
-            bleed_mm,
-            margin_mm,
-        );
+        draw_slot_overlays(ui, page_rect, state, page_idx, dims);
+        let (hovered_slot, over_page) = hit_test_pointer(ui, page_rect, layout_page, dims);
         draw_page_move_highlight(ui, state, page_idx, page_rect, over_page);
         draw_pool_drag_overlay(ui, state, page_idx, page_rect);
-        draw_drag_ghosts::draw_drag_ghosts(
-            ui,
-            state,
-            page_idx,
-            page_rect,
-            page_width_mm,
-            page_height_mm,
-            bleed_mm,
-            margin_mm,
-        );
+        draw_drag_ghosts::draw_drag_ghosts(ui, state, page_idx, page_rect, dims);
         (hovered_slot, over_page, page_rect)
     } else {
         (None, false, page_rect)
@@ -93,10 +68,7 @@ fn draw_slot_overlays(
     page_rect: egui::Rect,
     state: &GuiState,
     page_idx: usize,
-    page_width_mm: f64,
-    page_height_mm: f64,
-    bleed_mm: f64,
-    margin_mm: f64,
+    dims: PageDimensions,
 ) {
     let layout_page = match state.project_state.layout.get(page_idx) {
         Some(lp) => lp,
@@ -125,14 +97,7 @@ fn draw_slot_overlays(
 
     let painter = ui.painter();
     for (slot_idx, slot) in layout_page.slots.iter().enumerate() {
-        let slot_rect = geometry::slot_rect_on_screen(
-            page_rect,
-            page_width_mm,
-            page_height_mm,
-            bleed_mm,
-            margin_mm,
-            slot,
-        );
+        let slot_rect = geometry::slot_rect_on_screen(page_rect, dims, slot);
         let is_hovered = state.hovered_slot == Some((page_idx, slot_idx));
 
         if is_swap_drag {
@@ -168,23 +133,12 @@ fn hit_test_pointer(
     ui: &mut egui::Ui,
     page_rect: egui::Rect,
     layout_page: &fotobuch::dto_models::LayoutPage,
-    page_width_mm: f64,
-    page_height_mm: f64,
-    bleed_mm: f64,
-    margin_mm: f64,
+    dims: PageDimensions,
 ) -> (Option<usize>, bool) {
     match ui.ctx().pointer_hover_pos() {
         None => (None, false),
         Some(pos) => {
-            let slot = geometry::hit_test_slot(
-                pos,
-                page_rect,
-                layout_page,
-                page_width_mm,
-                page_height_mm,
-                bleed_mm,
-                margin_mm,
-            );
+            let slot = geometry::hit_test_slot(pos, page_rect, layout_page, dims);
             (slot, page_rect.contains(pos))
         }
     }
