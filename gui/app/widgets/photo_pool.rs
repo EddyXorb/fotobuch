@@ -27,8 +27,17 @@ fn show(ui: &mut egui::Ui, state: &mut GuiState, _cmds: &mut HashSet<PendingComm
     state.hovered_pool_id = None;
     let mut visible_needed: Vec<String> = Vec::new();
 
+    let rmbactive = ui.input(|i| {
+        (i.pointer.secondary_down() || i.pointer.secondary_released()) && !i.pointer.primary_down()
+    });
+
     egui::ScrollArea::vertical()
         .auto_shrink([false; 2])
+        .scroll_source(egui::containers::scroll_area::ScrollSource {
+            drag: !rmbactive,
+            scroll_bar: true,
+            mouse_wheel: true,
+        })
         .show(ui, |ui| {
             for group in &state.project_state.photos.clone() {
                 egui::CollapsingHeader::new(&group.group)
@@ -62,17 +71,18 @@ fn draw_row(
     let is_selected = state.pool_selection.is_selected(id);
     let is_pool_dragging = matches!(state.drag, DragState::Dragging(DragSource::Pool { .. }));
 
+    let mut badge_hovered = false;
     let row_response = ui.push_id(egui::Id::new(("pool_row", id)), |ui| {
         let layout_resp = ui
             .horizontal(|ui| {
                 draw_thumb_cell(ui, state, id, visible_needed);
                 draw_filename_label(ui, source, id);
-                draw_placement_badge(ui, state, id);
+                badge_hovered = draw_placement_badge(ui, state, id);
             })
             .response;
         ui.interact(
             layout_resp.rect,
-            layout_resp.id,
+            egui::Id::new(("pool_row_interact", id)),
             egui::Sense::click_and_drag(),
         )
     });
@@ -86,7 +96,9 @@ fn draw_row(
         draw_drag_highlight(ui, row_resp.rect);
     }
 
-    draw_hover_preview(ui, state, id, &row_resp);
+    if !badge_hovered {
+        draw_hover_preview(ui, state, id, &row_resp);
+    }
 
     if row_resp.hovered() {
         state.hovered_pool_id = Some(id.to_string());
@@ -127,7 +139,7 @@ fn draw_filename_label(ui: &mut egui::Ui, source: &Path, id: &str) {
     ui.add(egui::Label::new(&filename).truncate());
 }
 
-fn draw_placement_badge(ui: &mut egui::Ui, state: &GuiState, id: &str) {
+fn draw_placement_badge(ui: &mut egui::Ui, state: &GuiState, id: &str) -> bool {
     let placed_count = state.derived.placed_count(id);
     let badge_color = match placed_count {
         0 => egui::Color32::TRANSPARENT,
@@ -140,6 +152,7 @@ fn draw_placement_badge(ui: &mut egui::Ui, state: &GuiState, id: &str) {
         .circle_filled(badge_rect.center(), 4.0, badge_color);
 
     if placed_count > 0 {
+        let is_hovered = badge_resp.hovered();
         badge_resp.on_hover_ui(|ui| {
             if let Some(locs) = state.derived.placed_locations.get(id) {
                 let mut sorted = locs.clone();
@@ -149,7 +162,9 @@ fn draw_placement_badge(ui: &mut egui::Ui, state: &GuiState, id: &str) {
                 }
             }
         });
+        return is_hovered;
     }
+    false
 }
 
 fn draw_selection_highlight(ui: &egui::Ui, rect: egui::Rect) {
