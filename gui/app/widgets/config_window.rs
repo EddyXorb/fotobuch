@@ -90,20 +90,40 @@ fn leaf_widget(
         return;
     }
 
-    let buf = buffers
-        .entry(key.to_string())
-        .or_insert_with(|| current_str.clone());
+    // Determine what to do with the buffer this frame.
+    // We split the borrow so we can call buffers.remove() afterward.
+    let (do_remove, commit_value) = {
+        let buf = buffers
+            .entry(key.to_string())
+            .or_insert_with(|| current_str.clone());
 
-    let resp = ui.text_edit_singleline(buf);
+        let resp = ui.add(egui::TextEdit::singleline(buf).desired_width(f32::INFINITY));
 
-    if resp.lost_focus() {
-        let escape = ui.input(|i| i.key_pressed(egui::Key::Escape));
-        if !escape && *buf != current_str {
-            cmds.insert(PendingCommand::ConfigSet {
-                key: key.to_string(),
-                value: buf.clone(),
-            });
+        if resp.lost_focus() {
+            let escape = ui.input(|i| i.key_pressed(egui::Key::Escape));
+            if escape {
+                // Discard edit; reinit from current_str next frame.
+                (true, None)
+            } else if *buf != current_str {
+                // Keep buffer at committed value while command is in-flight.
+                // This prevents oscillation back to the old backend value.
+                (false, Some(buf.clone()))
+            } else {
+                (true, None)
+            }
+        } else {
+            // Clean up buffers that are already in sync with the backend.
+            (!resp.has_focus() && *buf == current_str, None)
         }
+    };
+
+    if let Some(v) = commit_value {
+        cmds.insert(PendingCommand::ConfigSet {
+            key: key.to_string(),
+            value: v,
+        });
+    }
+    if do_remove {
         buffers.remove(key);
     }
 }

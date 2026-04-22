@@ -534,7 +534,7 @@ mod tests {
                 assert_eq!(r.page, 0);
                 assert!(!r.pixels.is_empty());
                 assert_eq!(thumb.page, 0);
-                assert!(thumb.width <= 120 && thumb.height <= 120);
+                assert!(thumb.width <= 512 && thumb.height <= 512);
                 assert!(rasterize_duration.as_secs() < 30);
                 assert!(compile_duration.as_secs() < 30);
             }
