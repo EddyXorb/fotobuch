@@ -16,11 +16,23 @@ pub fn draw(ui: &mut egui::Ui, state: &mut GuiState) {
 }
 
 fn show(ui: &mut egui::Ui, state: &mut GuiState) {
-    let order: Vec<String> = state
+    // Collect only the strings needed for drawing before the mutable closure borrows state.
+    let groups: Vec<(String, Vec<(String, PathBuf)>)> = state
         .project_state
         .photos
         .iter()
-        .flat_map(|g| g.files.iter().map(|f| f.id.clone()))
+        .map(|g| {
+            let files = g
+                .files
+                .iter()
+                .map(|f| (f.id.clone(), PathBuf::from(&f.source)))
+                .collect();
+            (g.group.clone(), files)
+        })
+        .collect();
+    let order: Vec<String> = groups
+        .iter()
+        .flat_map(|(_, files)| files.iter().map(|(id, _)| id.clone()))
         .collect();
 
     state.hovered_pool_id = None;
@@ -38,16 +50,16 @@ fn show(ui: &mut egui::Ui, state: &mut GuiState) {
             mouse_wheel: true,
         })
         .show(ui, |ui| {
-            for group in &state.project_state.photos.clone() {
-                egui::CollapsingHeader::new(&group.group)
+            for (group_name, files) in &groups {
+                egui::CollapsingHeader::new(group_name)
                     .default_open(true)
                     .show(ui, |ui| {
-                        for file in &group.files {
+                        for (id, source) in files {
                             draw_row(
                                 ui,
                                 state,
-                                &file.id,
-                                &PathBuf::from(&file.source),
+                                id,
+                                source,
                                 &order,
                                 &mut visible_needed,
                             );
