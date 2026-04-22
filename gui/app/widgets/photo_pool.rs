@@ -54,14 +54,7 @@ fn show(ui: &mut egui::Ui, state: &mut GuiState) {
                     .default_open(true)
                     .show(ui, |ui| {
                         for (id, source) in files {
-                            draw_row(
-                                ui,
-                                state,
-                                id,
-                                source,
-                                &order,
-                                &mut visible_needed,
-                            );
+                            draw_row(ui, state, id, source, &order, &mut visible_needed);
                         }
                     });
             }

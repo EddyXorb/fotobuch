@@ -13,7 +13,12 @@ pub(super) fn draw_page(
 
     let (width_mm, height_mm) = state.project_state.page_dimensions_mm(page_idx);
     let (bleed_mm, margin_mm) = state.project_state.page_bleed_margin_mm(page_idx);
-    let dims = PageDimensions { width_mm, height_mm, bleed_mm, margin_mm };
+    let dims = PageDimensions {
+        width_mm,
+        height_mm,
+        bleed_mm,
+        margin_mm,
+    };
     let size = helpers::page_display_size(state.zoom, dims);
     let page_rect = render_page_image(ui, state, page_idx, size);
 
