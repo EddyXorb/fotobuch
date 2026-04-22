@@ -47,9 +47,17 @@ fn handle_zoom(state: &mut GuiState, ctx: &egui::Context) {
             1.0
         }
     });
-    if delta != 1.0 {
-        state.zoom = state::apply_zoom_delta(state.zoom, delta);
+    if delta == 1.0 {
+        return;
     }
+    let old_zoom = state.zoom;
+    state.zoom = state::apply_zoom_delta(old_zoom, delta);
+    let ratio = state.zoom / old_zoom;
+    let cursor_y = ctx
+        .pointer_hover_pos()
+        .map_or(state.central_viewport_top, |p| p.y);
+    let rel = cursor_y - state.central_viewport_top;
+    state.pending_central_scroll_y = Some(state.central_scroll_y * ratio + rel * (ratio - 1.0));
 }
 
 fn handle_undo_redo(state: &mut GuiState, ctx: &egui::Context, cmds: &mut HashSet<PendingCommand>) {

@@ -136,11 +136,8 @@ fn paint_ghost_rect(painter: &egui::Painter, rect: egui::Rect, alpha: u8) {
 
 /// Draws a floating page-thumbnail ghost while dragging a nav page.
 pub(crate) fn draw_nav_drag_ghost(ctx: &egui::Context, state: &GuiState) {
-    let (src_page, cursor_at_drag_start) = match &state.drag {
-        DragState::Dragging(DragSource::NavPage {
-            src_page,
-            cursor_at_drag_start,
-        }) => (*src_page, *cursor_at_drag_start),
+    let src_page = match &state.drag {
+        DragState::Dragging(DragSource::NavPage { src_page, .. }) => *src_page,
         _ => return,
     };
     let cursor = match ctx.pointer_hover_pos() {
@@ -166,9 +163,7 @@ pub(crate) fn draw_nav_drag_ghost(ctx: &egui::Context, state: &GuiState) {
         ghost_w * 1.414
     };
 
-    // Offset so the grab point stays under the cursor
-    let offset = cursor - cursor_at_drag_start;
-    let rect = egui::Rect::from_min_size(cursor_at_drag_start + offset, vec2(ghost_w, ghost_h));
+    let rect = egui::Rect::from_center_size(cursor, vec2(ghost_w, ghost_h));
 
     if let Some(Some(tex)) = state.page_thumb_textures.get(src_page) {
         painter.image(

@@ -44,6 +44,12 @@ pub struct GuiState {
     pub config_panel: ConfigPanelState,
     pub timings: Timings,
     pub pending_thumb_loads: Vec<(String, PathBuf)>,
+    /// Current vertical scroll offset of the central panel (updated each frame).
+    pub central_scroll_y: f32,
+    /// Y coordinate of the top edge of the central scroll viewport (updated each frame).
+    pub central_viewport_top: f32,
+    /// Set by handle_zoom to request a corrected scroll offset on the next draw.
+    pub pending_central_scroll_y: Option<f32>,
 }
 
 impl GuiState {
@@ -73,6 +79,9 @@ impl GuiState {
             config_panel: ConfigPanelState::default(),
             timings: Timings::default(),
             pending_thumb_loads: Vec::new(),
+            central_scroll_y: 0.0,
+            central_viewport_top: 0.0,
+            pending_central_scroll_y: None,
         }
     }
 }
