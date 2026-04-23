@@ -60,7 +60,7 @@ pub struct NewResult {
 
 const WELCOME_MESSAGE: &str = r#"
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║                    Welcome to fotobuch!                                      ║
+║                           Welcome to fotobuch!                               ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
 Your new photobook project has been created! Here's what you need to know:
@@ -71,7 +71,7 @@ Your new photobook project has been created! Here's what you need to know:
    - .fotobuch/:  Cache directory (not tracked in git)
 
 📝 Workflow:
-   1. fotobuch add <photos>     - Add photos to your project
+   1. fotobuch add <photos>    - Add photos to your project
    2. fotobuch build           - Generate preview PDF
    3. fotobuch place <photo>   - Manually adjust photo placement
    4. fotobuch build --release - Generate final PDF for printing
