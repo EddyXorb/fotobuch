@@ -9,7 +9,7 @@ use std::time::Instant;
 use crossbeam::channel::{Receiver, Sender};
 use fotobuch::state_manager::StateManager;
 
-use crate::state::{self, DataState, GuiState, InteractionState};
+use crate::state::{self, GuiState};
 use crate::task::{BackgroundResult, BackgroundTask};
 use fotobuch::dto_models::ProjectState;
 use fotobuch::output::typst::RenderedPage;
@@ -35,35 +35,12 @@ impl FotobuchApp {
         install_fallback_font(&cc.egui_ctx);
         cc.egui_ctx
             .global_style_mut(|s| s.interaction.tooltip_delay = 0.05);
+
         let (task_tx, result_rx) =
             crate::background::spawn(project_root, project_name, cc.egui_ctx.clone());
-        if task_tx
-            .send(BackgroundTask::RenderPages {
-                pages: (0..num_pages).collect(),
-                pixel_per_pt: state.interaction.viewport.pixel_per_pt,
-            })
-            .is_err()
-        {
-            tracing::error!("background worker closed before initial render was sent");
-        }
-        let thumb_items: Vec<(String, PathBuf)> = state
-            .data
-            .project
-            .photos
-            .iter()
-            .flat_map(|g| {
-                g.files
-                    .iter()
-                    .map(|f| (f.id.clone(), PathBuf::from(&f.source)))
-            })
-            .collect();
-        if !thumb_items.is_empty()
-            && task_tx
-                .send(BackgroundTask::LoadPhotoThumbnails { items: thumb_items })
-                .is_err()
-        {
-            tracing::error!("background worker closed before initial thumb load was sent");
-        }
+
+        render_initial_pages(num_pages, &state, &task_tx);
+        create_initial_photo_thumbs(&state, &task_tx);
 
         Ok(Self {
             state,
@@ -248,6 +225,39 @@ impl FotobuchApp {
     }
 }
 
+fn create_initial_photo_thumbs(state: &GuiState, task_tx: &Sender<BackgroundTask>) {
+    let thumb_items: Vec<(String, PathBuf)> = state
+        .data
+        .project
+        .photos
+        .iter()
+        .flat_map(|g| {
+            g.files
+                .iter()
+                .map(|f| (f.id.clone(), PathBuf::from(&f.source)))
+        })
+        .collect();
+    if !thumb_items.is_empty()
+        && task_tx
+            .send(BackgroundTask::LoadPhotoThumbnails { items: thumb_items })
+            .is_err()
+    {
+        tracing::error!("background worker closed before initial thumb load was sent");
+    }
+}
+
+fn render_initial_pages(num_pages: usize, state: &GuiState, task_tx: &Sender<BackgroundTask>) {
+    if task_tx
+        .send(BackgroundTask::RenderPages {
+            pages: (0..num_pages).collect(),
+            pixel_per_pt: state.interaction.viewport.pixel_per_pt,
+        })
+        .is_err()
+    {
+        tracing::error!("background worker closed before initial render was sent");
+    }
+}
+
 fn install_fallback_font(ctx: &egui::Context) {
     let mut fonts = egui::FontDefinitions::default();
     fonts.font_data.insert(
@@ -320,10 +330,9 @@ impl eframe::App for FotobuchApp {
             &ctx,
         ));
         self.dispatch_commands(cmds);
+
         self.state.data.timings.input_handlers = t.elapsed();
-
         self.state.data.timings.ui_frame = t_frame.elapsed();
-
         if self.state.data.timings.show {
             widgets::timings_panel::draw(&self.state.data.timings, &ctx);
         }
