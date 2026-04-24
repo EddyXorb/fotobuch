@@ -247,19 +247,16 @@ impl eframe::App for FotobuchApp {
         self.drain_results(&ctx);
         self.state.timings.drain_results = t.elapsed();
 
-        let mut cmds = widgets::toolbar::draw(ui, &mut self.state);
-        widgets::statusbar::draw(ui, &self.state);
-
         // Clear per-frame hover state before widgets re-populate it.
         self.state.hovered = None;
-
+        let t = Instant::now();
+        let mut cmds = widgets::toolbar::draw(ui, &mut self.state);
+        widgets::statusbar::draw(ui, &self.state);
         // Side panels must come before the central panel (egui ordering requirement).
         widgets::photo_pool::draw(ui, &mut self.state);
         widgets::page_nav::draw(ui, &mut self.state, &mut cmds);
-
-        let t = Instant::now();
         widgets::central_panel::draw(ui, &mut self.state);
-        self.state.timings.show_pages = t.elapsed();
+        self.state.timings.show_panels = t.elapsed();
 
         if self.state.config_panel.open {
             widgets::config_window::show(&ctx, &mut self.state, &mut cmds);

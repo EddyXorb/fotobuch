@@ -26,8 +26,8 @@ pub fn draw(timings: &Timings, ctx: &egui::Context) {
                     ui.label(fmt_ms(timings.input_handlers.as_secs_f64()));
                     ui.end_row();
 
-                    ui.label("show_pages");
-                    ui.label(fmt_ms(timings.show_pages.as_secs_f64()));
+                    ui.label("show_panels");
+                    ui.label(fmt_ms(timings.show_panels.as_secs_f64()));
                     ui.end_row();
 
                     ui.label("typst compile");
