@@ -1,39 +1,77 @@
-use crate::state::GuiState;
+use crate::state::{DataState, HoveredTarget, InteractionState};
 
+use super::super::page_nav;
 use super::draw_page;
 
-pub(super) fn draw_pages(ui: &mut egui::Ui, state: &mut GuiState) {
-    let num_pages = state.project_state.layout.len();
-    let mut new_hovered: Option<(usize, usize)> = None;
-    let mut new_hovered_page: Option<usize> = None;
+pub(super) fn draw_pages(
+    ui: &mut egui::Ui,
+    data: &DataState,
+    interaction: &mut InteractionState,
+) -> Option<HoveredTarget> {
+    // Use page_textures.len() rather than layout.len() so that extra pages
+    // produced by Typst (e.g. appendix) are also rendered and displayed.
+    let num_pages = data.pages.textures.len();
+    let mut hovered: Option<HoveredTarget> = None;
 
     let rmbactive = ui.input(|i| {
         (i.pointer.secondary_down() || i.pointer.secondary_released()) && !i.pointer.primary_down()
     });
 
-    egui::ScrollArea::vertical()
+    let pending_scroll = interaction.viewport.scroll.pending_scroll_y.take();
+    let mut sa = egui::ScrollArea::vertical()
         .auto_shrink([false; 2])
         .scroll_source(egui::containers::scroll_area::ScrollSource {
             drag: !rmbactive,
             scroll_bar: true,
             mouse_wheel: true,
-        })
-        .show(ui, |ui| {
-            ui.vertical_centered(|ui| {
-                for i in 0..num_pages {
-                    let (slot_idx, over_page) = draw_page::draw_page(ui, state, i);
-                    if let Some(slot_idx) = slot_idx
-                        && new_hovered.is_none()
-                    {
-                        new_hovered = Some((i, slot_idx));
-                    }
-                    if over_page && new_hovered_page.is_none() {
-                        new_hovered_page = Some(i);
-                    }
-                }
-            });
         });
+    if let Some(y) = pending_scroll {
+        sa = sa.vertical_scroll_offset(y);
+    }
+    let output = sa.show(ui, |ui| {
+        ui.vertical_centered(|ui| {
+            for i in 0..num_pages {
+                let (slot_idx, over_page, page_rect) =
+                    draw_page::draw_page(ui, data, interaction, i);
+                if hovered.is_none() {
+                    hovered = if let Some(slot) = slot_idx {
+                        Some(HoveredTarget::Page {
+                            page: i,
+                            slot: Some(slot),
+                        })
+                    } else if over_page {
+                        Some(HoveredTarget::Page {
+                            page: i,
+                            slot: None,
+                        })
+                    } else {
+                        None
+                    };
+                }
+                page_nav::apply_scroll_if_needed(ui, interaction, i, page_rect);
+            }
+        });
+    });
+    interaction.viewport.scroll.scroll_y = output.state.offset.y;
+    interaction.viewport.scroll.viewport_top = output.inner_rect.min.y;
 
-    state.hovered_slot = new_hovered;
-    state.hovered_page = new_hovered_page;
+    if interaction.viewport.fit_pending && num_pages > 0 {
+        let panel_w = output.inner_rect.width();
+        if panel_w > 0.0 {
+            const MM_TO_PT: f32 = 72.0 / 25.4;
+            let max_w_pts = (0..num_pages)
+                .map(|i| {
+                    let (w_mm, _) = data.project.page_dimensions_mm(i);
+                    let (bleed_mm, _) = data.project.page_bleed_margin_mm(i);
+                    (w_mm + 2.0 * bleed_mm) as f32 * MM_TO_PT
+                })
+                .fold(0.0_f32, f32::max);
+            if max_w_pts > 0.0 {
+                interaction.viewport.zoom = (panel_w / max_w_pts).clamp(0.1, 5.0);
+                interaction.viewport.fit_pending = false;
+            }
+        }
+    }
+
+    hovered
 }

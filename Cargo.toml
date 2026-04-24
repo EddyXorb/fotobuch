@@ -93,6 +93,11 @@ optional = true
 version = "0.1"
 optional = true
 
+[profile.release]
+strip = "symbols"
+lto = "thin"
+codegen-units = 1
+
 [dev-dependencies]
 approx = "0.5"
 assert_cmd = "2"

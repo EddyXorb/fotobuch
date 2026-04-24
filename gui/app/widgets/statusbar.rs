@@ -1,34 +1,29 @@
-use crate::state::{DragState, GuiState, Selection};
+use crate::state::{ActiveDrag, DataState, HoveredTarget, InteractionState, SlotSelection};
 
-pub fn draw(ui: &mut egui::Ui, state: &GuiState) {
-    egui::Panel::bottom("statusbar").show_inside(ui, |ui| show(ui, state));
+pub fn draw(ui: &mut egui::Ui, data: &DataState, interaction: &InteractionState) {
+    egui::Panel::bottom("statusbar").show_inside(ui, |ui| show(ui, data, interaction));
 }
 
-fn show(ui: &mut egui::Ui, state: &GuiState) {
+fn show(ui: &mut egui::Ui, data: &DataState, interaction: &InteractionState) {
     ui.horizontal(|ui| {
-        let total = state.project_state.layout.len();
-        let photos: usize = state
-            .project_state
-            .photos
-            .iter()
-            .map(|g| g.files.len())
-            .sum();
-        let unplaced = state.derived.unplaced_photos.len();
+        let total = data.project.layout.len();
+        let photos: usize = data.project.photos.iter().map(|g| g.files.len()).sum();
+        let unplaced = data.derived.unplaced_photos.len();
 
-        let page_str = match state.hovered_slot {
+        let page_str = match interaction.hovered.as_ref().and_then(HoveredTarget::slot) {
             Some((page, _)) => format!("Page {page}/{total}"),
             None => format!("Page \u{2013}/{total}"),
         };
 
-        let sel_str = match &state.selection {
-            Selection::None => "Sel: \u{2013}".to_string(),
-            Selection::OnPage { page, slots, .. } => {
+        let sel_str = match &interaction.selections.slots {
+            SlotSelection::None => "Sel: \u{2013}".to_string(),
+            SlotSelection::OnPage { page, slots, .. } => {
                 format!("Sel: {} on page {page}", slots.len())
             }
         };
 
-        let mode_str = state.drag_mode.label();
-        let mode_display = if matches!(state.drag, DragState::Idle) {
+        let mode_str = interaction.drag.mode.label();
+        let mode_display = if matches!(interaction.drag.active, ActiveDrag::Idle) {
             mode_str.to_string()
         } else {
             format!("[{}]", mode_str)

@@ -1,5 +1,5 @@
 /// Whether the current drag gesture is a Swap or a Move operation.
-#[derive(Default, Clone, Copy, PartialEq, Eq)]
+#[derive(Default, Clone, Copy, PartialEq, Eq, Debug)]
 pub enum DragMode {
     #[default]
     Swap,
@@ -22,18 +22,38 @@ impl DragMode {
     }
 }
 
-/// Tracks an ongoing drag-and-drop gesture.
-#[derive(Default)]
-pub enum DragState {
-    #[default]
-    Idle,
-    Dragging {
+/// What initiated the current drag gesture.
+#[derive(Debug, Clone)]
+pub enum DragSource {
+    /// Right-mouse drag from a slot in the central panel.
+    Slot {
         src_page: usize,
         src_slot: usize,
-        /// Screen position of the pointer when drag was initiated.
-        /// Used to compute the grab offset for the ghost rectangle.
         cursor_at_drag_start: egui::Pos2,
     },
+    /// Right-mouse drag from a page thumbnail in the nav panel.
+    NavPage {
+        src_page: usize,
+        #[allow(unused)]
+        cursor_at_drag_start: egui::Pos2,
+    },
+    /// Right-mouse drag from a photo row in the pool panel.
+    Pool { photo_ids: Vec<String> },
+}
+
+/// Active drag activity: idle or dragging with a source.
+#[derive(Default, Debug)]
+pub enum ActiveDrag {
+    #[default]
+    Idle,
+    Dragging(DragSource),
+}
+
+/// Unified drag state: current activity and persistent mode (Swap/Move).
+#[derive(Default, Debug)]
+pub struct DragState {
+    pub active: ActiveDrag,
+    pub mode: DragMode,
 }
 
 #[cfg(test)]
@@ -43,7 +63,7 @@ mod tests {
     #[test]
     fn drag_idle_by_default() {
         let d = DragState::default();
-        assert!(matches!(d, DragState::Idle));
+        assert!(matches!(d.active, ActiveDrag::Idle));
     }
 
     #[test]

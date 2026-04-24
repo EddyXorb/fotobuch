@@ -26,8 +26,8 @@ pub fn draw(timings: &Timings, ctx: &egui::Context) {
                     ui.label(fmt_ms(timings.input_handlers.as_secs_f64()));
                     ui.end_row();
 
-                    ui.label("show_pages");
-                    ui.label(fmt_ms(timings.show_pages.as_secs_f64()));
+                    ui.label("show_panels");
+                    ui.label(fmt_ms(timings.show_panels.as_secs_f64()));
                     ui.end_row();
 
                     ui.label("typst compile");
@@ -36,6 +36,13 @@ pub fn draw(timings: &Timings, ctx: &egui::Context) {
 
                     ui.label("typst rasterize avg");
                     ui.label(fmt_ms(timings.typst_rasterize_avg.as_secs_f64()));
+                    ui.end_row();
+
+                    ui.label("mouse");
+                    let pos_text = ctx
+                        .pointer_hover_pos()
+                        .map_or("-".to_string(), |p| format!("{:.0}, {:.0}", p.x, p.y));
+                    ui.label(pos_text);
                     ui.end_row();
                 });
 

@@ -1,5 +1,11 @@
 # Phase 6: Manual Mode + Polish
 
+## 6.0 Add/Remove from Pool
+
+- Markierte Slots + Del unplaces sies
+- Markierte Pool-Fotos + Del removed sie komplett
+- Drag von Photos in Pool von OS fügt Fotos zum Pool hinzu (placed sie aber nicht)
+
 ## 6.1 — Manual Mode
 
 - [A|M]-Toggle pro Seite

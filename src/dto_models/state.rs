@@ -66,6 +66,18 @@ impl ProjectState {
         }
     }
 
+    /// Returns `(bleed_mm, margin_mm)` for the given page index.
+    pub fn page_bleed_margin_mm(&self, page: usize) -> (f64, f64) {
+        if self.has_cover() && page == 0 {
+            (
+                self.config.book.cover.bleed_mm,
+                self.config.book.cover.margin_mm,
+            )
+        } else {
+            (self.config.book.bleed_mm, self.config.book.margin_mm)
+        }
+    }
+
     pub fn check_validity(&self) -> Result<()> {
         // Build known photo IDs, checking for duplicates within the photos section
         let mut known_ids: std::collections::HashSet<&str> = std::collections::HashSet::new();

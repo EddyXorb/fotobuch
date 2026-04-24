@@ -1,7 +1,9 @@
 use std::collections::BTreeSet;
 
-/// Which slots are currently selected. Selection is always restricted to a single page.
-pub enum Selection {
+/// Which slots are currently selected. SlotSelection is always restricted to a single page.
+#[derive(Default)]
+pub enum SlotSelection {
+    #[default]
     None,
     OnPage {
         page: usize,
@@ -12,10 +14,10 @@ pub enum Selection {
     },
 }
 
-impl Selection {
+impl SlotSelection {
     /// Select exactly one slot; replaces any previous selection.
     pub fn single(page: usize, slot: usize) -> Self {
-        Selection::OnPage {
+        SlotSelection::OnPage {
             page,
             slots: BTreeSet::from([slot]),
             anchor: slot,
@@ -27,7 +29,7 @@ impl Selection {
     /// Clicking on a different page clears the old selection and starts fresh.
     pub fn toggle(&mut self, page: usize, slot: usize) {
         match self {
-            Selection::OnPage {
+            SlotSelection::OnPage {
                 page: p,
                 slots,
                 anchor,
@@ -35,7 +37,7 @@ impl Selection {
                 if slots.contains(&slot) {
                     slots.remove(&slot);
                     if slots.is_empty() {
-                        *self = Selection::None;
+                        *self = SlotSelection::None;
                     }
                 } else {
                     slots.insert(slot);
@@ -43,7 +45,7 @@ impl Selection {
                 }
             }
             _ => {
-                *self = Selection::single(page, slot);
+                *self = SlotSelection::single(page, slot);
             }
         }
     }
@@ -55,7 +57,7 @@ impl Selection {
     /// Clicking on a different page starts a fresh single selection.
     pub fn range_to(&mut self, page: usize, slot: usize) {
         match self {
-            Selection::OnPage {
+            SlotSelection::OnPage {
                 page: p,
                 slots,
                 anchor,
@@ -66,23 +68,23 @@ impl Selection {
                 *slots = (lo..=hi).collect();
             }
             _ => {
-                *self = Selection::single(page, slot);
+                *self = SlotSelection::single(page, slot);
             }
         }
     }
 
     /// Clear selection (Escape / click on empty space).
     pub fn clear(&mut self) {
-        *self = Selection::None;
+        *self = SlotSelection::None;
     }
 
     /// Select all slots on `page` (Ctrl+A). No-op when `slot_count == 0`.
     pub fn select_all_on(&mut self, page: usize, slot_count: usize) {
         if slot_count == 0 {
-            *self = Selection::None;
+            *self = SlotSelection::None;
             return;
         }
-        *self = Selection::OnPage {
+        *self = SlotSelection::OnPage {
             page,
             slots: (0..slot_count).collect(),
             anchor: 0,
@@ -92,8 +94,8 @@ impl Selection {
     /// Returns `true` if `slot` on `page` is currently selected.
     pub fn is_selected(&self, page: usize, slot: usize) -> bool {
         match self {
-            Selection::OnPage { page: p, slots, .. } => *p == page && slots.contains(&slot),
-            Selection::None => false,
+            SlotSelection::OnPage { page: p, slots, .. } => *p == page && slots.contains(&slot),
+            SlotSelection::None => false,
         }
     }
 }
@@ -104,15 +106,15 @@ mod tests {
 
     #[test]
     fn single_replaces_previous() {
-        let mut sel = Selection::single(0, 2);
-        sel = Selection::single(1, 5);
+        let mut sel = SlotSelection::single(0, 2);
+        sel = SlotSelection::single(1, 5);
         assert!(sel.is_selected(1, 5));
         assert!(!sel.is_selected(0, 2));
     }
 
     #[test]
     fn toggle_adds_then_removes() {
-        let mut sel = Selection::single(0, 0);
+        let mut sel = SlotSelection::single(0, 0);
         sel.toggle(0, 1);
         assert!(sel.is_selected(0, 0));
         assert!(sel.is_selected(0, 1));
@@ -123,14 +125,14 @@ mod tests {
 
     #[test]
     fn toggle_last_slot_gives_none() {
-        let mut sel = Selection::single(0, 3);
+        let mut sel = SlotSelection::single(0, 3);
         sel.toggle(0, 3);
-        assert!(matches!(sel, Selection::None));
+        assert!(matches!(sel, SlotSelection::None));
     }
 
     #[test]
     fn range_fills_between_anchor_and_new_forward_and_backward() {
-        let mut sel = Selection::single(0, 2);
+        let mut sel = SlotSelection::single(0, 2);
         sel.range_to(0, 5);
         for i in 2..=5 {
             assert!(sel.is_selected(0, i), "slot {i} should be selected");
@@ -148,7 +150,7 @@ mod tests {
 
     #[test]
     fn click_on_other_page_clears_and_starts_new() {
-        let mut sel = Selection::single(0, 3);
+        let mut sel = SlotSelection::single(0, 3);
         sel.toggle(1, 7);
         assert!(!sel.is_selected(0, 3));
         assert!(sel.is_selected(1, 7));
@@ -156,7 +158,7 @@ mod tests {
 
     #[test]
     fn select_all_picks_all_indices() {
-        let mut sel = Selection::None;
+        let mut sel = SlotSelection::None;
         sel.select_all_on(2, 4);
         for i in 0..4 {
             assert!(sel.is_selected(2, i));
@@ -166,8 +168,8 @@ mod tests {
 
     #[test]
     fn clear_resets_to_none() {
-        let mut sel = Selection::single(0, 0);
+        let mut sel = SlotSelection::single(0, 0);
         sel.clear();
-        assert!(matches!(sel, Selection::None));
+        assert!(matches!(sel, SlotSelection::None));
     }
 }

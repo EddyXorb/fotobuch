@@ -12,7 +12,7 @@ pub struct Timings {
     /// Time spent handling input last frame.
     pub input_handlers: Duration,
     /// Time spent drawing pages (scroll area) last frame.
-    pub show_pages: Duration,
+    pub show_panels: Duration,
     /// Render duration per page, sorted by page index.
     pub render_pages: Vec<(usize, Duration)>,
     /// Time for the last `compile_document` call in the background worker.

@@ -13,6 +13,8 @@ pub struct DerivedState {
     pub photo_by_id: HashMap<String, PhotoFile>,
     /// For each placed photo: `(page_idx, slot_idx)`.
     pub placement_of_photo: HashMap<String, (usize, usize)>,
+    /// photo-id → alle Slots, die das Foto belegen (kann mehrere sein bei Mehrfach-Platzierung).
+    pub placed_locations: HashMap<String, Vec<(usize, usize)>>,
     /// Photo IDs that appear in `photos` but not in any layout page.
     pub unplaced_photos: Vec<String>,
     /// Maps photo ID → group name.
@@ -24,18 +26,40 @@ pub struct DerivedState {
 impl DerivedState {
     pub fn rebuild(project: &ProjectState) -> Self {
         let (photo_by_id, group_of_photo) = build_photo_maps(project);
-        let (placement_of_photo, placed_per_group) =
-            build_placement_maps(&project.layout, &group_of_photo);
-        let unplaced_photos = build_unplaced_photos(&photo_by_id, &placement_of_photo);
+        let PlacementMaps {
+            placement_of_photo,
+            placed_per_group,
+            placed_locations,
+        } = build_placement_maps(&project.layout, &group_of_photo);
+        let unplaced_photos = build_unplaced_photos(&photo_by_id, &placed_locations);
 
         Self {
             photo_by_id,
             placement_of_photo,
+            placed_locations,
             unplaced_photos,
             group_of_photo,
             placed_per_group,
         }
     }
+
+    pub fn placed_count(&self, id: &str) -> usize {
+        self.placed_locations.get(id).map(|v| v.len()).unwrap_or(0)
+    }
+
+    #[allow(dead_code)]
+    pub fn duplicate_ids(&self) -> impl Iterator<Item = &String> {
+        self.placed_locations
+            .iter()
+            .filter(|(_, v)| v.len() > 1)
+            .map(|(k, _)| k)
+    }
+}
+
+struct PlacementMaps {
+    placement_of_photo: HashMap<String, (usize, usize)>,
+    placed_per_group: HashMap<String, usize>,
+    placed_locations: HashMap<String, Vec<(usize, usize)>>,
 }
 
 fn build_photo_maps(
@@ -57,29 +81,41 @@ fn build_photo_maps(
 fn build_placement_maps(
     layout: &[LayoutPage],
     group_of_photo: &HashMap<String, String>,
-) -> (HashMap<String, (usize, usize)>, HashMap<String, usize>) {
+) -> PlacementMaps {
     let mut placement_of_photo: HashMap<String, (usize, usize)> = HashMap::new();
     let mut placed_per_group: HashMap<String, usize> = HashMap::new();
+    let mut placed_locations: HashMap<String, Vec<(usize, usize)>> = HashMap::new();
 
     for layout_page in layout {
         for (slot_idx, photo_id) in layout_page.photos.iter().enumerate() {
-            placement_of_photo.insert(photo_id.clone(), (layout_page.page, slot_idx));
+            // placement_of_photo stores only the *first* occurrence (legacy behaviour).
+            placement_of_photo
+                .entry(photo_id.clone())
+                .or_insert((layout_page.page, slot_idx));
+            placed_locations
+                .entry(photo_id.clone())
+                .or_default()
+                .push((layout_page.page, slot_idx));
             if let Some(group) = group_of_photo.get(photo_id) {
                 *placed_per_group.entry(group.clone()).or_insert(0) += 1;
             }
         }
     }
 
-    (placement_of_photo, placed_per_group)
+    PlacementMaps {
+        placement_of_photo,
+        placed_per_group,
+        placed_locations,
+    }
 }
 
 fn build_unplaced_photos(
     photo_by_id: &HashMap<String, PhotoFile>,
-    placement_of_photo: &HashMap<String, (usize, usize)>,
+    placed_locations: &HashMap<String, Vec<(usize, usize)>>,
 ) -> Vec<String> {
     let mut unplaced: Vec<String> = photo_by_id
         .keys()
-        .filter(|id| !placement_of_photo.contains_key(*id))
+        .filter(|id| !placed_locations.contains_key(*id))
         .cloned()
         .collect();
     unplaced.sort();
@@ -183,5 +219,49 @@ mod tests {
         );
         assert_eq!(derived.placed_per_group.get("A"), Some(&1));
         assert_eq!(derived.placed_per_group.get("B"), Some(&1));
+    }
+
+    fn project_with_duplicate() -> ProjectState {
+        ProjectState {
+            config: ProjectConfig::default(),
+            photos: vec![PhotoGroup {
+                group: "A".into(),
+                sort_key: "2024-01-15T00:00:00Z".into(),
+                files: vec![photo("A/1.jpg"), photo("A/2.jpg")],
+            }],
+            layout: vec![
+                LayoutPage {
+                    page: 0,
+                    photos: vec!["A/1.jpg".into()],
+                    slots: vec![slot()],
+                    mode: PageMode::Auto,
+                },
+                LayoutPage {
+                    page: 1,
+                    photos: vec!["A/1.jpg".into(), "A/2.jpg".into()],
+                    slots: vec![slot(), slot()],
+                    mode: PageMode::Auto,
+                },
+            ],
+        }
+    }
+
+    #[test]
+    fn placed_locations_counts_across_pages() {
+        let derived = DerivedState::rebuild(&project_with_duplicate());
+        let locs = derived.placed_locations.get("A/1.jpg").unwrap();
+        assert_eq!(locs.len(), 2);
+        assert!(locs.contains(&(0, 0)));
+        assert!(locs.contains(&(1, 0)));
+        assert_eq!(derived.placed_count("A/1.jpg"), 2);
+        assert_eq!(derived.placed_count("A/2.jpg"), 1);
+    }
+
+    #[test]
+    fn duplicate_ids_lists_only_multiply_placed() {
+        let derived = DerivedState::rebuild(&project_with_duplicate());
+        let dups: Vec<&String> = derived.duplicate_ids().collect();
+        assert_eq!(dups.len(), 1);
+        assert_eq!(dups[0], "A/1.jpg");
     }
 }

@@ -58,13 +58,21 @@ pub fn compute_outdated_pages(reference: &ProjectState, new: &ProjectState) -> V
             inner_canvas_outdated
         };
         let skip_ar_check = cover_skips_ar && is_cover;
+        // Structured cover modes intentionally have slots.len() != photos.len()
+        // (e.g. FrontFull: 1 slot for multiple photos). Skip that check for them.
+        let skip_slot_count_check = is_cover && !cover.mode.is_free();
         let reasons: &[(&str, &dyn Fn() -> bool)] = &[
             ("canvas outdated", &|| canvas_outdated),
             ("metadata changed", &|| {
                 page_is_outdated_by_metadata(&changed_photos, new_page)
             }),
             ("slot structure changed", &|| {
-                page_is_outdated_by_slot_structure(new_page, &reference.layout, &page_hashes)
+                page_is_outdated_by_slot_structure(
+                    new_page,
+                    &reference.layout,
+                    &page_hashes,
+                    skip_slot_count_check,
+                )
             }),
             ("AR violation", &|| {
                 !skip_ar_check
@@ -91,6 +99,7 @@ fn page_is_outdated_by_slot_structure(
     new_page: &crate::dto_models::LayoutPage,
     reference_layout: &[crate::dto_models::LayoutPage],
     page_hashes: &HashMap<BTreeSet<String>, Vec<usize>>,
+    skip_slot_count_check: bool,
 ) -> bool {
     let photo_set = new_page.photos.iter().cloned().collect::<BTreeSet<_>>();
     let candidate_indices = match page_hashes.get(&photo_set) {
@@ -106,7 +115,7 @@ fn page_is_outdated_by_slot_structure(
         return true;
     }
 
-    new_page.slots.len() != new_page.photos.len()
+    !skip_slot_count_check && new_page.slots.len() != new_page.photos.len()
 }
 
 fn page_is_outdated_by_aspect_ratio_violation(
@@ -954,6 +963,63 @@ mod tests {
         assert!(
             !outdated.contains(&0),
             "cover must not be outdated when inner page count changes with Fixed spine"
+        );
+    }
+
+    #[test]
+    fn test_structured_cover_not_outdated_when_slot_count_differs_from_photo_count() {
+        // FrontFull cover has 1 slot for 2 photos — this is expected and must NOT
+        // cause the cover to be detected as outdated after an unrelated inner-page swap.
+        let front_slot = make_slot(0.0, 0.0, 300.0, 200.0); // 1 full-front slot
+        let inner_slot = make_slot(0.0, 0.0, 100.0, 100.0);
+        // Cover: 2 photos, 1 slot (FrontFull — intentional mismatch)
+        let cover_page = make_page(
+            0,
+            vec!["A".to_string(), "B".to_string()],
+            vec![front_slot.clone()],
+        );
+        let inner1 = make_page(1, vec!["C".to_string()], vec![inner_slot.clone()]);
+        let inner2 = make_page(2, vec!["D".to_string()], vec![inner_slot.clone()]);
+
+        let mut reference = make_state_with_cover(
+            "ref",
+            vec![cover_page.clone(), inner1.clone(), inner2.clone()],
+            CoverMode::FrontFull,
+        );
+        reference.photos = vec![PhotoGroup {
+            group: "g".to_string(),
+            sort_key: "2024-01-01T00:00:00Z".to_string(),
+            files: vec![
+                make_photo("A", 100, 100, 1.0),
+                make_photo("B", 100, 100, 1.0),
+                make_photo("C", 100, 100, 1.0),
+                make_photo("D", 100, 100, 1.0),
+            ],
+        }];
+
+        // Simulate slot swap between pages 1 and 2 (photos C and D swapped)
+        let inner1_swapped = make_page(1, vec!["D".to_string()], vec![inner_slot.clone()]);
+        let inner2_swapped = make_page(2, vec!["C".to_string()], vec![inner_slot.clone()]);
+        let mut new = make_state_with_cover(
+            "new",
+            vec![cover_page, inner1_swapped, inner2_swapped],
+            CoverMode::FrontFull,
+        );
+        new.photos = reference.photos.clone();
+
+        let outdated = compute_outdated_pages(&reference, &new);
+        assert!(
+            !outdated.contains(&0),
+            "structured cover must not be marked outdated after unrelated inner-page slot swap"
+        );
+        // Pages 1 and 2 have compatible slot shapes (same inner_slot), so no rebuild needed.
+        assert!(
+            !outdated.contains(&1),
+            "inner page with compatible slot shape must not need rebuild"
+        );
+        assert!(
+            !outdated.contains(&2),
+            "inner page with compatible slot shape must not need rebuild"
         );
     }
 }

@@ -44,7 +44,7 @@ Die GUI ist ein **interaktiver Typst-Viewer**. Die gerenderten Seiten SIND das E
 - Alle Seiten vertikal gestapelt, scrollbar
 - Jede Seite = Typst-gerendertes Raster-Image als egui-Textur
 - Zoom: Ctrl+Scroll, stufenlos
-- Pro Seite ein kleiner [A|M]-Toggle rechts oben (Auto/Manual Mode)
+- Pro Seite ein kleiner [A|M]-Toggle rechts von der Seite (Auto/Manual Mode)
 - Seitenheader mit Seitennummer
 
 ### Rechtes Panel: Seiten-Navigation

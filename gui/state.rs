@@ -1,74 +1,101 @@
+mod config_panel;
 mod derived;
 mod drag;
+mod hover;
+mod page_cache;
+mod pool;
 mod selection;
+mod selections;
 mod timings;
+mod viewport;
 
+pub use config_panel::ConfigPanelState;
 pub use derived::DerivedState;
-pub use drag::{DragMode, DragState};
-pub use selection::Selection;
+pub use drag::{ActiveDrag, DragMode, DragSource, DragState};
+pub use hover::HoveredTarget;
+pub use page_cache::PageCache;
+pub use pool::PhotoSelection;
+pub use selection::SlotSelection;
+pub use selections::Selections;
 pub use timings::Timings;
+pub use viewport::Viewport;
+
+use std::collections::HashMap;
 
 use egui::{ColorImage, Context, TextureHandle, TextureOptions};
 use fotobuch::dto_models::ProjectState;
 use fotobuch::output::typst::RenderedPage;
 
-pub struct GuiState {
-    pub project_state: ProjectState,
+pub struct DataState {
+    pub project: ProjectState,
     pub derived: DerivedState,
-    pub page_textures: Vec<Option<TextureHandle>>,
-    /// Which pages are currently waiting for a fresh render (command running).
-    pub page_dirty: Vec<bool>,
-    pub zoom: f32,
-    pub base_pixel_per_pt: f32,
-    pub selection: Selection,
-    /// `(page_idx, slot_idx)` hovered in the previous frame.
-    pub hovered_slot: Option<(usize, usize)>,
-    /// Page index the pointer is hovering over (set even when no specific slot is hit).
-    pub hovered_page: Option<usize>,
-    pub drag: DragState,
-    pub drag_mode: DragMode,
+    pub pages: PageCache,
+    pub thumbs: HashMap<String, TextureHandle>,
     pub timings: Timings,
 }
 
+pub struct InteractionState {
+    pub selections: Selections,
+    pub hovered: Option<HoveredTarget>,
+    pub drag: DragState,
+    pub viewport: Viewport,
+    pub config: ConfigPanelState,
+}
+
+pub struct GuiState {
+    pub data: DataState,
+    pub interaction: InteractionState,
+}
+
 impl GuiState {
-    pub fn new(project_state: ProjectState) -> Self {
-        let num_pages = project_state.layout.len();
-        let derived = DerivedState::rebuild(&project_state);
+    pub fn new(project: ProjectState) -> Self {
+        let num_pages = project.layout.len();
+        let derived = DerivedState::rebuild(&project);
         Self {
-            project_state,
-            derived,
-            page_textures: vec![None; num_pages],
-            page_dirty: vec![false; num_pages],
-            zoom: 1.0,
-            base_pixel_per_pt: 1.5,
-            selection: Selection::None,
-            hovered_slot: None,
-            hovered_page: None,
-            drag: DragState::Idle,
-            drag_mode: DragMode::Swap,
-            timings: Timings::default(),
+            data: DataState {
+                project,
+                derived,
+                pages: PageCache::new(num_pages),
+                thumbs: HashMap::new(),
+                timings: Timings::default(),
+            },
+            interaction: InteractionState {
+                selections: Selections::default(),
+                hovered: None,
+                drag: DragState::default(),
+                viewport: Viewport::default(),
+                config: ConfigPanelState::default(),
+            },
         }
     }
 }
 
-/// Uploads a rendered page into the egui texture cache and clears its dirty flag.
-///
-/// `rendered` contains straight-alpha RGBA pixels — `from_rgba_unmultiplied` is correct here.
-pub fn apply_rendered(state: &mut GuiState, ctx: &Context, rendered: RenderedPage) {
-    let w = rendered.width as usize;
-    let h = rendered.height as usize;
-    let image = ColorImage::from_rgba_unmultiplied([w, h], &rendered.pixels);
-    let handle = ctx.load_texture(
-        format!("page_{}", rendered.page),
-        image,
-        TextureOptions::LINEAR,
-    );
-    // Use get_mut to guard against stale renders arriving after a page was deleted.
-    if let Some(slot) = state.page_textures.get_mut(rendered.page) {
+/// Uploads a rendered page (full + thumb) into the egui texture cache and clears its dirty flag.
+pub fn apply_rendered(
+    state: &mut GuiState,
+    ctx: &Context,
+    full: RenderedPage,
+    thumb: RenderedPage,
+) {
+    let page = full.page;
+    let img = ColorImage::from_rgba_unmultiplied([full.width as _, full.height as _], &full.pixels);
+    let handle = ctx.load_texture(format!("page_{page}"), img, TextureOptions::LINEAR);
+    if let Some(slot) = state.data.pages.textures.get_mut(page) {
         *slot = Some(handle);
     }
-    if let Some(d) = state.page_dirty.get_mut(rendered.page) {
+    if let Some(d) = state.data.pages.dirty.get_mut(page) {
         *d = false;
+    }
+
+    let thumb_img =
+        ColorImage::from_rgba_unmultiplied([thumb.width as _, thumb.height as _], &thumb.pixels);
+    let thumb_tex = ctx.load_texture(
+        format!("page_thumb_{page}"),
+        thumb_img,
+        TextureOptions::LINEAR,
+    );
+    if let Some(s) = state.data.pages.thumb_textures.get_mut(page) {
+        *s = Some(thumb_tex);
     }
 }
 
@@ -80,12 +107,9 @@ pub fn apply_zoom_delta(z: f32, delta: f32) -> f32 {
     (z * delta).clamp(0.1, 5.0)
 }
 
-/// Resize `page_textures` and `page_dirty` to match a new page count.
-///
-/// Trims or extends with `None` / `false` as needed.
+/// Resize all page cache vecs to match a new page count.
 pub fn resize_page_vecs(state: &mut GuiState, new_len: usize) {
-    state.page_textures.resize(new_len, None);
-    state.page_dirty.resize(new_len, false);
+    state.data.pages.resize(new_len);
 }
 
 #[cfg(test)]
@@ -101,8 +125,8 @@ mod tests {
     #[test]
     fn new_derives_num_pages() {
         let state = GuiState::new(minimal_project());
-        assert_eq!(state.page_textures.len(), 0);
-        assert_eq!(state.page_dirty.len(), 0);
+        assert_eq!(state.data.pages.textures.len(), 0);
+        assert_eq!(state.data.pages.dirty.len(), 0);
     }
 
     #[test]
@@ -116,16 +140,32 @@ mod tests {
             mode: fotobuch::dto_models::PageMode::Auto,
         }];
         let mut state = GuiState::new(project);
-        state.page_dirty[0] = true;
-        let rendered = RenderedPage {
+        state.data.pages.dirty[0] = true;
+        let full = RenderedPage {
             page: 0,
             width: 2,
             height: 2,
-            pixels: vec![255u8; 2 * 2 * 4],
+            pixels: vec![255u8; 16],
         };
-        apply_rendered(&mut state, &ctx, rendered);
-        assert!(state.page_textures[0].is_some());
-        assert!(!state.page_dirty[0]);
+        let thumb = RenderedPage {
+            page: 0,
+            width: 1,
+            height: 1,
+            pixels: vec![255u8; 4],
+        };
+        apply_rendered(&mut state, &ctx, full, thumb);
+        assert!(state.data.pages.textures[0].is_some());
+        assert!(state.data.pages.thumb_textures[0].is_some());
+        assert!(!state.data.pages.dirty[0]);
+    }
+
+    #[test]
+    fn resize_page_vecs_also_resizes_thumb_vec() {
+        let mut state = GuiState::new(minimal_project());
+        resize_page_vecs(&mut state, 4);
+        assert_eq!(state.data.pages.thumb_textures.len(), 4);
+        resize_page_vecs(&mut state, 2);
+        assert_eq!(state.data.pages.thumb_textures.len(), 2);
     }
 
     #[test]
@@ -141,9 +181,9 @@ mod tests {
     fn resize_page_vecs_grows_and_shrinks() {
         let mut state = GuiState::new(minimal_project());
         resize_page_vecs(&mut state, 3);
-        assert_eq!(state.page_textures.len(), 3);
-        assert_eq!(state.page_dirty.len(), 3);
+        assert_eq!(state.data.pages.textures.len(), 3);
+        assert_eq!(state.data.pages.dirty.len(), 3);
         resize_page_vecs(&mut state, 1);
-        assert_eq!(state.page_textures.len(), 1);
+        assert_eq!(state.data.pages.textures.len(), 1);
     }
 }

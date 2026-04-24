@@ -18,4 +18,17 @@ pub enum PendingCommand {
     },
     Undo,
     Redo,
+    Place {
+        photo_ids: Vec<String>,
+        dst_page: Option<usize>,
+    },
+    /// Nav-Drag: Seite ↔ Seite tauschen.
+    PageSwap {
+        left: usize,
+        right: usize,
+    },
+    ConfigSet {
+        key: String,
+        value: String,
+    },
 }

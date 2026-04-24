@@ -1,22 +1,30 @@
+mod commands;
+mod render;
+
 use std::path::PathBuf;
-use std::sync::Arc;
-use std::time::Instant;
 
 use crossbeam::channel::{Receiver, Sender, unbounded};
 use egui::Context;
-use fotobuch::commands::build::{BuildConfig, build};
-use fotobuch::commands::page::{DstMove, DstSwap, PageMoveCmd, SlotExpr, Src, execute_move};
-use fotobuch::commands::undo::{redo, undo};
-use fotobuch::dto_models::ProjectState;
-use fotobuch::output::render::rasterize_page;
 use fotobuch::output::typst_world::TypstWorld;
 
 use crate::task::{BackgroundResult, BackgroundTask};
 
+pub(super) const NAV_THUMB_MAX_EDGE_PX: u32 = 512;
+pub(super) const POOL_THUMB_MAX_EDGE_PX: u32 = 256;
+
+pub(super) struct RenderCtx<'a> {
+    pub project_root: &'a std::path::Path,
+    pub pool: &'a rayon::ThreadPool,
+    pub result_tx: &'a Sender<BackgroundResult>,
+    pub ctx: &'a Context,
+    pub world: &'a mut TypstWorld,
+    pub pixel_per_pt: f32,
+}
+
 pub fn spawn(
     project_root: PathBuf,
     project_name: String,
-    repaint_ctx: egui::Context,
+    repaint_ctx: Context,
 ) -> (Sender<BackgroundTask>, Receiver<BackgroundResult>) {
     let (task_tx, task_rx) = unbounded::<BackgroundTask>();
     let (result_tx, result_rx) = unbounded::<BackgroundResult>();
@@ -32,22 +40,24 @@ pub fn spawn(
             }
         };
 
+        let mut rctx = RenderCtx {
+            project_root: &project_root,
+            pool: &pool,
+            result_tx: &result_tx,
+            ctx: &repaint_ctx,
+            world: &mut world,
+            pixel_per_pt: 1.0,
+        };
+
         while let Ok(task) = task_rx.recv() {
             match task {
                 BackgroundTask::RenderPages {
                     pages,
                     pixel_per_pt,
                 } => {
-                    render_pages(
-                        &mut world,
-                        &pool,
-                        &result_tx,
-                        pages,
-                        pixel_per_pt,
-                        &repaint_ctx,
-                    );
+                    rctx.pixel_per_pt = pixel_per_pt;
+                    render::render_pages(&mut rctx, pages);
                 }
-
                 BackgroundTask::SwapSlots {
                     src_page,
                     src_slot,
@@ -55,269 +65,58 @@ pub fn spawn(
                     dst_slot,
                     pixel_per_pt,
                 } => {
-                    let cmd = PageMoveCmd::Swap {
-                        left: Src::Slots {
-                            page: src_page as u32,
-                            slots: SlotExpr::single(src_slot as u32),
-                        },
-                        right: DstSwap::Slots {
-                            page: dst_page as u32,
-                            slots: SlotExpr::single(dst_slot as u32),
-                        },
-                    };
-                    run_page_command(
-                        &project_root,
-                        cmd,
-                        &mut world,
-                        &pool,
-                        &result_tx,
-                        &repaint_ctx,
-                        pixel_per_pt,
-                    );
+                    rctx.pixel_per_pt = pixel_per_pt;
+                    commands::run_swap_slots(src_page, src_slot, dst_page, dst_slot, &mut rctx);
                 }
-
                 BackgroundTask::MoveSlot {
                     src_page,
                     src_slots,
                     dst_page,
                     pixel_per_pt,
                 } => {
-                    let cmd = PageMoveCmd::Move {
-                        src: Src::Slots {
-                            page: src_page as u32,
-                            slots: SlotExpr::from_list(
-                                src_slots.iter().map(|&s| s as u32).collect(),
-                            ),
-                        },
-                        dst: DstMove::Page(dst_page as u32),
-                    };
-                    run_page_command(
-                        &project_root,
-                        cmd,
-                        &mut world,
-                        &pool,
-                        &result_tx,
-                        &repaint_ctx,
-                        pixel_per_pt,
-                    );
+                    rctx.pixel_per_pt = pixel_per_pt;
+                    commands::run_move_slot(src_page, src_slots, dst_page, &mut rctx);
                 }
-
                 BackgroundTask::Undo { pixel_per_pt } => {
-                    run_undo(
-                        &project_root,
-                        &mut world,
-                        &pool,
-                        &result_tx,
-                        &repaint_ctx,
-                        pixel_per_pt,
-                    );
+                    rctx.pixel_per_pt = pixel_per_pt;
+                    commands::run_undo(&mut rctx);
                 }
-
                 BackgroundTask::Redo { pixel_per_pt } => {
-                    run_redo(
-                        &project_root,
-                        &mut world,
-                        &pool,
-                        &result_tx,
-                        &repaint_ctx,
-                        pixel_per_pt,
-                    );
+                    rctx.pixel_per_pt = pixel_per_pt;
+                    commands::run_redo(&mut rctx);
+                }
+                BackgroundTask::PageSwap {
+                    left,
+                    right,
+                    pixel_per_pt,
+                } => {
+                    rctx.pixel_per_pt = pixel_per_pt;
+                    commands::run_page_swap(left, right, &mut rctx);
+                }
+                BackgroundTask::LoadPhotoThumbnails { items } => {
+                    commands::run_load_photo_thumbnails(items, &pool, &result_tx, &repaint_ctx);
+                }
+                BackgroundTask::PlacePhotos {
+                    photo_ids,
+                    dst_page,
+                    pixel_per_pt,
+                } => {
+                    rctx.pixel_per_pt = pixel_per_pt;
+                    commands::run_place_photos(photo_ids, dst_page, &mut rctx);
+                }
+                BackgroundTask::ConfigSet {
+                    key,
+                    value,
+                    pixel_per_pt,
+                } => {
+                    rctx.pixel_per_pt = pixel_per_pt;
+                    commands::run_config_set(&key, &value, &mut rctx);
                 }
             }
         }
     });
 
     (task_tx, result_rx)
-}
-
-// ── Internal helpers ──────────────────────────────────────────────────────────
-
-fn run_page_command(
-    project_root: &std::path::Path,
-    cmd: PageMoveCmd,
-    world: &mut TypstWorld,
-    pool: &rayon::ThreadPool,
-    result_tx: &Sender<BackgroundResult>,
-    ctx: &Context,
-    pixel_per_pt: f32,
-) {
-    let move_output = match execute_move(project_root, cmd) {
-        Err(e) => {
-            let _ = result_tx.send(BackgroundResult::CommandFailed(e.to_string()));
-            return;
-        }
-        Ok(o) => o,
-    };
-
-    if move_output.changed_state.is_none() {
-        send_command_done(None, vec![], world, pool, result_tx, ctx, pixel_per_pt);
-        return;
-    }
-
-    let move_dirty: Vec<usize> = move_output
-        .result
-        .pages_modified
-        .iter()
-        .chain(move_output.result.pages_inserted.iter())
-        .map(|&p| p as usize)
-        .collect();
-
-    let build_cfg = BuildConfig {
-        release: false,
-        force: false,
-        pages: None,
-    };
-    match build(project_root, &build_cfg) {
-        Err(e) => {
-            let _ = result_tx.send(BackgroundResult::CommandFailed(e.to_string()));
-        }
-        Ok(build_output) => {
-            let new_state = build_output.changed_state.or(move_output.changed_state);
-            let mut dirty = move_dirty;
-            for p in build_output.result.pages_rebuilt {
-                if !dirty.contains(&p) {
-                    dirty.push(p);
-                }
-            }
-            send_command_done(new_state, dirty, world, pool, result_tx, ctx, pixel_per_pt);
-        }
-    }
-}
-
-fn run_undo(
-    project_root: &std::path::Path,
-    world: &mut TypstWorld,
-    pool: &rayon::ThreadPool,
-    result_tx: &Sender<BackgroundResult>,
-    ctx: &Context,
-    pixel_per_pt: f32,
-) {
-    run_undo_or_redo(
-        undo(project_root, 1),
-        world,
-        pool,
-        result_tx,
-        ctx,
-        pixel_per_pt,
-    );
-}
-
-fn run_redo(
-    project_root: &std::path::Path,
-    world: &mut TypstWorld,
-    pool: &rayon::ThreadPool,
-    result_tx: &Sender<BackgroundResult>,
-    ctx: &Context,
-    pixel_per_pt: f32,
-) {
-    run_undo_or_redo(
-        redo(project_root, 1),
-        world,
-        pool,
-        result_tx,
-        ctx,
-        pixel_per_pt,
-    );
-}
-
-fn run_undo_or_redo(
-    result: anyhow::Result<fotobuch::commands::CommandOutput<fotobuch::commands::UndoResult>>,
-    world: &mut TypstWorld,
-    pool: &rayon::ThreadPool,
-    result_tx: &Sender<BackgroundResult>,
-    ctx: &Context,
-    pixel_per_pt: f32,
-) {
-    match result {
-        Err(e) => {
-            let _ = result_tx.send(BackgroundResult::CommandFailed(e.to_string()));
-        }
-        Ok(output) => {
-            let new_state = output.changed_state;
-            let num_pages = new_state.as_ref().map_or(0, |s| s.layout.len());
-            let all_pages: Vec<usize> = (0..num_pages).collect();
-            send_command_done(
-                new_state,
-                all_pages,
-                world,
-                pool,
-                result_tx,
-                ctx,
-                pixel_per_pt,
-            );
-        }
-    }
-}
-
-/// Sends `CommandDone` and then kicks off re-rendering of the dirty pages.
-fn send_command_done(
-    new_state: Option<ProjectState>,
-    dirty_pages: Vec<usize>,
-    world: &mut TypstWorld,
-    pool: &rayon::ThreadPool,
-    result_tx: &Sender<BackgroundResult>,
-    ctx: &Context,
-    pixel_per_pt: f32,
-) {
-    let has_change = new_state.is_some();
-    let _ = result_tx.send(BackgroundResult::CommandDone {
-        new_state: new_state.map(Box::new),
-        dirty_pages: dirty_pages.clone(),
-    });
-    if has_change {
-        render_pages(world, pool, result_tx, dirty_pages, pixel_per_pt, ctx);
-    }
-    ctx.request_repaint();
-}
-
-fn render_pages(
-    world: &mut TypstWorld,
-    pool: &rayon::ThreadPool,
-    result_tx: &Sender<BackgroundResult>,
-    pages: Vec<usize>,
-    pixel_per_pt: f32,
-    ctx: &Context,
-) {
-    if pages.is_empty() {
-        return;
-    }
-    if let Err(e) = world.reload() {
-        let _ = result_tx.send(BackgroundResult::Error(e.to_string()));
-        return;
-    }
-
-    let t_compile = Instant::now();
-    let doc = match world.compile_document() {
-        Ok(d) => d,
-        Err(e) => {
-            let _ = result_tx.send(BackgroundResult::Error(e.to_string()));
-            return;
-        }
-    };
-    let compile_duration = t_compile.elapsed();
-
-    let doc = Arc::new(doc);
-    for page in pages {
-        let doc = Arc::clone(&doc);
-        let tx = result_tx.clone();
-        let ctx = ctx.clone();
-        pool.spawn(move || {
-            let t_raster = Instant::now();
-            match rasterize_page(&doc, page, pixel_per_pt) {
-                Ok(rendered) => {
-                    let _ = tx.send(BackgroundResult::PageRendered {
-                        page: rendered,
-                        rasterize_duration: t_raster.elapsed(),
-                        compile_duration,
-                    });
-                    ctx.request_repaint();
-                }
-                Err(e) => {
-                    let _ = tx.send(BackgroundResult::Error(e.to_string()));
-                }
-            }
-        });
-    }
 }
 
 fn build_pool() -> rayon::ThreadPool {
@@ -364,28 +163,39 @@ mod tests {
             })
             .unwrap();
 
-        let result = result_rx
-            .recv_timeout(Duration::from_secs(30))
-            .expect("no result within timeout");
-
-        match result {
-            BackgroundResult::PageRendered {
-                page: r,
-                rasterize_duration,
-                compile_duration,
-            } => {
-                assert_eq!(r.page, 0);
-                assert!(!r.pixels.is_empty());
-                assert!(rasterize_duration.as_secs() < 30);
-                assert!(compile_duration.as_secs() < 30);
+        let timeout = Duration::from_secs(30);
+        let mut page_rendered = false;
+        let mut total_page_count: Option<usize> = None;
+        for _ in 0..2 {
+            match result_rx
+                .recv_timeout(timeout)
+                .expect("no result within timeout")
+            {
+                BackgroundResult::TotalPageCount(n) => total_page_count = Some(n),
+                BackgroundResult::PageRendered {
+                    page: r,
+                    thumb,
+                    rasterize_duration,
+                    compile_duration,
+                } => {
+                    assert_eq!(r.page, 0);
+                    assert!(!r.pixels.is_empty());
+                    assert_eq!(thumb.page, 0);
+                    assert!(thumb.width <= 512 && thumb.height <= 512);
+                    assert!(rasterize_duration.as_secs() < 30);
+                    assert!(compile_duration.as_secs() < 30);
+                    page_rendered = true;
+                }
+                BackgroundResult::Error(e) => panic!("worker error: {e}"),
+                other => panic!("unexpected result: {other:?}"),
             }
-            BackgroundResult::Error(e) => panic!("worker error: {e}"),
-            other => panic!("unexpected result: {other:?}"),
         }
+        assert!(page_rendered, "no PageRendered received");
+        assert_eq!(total_page_count, Some(1), "expected TotalPageCount(1)");
 
-        match result_rx.recv_timeout(Duration::from_millis(100)) {
+        match result_rx.recv_timeout(Duration::from_millis(200)) {
             Err(RecvTimeoutError::Timeout) | Err(RecvTimeoutError::Disconnected) => {}
-            Ok(_) => panic!("unexpected second result"),
+            Ok(_) => panic!("unexpected third result"),
         }
     }
 }
