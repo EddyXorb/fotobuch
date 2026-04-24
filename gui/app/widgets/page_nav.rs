@@ -5,7 +5,7 @@ use egui::Align;
 use crate::app::pending::PendingCommand;
 use crate::app::widgets::central_panel::draw_drag_ghosts;
 use crate::app::widgets::geometry::A4_ASPECT;
-use crate::state::{ActiveDrag, DataState, DragSource, HoveredTarget, InteractionState};
+use crate::state::{ActiveDrag, DataState, DragMode, DragSource, HoveredTarget, InteractionState};
 
 pub fn draw(
     ui: &mut egui::Ui,
@@ -41,7 +41,7 @@ fn show(
 
                 draw_thumb(data, i, rect, &painter);
                 ui.label(egui::RichText::new(format!("P{i}")).small());
-                draw_highlights(interaction, i, rect, &painter, &response);
+                draw_highlights(interaction, i, rect, &painter);
 
                 if response.hovered() {
                     interaction.hovered = Some(HoveredTarget::NavPage(i));
@@ -76,27 +76,33 @@ fn draw_highlights(
     page_idx: usize,
     rect: egui::Rect,
     painter: &egui::Painter,
-    response: &egui::Response,
 ) {
     let is_scroll_target = interaction.viewport.scroll_to_page == Some(page_idx);
+    let pointer_over = painter
+        .ctx()
+        .input(|i| i.pointer.latest_pos())
+        .map(|p| rect.contains(p))
+        .unwrap_or(false);
     let is_nav_drag_target = matches!(
         interaction.drag.active,
         ActiveDrag::Dragging(DragSource::NavPage { .. })
-    ) && response.hovered();
+    ) && pointer_over;
     let is_slot_drag_target = matches!(
         interaction.drag.active,
         ActiveDrag::Dragging(DragSource::Slot { .. })
-    ) && response.hovered();
+    ) && pointer_over
+        && interaction.drag.mode == DragMode::Swap;
     let is_pool_drag_target = matches!(
         interaction.drag.active,
         ActiveDrag::Dragging(DragSource::Pool { .. })
-    ) && response.hovered();
+    ) && pointer_over;
 
-    if is_pool_drag_target {
+    if is_pool_drag_target || is_slot_drag_target {
+        let alpha = if is_slot_drag_target { 100 } else { 48 };
         painter.rect_filled(
             rect,
             0.0,
-            egui::Color32::from_rgba_unmultiplied(64, 128, 255, 48),
+            egui::Color32::from_rgba_unmultiplied(64, 128, 255, alpha),
         );
     }
     if is_scroll_target {
@@ -107,7 +113,7 @@ fn draw_highlights(
             egui::StrokeKind::Inside,
         );
     }
-    if is_nav_drag_target || is_slot_drag_target {
+    if is_nav_drag_target {
         painter.rect_stroke(
             rect,
             2.0,

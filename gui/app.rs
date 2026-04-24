@@ -34,7 +34,7 @@ impl FotobuchApp {
         let state = GuiState::new(project_state);
         install_fallback_font(&cc.egui_ctx);
         cc.egui_ctx
-            .global_style_mut(|s| s.interaction.tooltip_delay = 0.05);
+            .global_style_mut(|s| s.interaction.tooltip_delay = 0.0);
 
         let (task_tx, result_rx) =
             crate::background::spawn(project_root, project_name, cc.egui_ctx.clone());

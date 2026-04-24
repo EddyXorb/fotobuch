@@ -93,32 +93,30 @@ fn draw_slot_overlays(
             src_page, src_slot, ..
         }) = &interaction.drag.active
         {
-            if *src_page == page_idx {
-                layout_page
-                    .slots
-                    .get(*src_slot)
-                    .map(|s| s.width_mm / s.height_mm)
-            } else {
-                None
-            }
+            data.project
+                .layout
+                .get(*src_page)
+                .and_then(|p| p.slots.get(*src_slot))
+                .map(|s| s.width_mm / s.height_mm)
         } else {
             None
         };
 
     let painter = ui.painter();
+    let pointer_pos = ui.input(|i| i.pointer.latest_pos());
     for (slot_idx, slot) in layout_page.slots.iter().enumerate() {
         let slot_rect = geometry::slot_rect_on_screen(page_rect, dims, slot);
-        let is_hovered =
-            interaction.hovered.as_ref().and_then(|h| h.slot()) == Some((page_idx, slot_idx));
+        let is_hovered = pointer_pos.map(|p| slot_rect.contains(p)).unwrap_or(false);
 
         if is_swap_drag {
             let target_ratio = slot.width_mm / slot.height_mm;
             let same_ratio =
                 drag_src_ratio.is_some_and(|r| geometry::slot_ratio_similar(r, target_ratio));
+            let alpha = if is_hovered { 220 } else { 140 };
             let color = if same_ratio {
-                egui::Color32::from_rgba_unmultiplied(0, 200, 80, 140)
+                egui::Color32::from_rgba_unmultiplied(0, 200, 80, alpha)
             } else {
-                egui::Color32::from_rgba_unmultiplied(220, 50, 50, 140)
+                egui::Color32::from_rgba_unmultiplied(220, 50, 50, alpha)
             };
             painter.rect_filled(slot_rect, 0.0, color);
         } else if is_hovered && !is_slot_drag {
@@ -146,7 +144,7 @@ fn hit_test_pointer(
     layout_page: &fotobuch::dto_models::LayoutPage,
     dims: PageDimensions,
 ) -> (Option<usize>, bool) {
-    match ui.ctx().pointer_hover_pos() {
+    match ui.input(|i| i.pointer.latest_pos()) {
         None => (None, false),
         Some(pos) => {
             let slot = geometry::hit_test_slot(pos, page_rect, layout_page, dims);
