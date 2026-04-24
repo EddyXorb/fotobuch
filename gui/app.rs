@@ -45,6 +45,22 @@ impl FotobuchApp {
         {
             tracing::error!("background worker closed before initial render was sent");
         }
+        let thumb_items: Vec<(String, PathBuf)> = project_state
+            .photos
+            .iter()
+            .flat_map(|g| {
+                g.files
+                    .iter()
+                    .map(|f| (f.id.clone(), PathBuf::from(&f.source)))
+            })
+            .collect();
+        if !thumb_items.is_empty()
+            && task_tx
+                .send(BackgroundTask::LoadPhotoThumbnails { items: thumb_items })
+                .is_err()
+        {
+            tracing::error!("background worker closed before initial thumb load was sent");
+        }
 
         Ok(Self {
             state,
@@ -116,22 +132,25 @@ impl FotobuchApp {
             self.state.project_state = *new_state;
             self.state.derived = crate::state::DerivedState::rebuild(&self.state.project_state);
             state::resize_page_vecs(&mut self.state, num_pages);
-            let loaded_or_inflight: HashSet<String> = self
+            let items: Vec<(std::path::PathBuf, String)> = self
                 .state
-                .thumb
-                .thumbs
-                .keys()
-                .chain(self.state.thumb.in_flight.iter())
-                .cloned()
+                .project_state
+                .photos
+                .iter()
+                .flat_map(|g| g.files.iter())
+                .filter(|f| !self.state.thumbs.contains_key(&f.id))
+                .map(|f| (PathBuf::from(&f.source), f.id.clone()))
                 .collect();
-            self.state.thumb.prefetch = self
-                .state
-                .derived
-                .photo_by_id
-                .keys()
-                .filter(|id| !loaded_or_inflight.contains(*id))
-                .cloned()
-                .collect();
+            if !items.is_empty() {
+                let items = items.into_iter().map(|(p, id)| (id, p)).collect();
+                if self
+                    .task_tx
+                    .send(BackgroundTask::LoadPhotoThumbnails { items })
+                    .is_err()
+                {
+                    tracing::error!("background worker closed; thumb load dropped");
+                }
+            }
             for &p in &dirty_pages {
                 if let Some(d) = self.state.cache.dirty.get_mut(p) {
                     *d = true;
@@ -161,13 +180,11 @@ impl FotobuchApp {
         pixels: Vec<u8>,
     ) -> bool {
         if !self.state.derived.photo_by_id.contains_key(&id) {
-            self.state.thumb.in_flight.remove(&id);
             return false;
         }
         let img = egui::ColorImage::from_rgba_unmultiplied([width as _, height as _], &pixels);
         let tex = ctx.load_texture(format!("thumb_{id}"), img, egui::TextureOptions::LINEAR);
-        self.state.thumb.thumbs.insert(id.clone(), tex);
-        self.state.thumb.in_flight.remove(&id);
+        self.state.thumbs.insert(id, tex);
         true
     }
 
@@ -260,13 +277,6 @@ impl eframe::App for FotobuchApp {
 
         if self.state.config_panel.open {
             widgets::config_window::show(&ctx, &mut self.state, &mut cmds);
-        }
-
-        // Flush pending thumbnail loads collected during widget drawing.
-        if let Some(task) = widgets::photo_pool::flush_thumb_loads(&mut self.state) {
-            if self.task_tx.send(task).is_err() {
-                tracing::error!("background worker closed; thumbnail load dropped");
-            }
         }
 
         // Input handling runs after central panel so that hovered_slot reflects the current

@@ -6,7 +6,6 @@ mod page_cache;
 mod pool;
 mod selection;
 mod selections;
-mod thumb;
 mod timings;
 mod viewport;
 
@@ -18,11 +17,12 @@ pub use page_cache::PageCache;
 pub use pool::PhotoSelection;
 pub use selection::SlotSelection;
 pub use selections::Selections;
-pub use thumb::PhotoThumbState;
 pub use timings::Timings;
 pub use viewport::{ScrollState, Viewport};
 
-use egui::{ColorImage, Context, TextureOptions};
+use std::collections::HashMap;
+
+use egui::{ColorImage, Context, TextureHandle, TextureOptions};
 use fotobuch::dto_models::ProjectState;
 use fotobuch::output::typst::RenderedPage;
 
@@ -33,7 +33,7 @@ pub struct GuiState {
     pub selections: Selections,
     pub hovered: Option<HoveredTarget>,
     pub drag: DragState,
-    pub thumb: PhotoThumbState,
+    pub thumbs: HashMap<String, TextureHandle>,
     pub viewport: Viewport,
     pub config_panel: ConfigPanelState,
     pub timings: Timings,
@@ -50,7 +50,7 @@ impl GuiState {
             selections: Selections::default(),
             hovered: None,
             drag: DragState::default(),
-            thumb: PhotoThumbState::default(),
+            thumbs: HashMap::new(),
             viewport: Viewport::default(),
             config_panel: ConfigPanelState::default(),
             timings: Timings::default(),

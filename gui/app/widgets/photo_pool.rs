@@ -1,11 +1,8 @@
 mod row;
-mod thumb;
 
 use std::path::PathBuf;
 
 use crate::state::GuiState;
-
-pub use thumb::{dispatch_thumb_loads, flush_thumb_loads};
 
 pub fn draw(ui: &mut egui::Ui, state: &mut GuiState) {
     egui::Panel::left("photo_pool")
@@ -36,8 +33,6 @@ fn show(ui: &mut egui::Ui, state: &mut GuiState) {
         .flat_map(|(_, files)| files.iter().map(|(id, _)| id.clone()))
         .collect();
 
-    let mut visible_needed: Vec<String> = Vec::new();
-
     let rmbactive = ui.input(|i| {
         (i.pointer.secondary_down() || i.pointer.secondary_released()) && !i.pointer.primary_down()
     });
@@ -55,11 +50,9 @@ fn show(ui: &mut egui::Ui, state: &mut GuiState) {
                     .default_open(true)
                     .show(ui, |ui| {
                         for (id, source) in files {
-                            row::draw_row(ui, state, id, source, &order, &mut visible_needed);
+                            row::draw_row(ui, state, id, source, &order);
                         }
                     });
             }
         });
-
-    thumb::dispatch_thumb_loads(state, visible_needed);
 }

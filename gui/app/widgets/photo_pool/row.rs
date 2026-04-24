@@ -11,7 +11,6 @@ pub(super) fn draw_row(
     id: &str,
     source: &PathBuf,
     order: &[String],
-    visible_needed: &mut Vec<String>,
 ) {
     let is_selected = state.selections.photos.is_selected(id);
     let is_pool_dragging = matches!(
@@ -22,7 +21,7 @@ pub(super) fn draw_row(
     let mut badge_hovered = false;
     let row_response = ui.push_id(egui::Id::new(("pool_row", id)), |ui| {
         let inner = ui.horizontal(|ui| {
-            draw_thumb_cell(ui, state, id, visible_needed);
+            draw_thumb_cell(ui, state, id);
             draw_filename_label(ui, source, id);
             let badge_start_x = ui.cursor().min.x;
             badge_hovered = draw_placement_badge(ui, state, id);
@@ -56,15 +55,10 @@ pub(super) fn draw_row(
     handle_selection_click(ui, state, id, order, &row_resp);
 }
 
-fn draw_thumb_cell(
-    ui: &mut egui::Ui,
-    state: &GuiState,
-    id: &str,
-    visible_needed: &mut Vec<String>,
-) {
+fn draw_thumb_cell(ui: &mut egui::Ui, state: &GuiState, id: &str) {
     let thumb_size = egui::vec2(24.0, 24.0);
     let (thumb_rect, _) = ui.allocate_exact_size(thumb_size, egui::Sense::hover());
-    if let Some(tex) = state.thumb.thumbs.get(id) {
+    if let Some(tex) = state.thumbs.get(id) {
         ui.painter().image(
             tex.id(),
             thumb_rect,
@@ -74,9 +68,6 @@ fn draw_thumb_cell(
     } else {
         ui.painter()
             .rect_filled(thumb_rect, 0.0, egui::Color32::from_gray(160));
-        if !state.thumb.thumbs.contains_key(id) && !state.thumb.in_flight.contains(id) {
-            visible_needed.push(id.to_string());
-        }
     }
 }
 
@@ -136,7 +127,7 @@ fn draw_hover_preview(_ui: &mut egui::Ui, state: &GuiState, id: &str, row_resp: 
     if !row_resp.hovered() {
         return;
     }
-    if let Some(tex) = state.thumb.thumbs.get(id) {
+    if let Some(tex) = state.thumbs.get(id) {
         let tex = tex.clone();
         row_resp.clone().on_hover_ui_at_pointer(|ui| {
             let sz = tex.size_vec2();
