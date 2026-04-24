@@ -39,6 +39,10 @@ fn show(ui: &mut egui::Ui, data: &DataState, interaction: &mut InteractionState)
 
     egui::ScrollArea::vertical()
         .auto_shrink([false; 2])
+        .content_margin(egui::Margin {
+            right: ui.spacing().scroll.bar_width as i8,
+            ..egui::Margin::ZERO
+        })
         .scroll_source(egui::containers::scroll_area::ScrollSource {
             drag: !rmbactive,
             scroll_bar: true,

@@ -55,5 +55,23 @@ pub(super) fn draw_pages(
     interaction.viewport.scroll.scroll_y = output.state.offset.y;
     interaction.viewport.scroll.viewport_top = output.inner_rect.min.y;
 
+    if interaction.viewport.fit_pending && num_pages > 0 {
+        let panel_w = output.inner_rect.width();
+        if panel_w > 0.0 {
+            const MM_TO_PT: f32 = 72.0 / 25.4;
+            let max_w_pts = (0..num_pages)
+                .map(|i| {
+                    let (w_mm, _) = data.project.page_dimensions_mm(i);
+                    let (bleed_mm, _) = data.project.page_bleed_margin_mm(i);
+                    (w_mm + 2.0 * bleed_mm) as f32 * MM_TO_PT
+                })
+                .fold(0.0_f32, f32::max);
+            if max_w_pts > 0.0 {
+                interaction.viewport.zoom = (panel_w / max_w_pts).clamp(0.1, 5.0);
+                interaction.viewport.fit_pending = false;
+            }
+        }
+    }
+
     hovered
 }

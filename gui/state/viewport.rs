@@ -12,6 +12,8 @@ pub struct Viewport {
     pub pixel_per_pt: f32,
     pub scroll: ScrollState,
     pub scroll_to_page: Option<usize>,
+    /// When `true`, zoom will be adjusted on the next frame to fit the widest page.
+    pub fit_pending: bool,
 }
 
 impl Default for Viewport {
@@ -21,6 +23,7 @@ impl Default for Viewport {
             pixel_per_pt: 1.5,
             scroll: ScrollState::default(),
             scroll_to_page: None,
+            fit_pending: true,
         }
     }
 }

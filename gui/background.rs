@@ -10,6 +10,7 @@ use fotobuch::output::typst_world::TypstWorld;
 use crate::task::{BackgroundResult, BackgroundTask};
 
 pub(super) const NAV_THUMB_MAX_EDGE_PX: u32 = 512;
+pub(super) const POOL_THUMB_MAX_EDGE_PX: u32 = 256;
 
 pub(super) struct RenderCtx<'a> {
     pub project_root: &'a std::path::Path,
@@ -19,7 +20,6 @@ pub(super) struct RenderCtx<'a> {
     pub world: &'a mut TypstWorld,
     pub pixel_per_pt: f32,
 }
-pub(super) const POOL_THUMB_MAX_EDGE_PX: u32 = 256;
 
 pub fn spawn(
     project_root: PathBuf,
