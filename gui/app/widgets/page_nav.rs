@@ -18,7 +18,7 @@ pub fn draw(ui: &mut egui::Ui, state: &mut GuiState, cmds: &mut HashSet<PendingC
 
 fn show(ui: &mut egui::Ui, state: &mut GuiState, _cmds: &mut HashSet<PendingCommand>) {
     let panel_width = ui.available_width();
-    let num_pages = state.pages.thumb_textures.len();
+    let num_pages = state.data.pages.thumb_textures.len();
 
     egui::ScrollArea::vertical()
         .auto_shrink([false; 2])
@@ -34,7 +34,7 @@ fn show(ui: &mut egui::Ui, state: &mut GuiState, _cmds: &mut HashSet<PendingComm
                 draw_highlights(state, i, rect, &painter, &response);
 
                 if response.hovered() {
-                    state.hovered = Some(HoveredTarget::NavPage(i));
+                    state.interaction.hovered = Some(HoveredTarget::NavPage(i));
                 }
 
                 if response.clicked() {
@@ -49,7 +49,7 @@ fn show(ui: &mut egui::Ui, state: &mut GuiState, _cmds: &mut HashSet<PendingComm
 }
 
 fn draw_thumb(state: &GuiState, page_idx: usize, rect: egui::Rect, painter: &egui::Painter) {
-    if let Some(Some(tex)) = state.pages.thumb_textures.get(page_idx) {
+    if let Some(Some(tex)) = state.data.pages.thumb_textures.get(page_idx) {
         painter.image(
             tex.id(),
             rect,
@@ -68,17 +68,17 @@ fn draw_highlights(
     painter: &egui::Painter,
     response: &egui::Response,
 ) {
-    let is_scroll_target = state.viewport.scroll_to_page == Some(page_idx);
+    let is_scroll_target = state.interaction.viewport.scroll_to_page == Some(page_idx);
     let is_nav_drag_target = matches!(
-        state.drag.active,
+        state.interaction.drag.active,
         ActiveDrag::Dragging(DragSource::NavPage { .. })
     ) && response.hovered();
     let is_slot_drag_target = matches!(
-        state.drag.active,
+        state.interaction.drag.active,
         ActiveDrag::Dragging(DragSource::Slot { .. })
     ) && response.hovered();
     let is_pool_drag_target = matches!(
-        state.drag.active,
+        state.interaction.drag.active,
         ActiveDrag::Dragging(DragSource::Pool { .. })
     ) && response.hovered();
 
@@ -108,13 +108,13 @@ fn draw_highlights(
 }
 
 fn on_click(state: &mut GuiState, page_idx: usize) {
-    state.viewport.scroll_to_page = Some(page_idx);
-    state.selections.slots.clear();
+    state.interaction.viewport.scroll_to_page = Some(page_idx);
+    state.interaction.selections.slots.clear();
 }
 
 /// Computes thumb display size, preserving page aspect ratio at panel width - margin.
 fn compute_thumb_size(state: &GuiState, page_idx: usize, panel_width: f32) -> egui::Vec2 {
-    let (pw, ph) = state.project.page_dimensions_mm(page_idx);
+    let (pw, ph) = state.data.project.page_dimensions_mm(page_idx);
     let w = (panel_width - 8.0).max(20.0);
     let h = if pw > 0.0 {
         w * (ph as f32 / pw as f32)
@@ -122,7 +122,7 @@ fn compute_thumb_size(state: &GuiState, page_idx: usize, panel_width: f32) -> eg
         w * A4_ASPECT
     };
 
-    if let Some(Some(tex)) = state.pages.thumb_textures.get(page_idx) {
+    if let Some(Some(tex)) = state.data.pages.thumb_textures.get(page_idx) {
         let sz = tex.size_vec2();
         if sz.x > 0.0 {
             return egui::vec2(w, w * sz.y / sz.x);
@@ -141,8 +141,8 @@ pub fn apply_scroll_if_needed(
     page_idx: usize,
     page_rect: egui::Rect,
 ) {
-    if state.viewport.scroll_to_page == Some(page_idx) {
+    if state.interaction.viewport.scroll_to_page == Some(page_idx) {
         ui.scroll_to_rect(page_rect, Some(Align::TOP));
-        state.viewport.scroll_to_page = None;
+        state.interaction.viewport.scroll_to_page = None;
     }
 }

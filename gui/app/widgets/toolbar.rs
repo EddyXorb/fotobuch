@@ -39,25 +39,32 @@ fn history_buttons(ui: &mut egui::Ui, cmds: &mut HashSet<PendingCommand>) {
 
 fn config_button(ui: &mut egui::Ui, state: &mut GuiState) {
     if ui
-        .add(egui::Button::selectable(state.config.open, "⚙ Config"))
+        .add(egui::Button::selectable(
+            state.interaction.config.open,
+            "⚙ Config",
+        ))
         .clicked()
     {
-        state.config.open = !state.config.open;
+        state.interaction.config.open = !state.interaction.config.open;
     }
 }
 
 fn place_button(ui: &mut egui::Ui, state: &mut GuiState, cmds: &mut HashSet<PendingCommand>) {
-    let place_enabled = !state.selections.photos.is_empty();
+    let place_enabled = !state.interaction.selections.photos.is_empty();
     if ui
         .add_enabled(place_enabled, egui::Button::new("Place"))
         .clicked()
     {
-        for d in &mut state.pages.dirty {
+        for d in &mut state.data.pages.dirty {
             *d = true;
         }
         cmds.insert(PendingCommand::Place {
-            photo_ids: state.selections.photos.ids(),
-            dst_page: state.hovered.as_ref().and_then(HoveredTarget::central_page),
+            photo_ids: state.interaction.selections.photos.ids(),
+            dst_page: state
+                .interaction
+                .hovered
+                .as_ref()
+                .and_then(HoveredTarget::central_page),
         });
     }
 }
@@ -65,20 +72,20 @@ fn place_button(ui: &mut egui::Ui, state: &mut GuiState, cmds: &mut HashSet<Pend
 fn drag_mode_buttons(ui: &mut egui::Ui, state: &mut GuiState) {
     if ui
         .add(egui::Button::selectable(
-            state.drag.mode == DragMode::Swap,
+            state.interaction.drag.mode == DragMode::Swap,
             "⇄ Swap",
         ))
         .clicked()
     {
-        state.drag.mode = DragMode::Swap;
+        state.interaction.drag.mode = DragMode::Swap;
     }
     if ui
         .add(egui::Button::selectable(
-            state.drag.mode == DragMode::Move,
+            state.interaction.drag.mode == DragMode::Move,
             "→ Move",
         ))
         .clicked()
     {
-        state.drag.mode = DragMode::Move;
+        state.interaction.drag.mode = DragMode::Move;
     }
 }

@@ -11,18 +11,18 @@ pub(super) fn draw_page(
 ) -> (Option<usize>, bool, egui::Rect) {
     ui.label(format!("Page {page_idx}"));
 
-    let (width_mm, height_mm) = state.project.page_dimensions_mm(page_idx);
-    let (bleed_mm, margin_mm) = state.project.page_bleed_margin_mm(page_idx);
+    let (width_mm, height_mm) = state.data.project.page_dimensions_mm(page_idx);
+    let (bleed_mm, margin_mm) = state.data.project.page_bleed_margin_mm(page_idx);
     let dims = PageDimensions {
         width_mm,
         height_mm,
         bleed_mm,
         margin_mm,
     };
-    let size = helpers::page_display_size(state.viewport.zoom, dims);
+    let size = helpers::page_display_size(state.interaction.viewport.zoom, dims);
     let page_rect = render_page_image(ui, state, page_idx, size);
 
-    if let Some(layout_page) = state.project.layout.get(page_idx) {
+    if let Some(layout_page) = state.data.project.layout.get(page_idx) {
         draw_slot_overlays(ui, page_rect, state, page_idx, dims);
         let (hovered_slot, over_page) = hit_test_pointer(ui, page_rect, layout_page, dims);
         draw_page_move_highlight(ui, state, page_idx, page_rect, over_page);
@@ -40,7 +40,7 @@ fn render_page_image(
     page_idx: usize,
     size: egui::Vec2,
 ) -> egui::Rect {
-    let rect = if let Some(tex) = &state.pages.textures[page_idx] {
+    let rect = if let Some(tex) = &state.data.pages.textures[page_idx] {
         ui.add(egui::Image::from_texture(tex).fit_to_exact_size(size))
             .rect
     } else {
@@ -50,7 +50,14 @@ fn render_page_image(
         r
     };
 
-    if state.pages.dirty.get(page_idx).copied().unwrap_or(false) {
+    if state
+        .data
+        .pages
+        .dirty
+        .get(page_idx)
+        .copied()
+        .unwrap_or(false)
+    {
         ui.painter().rect_filled(
             rect,
             0.0,
@@ -75,21 +82,21 @@ fn draw_slot_overlays(
     page_idx: usize,
     dims: PageDimensions,
 ) {
-    let layout_page = match state.project.layout.get(page_idx) {
+    let layout_page = match state.data.project.layout.get(page_idx) {
         Some(lp) => lp,
         None => return,
     };
 
     let is_slot_drag = matches!(
-        state.drag.active,
+        state.interaction.drag.active,
         ActiveDrag::Dragging(DragSource::Slot { .. })
     );
-    let is_swap_drag = is_slot_drag && state.drag.mode == DragMode::Swap;
+    let is_swap_drag = is_slot_drag && state.interaction.drag.mode == DragMode::Swap;
 
     let drag_src_ratio: Option<f64> =
         if let ActiveDrag::Dragging(DragSource::Slot {
             src_page, src_slot, ..
-        }) = &state.drag.active
+        }) = &state.interaction.drag.active
         {
             if *src_page == page_idx {
                 layout_page
@@ -107,7 +114,7 @@ fn draw_slot_overlays(
     for (slot_idx, slot) in layout_page.slots.iter().enumerate() {
         let slot_rect = geometry::slot_rect_on_screen(page_rect, dims, slot);
         let is_hovered =
-            state.hovered.as_ref().and_then(|h| h.slot()) == Some((page_idx, slot_idx));
+            state.interaction.hovered.as_ref().and_then(|h| h.slot()) == Some((page_idx, slot_idx));
 
         if is_swap_drag {
             let target_ratio = slot.width_mm / slot.height_mm;
@@ -127,7 +134,12 @@ fn draw_slot_overlays(
             );
         }
 
-        if state.selections.slots.is_selected(page_idx, slot_idx) {
+        if state
+            .interaction
+            .selections
+            .slots
+            .is_selected(page_idx, slot_idx)
+        {
             painter.rect_stroke(
                 slot_rect,
                 0.0,
@@ -161,14 +173,14 @@ fn draw_page_move_highlight(
     over_page: bool,
 ) {
     let is_move_drag = matches!(
-        state.drag.active,
+        state.interaction.drag.active,
         ActiveDrag::Dragging(DragSource::Slot { .. })
-    ) && state.drag.mode == DragMode::Move;
+    ) && state.interaction.drag.mode == DragMode::Move;
     if !is_move_drag || !over_page {
         return;
     }
     let is_src_page = matches!(
-        state.drag.active,
+        state.interaction.drag.active,
         ActiveDrag::Dragging(DragSource::Slot { src_page, .. }) if src_page == page_idx
     );
     if is_src_page {
@@ -189,9 +201,14 @@ fn draw_pool_drag_overlay(
     page_rect: egui::Rect,
 ) {
     if matches!(
-        state.drag.active,
+        state.interaction.drag.active,
         ActiveDrag::Dragging(DragSource::Pool { .. })
-    ) && state.hovered.as_ref().and_then(|h| h.central_page()) == Some(page_idx)
+    ) && state
+        .interaction
+        .hovered
+        .as_ref()
+        .and_then(|h| h.central_page())
+        == Some(page_idx)
     {
         ui.painter().rect_filled(
             page_rect,

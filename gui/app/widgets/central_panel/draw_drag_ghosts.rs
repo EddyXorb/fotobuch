@@ -11,7 +11,7 @@ pub(super) fn draw_drag_ghosts(
     page_rect: egui::Rect,
     dims: PageDimensions,
 ) {
-    let (src_slot_idx, cursor_at_drag_start) = match &state.drag.active {
+    let (src_slot_idx, cursor_at_drag_start) = match &state.interaction.drag.active {
         ActiveDrag::Dragging(DragSource::Slot {
             src_page,
             src_slot,
@@ -23,7 +23,7 @@ pub(super) fn draw_drag_ghosts(
         Some(p) => p,
         None => return,
     };
-    let layout_page = match state.project.layout.get(page_idx) {
+    let layout_page = match state.data.project.layout.get(page_idx) {
         Some(lp) => lp,
         None => return,
     };
@@ -46,17 +46,17 @@ pub(super) fn draw_drag_ghosts(
         painter.text(
             rect.right_bottom() + vec2(6.0, -2.0),
             egui::Align2::LEFT_BOTTOM,
-            state.drag.mode.label(),
+            state.interaction.drag.mode.label(),
             egui::FontId::proportional(14.0),
             egui::Color32::WHITE,
         );
     }
 
-    if state.drag.mode == DragMode::Swap {
+    if state.interaction.drag.mode == DragMode::Swap {
         return;
     }
 
-    let secondary: Vec<usize> = match &state.selections.slots {
+    let secondary: Vec<usize> = match &state.interaction.selections.slots {
         SlotSelection::OnPage { page, slots, .. } if *page == page_idx && slots.len() > 1 => slots
             .iter()
             .filter(|&&s| s != src_slot_idx)
@@ -112,7 +112,7 @@ fn paint_ghost_rect(painter: &egui::Painter, rect: egui::Rect, alpha: u8) {
 
 /// Draws a floating page-thumbnail ghost while dragging a nav page.
 pub(crate) fn draw_nav_drag_ghost(ctx: &egui::Context, state: &GuiState) {
-    let src_page = match &state.drag.active {
+    let src_page = match &state.interaction.drag.active {
         ActiveDrag::Dragging(DragSource::NavPage { src_page, .. }) => *src_page,
         _ => return,
     };
@@ -128,7 +128,7 @@ pub(crate) fn draw_nav_drag_ghost(ctx: &egui::Context, state: &GuiState) {
 
     // Ghost size: fixed width, A4-ish aspect or taken from texture
     let ghost_w = 80.0_f32;
-    let ghost_h = if let Some(Some(tex)) = state.pages.thumb_textures.get(src_page) {
+    let ghost_h = if let Some(Some(tex)) = state.data.pages.thumb_textures.get(src_page) {
         let sz = tex.size_vec2();
         if sz.x > 0.0 {
             ghost_w * sz.y / sz.x
@@ -141,7 +141,7 @@ pub(crate) fn draw_nav_drag_ghost(ctx: &egui::Context, state: &GuiState) {
 
     let rect = egui::Rect::from_center_size(cursor, vec2(ghost_w, ghost_h));
 
-    if let Some(Some(tex)) = state.pages.thumb_textures.get(src_page) {
+    if let Some(Some(tex)) = state.data.pages.thumb_textures.get(src_page) {
         painter.image(
             tex.id(),
             rect,

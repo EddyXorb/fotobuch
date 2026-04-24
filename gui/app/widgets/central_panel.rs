@@ -8,7 +8,7 @@ use crate::state::GuiState;
 pub fn draw(ui: &mut egui::Ui, state: &mut GuiState) {
     egui::CentralPanel::default().show_inside(ui, |ui| {
         if let Some(h) = draw_pages::draw_pages(ui, state) {
-            state.hovered = Some(h);
+            state.interaction.hovered = Some(h);
         }
     });
 }

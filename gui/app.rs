@@ -39,13 +39,15 @@ impl FotobuchApp {
         if task_tx
             .send(BackgroundTask::RenderPages {
                 pages: (0..num_pages).collect(),
-                pixel_per_pt: state.viewport.pixel_per_pt,
+                pixel_per_pt: state.interaction.viewport.pixel_per_pt,
             })
             .is_err()
         {
             tracing::error!("background worker closed before initial render was sent");
         }
-        let thumb_items: Vec<(String, PathBuf)> = project_state
+        let thumb_items: Vec<(String, PathBuf)> = state
+            .data
+            .project
             .photos
             .iter()
             .flat_map(|g| {
@@ -118,6 +120,7 @@ impl FotobuchApp {
         let page_idx = full.page;
         state::apply_rendered(&mut self.state, ctx, full, thumb);
         self.state
+            .data
             .timings
             .record_render(page_idx, rasterize_duration, compile_duration);
     }
@@ -129,16 +132,17 @@ impl FotobuchApp {
     ) {
         if let Some(new_state) = new_state {
             let num_pages = new_state.layout.len();
-            self.state.project = *new_state;
-            self.state.derived = crate::state::DerivedState::rebuild(&self.state.project);
+            self.state.data.project = *new_state;
+            self.state.data.derived = crate::state::DerivedState::rebuild(&self.state.data.project);
             state::resize_page_vecs(&mut self.state, num_pages);
             let items: Vec<(std::path::PathBuf, String)> = self
                 .state
+                .data
                 .project
                 .photos
                 .iter()
                 .flat_map(|g| g.files.iter())
-                .filter(|f| !self.state.thumbs.contains_key(&f.id))
+                .filter(|f| !self.state.data.thumbs.contains_key(&f.id))
                 .map(|f| (PathBuf::from(&f.source), f.id.clone()))
                 .collect();
             if !items.is_empty() {
@@ -152,12 +156,12 @@ impl FotobuchApp {
                 }
             }
             for &p in &dirty_pages {
-                if let Some(d) = self.state.pages.dirty.get_mut(p) {
+                if let Some(d) = self.state.data.pages.dirty.get_mut(p) {
                     *d = true;
                 }
             }
         } else {
-            for d in &mut self.state.pages.dirty {
+            for d in &mut self.state.data.pages.dirty {
                 *d = false;
             }
         }
@@ -165,7 +169,7 @@ impl FotobuchApp {
 
     fn handle_command_failed(&mut self, e: String) {
         tracing::error!(%e, "command failed");
-        for d in &mut self.state.pages.dirty {
+        for d in &mut self.state.data.pages.dirty {
             *d = false;
         }
     }
@@ -179,17 +183,17 @@ impl FotobuchApp {
         height: u32,
         pixels: Vec<u8>,
     ) -> bool {
-        if !self.state.derived.photo_by_id.contains_key(&id) {
+        if !self.state.data.derived.photo_by_id.contains_key(&id) {
             return false;
         }
         let img = egui::ColorImage::from_rgba_unmultiplied([width as _, height as _], &pixels);
         let tex = ctx.load_texture(format!("thumb_{id}"), img, egui::TextureOptions::LINEAR);
-        self.state.thumbs.insert(id, tex);
+        self.state.data.thumbs.insert(id, tex);
         true
     }
 
     fn dispatch_commands(&mut self, cmds: HashSet<PendingCommand>) {
-        let ppt = self.state.viewport.pixel_per_pt;
+        let ppt = self.state.interaction.viewport.pixel_per_pt;
         for cmd in cmds {
             let task = match cmd {
                 PendingCommand::Swap {
@@ -226,7 +230,7 @@ impl FotobuchApp {
                 },
                 PendingCommand::PageSwap { left, right } => {
                     for &p in &[left, right] {
-                        if let Some(d) = self.state.pages.dirty.get_mut(p) {
+                        if let Some(d) = self.state.data.pages.dirty.get_mut(p) {
                             *d = true;
                         }
                     }
@@ -237,7 +241,7 @@ impl FotobuchApp {
                     }
                 }
                 PendingCommand::ConfigSet { key, value } => {
-                    for d in &mut self.state.pages.dirty {
+                    for d in &mut self.state.data.pages.dirty {
                         *d = true;
                     }
                     BackgroundTask::ConfigSet {
@@ -257,15 +261,15 @@ impl FotobuchApp {
 impl eframe::App for FotobuchApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let t_frame = Instant::now();
-        self.state.timings.frame_cnt += 1;
+        self.state.data.timings.frame_cnt += 1;
         let ctx = ui.ctx().clone();
 
         let t = Instant::now();
         self.drain_results(&ctx);
-        self.state.timings.drain_results = t.elapsed();
+        self.state.data.timings.drain_results = t.elapsed();
 
         // Clear per-frame hover state before widgets re-populate it.
-        self.state.hovered = None;
+        self.state.interaction.hovered = None;
         let t = Instant::now();
         let mut cmds = widgets::toolbar::draw(ui, &mut self.state);
         widgets::statusbar::draw(ui, &self.state);
@@ -273,9 +277,9 @@ impl eframe::App for FotobuchApp {
         widgets::photo_pool::draw(ui, &mut self.state);
         widgets::page_nav::draw(ui, &mut self.state, &mut cmds);
         widgets::central_panel::draw(ui, &mut self.state);
-        self.state.timings.show_panels = t.elapsed();
+        self.state.data.timings.show_panels = t.elapsed();
 
-        if self.state.config.open {
+        if self.state.interaction.config.open {
             widgets::config_window::show(&ctx, &mut self.state, &mut cmds);
         }
 
@@ -284,12 +288,12 @@ impl eframe::App for FotobuchApp {
         let t = Instant::now();
         cmds.extend(input_handler::handle(&mut self.state, &ctx));
         self.dispatch_commands(cmds);
-        self.state.timings.input_handlers = t.elapsed();
+        self.state.data.timings.input_handlers = t.elapsed();
 
-        self.state.timings.ui_frame = t_frame.elapsed();
+        self.state.data.timings.ui_frame = t_frame.elapsed();
 
-        if self.state.timings.show {
-            widgets::timings_panel::draw(&self.state.timings, &ctx);
+        if self.state.data.timings.show {
+            widgets::timings_panel::draw(&self.state.data.timings, &ctx);
         }
     }
 }

@@ -14,7 +14,7 @@ use fotobuch::output::typst_world::TypstWorld;
 
 use crate::task::BackgroundResult;
 
-use super::render::{render_pages, send_command_done};
+use super::render::send_command_done;
 
 pub(super) fn run_load_photo_thumbnails(
     items: Vec<(String, PathBuf)>,
