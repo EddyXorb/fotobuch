@@ -32,6 +32,7 @@ impl FotobuchApp {
         drop(mgr);
 
         let state = GuiState::new(project_state);
+        install_fallback_font(&cc.egui_ctx);
         cc.egui_ctx
             .global_style_mut(|s| s.interaction.tooltip_delay = 0.05);
         let (task_tx, result_rx) =
@@ -245,6 +246,18 @@ impl FotobuchApp {
             }
         }
     }
+}
+
+fn install_fallback_font(ctx: &egui::Context) {
+    let mut fonts = egui::FontDefinitions::default();
+    fonts.font_data.insert(
+        "DejaVuSans".to_owned(),
+        egui::FontData::from_static(include_bytes!("assets/DejaVuSans.ttf")).into(),
+    );
+    for family_fonts in fonts.families.values_mut() {
+        family_fonts.push("DejaVuSans".to_owned());
+    }
+    ctx.set_fonts(fonts);
 }
 
 fn mark_dirty(dirty: &mut Vec<bool>, task: &BackgroundTask) {
