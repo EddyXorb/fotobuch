@@ -89,9 +89,9 @@ fn draw_placement_badge(ui: &mut egui::Ui, data: &DataState, id: &str) -> bool {
         _ => egui::Color32::from_rgb(220, 40, 40),
     };
     let (badge_rect, badge_resp) =
-        ui.allocate_exact_size(egui::vec2(12.0, 12.0), egui::Sense::hover());
+        ui.allocate_exact_size(egui::vec2(16.0, 16.0), egui::Sense::hover());
     ui.painter()
-        .circle_filled(badge_rect.center(), 6.0, badge_color);
+        .circle_filled(badge_rect.center(), 4.0, badge_color);
 
     if placed_count > 0 {
         let is_hovered = badge_resp.hovered();

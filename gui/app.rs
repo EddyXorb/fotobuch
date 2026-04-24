@@ -9,7 +9,7 @@ use std::time::Instant;
 use crossbeam::channel::{Receiver, Sender};
 use fotobuch::state_manager::StateManager;
 
-use crate::state::{self, GuiState};
+use crate::state::{self, DataState, GuiState, InteractionState};
 use crate::task::{BackgroundResult, BackgroundTask};
 use fotobuch::dto_models::ProjectState;
 use fotobuch::output::typst::RenderedPage;
@@ -293,25 +293,10 @@ impl eframe::App for FotobuchApp {
         self.drain_results(&ctx);
         self.state.data.timings.drain_results = t.elapsed();
 
-        // Clear per-frame hover state before widgets re-populate it.
-        self.state.interaction.hovered = None;
         let t = Instant::now();
-        let mut cmds = widgets::toolbar::draw(ui, &mut self.state.interaction);
-        widgets::statusbar::draw(ui, &self.state.data, &self.state.interaction);
-        // Side panels must come before the central panel (egui ordering requirement).
-        widgets::photo_pool::draw(ui, &self.state.data, &mut self.state.interaction);
-        widgets::page_nav::draw(ui, &self.state.data, &mut self.state.interaction, &mut cmds);
-        widgets::central_panel::draw(ui, &self.state.data, &mut self.state.interaction);
+        let mut cmds =
+            widgets::draw_widgets(ui, &ctx, &self.state.data, &mut self.state.interaction);
         self.state.data.timings.show_panels = t.elapsed();
-
-        if self.state.interaction.config.open {
-            widgets::config_window::show(
-                &ctx,
-                &self.state.data,
-                &mut self.state.interaction,
-                &mut cmds,
-            );
-        }
 
         // Input handling runs after central panel so that hovered_slot reflects the current
         // frame — prevents toolbar clicks from accidentally triggering a drag.
