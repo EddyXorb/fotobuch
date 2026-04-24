@@ -913,97 +913,6 @@ layout:
     height_mm: 56.15
 - page: 4
   photos:
-  - source-images/image-from-rawpixel-id-3286567-jpeg.jpg
-  - source-images/image-from-rawpixel-id-5912413-jpeg.jpg
-  - source-images/image-from-rawpixel-id-6129183-jpeg.jpg
-  - source-images/image-from-rawpixel-id-3864426-jpeg.jpg
-  - source-images/image-from-rawpixel-id-5920504-jpeg.jpg
-  - source-images/image-from-rawpixel-id-6036629-jpeg.jpg
-  - source-images/image-from-rawpixel-id-3337874-jpeg.jpg
-  - source-images/image-from-rawpixel-id-3311308-jpeg.jpg
-  - source-images/image-from-rawpixel-id-5909091-jpeg.jpg
-  - source-images/image-from-rawpixel-id-5925674-jpeg.jpg
-  - source-images/image-from-rawpixel-id-5927484-jpeg.jpg
-  - source-images/image-from-rawpixel-id-6083533-jpeg.jpg
-  slots:
-  - x_mm: 0.45
-    y_mm: 0.0
-    width_mm: 67.7
-    height_mm: 45.13
-  - x_mm: 73.15
-    y_mm: 0.0
-    width_mm: 33.7
-    height_mm: 45.13
-  - x_mm: 111.85
-    y_mm: 0.0
-    width_mm: 67.7
-    height_mm: 45.13
-  - x_mm: 0.45
-    y_mm: 50.13
-    width_mm: 45.47
-    height_mm: 80.84
-  - x_mm: 50.92
-    y_mm: 50.13
-    width_mm: 56.88
-    height_mm: 37.92
-  - x_mm: 50.92
-    y_mm: 93.05
-    width_mm: 56.88
-    height_mm: 37.92
-  - x_mm: 112.8
-    y_mm: 50.13
-    width_mm: 66.75
-    height_mm: 47.19
-  - x_mm: 112.8
-    y_mm: 102.33
-    width_mm: 66.75
-    height_mm: 28.65
-  - x_mm: 0.45
-    y_mm: 135.97
-    width_mm: 55.61
-    height_mm: 83.42
-  - x_mm: 0.45
-    y_mm: 224.39
-    width_mm: 55.61
-    height_mm: 55.61
-  - x_mm: 61.06
-    y_mm: 135.97
-    width_mm: 118.49
-    height_mm: 57.86
-  - x_mm: 61.06
-    y_mm: 198.83
-    width_mm: 118.49
-    height_mm: 81.17
-- page: 5
-  photos:
-  - source-images/image-from-rawpixel-id-5926854-jpeg.jpg
-  - source-images/image-from-rawpixel-id-3305676-jpeg.jpg
-  - source-images/image-from-rawpixel-id-6041306-jpeg.jpg
-  - source-images/image-from-rawpixel-id-3286584-jpeg.jpg
-  - source-images/image-from-rawpixel-id-3237379-jpeg.jpg
-  slots:
-  - x_mm: 0.0
-    y_mm: 16.77
-    width_mm: 180.0
-    height_mm: 120.15
-  - x_mm: 0.0
-    y_mm: 141.92
-    width_mm: 87.5
-    height_mm: 57.97
-  - x_mm: 0.0
-    y_mm: 204.89
-    width_mm: 87.5
-    height_mm: 58.33
-  - x_mm: 92.5
-    y_mm: 141.92
-    width_mm: 87.5
-    height_mm: 58.33
-  - x_mm: 92.5
-    y_mm: 205.26
-    width_mm: 87.5
-    height_mm: 57.97
-- page: 6
-  photos:
   - source-images/image-from-rawpixel-id-3282316-jpeg.jpg
   - source-images/image-from-rawpixel-id-3338177-jpeg.jpg
   - source-images/image-from-rawpixel-id-3298578-jpeg.jpg
@@ -1070,6 +979,97 @@ layout:
     y_mm: 236.29
     width_mm: 57.79
     height_mm: 43.35
+- page: 5
+  photos:
+  - source-images/image-from-rawpixel-id-5926854-jpeg.jpg
+  - source-images/image-from-rawpixel-id-3305676-jpeg.jpg
+  - source-images/image-from-rawpixel-id-6041306-jpeg.jpg
+  - source-images/image-from-rawpixel-id-3286584-jpeg.jpg
+  - source-images/image-from-rawpixel-id-3237379-jpeg.jpg
+  slots:
+  - x_mm: 0.0
+    y_mm: 16.77
+    width_mm: 180.0
+    height_mm: 120.15
+  - x_mm: 0.0
+    y_mm: 141.92
+    width_mm: 87.5
+    height_mm: 57.97
+  - x_mm: 0.0
+    y_mm: 204.89
+    width_mm: 87.5
+    height_mm: 58.33
+  - x_mm: 92.5
+    y_mm: 141.92
+    width_mm: 87.5
+    height_mm: 58.33
+  - x_mm: 92.5
+    y_mm: 205.26
+    width_mm: 87.5
+    height_mm: 57.97
+- page: 6
+  photos:
+  - source-images/image-from-rawpixel-id-3286567-jpeg.jpg
+  - source-images/image-from-rawpixel-id-5912413-jpeg.jpg
+  - source-images/image-from-rawpixel-id-6129183-jpeg.jpg
+  - source-images/image-from-rawpixel-id-3864426-jpeg.jpg
+  - source-images/image-from-rawpixel-id-6036629-jpeg.jpg
+  - source-images/image-from-rawpixel-id-5920504-jpeg.jpg
+  - source-images/image-from-rawpixel-id-3337874-jpeg.jpg
+  - source-images/image-from-rawpixel-id-3311308-jpeg.jpg
+  - source-images/image-from-rawpixel-id-5909091-jpeg.jpg
+  - source-images/image-from-rawpixel-id-5925674-jpeg.jpg
+  - source-images/image-from-rawpixel-id-5927484-jpeg.jpg
+  - source-images/image-from-rawpixel-id-6083533-jpeg.jpg
+  slots:
+  - x_mm: 0.29
+    y_mm: 0.0
+    width_mm: 74.5
+    height_mm: 49.67
+  - x_mm: 79.79
+    y_mm: 0.0
+    width_mm: 37.09
+    height_mm: 49.67
+  - x_mm: 0.29
+    y_mm: 54.67
+    width_mm: 116.59
+    height_mm: 77.73
+  - x_mm: 0.29
+    y_mm: 137.4
+    width_mm: 49.43
+    height_mm: 87.88
+  - x_mm: 54.72
+    y_mm: 137.4
+    width_mm: 62.16
+    height_mm: 41.44
+  - x_mm: 54.72
+    y_mm: 183.84
+    width_mm: 62.16
+    height_mm: 41.44
+  - x_mm: 121.88
+    y_mm: 0.0
+    width_mm: 57.83
+    height_mm: 40.88
+  - x_mm: 121.88
+    y_mm: 45.88
+    width_mm: 57.83
+    height_mm: 24.82
+  - x_mm: 121.88
+    y_mm: 75.7
+    width_mm: 57.83
+    height_mm: 86.74
+  - x_mm: 121.88
+    y_mm: 167.45
+    width_mm: 57.83
+    height_mm: 57.83
+  - x_mm: 0.29
+    y_mm: 230.27
+    width_mm: 101.83
+    height_mm: 49.73
+  - x_mm: 107.12
+    y_mm: 230.27
+    width_mm: 72.59
+    height_mm: 49.73
 - page: 7
   photos:
   - source-images/image-from-rawpixel-id-422049-jpeg.jpg

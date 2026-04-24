@@ -63,26 +63,22 @@ fn handle_zoom(state: &mut GuiState, ctx: &egui::Context) {
         Some(state.interaction.viewport.scroll.scroll_y * ratio + rel * (ratio - 1.0));
 }
 
-fn handle_undo_redo(state: &mut GuiState, ctx: &egui::Context, cmds: &mut HashSet<PendingCommand>) {
+fn handle_undo_redo(
+    _state: &mut GuiState,
+    ctx: &egui::Context,
+    cmds: &mut HashSet<PendingCommand>,
+) {
     let redo = ctx.input_mut(|i| {
         i.consume_key(egui::Modifiers::CTRL, egui::Key::Y)
             || i.consume_key(egui::Modifiers::CTRL | egui::Modifiers::SHIFT, egui::Key::Z)
     });
     if redo {
-        mark_all_dirty(state);
         cmds.insert(PendingCommand::Redo);
         return;
     }
 
     if ctx.input_mut(|i| i.consume_key(egui::Modifiers::CTRL, egui::Key::Z)) {
-        mark_all_dirty(state);
         cmds.insert(PendingCommand::Undo);
-    }
-}
-
-fn mark_all_dirty(state: &mut GuiState) {
-    for d in &mut state.data.pages.dirty {
-        *d = true;
     }
 }
 
@@ -197,11 +193,6 @@ fn complete_nav_drag(state: &mut GuiState, cmds: &mut HashSet<PendingCommand>, s
         Some(p) if p != src_page => p,
         _ => return,
     };
-    for &p in &[src_page, dst_page] {
-        if let Some(d) = state.data.pages.dirty.get_mut(p) {
-            *d = true;
-        }
-    }
     cmds.insert(PendingCommand::PageSwap {
         left: src_page,
         right: dst_page,
@@ -219,9 +210,6 @@ fn complete_pool_drag(
         .as_ref()
         .and_then(|h| h.page_idx())
     {
-        if let Some(d) = state.data.pages.dirty.get_mut(dst_page) {
-            *d = true;
-        }
         cmds.insert(PendingCommand::Place {
             photo_ids,
             dst_page: Some(dst_page),
@@ -284,7 +272,6 @@ fn handle_place_hotkey(
     if ids.is_empty() {
         return;
     }
-    mark_all_dirty(state);
     cmds.insert(PendingCommand::Place {
         photo_ids: ids,
         dst_page: state
@@ -320,11 +307,6 @@ fn dispatch_move(
         vec![src_slot]
     };
 
-    for &p in &[src_page, dst_page] {
-        if let Some(d) = state.data.pages.dirty.get_mut(p) {
-            *d = true;
-        }
-    }
     cmds.insert(PendingCommand::Move {
         src_page,
         src_slots,
@@ -334,7 +316,7 @@ fn dispatch_move(
 
 /// Swap: same-page only, single slot.
 fn dispatch_swap(
-    state: &mut GuiState,
+    _state: &mut GuiState,
     cmds: &mut HashSet<PendingCommand>,
     src_page: usize,
     src_slot: usize,
@@ -343,11 +325,6 @@ fn dispatch_swap(
 ) {
     if src_page == dst_page && src_slot == dst_slot {
         return;
-    }
-    for &p in &[src_page, dst_page] {
-        if let Some(d) = state.data.pages.dirty.get_mut(p) {
-            *d = true;
-        }
     }
     cmds.insert(PendingCommand::Swap {
         src_page,
@@ -435,7 +412,6 @@ mod tests {
         let mut cmds = HashSet::new();
         dispatch_swap(&mut state, &mut cmds, 0, 0, 1, 2);
         assert_eq!(cmds.len(), 1, "cross-page swap must emit a command");
-        assert!(state.data.pages.dirty[0] && state.data.pages.dirty[1]);
     }
 
     #[test]

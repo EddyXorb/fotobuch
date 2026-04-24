@@ -55,9 +55,6 @@ fn place_button(ui: &mut egui::Ui, state: &mut GuiState, cmds: &mut HashSet<Pend
         .add_enabled(place_enabled, egui::Button::new("Place"))
         .clicked()
     {
-        for d in &mut state.data.pages.dirty {
-            *d = true;
-        }
         cmds.insert(PendingCommand::Place {
             photo_ids: state.interaction.selections.photos.ids(),
             dst_page: state

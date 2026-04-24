@@ -228,33 +228,58 @@ impl FotobuchApp {
                     dst_page,
                     pixel_per_pt: ppt,
                 },
-                PendingCommand::PageSwap { left, right } => {
-                    for &p in &[left, right] {
-                        if let Some(d) = self.state.data.pages.dirty.get_mut(p) {
-                            *d = true;
-                        }
-                    }
-                    BackgroundTask::PageSwap {
-                        left,
-                        right,
-                        pixel_per_pt: ppt,
-                    }
-                }
-                PendingCommand::ConfigSet { key, value } => {
-                    for d in &mut self.state.data.pages.dirty {
-                        *d = true;
-                    }
-                    BackgroundTask::ConfigSet {
-                        key,
-                        value,
-                        pixel_per_pt: ppt,
-                    }
-                }
+                PendingCommand::PageSwap { left, right } => BackgroundTask::PageSwap {
+                    left,
+                    right,
+                    pixel_per_pt: ppt,
+                },
+                PendingCommand::ConfigSet { key, value } => BackgroundTask::ConfigSet {
+                    key,
+                    value,
+                    pixel_per_pt: ppt,
+                },
             };
+            mark_dirty(&mut self.state.data.pages.dirty, &task);
             if self.task_tx.send(task).is_err() {
                 tracing::error!("background worker closed; command dropped");
             }
         }
+    }
+}
+
+fn mark_dirty(dirty: &mut Vec<bool>, task: &BackgroundTask) {
+    match task {
+        BackgroundTask::SwapSlots {
+            src_page, dst_page, ..
+        }
+        | BackgroundTask::MoveSlot {
+            src_page, dst_page, ..
+        }
+        | BackgroundTask::PageSwap {
+            left: src_page,
+            right: dst_page,
+            ..
+        } => {
+            for &p in &[*src_page, *dst_page] {
+                if let Some(d) = dirty.get_mut(p) {
+                    *d = true;
+                }
+            }
+        }
+        BackgroundTask::PlacePhotos {
+            dst_page: Some(p), ..
+        } => {
+            if let Some(d) = dirty.get_mut(*p) {
+                *d = true;
+            }
+        }
+        BackgroundTask::Undo { .. }
+        | BackgroundTask::Redo { .. }
+        | BackgroundTask::ConfigSet { .. }
+        | BackgroundTask::PlacePhotos { dst_page: None, .. } => {
+            dirty.fill(true);
+        }
+        BackgroundTask::RenderPages { .. } | BackgroundTask::LoadPhotoThumbnails { .. } => {}
     }
 }
 
