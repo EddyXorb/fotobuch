@@ -21,10 +21,7 @@ pub(super) fn send_command_done(
     rctx.ctx.request_repaint();
 }
 
-pub(super) fn render_pages(
-    rctx: &mut super::RenderCtx<'_>,
-    pages: Vec<usize>,
-) {
+pub(super) fn render_pages(rctx: &mut super::RenderCtx<'_>, pages: Vec<usize>) {
     if pages.is_empty() {
         return;
     }
@@ -44,7 +41,9 @@ pub(super) fn render_pages(
     let compile_duration = t_compile.elapsed();
     let doc_page_count = doc.pages.len();
 
-    let _ = rctx.result_tx.send(BackgroundResult::TotalPageCount(doc_page_count));
+    let _ = rctx
+        .result_tx
+        .send(BackgroundResult::TotalPageCount(doc_page_count));
 
     let max_requested = pages.iter().copied().max().unwrap_or(0);
     let extra_pages = (max_requested + 1)..doc_page_count;
