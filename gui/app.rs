@@ -129,12 +129,12 @@ impl FotobuchApp {
     ) {
         if let Some(new_state) = new_state {
             let num_pages = new_state.layout.len();
-            self.state.project_state = *new_state;
-            self.state.derived = crate::state::DerivedState::rebuild(&self.state.project_state);
+            self.state.project = *new_state;
+            self.state.derived = crate::state::DerivedState::rebuild(&self.state.project);
             state::resize_page_vecs(&mut self.state, num_pages);
             let items: Vec<(std::path::PathBuf, String)> = self
                 .state
-                .project_state
+                .project
                 .photos
                 .iter()
                 .flat_map(|g| g.files.iter())
@@ -152,12 +152,12 @@ impl FotobuchApp {
                 }
             }
             for &p in &dirty_pages {
-                if let Some(d) = self.state.cache.dirty.get_mut(p) {
+                if let Some(d) = self.state.pages.dirty.get_mut(p) {
                     *d = true;
                 }
             }
         } else {
-            for d in &mut self.state.cache.dirty {
+            for d in &mut self.state.pages.dirty {
                 *d = false;
             }
         }
@@ -165,7 +165,7 @@ impl FotobuchApp {
 
     fn handle_command_failed(&mut self, e: String) {
         tracing::error!(%e, "command failed");
-        for d in &mut self.state.cache.dirty {
+        for d in &mut self.state.pages.dirty {
             *d = false;
         }
     }
@@ -226,7 +226,7 @@ impl FotobuchApp {
                 },
                 PendingCommand::PageSwap { left, right } => {
                     for &p in &[left, right] {
-                        if let Some(d) = self.state.cache.dirty.get_mut(p) {
+                        if let Some(d) = self.state.pages.dirty.get_mut(p) {
                             *d = true;
                         }
                     }
@@ -237,7 +237,7 @@ impl FotobuchApp {
                     }
                 }
                 PendingCommand::ConfigSet { key, value } => {
-                    for d in &mut self.state.cache.dirty {
+                    for d in &mut self.state.pages.dirty {
                         *d = true;
                     }
                     BackgroundTask::ConfigSet {
@@ -275,7 +275,7 @@ impl eframe::App for FotobuchApp {
         widgets::central_panel::draw(ui, &mut self.state);
         self.state.timings.show_panels = t.elapsed();
 
-        if self.state.config_panel.open {
+        if self.state.config.open {
             widgets::config_window::show(&ctx, &mut self.state, &mut cmds);
         }
 

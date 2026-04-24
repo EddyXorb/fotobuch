@@ -39,13 +39,10 @@ fn history_buttons(ui: &mut egui::Ui, cmds: &mut HashSet<PendingCommand>) {
 
 fn config_button(ui: &mut egui::Ui, state: &mut GuiState) {
     if ui
-        .add(egui::Button::selectable(
-            state.config_panel.open,
-            "⚙ Config",
-        ))
+        .add(egui::Button::selectable(state.config.open, "⚙ Config"))
         .clicked()
     {
-        state.config_panel.open = !state.config_panel.open;
+        state.config.open = !state.config.open;
     }
 }
 
@@ -55,7 +52,7 @@ fn place_button(ui: &mut egui::Ui, state: &mut GuiState, cmds: &mut HashSet<Pend
         .add_enabled(place_enabled, egui::Button::new("Place"))
         .clicked()
     {
-        for d in &mut state.cache.dirty {
+        for d in &mut state.pages.dirty {
             *d = true;
         }
         cmds.insert(PendingCommand::Place {

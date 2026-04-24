@@ -6,9 +6,9 @@ pub fn draw(ui: &mut egui::Ui, state: &GuiState) {
 
 fn show(ui: &mut egui::Ui, state: &GuiState) {
     ui.horizontal(|ui| {
-        let total = state.project_state.layout.len();
+        let total = state.project.layout.len();
         let photos: usize = state
-            .project_state
+            .project
             .photos
             .iter()
             .map(|g| g.files.len())

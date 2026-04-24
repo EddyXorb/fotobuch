@@ -81,7 +81,7 @@ fn handle_undo_redo(state: &mut GuiState, ctx: &egui::Context, cmds: &mut HashSe
 }
 
 fn mark_all_dirty(state: &mut GuiState) {
-    for d in &mut state.cache.dirty {
+    for d in &mut state.pages.dirty {
         *d = true;
     }
 }
@@ -189,7 +189,7 @@ fn complete_nav_drag(state: &mut GuiState, cmds: &mut HashSet<PendingCommand>, s
         _ => return,
     };
     for &p in &[src_page, dst_page] {
-        if let Some(d) = state.cache.dirty.get_mut(p) {
+        if let Some(d) = state.pages.dirty.get_mut(p) {
             *d = true;
         }
     }
@@ -205,7 +205,7 @@ fn complete_pool_drag(
     photo_ids: Vec<String>,
 ) {
     if let Some(dst_page) = state.hovered.as_ref().and_then(|h| h.page_idx()) {
-        if let Some(d) = state.cache.dirty.get_mut(dst_page) {
+        if let Some(d) = state.pages.dirty.get_mut(dst_page) {
             *d = true;
         }
         cmds.insert(PendingCommand::Place {
@@ -237,7 +237,7 @@ fn handle_select_all(state: &mut GuiState, ctx: &egui::Context) {
         });
     if let Some(page) = current_page {
         let slot_count = state
-            .project_state
+            .project
             .layout
             .get(page)
             .map(|lp| lp.slots.len())
@@ -248,7 +248,7 @@ fn handle_select_all(state: &mut GuiState, ctx: &egui::Context) {
 
 fn handle_config_panel_toggle(state: &mut GuiState, ctx: &egui::Context) {
     if ctx.input_mut(|i| i.consume_key(egui::Modifiers::CTRL, egui::Key::Comma)) {
-        state.config_panel.open = !state.config_panel.open;
+        state.config.open = !state.config.open;
     }
 }
 
@@ -292,7 +292,7 @@ fn dispatch_move(
     };
 
     for &p in &[src_page, dst_page] {
-        if let Some(d) = state.cache.dirty.get_mut(p) {
+        if let Some(d) = state.pages.dirty.get_mut(p) {
             *d = true;
         }
     }
@@ -316,7 +316,7 @@ fn dispatch_swap(
         return;
     }
     for &p in &[src_page, dst_page] {
-        if let Some(d) = state.cache.dirty.get_mut(p) {
+        if let Some(d) = state.pages.dirty.get_mut(p) {
             *d = true;
         }
     }
@@ -370,7 +370,7 @@ mod tests {
     #[test]
     fn dispatch_move_uses_selection_when_dragged_slot_is_selected() {
         let mut state = state_with_selection(0, vec![1, 2, 3]);
-        state.cache.dirty = vec![false, false];
+        state.pages.dirty = vec![false, false];
         let mut cmds = HashSet::new();
         dispatch_move(&mut state, &mut cmds, 0, 2, 1);
         assert_eq!(cmds.len(), 1);
@@ -390,7 +390,7 @@ mod tests {
     #[test]
     fn dispatch_move_uses_single_slot_when_not_in_selection() {
         let mut state = state_with_selection(0, vec![0, 1]);
-        state.cache.dirty = vec![false, false];
+        state.pages.dirty = vec![false, false];
         let mut cmds = HashSet::new();
         dispatch_move(&mut state, &mut cmds, 0, 3, 1);
         let PendingCommand::Move { src_slots, .. } = cmds.iter().next().unwrap() else {
@@ -402,17 +402,17 @@ mod tests {
     #[test]
     fn dispatch_swap_cross_page_emits_command() {
         let mut state = GuiState::new(ProjectState::default());
-        state.cache.dirty = vec![false, false];
+        state.pages.dirty = vec![false, false];
         let mut cmds = HashSet::new();
         dispatch_swap(&mut state, &mut cmds, 0, 0, 1, 2);
         assert_eq!(cmds.len(), 1, "cross-page swap must emit a command");
-        assert!(state.cache.dirty[0] && state.cache.dirty[1]);
+        assert!(state.pages.dirty[0] && state.pages.dirty[1]);
     }
 
     #[test]
     fn dispatch_swap_ignores_same_slot() {
         let mut state = GuiState::new(ProjectState::default());
-        state.cache.dirty = vec![false];
+        state.pages.dirty = vec![false];
         let mut cmds = HashSet::new();
         dispatch_swap(&mut state, &mut cmds, 0, 1, 0, 1);
         assert!(cmds.is_empty(), "same-slot swap must be ignored");
@@ -433,9 +433,9 @@ mod tests {
             page: 2,
             slot: None,
         });
-        state.cache.dirty = vec![false, false, false];
+        state.pages.dirty = vec![false, false, false];
         let mut cmds = HashSet::new();
-        for d in &mut state.cache.dirty {
+        for d in &mut state.pages.dirty {
             *d = true;
         }
         cmds.insert(PendingCommand::Place {
@@ -477,7 +477,7 @@ mod tests {
             page: 1,
             slot: None,
         });
-        state.cache.dirty = vec![false, false];
+        state.pages.dirty = vec![false, false];
         let mut cmds = HashSet::new();
         complete_pool_drag(&mut state, &mut cmds, vec!["a.jpg".into()]);
         assert_eq!(cmds.len(), 1);
@@ -500,7 +500,7 @@ mod tests {
     fn nav_drag_complete_emits_page_swap() {
         let mut state = GuiState::new(ProjectState::default());
         state.hovered = Some(HoveredTarget::NavPage(2));
-        state.cache.dirty = vec![false, false, false];
+        state.pages.dirty = vec![false, false, false];
         let mut cmds = HashSet::new();
         complete_nav_drag(&mut state, &mut cmds, 0);
         assert_eq!(cmds.len(), 1);
@@ -515,7 +515,7 @@ mod tests {
     fn nav_drag_complete_noop_when_same_page() {
         let mut state = GuiState::new(ProjectState::default());
         state.hovered = Some(HoveredTarget::NavPage(1));
-        state.cache.dirty = vec![false, false];
+        state.pages.dirty = vec![false, false];
         let mut cmds = HashSet::new();
         complete_nav_drag(&mut state, &mut cmds, 1);
         assert!(cmds.is_empty(), "same page → no-op");

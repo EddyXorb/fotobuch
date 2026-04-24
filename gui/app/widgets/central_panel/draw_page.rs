@@ -11,8 +11,8 @@ pub(super) fn draw_page(
 ) -> (Option<usize>, bool, egui::Rect) {
     ui.label(format!("Page {page_idx}"));
 
-    let (width_mm, height_mm) = state.project_state.page_dimensions_mm(page_idx);
-    let (bleed_mm, margin_mm) = state.project_state.page_bleed_margin_mm(page_idx);
+    let (width_mm, height_mm) = state.project.page_dimensions_mm(page_idx);
+    let (bleed_mm, margin_mm) = state.project.page_bleed_margin_mm(page_idx);
     let dims = PageDimensions {
         width_mm,
         height_mm,
@@ -22,7 +22,7 @@ pub(super) fn draw_page(
     let size = helpers::page_display_size(state.viewport.zoom, dims);
     let page_rect = render_page_image(ui, state, page_idx, size);
 
-    if let Some(layout_page) = state.project_state.layout.get(page_idx) {
+    if let Some(layout_page) = state.project.layout.get(page_idx) {
         draw_slot_overlays(ui, page_rect, state, page_idx, dims);
         let (hovered_slot, over_page) = hit_test_pointer(ui, page_rect, layout_page, dims);
         draw_page_move_highlight(ui, state, page_idx, page_rect, over_page);
@@ -40,7 +40,7 @@ fn render_page_image(
     page_idx: usize,
     size: egui::Vec2,
 ) -> egui::Rect {
-    let rect = if let Some(tex) = &state.cache.textures[page_idx] {
+    let rect = if let Some(tex) = &state.pages.textures[page_idx] {
         ui.add(egui::Image::from_texture(tex).fit_to_exact_size(size))
             .rect
     } else {
@@ -50,7 +50,7 @@ fn render_page_image(
         r
     };
 
-    if state.cache.dirty.get(page_idx).copied().unwrap_or(false) {
+    if state.pages.dirty.get(page_idx).copied().unwrap_or(false) {
         ui.painter().rect_filled(
             rect,
             0.0,
@@ -75,7 +75,7 @@ fn draw_slot_overlays(
     page_idx: usize,
     dims: PageDimensions,
 ) {
-    let layout_page = match state.project_state.layout.get(page_idx) {
+    let layout_page = match state.project.layout.get(page_idx) {
         Some(lp) => lp,
         None => return,
     };

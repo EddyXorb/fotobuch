@@ -6,7 +6,7 @@ use crate::app::pending::PendingCommand;
 use crate::state::GuiState;
 
 pub fn show(ctx: &egui::Context, state: &mut GuiState, cmds: &mut HashSet<PendingCommand>) {
-    let config_value = match serde_yaml::to_value(&state.project_state.config) {
+    let config_value = match serde_yaml::to_value(&state.project.config) {
         Ok(v) => v,
         Err(_) => return,
     };
@@ -14,16 +14,10 @@ pub fn show(ctx: &egui::Context, state: &mut GuiState, cmds: &mut HashSet<Pendin
     egui::Window::new("Config")
         .default_size([380.0, 520.0])
         .resizable(true)
-        .open(&mut state.config_panel.open)
+        .open(&mut state.config.open)
         .show(ctx, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
-                walk(
-                    ui,
-                    &mut state.config_panel.edit_buffers,
-                    cmds,
-                    "",
-                    &config_value,
-                );
+                walk(ui, &mut state.config.edit_buffers, cmds, "", &config_value);
             });
         });
 }

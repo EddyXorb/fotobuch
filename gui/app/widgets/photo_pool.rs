@@ -16,7 +16,7 @@ pub fn draw(ui: &mut egui::Ui, state: &mut GuiState) {
 fn show(ui: &mut egui::Ui, state: &mut GuiState) {
     // Collect only the strings needed for drawing before the mutable closure borrows state.
     let groups: Vec<(String, Vec<(String, PathBuf)>)> = state
-        .project_state
+        .project
         .photos
         .iter()
         .map(|g| {
