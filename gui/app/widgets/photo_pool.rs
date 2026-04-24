@@ -2,21 +2,20 @@ mod row;
 
 use std::path::PathBuf;
 
-use crate::state::GuiState;
+use crate::state::{DataState, InteractionState};
 
-pub fn draw(ui: &mut egui::Ui, state: &mut GuiState) {
+pub fn draw(ui: &mut egui::Ui, data: &DataState, interaction: &mut InteractionState) {
     egui::Panel::left("photo_pool")
         .resizable(true)
         .min_size(220.0)
         .max_size(400.0)
         .default_size(260.0)
-        .show_inside(ui, |ui| show(ui, state));
+        .show_inside(ui, |ui| show(ui, data, interaction));
 }
 
-fn show(ui: &mut egui::Ui, state: &mut GuiState) {
+fn show(ui: &mut egui::Ui, data: &DataState, interaction: &mut InteractionState) {
     // Collect only the strings needed for drawing before the mutable closure borrows state.
-    let groups: Vec<(String, Vec<(String, PathBuf)>)> = state
-        .data
+    let groups: Vec<(String, Vec<(String, PathBuf)>)> = data
         .project
         .photos
         .iter()
@@ -51,7 +50,7 @@ fn show(ui: &mut egui::Ui, state: &mut GuiState) {
                     .default_open(true)
                     .show(ui, |ui| {
                         for (id, source) in files {
-                            row::draw_row(ui, state, id, source, &order);
+                            row::draw_row(ui, data, interaction, id, source, &order);
                         }
                     });
             }

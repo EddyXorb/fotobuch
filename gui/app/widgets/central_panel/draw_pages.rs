@@ -1,19 +1,23 @@
-use crate::state::{GuiState, HoveredTarget};
+use crate::state::{DataState, HoveredTarget, InteractionState};
 
 use super::super::page_nav;
 use super::draw_page;
 
-pub(super) fn draw_pages(ui: &mut egui::Ui, state: &mut GuiState) -> Option<HoveredTarget> {
+pub(super) fn draw_pages(
+    ui: &mut egui::Ui,
+    data: &DataState,
+    interaction: &mut InteractionState,
+) -> Option<HoveredTarget> {
     // Use page_textures.len() rather than layout.len() so that extra pages
     // produced by Typst (e.g. appendix) are also rendered and displayed.
-    let num_pages = state.data.pages.textures.len();
+    let num_pages = data.pages.textures.len();
     let mut hovered: Option<HoveredTarget> = None;
 
     let rmbactive = ui.input(|i| {
         (i.pointer.secondary_down() || i.pointer.secondary_released()) && !i.pointer.primary_down()
     });
 
-    let pending_scroll = state.interaction.viewport.scroll.pending_scroll_y.take();
+    let pending_scroll = interaction.viewport.scroll.pending_scroll_y.take();
     let mut sa = egui::ScrollArea::vertical()
         .auto_shrink([false; 2])
         .scroll_source(egui::containers::scroll_area::ScrollSource {
@@ -27,7 +31,8 @@ pub(super) fn draw_pages(ui: &mut egui::Ui, state: &mut GuiState) -> Option<Hove
     let output = sa.show(ui, |ui| {
         ui.vertical_centered(|ui| {
             for i in 0..num_pages {
-                let (slot_idx, over_page, page_rect) = draw_page::draw_page(ui, state, i);
+                let (slot_idx, over_page, page_rect) =
+                    draw_page::draw_page(ui, data, interaction, i);
                 if hovered.is_none() {
                     hovered = if let Some(slot) = slot_idx {
                         Some(HoveredTarget::Page {
@@ -43,12 +48,12 @@ pub(super) fn draw_pages(ui: &mut egui::Ui, state: &mut GuiState) -> Option<Hove
                         None
                     };
                 }
-                page_nav::apply_scroll_if_needed(ui, state, i, page_rect);
+                page_nav::apply_scroll_if_needed(ui, interaction, i, page_rect);
             }
         });
     });
-    state.interaction.viewport.scroll.scroll_y = output.state.offset.y;
-    state.interaction.viewport.scroll.viewport_top = output.inner_rect.min.y;
+    interaction.viewport.scroll.scroll_y = output.state.offset.y;
+    interaction.viewport.scroll.viewport_top = output.inner_rect.min.y;
 
     hovered
 }

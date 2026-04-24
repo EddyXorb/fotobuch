@@ -2,29 +2,31 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use crate::state::{
-    ActiveDrag, DragSource, GuiState, HoveredTarget, PhotoSelection, SlotSelection,
+    ActiveDrag, DataState, DragSource, HoveredTarget, InteractionState, PhotoSelection,
+    SlotSelection,
 };
 
 pub(super) fn draw_row(
     ui: &mut egui::Ui,
-    state: &mut GuiState,
+    data: &DataState,
+    interaction: &mut InteractionState,
     id: &str,
     source: &PathBuf,
     order: &[String],
 ) {
-    let is_selected = state.interaction.selections.photos.is_selected(id);
+    let is_selected = interaction.selections.photos.is_selected(id);
     let is_pool_dragging = matches!(
-        state.interaction.drag.active,
+        interaction.drag.active,
         ActiveDrag::Dragging(DragSource::Pool { .. })
     );
 
     let mut badge_hovered = false;
     let row_response = ui.push_id(egui::Id::new(("pool_row", id)), |ui| {
         let inner = ui.horizontal(|ui| {
-            draw_thumb_cell(ui, state, id);
+            draw_thumb_cell(ui, data, id);
             draw_filename_label(ui, source, id);
             let badge_start_x = ui.cursor().min.x;
-            badge_hovered = draw_placement_badge(ui, state, id);
+            badge_hovered = draw_placement_badge(ui, data, id);
             badge_start_x
         });
         let interact_rect = inner.response.rect.with_max_x(inner.inner);
@@ -45,20 +47,20 @@ pub(super) fn draw_row(
     }
 
     if !badge_hovered {
-        draw_hover_preview(ui, state, id, &row_resp);
+        draw_hover_preview(ui, data, id, &row_resp);
     }
 
     if row_resp.hovered() {
-        state.interaction.hovered = Some(HoveredTarget::PoolItem(id.to_string()));
+        interaction.hovered = Some(HoveredTarget::PoolItem(id.to_string()));
     }
 
-    handle_selection_click(ui, state, id, order, &row_resp);
+    handle_selection_click(ui, data, interaction, id, order, &row_resp);
 }
 
-fn draw_thumb_cell(ui: &mut egui::Ui, state: &GuiState, id: &str) {
+fn draw_thumb_cell(ui: &mut egui::Ui, data: &DataState, id: &str) {
     let thumb_size = egui::vec2(24.0, 24.0);
     let (thumb_rect, _) = ui.allocate_exact_size(thumb_size, egui::Sense::hover());
-    if let Some(tex) = state.data.thumbs.get(id) {
+    if let Some(tex) = data.thumbs.get(id) {
         ui.painter().image(
             tex.id(),
             thumb_rect,
@@ -79,8 +81,8 @@ fn draw_filename_label(ui: &mut egui::Ui, source: &Path, id: &str) {
     ui.add(egui::Label::new(&filename).truncate());
 }
 
-fn draw_placement_badge(ui: &mut egui::Ui, state: &GuiState, id: &str) -> bool {
-    let placed_count = state.data.derived.placed_count(id);
+fn draw_placement_badge(ui: &mut egui::Ui, data: &DataState, id: &str) -> bool {
+    let placed_count = data.derived.placed_count(id);
     let badge_color = match placed_count {
         0 => egui::Color32::TRANSPARENT,
         1 => egui::Color32::from_rgb(0, 200, 80),
@@ -94,7 +96,7 @@ fn draw_placement_badge(ui: &mut egui::Ui, state: &GuiState, id: &str) -> bool {
     if placed_count > 0 {
         let is_hovered = badge_resp.hovered();
         badge_resp.on_hover_ui(|ui| {
-            if let Some(locs) = state.data.derived.placed_locations.get(id) {
+            if let Some(locs) = data.derived.placed_locations.get(id) {
                 let mut sorted = locs.clone();
                 sorted.sort();
                 for (page, slot) in &sorted {
@@ -123,11 +125,11 @@ fn draw_drag_highlight(ui: &egui::Ui, rect: egui::Rect) {
     );
 }
 
-fn draw_hover_preview(_ui: &mut egui::Ui, state: &GuiState, id: &str, row_resp: &egui::Response) {
+fn draw_hover_preview(_ui: &mut egui::Ui, data: &DataState, id: &str, row_resp: &egui::Response) {
     if !row_resp.hovered() {
         return;
     }
-    if let Some(tex) = state.data.thumbs.get(id) {
+    if let Some(tex) = data.thumbs.get(id) {
         let tex = tex.clone();
         row_resp.clone().on_hover_ui_at_pointer(|ui| {
             let sz = tex.size_vec2();
@@ -142,7 +144,8 @@ fn draw_hover_preview(_ui: &mut egui::Ui, state: &GuiState, id: &str, row_resp: 
 
 fn handle_selection_click(
     ui: &egui::Ui,
-    state: &mut GuiState,
+    data: &DataState,
+    interaction: &mut InteractionState,
     id: &str,
     order: &[String],
     row_resp: &egui::Response,
@@ -152,21 +155,20 @@ fn handle_selection_click(
     }
     let mods = ui.input(|i| i.modifiers);
     if mods.shift {
-        state
-            .interaction
+        interaction
             .selections
             .photos
             .range_to(id.to_string(), order);
     } else if mods.ctrl || mods.command {
-        state.interaction.selections.photos.toggle(id.to_string());
+        interaction.selections.photos.toggle(id.to_string());
     } else {
-        state.interaction.selections.photos = PhotoSelection::single(id.to_string());
-        if let Some(locs) = state.data.derived.placed_locations.get(id)
+        interaction.selections.photos = PhotoSelection::single(id.to_string());
+        if let Some(locs) = data.derived.placed_locations.get(id)
             && locs.len() == 1
         {
             let (page, slot) = locs[0];
-            state.interaction.viewport.scroll_to_page = Some(page);
-            state.interaction.selections.slots = SlotSelection::single(page, slot);
+            interaction.viewport.scroll_to_page = Some(page);
+            interaction.selections.slots = SlotSelection::single(page, slot);
         }
     }
 }

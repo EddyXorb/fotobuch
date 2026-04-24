@@ -1,47 +1,52 @@
 use std::collections::HashSet;
 
 use crate::state::{
-    self, ActiveDrag, DragMode, DragSource, GuiState, HoveredTarget, SlotSelection,
+    self, ActiveDrag, DataState, DragMode, DragSource, HoveredTarget, InteractionState,
+    SlotSelection,
 };
 
 use super::pending::PendingCommand;
 
 /// Top-level input dispatcher — called once per frame before painting.
-pub fn handle(state: &mut GuiState, ctx: &egui::Context) -> HashSet<PendingCommand> {
+pub fn handle(
+    data: &mut DataState,
+    interaction: &mut InteractionState,
+    ctx: &egui::Context,
+) -> HashSet<PendingCommand> {
     let mut cmds = HashSet::new();
 
-    handle_timings_toggle(state, ctx);
-    handle_drag_mode_toggle(state, ctx);
-    handle_zoom(state, ctx);
-    handle_undo_redo(state, ctx, &mut cmds);
-    handle_config_panel_toggle(state, ctx);
-    handle_place_hotkey(state, ctx, &mut cmds);
+    handle_timings_toggle(data, ctx);
+    handle_drag_mode_toggle(interaction, ctx);
+    handle_zoom(interaction, ctx);
+    handle_undo_redo(ctx, &mut cmds);
+    handle_config_panel_toggle(interaction, ctx);
+    handle_place_hotkey(interaction, ctx, &mut cmds);
 
-    let drag_action = handle_drag_complete(state, ctx, &mut cmds);
-    handle_drag_start(state, ctx);
+    let drag_action = handle_drag_complete(interaction, ctx, &mut cmds);
+    handle_drag_start(interaction, ctx);
 
     if !drag_action {
-        handle_escape(state, ctx);
-        handle_select_all(state, ctx);
-        handle_click(state, ctx);
+        handle_escape(interaction, ctx);
+        handle_select_all(data, interaction, ctx);
+        handle_click(interaction, ctx);
     }
 
     cmds
 }
 
-fn handle_drag_mode_toggle(state: &mut GuiState, ctx: &egui::Context) {
+fn handle_drag_mode_toggle(interaction: &mut InteractionState, ctx: &egui::Context) {
     if ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::M)) {
-        state.interaction.drag.mode = state.interaction.drag.mode.toggle();
+        interaction.drag.mode = interaction.drag.mode.toggle();
     }
 }
 
-fn handle_timings_toggle(state: &mut GuiState, ctx: &egui::Context) {
+fn handle_timings_toggle(data: &mut DataState, ctx: &egui::Context) {
     if ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::F2)) {
-        state.data.timings.show = !state.data.timings.show;
+        data.timings.show = !data.timings.show;
     }
 }
 
-fn handle_zoom(state: &mut GuiState, ctx: &egui::Context) {
+fn handle_zoom(interaction: &mut InteractionState, ctx: &egui::Context) {
     let delta = ctx.input(|i| {
         if i.modifiers.ctrl {
             i.zoom_delta()
@@ -52,22 +57,18 @@ fn handle_zoom(state: &mut GuiState, ctx: &egui::Context) {
     if delta == 1.0 {
         return;
     }
-    let old_zoom = state.interaction.viewport.zoom;
-    state.interaction.viewport.zoom = state::apply_zoom_delta(old_zoom, delta);
-    let ratio = state.interaction.viewport.zoom / old_zoom;
+    let old_zoom = interaction.viewport.zoom;
+    interaction.viewport.zoom = state::apply_zoom_delta(old_zoom, delta);
+    let ratio = interaction.viewport.zoom / old_zoom;
     let cursor_y = ctx
         .pointer_hover_pos()
-        .map_or(state.interaction.viewport.scroll.viewport_top, |p| p.y);
-    let rel = cursor_y - state.interaction.viewport.scroll.viewport_top;
-    state.interaction.viewport.scroll.pending_scroll_y =
-        Some(state.interaction.viewport.scroll.scroll_y * ratio + rel * (ratio - 1.0));
+        .map_or(interaction.viewport.scroll.viewport_top, |p| p.y);
+    let rel = cursor_y - interaction.viewport.scroll.viewport_top;
+    interaction.viewport.scroll.pending_scroll_y =
+        Some(interaction.viewport.scroll.scroll_y * ratio + rel * (ratio - 1.0));
 }
 
-fn handle_undo_redo(
-    _state: &mut GuiState,
-    ctx: &egui::Context,
-    cmds: &mut HashSet<PendingCommand>,
-) {
+fn handle_undo_redo(ctx: &egui::Context, cmds: &mut HashSet<PendingCommand>) {
     let redo = ctx.input_mut(|i| {
         i.consume_key(egui::Modifiers::CTRL, egui::Key::Y)
             || i.consume_key(egui::Modifiers::CTRL | egui::Modifiers::SHIFT, egui::Key::Z)
@@ -83,11 +84,11 @@ fn handle_undo_redo(
 }
 
 /// Detects the start of a drag from any source (slot, nav page, pool row).
-fn handle_drag_start(state: &mut GuiState, ctx: &egui::Context) {
+fn handle_drag_start(interaction: &mut InteractionState, ctx: &egui::Context) {
     if !ctx.input(|i| i.pointer.secondary_pressed()) {
         return;
     }
-    if !matches!(state.interaction.drag.active, ActiveDrag::Idle) {
+    if !matches!(interaction.drag.active, ActiveDrag::Idle) {
         return;
     }
     let cursor = match ctx.pointer_hover_pos() {
@@ -98,22 +99,22 @@ fn handle_drag_start(state: &mut GuiState, ctx: &egui::Context) {
     let drag_source = if let Some(HoveredTarget::Page {
         page,
         slot: Some(slot),
-    }) = &state.interaction.hovered
+    }) = &interaction.hovered
     {
         Some(DragSource::Slot {
             src_page: *page,
             src_slot: *slot,
             cursor_at_drag_start: cursor,
         })
-    } else if let Some(HoveredTarget::NavPage(nav_page)) = &state.interaction.hovered {
+    } else if let Some(HoveredTarget::NavPage(nav_page)) = &interaction.hovered {
         Some(DragSource::NavPage {
             src_page: *nav_page,
             cursor_at_drag_start: cursor,
         })
-    } else if let Some(HoveredTarget::PoolItem(pool_id)) = &state.interaction.hovered {
+    } else if let Some(HoveredTarget::PoolItem(pool_id)) = &interaction.hovered {
         let pool_id = pool_id.clone();
-        let ids = if state.interaction.selections.photos.is_selected(&pool_id) {
-            state.interaction.selections.photos.ids()
+        let ids = if interaction.selections.photos.is_selected(&pool_id) {
+            interaction.selections.photos.ids()
         } else {
             vec![pool_id]
         };
@@ -122,20 +123,20 @@ fn handle_drag_start(state: &mut GuiState, ctx: &egui::Context) {
         None
     };
     if let Some(src) = drag_source {
-        state.interaction.drag.active = ActiveDrag::Dragging(src);
+        interaction.drag.active = ActiveDrag::Dragging(src);
     }
 }
 
 /// Handles RMB release for all drag sources. Returns `true` when a drag action was taken.
 fn handle_drag_complete(
-    state: &mut GuiState,
+    interaction: &mut InteractionState,
     ctx: &egui::Context,
     cmds: &mut HashSet<PendingCommand>,
 ) -> bool {
     if !ctx.input(|i| i.pointer.secondary_released()) {
         return false;
     }
-    let source = match std::mem::replace(&mut state.interaction.drag.active, ActiveDrag::Idle) {
+    let source = match std::mem::replace(&mut interaction.drag.active, ActiveDrag::Idle) {
         ActiveDrag::Dragging(src) => src,
         ActiveDrag::Idle => return false,
     };
@@ -143,53 +144,48 @@ fn handle_drag_complete(
         DragSource::Slot {
             src_page, src_slot, ..
         } => {
-            complete_slot_drag(state, cmds, src_page, src_slot);
+            complete_slot_drag(interaction, cmds, src_page, src_slot);
         }
         DragSource::NavPage { src_page, .. } => {
-            complete_nav_drag(state, cmds, src_page);
+            complete_nav_drag(interaction, cmds, src_page);
         }
         DragSource::Pool { photo_ids } => {
-            complete_pool_drag(state, cmds, photo_ids);
+            complete_pool_drag(interaction, cmds, photo_ids);
         }
     }
     true
 }
 
 fn complete_slot_drag(
-    state: &mut GuiState,
+    interaction: &mut InteractionState,
     cmds: &mut HashSet<PendingCommand>,
     src_page: usize,
     src_slot: usize,
 ) {
-    let hovered_slot = state.interaction.hovered.as_ref().and_then(|h| h.slot());
-    let effective_page = state
-        .interaction
-        .hovered
-        .as_ref()
-        .and_then(|h| h.page_idx());
-    match (hovered_slot, state.interaction.drag.mode) {
+    let hovered_slot = interaction.hovered.as_ref().and_then(|h| h.slot());
+    let effective_page = interaction.hovered.as_ref().and_then(|h| h.page_idx());
+    match (hovered_slot, interaction.drag.mode) {
         (Some((dst_page, dst_slot)), DragMode::Swap) => {
-            dispatch_swap(state, cmds, src_page, src_slot, dst_page, dst_slot);
+            dispatch_swap(cmds, src_page, src_slot, dst_page, dst_slot);
         }
         (Some((dst_page, _)), DragMode::Move) => {
-            dispatch_move(state, cmds, src_page, src_slot, dst_page);
+            dispatch_move(interaction, cmds, src_page, src_slot, dst_page);
         }
         (None, DragMode::Move) => {
             if let Some(dst_page) = effective_page {
-                dispatch_move(state, cmds, src_page, src_slot, dst_page);
+                dispatch_move(interaction, cmds, src_page, src_slot, dst_page);
             }
         }
         (None, DragMode::Swap) => {}
     }
 }
 
-fn complete_nav_drag(state: &mut GuiState, cmds: &mut HashSet<PendingCommand>, src_page: usize) {
-    let dst_page = match state
-        .interaction
-        .hovered
-        .as_ref()
-        .and_then(|h| h.as_nav_page())
-    {
+fn complete_nav_drag(
+    interaction: &mut InteractionState,
+    cmds: &mut HashSet<PendingCommand>,
+    src_page: usize,
+) {
+    let dst_page = match interaction.hovered.as_ref().and_then(|h| h.as_nav_page()) {
         Some(p) if p != src_page => p,
         _ => return,
     };
@@ -200,16 +196,11 @@ fn complete_nav_drag(state: &mut GuiState, cmds: &mut HashSet<PendingCommand>, s
 }
 
 fn complete_pool_drag(
-    state: &mut GuiState,
+    interaction: &mut InteractionState,
     cmds: &mut HashSet<PendingCommand>,
     photo_ids: Vec<String>,
 ) {
-    if let Some(dst_page) = state
-        .interaction
-        .hovered
-        .as_ref()
-        .and_then(|h| h.page_idx())
-    {
+    if let Some(dst_page) = interaction.hovered.as_ref().and_then(|h| h.page_idx()) {
         cmds.insert(PendingCommand::Place {
             photo_ids,
             dst_page: Some(dst_page),
@@ -217,65 +208,58 @@ fn complete_pool_drag(
     }
 }
 
-fn handle_escape(state: &mut GuiState, ctx: &egui::Context) {
+fn handle_escape(interaction: &mut InteractionState, ctx: &egui::Context) {
     if ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Escape)) {
-        state.interaction.drag.active = ActiveDrag::Idle;
-        state.interaction.selections.slots.clear();
+        interaction.drag.active = ActiveDrag::Idle;
+        interaction.selections.slots.clear();
     }
 }
 
-fn handle_select_all(state: &mut GuiState, ctx: &egui::Context) {
+fn handle_select_all(data: &DataState, interaction: &mut InteractionState, ctx: &egui::Context) {
     if !ctx.input_mut(|i| i.consume_key(egui::Modifiers::CTRL, egui::Key::A)) {
         return;
     }
-    let current_page = state
-        .interaction
+    let current_page = interaction
         .hovered
         .as_ref()
         .and_then(|h| h.slot())
         .map(|(p, _)| p)
-        .or(match &state.interaction.selections.slots {
+        .or(match &interaction.selections.slots {
             SlotSelection::OnPage { page, .. } => Some(*page),
             SlotSelection::None => None,
         });
     if let Some(page) = current_page {
-        let slot_count = state
-            .data
+        let slot_count = data
             .project
             .layout
             .get(page)
             .map(|lp| lp.slots.len())
             .unwrap_or(0);
-        state
-            .interaction
-            .selections
-            .slots
-            .select_all_on(page, slot_count);
+        interaction.selections.slots.select_all_on(page, slot_count);
     }
 }
 
-fn handle_config_panel_toggle(state: &mut GuiState, ctx: &egui::Context) {
+fn handle_config_panel_toggle(interaction: &mut InteractionState, ctx: &egui::Context) {
     if ctx.input_mut(|i| i.consume_key(egui::Modifiers::CTRL, egui::Key::Comma)) {
-        state.interaction.config.open = !state.interaction.config.open;
+        interaction.config.open = !interaction.config.open;
     }
 }
 
 fn handle_place_hotkey(
-    state: &mut GuiState,
+    interaction: &mut InteractionState,
     ctx: &egui::Context,
     cmds: &mut HashSet<PendingCommand>,
 ) {
     if !ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::P)) {
         return;
     }
-    let ids = state.interaction.selections.photos.ids();
+    let ids = interaction.selections.photos.ids();
     if ids.is_empty() {
         return;
     }
     cmds.insert(PendingCommand::Place {
         photo_ids: ids,
-        dst_page: state
-            .interaction
+        dst_page: interaction
             .hovered
             .as_ref()
             .and_then(HoveredTarget::central_page),
@@ -285,19 +269,14 @@ fn handle_place_hotkey(
 /// Move: cross-page allowed. If the dragged slot is part of the current selection,
 /// all selected slots on the source page are moved together.
 fn dispatch_move(
-    state: &mut GuiState,
+    interaction: &mut InteractionState,
     cmds: &mut HashSet<PendingCommand>,
     src_page: usize,
     src_slot: usize,
     dst_page: usize,
 ) {
-    let src_slots: Vec<usize> = if state
-        .interaction
-        .selections
-        .slots
-        .is_selected(src_page, src_slot)
-    {
-        match &state.interaction.selections.slots {
+    let src_slots: Vec<usize> = if interaction.selections.slots.is_selected(src_page, src_slot) {
+        match &interaction.selections.slots {
             SlotSelection::OnPage { page, slots, .. } if *page == src_page => {
                 slots.iter().copied().collect()
             }
@@ -316,7 +295,6 @@ fn dispatch_move(
 
 /// Swap: same-page only, single slot.
 fn dispatch_swap(
-    _state: &mut GuiState,
     cmds: &mut HashSet<PendingCommand>,
     src_page: usize,
     src_slot: usize,
@@ -334,21 +312,21 @@ fn dispatch_swap(
     });
 }
 
-fn handle_click(state: &mut GuiState, ctx: &egui::Context) {
+fn handle_click(interaction: &mut InteractionState, ctx: &egui::Context) {
     if !ctx.input(|i| i.pointer.primary_clicked()) {
         return;
     }
     let modifiers = ctx.input(|i| i.modifiers);
-    if let Some((page, slot)) = state.interaction.hovered.as_ref().and_then(|h| h.slot()) {
+    if let Some((page, slot)) = interaction.hovered.as_ref().and_then(|h| h.slot()) {
         if modifiers.shift {
-            state.interaction.selections.slots.range_to(page, slot);
+            interaction.selections.slots.range_to(page, slot);
         } else if modifiers.ctrl || modifiers.command {
-            state.interaction.selections.slots.toggle(page, slot);
+            interaction.selections.slots.toggle(page, slot);
         } else {
-            state.interaction.selections.slots = SlotSelection::single(page, slot);
+            interaction.selections.slots = SlotSelection::single(page, slot);
         }
     } else {
-        state.interaction.selections.slots.clear();
+        interaction.selections.slots.clear();
     }
 }
 
@@ -376,9 +354,8 @@ mod tests {
     #[test]
     fn dispatch_move_uses_selection_when_dragged_slot_is_selected() {
         let mut state = state_with_selection(0, vec![1, 2, 3]);
-        state.data.pages.dirty = vec![false, false];
         let mut cmds = HashSet::new();
-        dispatch_move(&mut state, &mut cmds, 0, 2, 1);
+        dispatch_move(&mut state.interaction, &mut cmds, 0, 2, 1);
         assert_eq!(cmds.len(), 1);
         let PendingCommand::Move {
             src_page,
@@ -396,9 +373,8 @@ mod tests {
     #[test]
     fn dispatch_move_uses_single_slot_when_not_in_selection() {
         let mut state = state_with_selection(0, vec![0, 1]);
-        state.data.pages.dirty = vec![false, false];
         let mut cmds = HashSet::new();
-        dispatch_move(&mut state, &mut cmds, 0, 3, 1);
+        dispatch_move(&mut state.interaction, &mut cmds, 0, 3, 1);
         let PendingCommand::Move { src_slots, .. } = cmds.iter().next().unwrap() else {
             panic!()
         };
@@ -407,19 +383,16 @@ mod tests {
 
     #[test]
     fn dispatch_swap_cross_page_emits_command() {
-        let mut state = GuiState::new(ProjectState::default());
-        state.data.pages.dirty = vec![false, false];
         let mut cmds = HashSet::new();
-        dispatch_swap(&mut state, &mut cmds, 0, 0, 1, 2);
+        dispatch_swap(&mut cmds, 0, 0, 1, 2);
         assert_eq!(cmds.len(), 1, "cross-page swap must emit a command");
     }
 
     #[test]
     fn dispatch_swap_ignores_same_slot() {
-        let mut state = GuiState::new(ProjectState::default());
-        state.data.pages.dirty = vec![false];
         let mut cmds = HashSet::new();
-        dispatch_swap(&mut state, &mut cmds, 0, 1, 0, 1);
+        dispatch_swap(&mut cmds, 0, 1, 0, 1);
+
         assert!(cmds.is_empty(), "same-slot swap must be ignored");
     }
 
@@ -438,11 +411,7 @@ mod tests {
             page: 2,
             slot: None,
         });
-        state.data.pages.dirty = vec![false, false, false];
         let mut cmds = HashSet::new();
-        for d in &mut state.data.pages.dirty {
-            *d = true;
-        }
         cmds.insert(PendingCommand::Place {
             photo_ids: state.interaction.selections.photos.ids(),
             dst_page: state
@@ -490,9 +459,8 @@ mod tests {
             page: 1,
             slot: None,
         });
-        state.data.pages.dirty = vec![false, false];
         let mut cmds = HashSet::new();
-        complete_pool_drag(&mut state, &mut cmds, vec!["a.jpg".into()]);
+        complete_pool_drag(&mut state.interaction, &mut cmds, vec!["a.jpg".into()]);
         assert_eq!(cmds.len(), 1);
         let PendingCommand::Place { dst_page, .. } = cmds.iter().next().unwrap() else {
             panic!()
@@ -505,7 +473,7 @@ mod tests {
         let mut state = GuiState::new(ProjectState::default());
         state.interaction.hovered = None;
         let mut cmds = HashSet::new();
-        complete_pool_drag(&mut state, &mut cmds, vec!["a.jpg".into()]);
+        complete_pool_drag(&mut state.interaction, &mut cmds, vec!["a.jpg".into()]);
         assert!(cmds.is_empty(), "no hovered page → no command");
     }
 
@@ -513,9 +481,8 @@ mod tests {
     fn nav_drag_complete_emits_page_swap() {
         let mut state = GuiState::new(ProjectState::default());
         state.interaction.hovered = Some(HoveredTarget::NavPage(2));
-        state.data.pages.dirty = vec![false, false, false];
         let mut cmds = HashSet::new();
-        complete_nav_drag(&mut state, &mut cmds, 0);
+        complete_nav_drag(&mut state.interaction, &mut cmds, 0);
         assert_eq!(cmds.len(), 1);
         let PendingCommand::PageSwap { left, right } = cmds.iter().next().unwrap() else {
             panic!()
@@ -528,9 +495,8 @@ mod tests {
     fn nav_drag_complete_noop_when_same_page() {
         let mut state = GuiState::new(ProjectState::default());
         state.interaction.hovered = Some(HoveredTarget::NavPage(1));
-        state.data.pages.dirty = vec![false, false];
         let mut cmds = HashSet::new();
-        complete_nav_drag(&mut state, &mut cmds, 1);
+        complete_nav_drag(&mut state.interaction, &mut cmds, 1);
         assert!(cmds.is_empty(), "same page → no-op");
     }
 }

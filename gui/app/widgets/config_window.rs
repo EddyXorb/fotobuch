@@ -3,10 +3,15 @@ use std::collections::HashSet;
 use serde_yaml::Value;
 
 use crate::app::pending::PendingCommand;
-use crate::state::GuiState;
+use crate::state::{DataState, InteractionState};
 
-pub fn show(ctx: &egui::Context, state: &mut GuiState, cmds: &mut HashSet<PendingCommand>) {
-    let config_value = match serde_yaml::to_value(&state.data.project.config) {
+pub fn show(
+    ctx: &egui::Context,
+    data: &DataState,
+    interaction: &mut InteractionState,
+    cmds: &mut HashSet<PendingCommand>,
+) {
+    let config_value = match serde_yaml::to_value(&data.project.config) {
         Ok(v) => v,
         Err(_) => return,
     };
@@ -14,12 +19,12 @@ pub fn show(ctx: &egui::Context, state: &mut GuiState, cmds: &mut HashSet<Pendin
     egui::Window::new("Config")
         .default_size([380.0, 520.0])
         .resizable(true)
-        .open(&mut state.interaction.config.open)
+        .open(&mut interaction.config.open)
         .show(ctx, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
                 walk(
                     ui,
-                    &mut state.interaction.config.edit_buffers,
+                    &mut interaction.config.edit_buffers,
                     cmds,
                     "",
                     &config_value,

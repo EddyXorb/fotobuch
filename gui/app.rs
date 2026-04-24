@@ -296,22 +296,31 @@ impl eframe::App for FotobuchApp {
         // Clear per-frame hover state before widgets re-populate it.
         self.state.interaction.hovered = None;
         let t = Instant::now();
-        let mut cmds = widgets::toolbar::draw(ui, &mut self.state);
-        widgets::statusbar::draw(ui, &self.state);
+        let mut cmds = widgets::toolbar::draw(ui, &mut self.state.interaction);
+        widgets::statusbar::draw(ui, &self.state.data, &self.state.interaction);
         // Side panels must come before the central panel (egui ordering requirement).
-        widgets::photo_pool::draw(ui, &mut self.state);
-        widgets::page_nav::draw(ui, &mut self.state, &mut cmds);
-        widgets::central_panel::draw(ui, &mut self.state);
+        widgets::photo_pool::draw(ui, &self.state.data, &mut self.state.interaction);
+        widgets::page_nav::draw(ui, &self.state.data, &mut self.state.interaction, &mut cmds);
+        widgets::central_panel::draw(ui, &self.state.data, &mut self.state.interaction);
         self.state.data.timings.show_panels = t.elapsed();
 
         if self.state.interaction.config.open {
-            widgets::config_window::show(&ctx, &mut self.state, &mut cmds);
+            widgets::config_window::show(
+                &ctx,
+                &self.state.data,
+                &mut self.state.interaction,
+                &mut cmds,
+            );
         }
 
         // Input handling runs after central panel so that hovered_slot reflects the current
         // frame — prevents toolbar clicks from accidentally triggering a drag.
         let t = Instant::now();
-        cmds.extend(input_handler::handle(&mut self.state, &ctx));
+        cmds.extend(input_handler::handle(
+            &mut self.state.data,
+            &mut self.state.interaction,
+            &ctx,
+        ));
         self.dispatch_commands(cmds);
         self.state.data.timings.input_handlers = t.elapsed();
 

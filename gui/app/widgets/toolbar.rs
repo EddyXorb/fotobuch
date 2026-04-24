@@ -1,24 +1,24 @@
 use std::collections::HashSet;
 
 use crate::app::pending::PendingCommand;
-use crate::state::{DragMode, GuiState, HoveredTarget};
+use crate::state::{DragMode, HoveredTarget, InteractionState};
 
-pub fn draw(ui: &mut egui::Ui, state: &mut GuiState) -> HashSet<PendingCommand> {
+pub fn draw(ui: &mut egui::Ui, interaction: &mut InteractionState) -> HashSet<PendingCommand> {
     egui::Panel::top("toolbar")
-        .show_inside(ui, |ui| show(ui, state))
+        .show_inside(ui, |ui| show(ui, interaction))
         .inner
 }
 
-fn show(ui: &mut egui::Ui, state: &mut GuiState) -> HashSet<PendingCommand> {
+fn show(ui: &mut egui::Ui, interaction: &mut InteractionState) -> HashSet<PendingCommand> {
     let mut cmds = HashSet::new();
     ui.horizontal(|ui| {
         build_buttons(ui);
         history_buttons(ui, &mut cmds);
-        config_button(ui, state);
+        config_button(ui, interaction);
         ui.separator();
-        place_button(ui, state, &mut cmds);
+        place_button(ui, interaction, &mut cmds);
         ui.separator();
-        drag_mode_buttons(ui, state);
+        drag_mode_buttons(ui, interaction);
     });
     cmds
 }
@@ -37,28 +37,31 @@ fn history_buttons(ui: &mut egui::Ui, cmds: &mut HashSet<PendingCommand>) {
     }
 }
 
-fn config_button(ui: &mut egui::Ui, state: &mut GuiState) {
+fn config_button(ui: &mut egui::Ui, interaction: &mut InteractionState) {
     if ui
         .add(egui::Button::selectable(
-            state.interaction.config.open,
+            interaction.config.open,
             "⚙ Config",
         ))
         .clicked()
     {
-        state.interaction.config.open = !state.interaction.config.open;
+        interaction.config.open = !interaction.config.open;
     }
 }
 
-fn place_button(ui: &mut egui::Ui, state: &mut GuiState, cmds: &mut HashSet<PendingCommand>) {
-    let place_enabled = !state.interaction.selections.photos.is_empty();
+fn place_button(
+    ui: &mut egui::Ui,
+    interaction: &mut InteractionState,
+    cmds: &mut HashSet<PendingCommand>,
+) {
+    let place_enabled = !interaction.selections.photos.is_empty();
     if ui
         .add_enabled(place_enabled, egui::Button::new("Place"))
         .clicked()
     {
         cmds.insert(PendingCommand::Place {
-            photo_ids: state.interaction.selections.photos.ids(),
-            dst_page: state
-                .interaction
+            photo_ids: interaction.selections.photos.ids(),
+            dst_page: interaction
                 .hovered
                 .as_ref()
                 .and_then(HoveredTarget::central_page),
@@ -66,23 +69,23 @@ fn place_button(ui: &mut egui::Ui, state: &mut GuiState, cmds: &mut HashSet<Pend
     }
 }
 
-fn drag_mode_buttons(ui: &mut egui::Ui, state: &mut GuiState) {
+fn drag_mode_buttons(ui: &mut egui::Ui, interaction: &mut InteractionState) {
     if ui
         .add(egui::Button::selectable(
-            state.interaction.drag.mode == DragMode::Swap,
+            interaction.drag.mode == DragMode::Swap,
             "⇄ Swap",
         ))
         .clicked()
     {
-        state.interaction.drag.mode = DragMode::Swap;
+        interaction.drag.mode = DragMode::Swap;
     }
     if ui
         .add(egui::Button::selectable(
-            state.interaction.drag.mode == DragMode::Move,
+            interaction.drag.mode == DragMode::Move,
             "→ Move",
         ))
         .clicked()
     {
-        state.interaction.drag.mode = DragMode::Move;
+        interaction.drag.mode = DragMode::Move;
     }
 }
