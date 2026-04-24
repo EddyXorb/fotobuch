@@ -21,15 +21,16 @@ pub(super) fn draw_row(
 
     let mut badge_hovered = false;
     let row_response = ui.push_id(egui::Id::new(("pool_row", id)), |ui| {
-        let layout_resp = ui
-            .horizontal(|ui| {
-                draw_thumb_cell(ui, state, id, visible_needed);
-                draw_filename_label(ui, source, id);
-                badge_hovered = draw_placement_badge(ui, state, id);
-            })
-            .response;
+        let inner = ui.horizontal(|ui| {
+            draw_thumb_cell(ui, state, id, visible_needed);
+            draw_filename_label(ui, source, id);
+            let badge_start_x = ui.cursor().min.x;
+            badge_hovered = draw_placement_badge(ui, state, id);
+            badge_start_x
+        });
+        let interact_rect = inner.response.rect.with_max_x(inner.inner);
         ui.interact(
-            layout_resp.rect,
+            interact_rect,
             egui::Id::new(("pool_row_interact", id)),
             egui::Sense::click_and_drag(),
         )
@@ -95,9 +96,9 @@ fn draw_placement_badge(ui: &mut egui::Ui, state: &GuiState, id: &str) -> bool {
         _ => egui::Color32::from_rgb(220, 40, 40),
     };
     let (badge_rect, badge_resp) =
-        ui.allocate_exact_size(egui::vec2(8.0, 8.0), egui::Sense::hover());
+        ui.allocate_exact_size(egui::vec2(12.0, 12.0), egui::Sense::hover());
     ui.painter()
-        .circle_filled(badge_rect.center(), 4.0, badge_color);
+        .circle_filled(badge_rect.center(), 6.0, badge_color);
 
     if placed_count > 0 {
         let is_hovered = badge_resp.hovered();
