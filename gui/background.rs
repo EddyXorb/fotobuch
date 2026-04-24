@@ -10,6 +10,15 @@ use fotobuch::output::typst_world::TypstWorld;
 use crate::task::{BackgroundResult, BackgroundTask};
 
 pub(super) const NAV_THUMB_MAX_EDGE_PX: u32 = 512;
+
+pub(super) struct RenderCtx<'a> {
+    pub project_root: &'a std::path::Path,
+    pub pool: &'a rayon::ThreadPool,
+    pub result_tx: &'a Sender<BackgroundResult>,
+    pub ctx: &'a Context,
+    pub world: &'a mut TypstWorld,
+    pub pixel_per_pt: f32,
+}
 pub(super) const POOL_THUMB_MAX_EDGE_PX: u32 = 256;
 
 pub fn spawn(
@@ -31,20 +40,23 @@ pub fn spawn(
             }
         };
 
+        let mut rctx = RenderCtx {
+            project_root: &project_root,
+            pool: &pool,
+            result_tx: &result_tx,
+            ctx: &repaint_ctx,
+            world: &mut world,
+            pixel_per_pt: 1.0,
+        };
+
         while let Ok(task) = task_rx.recv() {
             match task {
                 BackgroundTask::RenderPages {
                     pages,
                     pixel_per_pt,
                 } => {
-                    render::render_pages(
-                        &mut world,
-                        &pool,
-                        &result_tx,
-                        pages,
-                        pixel_per_pt,
-                        &repaint_ctx,
-                    );
+                    rctx.pixel_per_pt = pixel_per_pt;
+                    render::render_pages(&mut rctx, pages);
                 }
                 BackgroundTask::SwapSlots {
                     src_page,
@@ -53,18 +65,8 @@ pub fn spawn(
                     dst_slot,
                     pixel_per_pt,
                 } => {
-                    commands::run_swap_slots(
-                        &project_root,
-                        src_page,
-                        src_slot,
-                        dst_page,
-                        dst_slot,
-                        &mut world,
-                        &pool,
-                        &result_tx,
-                        &repaint_ctx,
-                        pixel_per_pt,
-                    );
+                    rctx.pixel_per_pt = pixel_per_pt;
+                    commands::run_swap_slots(src_page, src_slot, dst_page, dst_slot, &mut rctx);
                 }
                 BackgroundTask::MoveSlot {
                     src_page,
@@ -72,53 +74,24 @@ pub fn spawn(
                     dst_page,
                     pixel_per_pt,
                 } => {
-                    commands::run_move_slot(
-                        &project_root,
-                        src_page,
-                        src_slots,
-                        dst_page,
-                        &mut world,
-                        &pool,
-                        &result_tx,
-                        &repaint_ctx,
-                        pixel_per_pt,
-                    );
+                    rctx.pixel_per_pt = pixel_per_pt;
+                    commands::run_move_slot(src_page, src_slots, dst_page, &mut rctx);
                 }
                 BackgroundTask::Undo { pixel_per_pt } => {
-                    commands::run_undo(
-                        &project_root,
-                        &mut world,
-                        &pool,
-                        &result_tx,
-                        &repaint_ctx,
-                        pixel_per_pt,
-                    );
+                    rctx.pixel_per_pt = pixel_per_pt;
+                    commands::run_undo(&mut rctx);
                 }
                 BackgroundTask::Redo { pixel_per_pt } => {
-                    commands::run_redo(
-                        &project_root,
-                        &mut world,
-                        &pool,
-                        &result_tx,
-                        &repaint_ctx,
-                        pixel_per_pt,
-                    );
+                    rctx.pixel_per_pt = pixel_per_pt;
+                    commands::run_redo(&mut rctx);
                 }
                 BackgroundTask::PageSwap {
                     left,
                     right,
                     pixel_per_pt,
                 } => {
-                    commands::run_page_swap(
-                        &project_root,
-                        left,
-                        right,
-                        &mut world,
-                        &pool,
-                        &result_tx,
-                        &repaint_ctx,
-                        pixel_per_pt,
-                    );
+                    rctx.pixel_per_pt = pixel_per_pt;
+                    commands::run_page_swap(left, right, &mut rctx);
                 }
                 BackgroundTask::LoadPhotoThumbnails { items } => {
                     commands::run_load_photo_thumbnails(items, &pool, &result_tx, &repaint_ctx);
@@ -128,32 +101,16 @@ pub fn spawn(
                     dst_page,
                     pixel_per_pt,
                 } => {
-                    commands::run_place_photos(
-                        &project_root,
-                        photo_ids,
-                        dst_page,
-                        &mut world,
-                        &pool,
-                        &result_tx,
-                        &repaint_ctx,
-                        pixel_per_pt,
-                    );
+                    rctx.pixel_per_pt = pixel_per_pt;
+                    commands::run_place_photos(photo_ids, dst_page, &mut rctx);
                 }
                 BackgroundTask::ConfigSet {
                     key,
                     value,
                     pixel_per_pt,
                 } => {
-                    commands::run_config_set(
-                        &project_root,
-                        &key,
-                        &value,
-                        &mut world,
-                        &pool,
-                        &result_tx,
-                        &repaint_ctx,
-                        pixel_per_pt,
-                    );
+                    rctx.pixel_per_pt = pixel_per_pt;
+                    commands::run_config_set(&key, &value, &mut rctx);
                 }
             }
         }

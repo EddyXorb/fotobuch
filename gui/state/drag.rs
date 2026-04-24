@@ -34,6 +34,7 @@ pub enum DragSource {
     /// Right-mouse drag from a page thumbnail in the nav panel.
     NavPage {
         src_page: usize,
+        #[allow(unused)]
         cursor_at_drag_start: egui::Pos2,
     },
     /// Right-mouse drag from a photo row in the pool panel.

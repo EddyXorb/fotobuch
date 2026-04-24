@@ -44,6 +44,7 @@ impl HoveredTarget {
         }
     }
 
+    #[allow(unused)]
     pub fn as_pool_id(&self) -> Option<&str> {
         match self {
             Self::PoolItem(id) => Some(id),

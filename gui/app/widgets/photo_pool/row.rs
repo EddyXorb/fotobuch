@@ -1,5 +1,4 @@
 use std::path::Path;
-use std::path::PathBuf;
 
 use crate::state::{
     ActiveDrag, DataState, DragSource, HoveredTarget, InteractionState, PhotoSelection,
@@ -11,7 +10,7 @@ pub(super) fn draw_row(
     data: &DataState,
     interaction: &mut InteractionState,
     id: &str,
-    source: &PathBuf,
+    source: &Path,
     order: &[String],
 ) {
     let is_selected = interaction.selections.photos.is_selected(id);

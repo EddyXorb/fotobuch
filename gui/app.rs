@@ -270,7 +270,7 @@ fn install_fallback_font(ctx: &egui::Context) {
     ctx.set_fonts(fonts);
 }
 
-fn mark_dirty(dirty: &mut Vec<bool>, task: &BackgroundTask) {
+fn mark_dirty(dirty: &mut [bool], task: &BackgroundTask) {
     match task {
         BackgroundTask::SwapSlots {
             src_page, dst_page, ..

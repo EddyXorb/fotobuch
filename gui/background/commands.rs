@@ -1,6 +1,3 @@
-use std::path::Path;
-use std::path::PathBuf;
-
 use crossbeam::channel::Sender;
 use egui::Context;
 use fotobuch::commands::build::{BuildConfig, build};
@@ -10,14 +7,13 @@ use fotobuch::commands::page::{
 };
 use fotobuch::commands::place::{PlaceConfig, place};
 use fotobuch::commands::undo::{redo, undo};
-use fotobuch::output::typst_world::TypstWorld;
 
 use crate::task::BackgroundResult;
 
 use super::render::send_command_done;
 
 pub(super) fn run_load_photo_thumbnails(
-    items: Vec<(String, PathBuf)>,
+    items: Vec<(String, std::path::PathBuf)>,
     pool: &rayon::ThreadPool,
     result_tx: &Sender<BackgroundResult>,
     repaint_ctx: &Context,
@@ -44,25 +40,19 @@ pub(super) fn run_load_photo_thumbnails(
     }
 }
 
-pub(super) fn run_page_command(
-    project_root: &Path,
-    cmd: PageMoveCmd,
-    world: &mut TypstWorld,
-    pool: &rayon::ThreadPool,
-    result_tx: &Sender<BackgroundResult>,
-    ctx: &Context,
-    pixel_per_pt: f32,
-) {
-    let move_output = match execute_move(project_root, cmd) {
+pub(super) fn run_page_command(cmd: PageMoveCmd, rctx: &mut super::RenderCtx<'_>) {
+    let move_output = match execute_move(rctx.project_root, cmd) {
         Err(e) => {
-            let _ = result_tx.send(BackgroundResult::CommandFailed(e.to_string()));
+            let _ = rctx
+                .result_tx
+                .send(BackgroundResult::CommandFailed(e.to_string()));
             return;
         }
         Ok(o) => o,
     };
 
     if move_output.changed_state.is_none() {
-        send_command_done(None, vec![], world, pool, result_tx, ctx, pixel_per_pt);
+        send_command_done(None, vec![], rctx);
         return;
     }
 
@@ -79,9 +69,11 @@ pub(super) fn run_page_command(
         force: false,
         pages: None,
     };
-    match build(project_root, &build_cfg) {
+    match build(rctx.project_root, &build_cfg) {
         Err(e) => {
-            let _ = result_tx.send(BackgroundResult::CommandFailed(e.to_string()));
+            let _ = rctx
+                .result_tx
+                .send(BackgroundResult::CommandFailed(e.to_string()));
         }
         Ok(build_output) => {
             let new_state = build_output.changed_state.or(move_output.changed_state);
@@ -91,39 +83,25 @@ pub(super) fn run_page_command(
                     dirty.push(p);
                 }
             }
-            send_command_done(new_state, dirty, world, pool, result_tx, ctx, pixel_per_pt);
+            send_command_done(new_state, dirty, rctx);
         }
     }
 }
 
-pub(super) fn run_page_swap(
-    project_root: &Path,
-    left: usize,
-    right: usize,
-    world: &mut TypstWorld,
-    pool: &rayon::ThreadPool,
-    result_tx: &Sender<BackgroundResult>,
-    ctx: &Context,
-    pixel_per_pt: f32,
-) {
+pub(super) fn run_page_swap(left: usize, right: usize, rctx: &mut super::RenderCtx<'_>) {
     let cmd = PageMoveCmd::Swap {
         left: Src::Pages(PagesExpr::single(left as u32)),
         right: DstSwap::Pages(PagesExpr::single(right as u32)),
     };
-    run_page_command(project_root, cmd, world, pool, result_tx, ctx, pixel_per_pt);
+    run_page_command(cmd, rctx);
 }
 
 pub(super) fn run_swap_slots(
-    project_root: &Path,
     src_page: usize,
     src_slot: usize,
     dst_page: usize,
     dst_slot: usize,
-    world: &mut TypstWorld,
-    pool: &rayon::ThreadPool,
-    result_tx: &Sender<BackgroundResult>,
-    ctx: &Context,
-    pixel_per_pt: f32,
+    rctx: &mut super::RenderCtx<'_>,
 ) {
     let cmd = PageMoveCmd::Swap {
         left: Src::Slots {
@@ -135,19 +113,14 @@ pub(super) fn run_swap_slots(
             slots: SlotExpr::single(dst_slot as u32),
         },
     };
-    run_page_command(project_root, cmd, world, pool, result_tx, ctx, pixel_per_pt);
+    run_page_command(cmd, rctx);
 }
 
 pub(super) fn run_move_slot(
-    project_root: &Path,
     src_page: usize,
     src_slots: Vec<usize>,
     dst_page: usize,
-    world: &mut TypstWorld,
-    pool: &rayon::ThreadPool,
-    result_tx: &Sender<BackgroundResult>,
-    ctx: &Context,
-    pixel_per_pt: f32,
+    rctx: &mut super::RenderCtx<'_>,
 ) {
     let cmd = PageMoveCmd::Move {
         src: Src::Slots {
@@ -156,123 +129,65 @@ pub(super) fn run_move_slot(
         },
         dst: DstMove::Page(dst_page as u32),
     };
-    run_page_command(project_root, cmd, world, pool, result_tx, ctx, pixel_per_pt);
+    run_page_command(cmd, rctx);
 }
 
-pub(super) fn run_undo(
-    project_root: &Path,
-    world: &mut TypstWorld,
-    pool: &rayon::ThreadPool,
-    result_tx: &Sender<BackgroundResult>,
-    ctx: &Context,
-    pixel_per_pt: f32,
-) {
-    run_undo_or_redo(
-        undo(project_root, 1),
-        world,
-        pool,
-        result_tx,
-        ctx,
-        pixel_per_pt,
-    );
+pub(super) fn run_undo(rctx: &mut super::RenderCtx<'_>) {
+    run_undo_or_redo(undo(rctx.project_root, 1), rctx);
 }
 
-pub(super) fn run_redo(
-    project_root: &Path,
-    world: &mut TypstWorld,
-    pool: &rayon::ThreadPool,
-    result_tx: &Sender<BackgroundResult>,
-    ctx: &Context,
-    pixel_per_pt: f32,
-) {
-    run_undo_or_redo(
-        redo(project_root, 1),
-        world,
-        pool,
-        result_tx,
-        ctx,
-        pixel_per_pt,
-    );
+pub(super) fn run_redo(rctx: &mut super::RenderCtx<'_>) {
+    run_undo_or_redo(redo(rctx.project_root, 1), rctx);
 }
 
 fn run_undo_or_redo(
     result: anyhow::Result<fotobuch::commands::CommandOutput<fotobuch::commands::UndoResult>>,
-    world: &mut TypstWorld,
-    pool: &rayon::ThreadPool,
-    result_tx: &Sender<BackgroundResult>,
-    ctx: &Context,
-    pixel_per_pt: f32,
+    rctx: &mut super::RenderCtx<'_>,
 ) {
     match result {
         Err(e) => {
-            let _ = result_tx.send(BackgroundResult::CommandFailed(e.to_string()));
+            let _ = rctx
+                .result_tx
+                .send(BackgroundResult::CommandFailed(e.to_string()));
         }
         Ok(output) => {
             let new_state = output.changed_state;
             let num_pages = new_state.as_ref().map_or(0, |s| s.layout.len());
             let all_pages: Vec<usize> = (0..num_pages).collect();
-            send_command_done(
-                new_state,
-                all_pages,
-                world,
-                pool,
-                result_tx,
-                ctx,
-                pixel_per_pt,
-            );
+            send_command_done(new_state, all_pages, rctx);
         }
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 pub(super) fn run_place_photos(
-    project_root: &Path,
     photo_ids: Vec<String>,
     dst_page: Option<usize>,
-    world: &mut TypstWorld,
-    pool: &rayon::ThreadPool,
-    result_tx: &Sender<BackgroundResult>,
-    ctx: &Context,
-    pixel_per_pt: f32,
+    rctx: &mut super::RenderCtx<'_>,
 ) {
     let config = PlaceConfig {
         filters: vec![],
         into_page: dst_page,
     };
-    match place(project_root, &config) {
+    match place(rctx.project_root, &config) {
         Err(e) => {
-            let _ = result_tx.send(BackgroundResult::CommandFailed(e.to_string()));
+            let _ = rctx
+                .result_tx
+                .send(BackgroundResult::CommandFailed(e.to_string()));
         }
         Ok(output) => {
             let dirty = output.result.pages_affected;
             let _ = photo_ids;
-            send_command_done(
-                output.changed_state,
-                dirty,
-                world,
-                pool,
-                result_tx,
-                ctx,
-                pixel_per_pt,
-            );
+            send_command_done(output.changed_state, dirty, rctx);
         }
     }
 }
 
-#[allow(clippy::too_many_arguments)]
-pub(super) fn run_config_set(
-    project_root: &Path,
-    key: &str,
-    value: &str,
-    world: &mut TypstWorld,
-    pool: &rayon::ThreadPool,
-    result_tx: &Sender<BackgroundResult>,
-    ctx: &Context,
-    pixel_per_pt: f32,
-) {
-    match config_set(project_root, key, value) {
+pub(super) fn run_config_set(key: &str, value: &str, rctx: &mut super::RenderCtx<'_>) {
+    match config_set(rctx.project_root, key, value) {
         Err(e) => {
-            let _ = result_tx.send(BackgroundResult::CommandFailed(e.to_string()));
+            let _ = rctx
+                .result_tx
+                .send(BackgroundResult::CommandFailed(e.to_string()));
         }
         Ok(output) => {
             let num_pages = output
@@ -281,15 +196,7 @@ pub(super) fn run_config_set(
                 .map(|s| s.layout.len())
                 .unwrap_or(0);
             let all_pages: Vec<usize> = (0..num_pages).collect();
-            send_command_done(
-                output.changed_state,
-                all_pages,
-                world,
-                pool,
-                result_tx,
-                ctx,
-                pixel_per_pt,
-            );
+            send_command_done(output.changed_state, all_pages, rctx);
         }
     }
 }
