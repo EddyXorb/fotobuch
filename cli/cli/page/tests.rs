@@ -172,7 +172,7 @@ fn test_parse_slot_to_new_page() {
                 page: 3,
                 slots: SlotExpr::single(2),
             },
-            dst: DstMove::NewPageAfter(4),
+            dst: DstMove::NewPageAt(5),
         }
     );
 }
@@ -330,4 +330,19 @@ fn test_parse_pos_missing_colon() {
 #[test]
 fn test_parse_pos_invalid_input() {
     assert!(parse_pos_address("abc").is_err());
+}
+
+#[test]
+fn parse_to_n_plus_yields_new_page_at_n_plus_1() {
+    let cmd = parse_move_cmd("3:2 to 4+").unwrap();
+    assert_eq!(
+        cmd,
+        PageMoveCmd::Move {
+            src: Src::Slots {
+                page: 3,
+                slots: SlotExpr::single(2),
+            },
+            dst: DstMove::NewPageAt(5),
+        }
+    );
 }

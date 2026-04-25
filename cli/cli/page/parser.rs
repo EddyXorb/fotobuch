@@ -145,7 +145,7 @@ impl Parser {
         let page = self.expect_number("destination page")?;
         if let Some(Token::Plus) = self.peek() {
             self.advance(); // consume "+"
-            Ok(DstMove::NewPageAfter(page))
+            Ok(DstMove::NewPageAt(page + 1))
         } else {
             Ok(DstMove::Page(page))
         }

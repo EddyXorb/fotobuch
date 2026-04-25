@@ -73,6 +73,9 @@ fn execute_move_to(
             Src::Pages(pe) => {
                 // Remove pages descending so indices stay valid.
                 let mut page_nums = pe.pages.clone();
+                if mgr.state.has_cover() && page_nums.contains(&0) {
+                    return Err(ValidationError::PageNotFound(0).into());
+                }
                 let src_desc = format_pages_list(&pe.pages);
                 page_nums.sort_unstable_by(|a, b| b.cmp(a));
                 let mut deleted = vec![];
@@ -110,7 +113,7 @@ fn execute_move_to(
     }
 
     // For Slots: resolve src index and slot indices BEFORE any insertion so that
-    // a NewPageAfter insert cannot shift the src page out of position.
+    // a NewPageAt insert cannot shift the src page out of position.
     let pre_insert_src = if let Src::Slots { page, slots } = &src {
         let idx = page_idx(*page, &mgr.state.layout)?;
         let slot_indices = resolve_slots(*page, slots, &mgr.state.layout)?;
@@ -124,9 +127,14 @@ fn execute_move_to(
             let idx = page_idx(*p, &mgr.state.layout)?;
             (idx, None)
         }
-        DstMove::NewPageAfter(p) => {
-            let after_idx = page_idx(*p, &mgr.state.layout)?;
-            let new_idx = after_idx + 1;
+        DstMove::NewPageAt(idx) => {
+            if (*idx as usize) > mgr.state.layout.len() {
+                return Err(ValidationError::PageNotFound(*idx).into());
+            }
+            if *idx == 0 && mgr.state.has_cover() {
+                return Err(ValidationError::PageNotFound(0).into());
+            }
+            let new_idx = *idx as usize;
             let new_page_num = new_idx; // will be renumbered by finish()
             mgr.state.layout.insert(
                 new_idx,
@@ -494,7 +502,7 @@ mod tests {
                 page: 0,
                 slots: SlotExpr::single(0),
             },
-            dst: DstMove::NewPageAfter(0),
+            dst: DstMove::NewPageAt(1),
         };
         let result = execute_move(tmp.path(), cmd).unwrap();
         assert!(!result.result.pages_inserted.is_empty());
@@ -518,7 +526,7 @@ mod tests {
                 page: 1,
                 slots: SlotExpr::single(0),
             },
-            dst: DstMove::NewPageAfter(0),
+            dst: DstMove::NewPageAt(1),
         };
         let result = execute_move(tmp.path(), cmd).unwrap();
         assert!(!result.result.pages_inserted.is_empty());
@@ -725,6 +733,99 @@ mod tests {
         assert!(matches!(
             err,
             PageMoveError::Validation(ValidationError::SwapRangesOverlap)
+        ));
+    }
+
+    #[test]
+    fn execute_move_new_page_at_zero_inserts_before_first_page() {
+        // Page 1 has two photos so it won't be deleted after the move.
+        let state = make_state_with_layout(vec![vec!["a.jpg"], vec!["b.jpg", "c.jpg"]]);
+        let tmp = TempDir::new().unwrap();
+        setup_repo(&tmp, &state);
+
+        let cmd = PageMoveCmd::Move {
+            src: Src::Slots {
+                page: 1,
+                slots: SlotExpr::single(0),
+            },
+            dst: DstMove::NewPageAt(0),
+        };
+        let result = execute_move(tmp.path(), cmd).unwrap();
+        assert!(!result.result.pages_inserted.is_empty());
+
+        let mgr = StateManager::open(tmp.path()).unwrap();
+        // new page(b.jpg), page0(a.jpg), page1(c.jpg)
+        assert_eq!(mgr.state.layout.len(), 3);
+        assert!(mgr.state.layout[0].photos.contains(&"b.jpg".to_owned()));
+        mgr.finish("test: noop").unwrap();
+    }
+
+    #[test]
+    fn execute_move_new_page_at_len_appends() {
+        let state = make_state_with_layout(vec![vec!["a.jpg", "b.jpg"]]);
+        let tmp = TempDir::new().unwrap();
+        setup_repo(&tmp, &state);
+
+        let cmd = PageMoveCmd::Move {
+            src: Src::Slots {
+                page: 0,
+                slots: SlotExpr::single(0),
+            },
+            dst: DstMove::NewPageAt(1),
+        };
+        execute_move(tmp.path(), cmd).unwrap();
+
+        let mgr = StateManager::open(tmp.path()).unwrap();
+        assert_eq!(mgr.state.layout.len(), 2);
+        assert!(mgr.state.layout[1].photos.contains(&"a.jpg".to_owned()));
+        mgr.finish("test: noop").unwrap();
+    }
+
+    #[test]
+    fn execute_move_new_page_at_out_of_range_errors() {
+        let state = make_state_with_layout(vec![vec!["a.jpg"]]);
+        let tmp = TempDir::new().unwrap();
+        setup_repo(&tmp, &state);
+
+        let cmd = PageMoveCmd::Move {
+            src: Src::Slots {
+                page: 0,
+                slots: SlotExpr::single(0),
+            },
+            dst: DstMove::NewPageAt(99),
+        };
+        let err = execute_move(tmp.path(), cmd).unwrap_err();
+        assert!(matches!(
+            err,
+            PageMoveError::Validation(ValidationError::PageNotFound(99))
+        ));
+    }
+
+    #[test]
+    fn execute_move_pages_unplace_rejects_cover_when_active() {
+        use crate::dto_models::{BookConfig, CoverConfig, ProjectConfig};
+        let mut state = make_state_with_layout(vec![vec!["cover.jpg"], vec!["a.jpg"]]);
+        state.config = ProjectConfig {
+            book: BookConfig {
+                cover: CoverConfig {
+                    active: true,
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let tmp = TempDir::new().unwrap();
+        setup_repo(&tmp, &state);
+
+        let cmd = PageMoveCmd::Move {
+            src: Src::Pages(PagesExpr::single(0)),
+            dst: DstMove::Unplace,
+        };
+        let err = execute_move(tmp.path(), cmd).unwrap_err();
+        assert!(matches!(
+            err,
+            PageMoveError::Validation(ValidationError::PageNotFound(0))
         ));
     }
 }
