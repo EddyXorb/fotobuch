@@ -1,5 +1,6 @@
 mod input_handler;
 mod pending;
+pub(super) mod rebuild;
 mod widgets;
 
 use std::collections::HashSet;
@@ -216,6 +217,43 @@ impl FotobuchApp {
                     value,
                     pixel_per_pt: ppt,
                 },
+                PendingCommand::MoveToNewPage {
+                    src_page,
+                    src_slots,
+                    at_position,
+                } => BackgroundTask::MoveToNewPage {
+                    src_page,
+                    src_slots,
+                    at_position,
+                    pixel_per_pt: ppt,
+                },
+                PendingCommand::SwapRange {
+                    src_page,
+                    src_slots,
+                    dst_page,
+                    dst_slots,
+                } => BackgroundTask::SwapRange {
+                    src_page,
+                    src_slots,
+                    dst_page,
+                    dst_slots,
+                    pixel_per_pt: ppt,
+                },
+                PendingCommand::Unplace { page, slots } => BackgroundTask::Unplace {
+                    page,
+                    slots,
+                    pixel_per_pt: ppt,
+                },
+                PendingCommand::DeletePage { page } => BackgroundTask::DeletePage {
+                    page,
+                    pixel_per_pt: ppt,
+                },
+                PendingCommand::RebuildPages { pages } => BackgroundTask::RebuildPages {
+                    pages,
+                    pixel_per_pt: ppt,
+                },
+                PendingCommand::RebuildAll => BackgroundTask::RebuildAll { pixel_per_pt: ppt },
+                PendingCommand::ReleaseBuild => BackgroundTask::ReleaseBuild { pixel_per_pt: ppt },
             };
             mark_dirty(&mut self.state.data.pages.dirty, &task);
             if self.task_tx.send(task).is_err() {
@@ -299,7 +337,14 @@ fn mark_dirty(dirty: &mut [bool], task: &BackgroundTask) {
         BackgroundTask::Undo { .. }
         | BackgroundTask::Redo { .. }
         | BackgroundTask::ConfigSet { .. }
-        | BackgroundTask::PlacePhotos { dst_page: None, .. } => {
+        | BackgroundTask::PlacePhotos { dst_page: None, .. }
+        | BackgroundTask::MoveToNewPage { .. }
+        | BackgroundTask::SwapRange { .. }
+        | BackgroundTask::Unplace { .. }
+        | BackgroundTask::DeletePage { .. }
+        | BackgroundTask::RebuildPages { .. }
+        | BackgroundTask::RebuildAll { .. }
+        | BackgroundTask::ReleaseBuild { .. } => {
             dirty.fill(true);
         }
         BackgroundTask::RenderPages { .. } | BackgroundTask::LoadPhotoThumbnails { .. } => {}

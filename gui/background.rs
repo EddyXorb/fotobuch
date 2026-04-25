@@ -112,6 +112,52 @@ pub fn spawn(
                     rctx.pixel_per_pt = pixel_per_pt;
                     commands::run_config_set(&key, &value, &mut rctx);
                 }
+                BackgroundTask::MoveToNewPage {
+                    src_page,
+                    src_slots,
+                    at_position,
+                    pixel_per_pt,
+                } => {
+                    rctx.pixel_per_pt = pixel_per_pt;
+                    commands::run_move_to_new_page(src_page, src_slots, at_position, &mut rctx);
+                }
+                BackgroundTask::SwapRange {
+                    src_page,
+                    src_slots,
+                    dst_page,
+                    dst_slots,
+                    pixel_per_pt,
+                } => {
+                    rctx.pixel_per_pt = pixel_per_pt;
+                    commands::run_swap_range(src_page, src_slots, dst_page, dst_slots, &mut rctx);
+                }
+                BackgroundTask::Unplace {
+                    page,
+                    slots,
+                    pixel_per_pt,
+                } => {
+                    rctx.pixel_per_pt = pixel_per_pt;
+                    commands::run_unplace(page, slots, &mut rctx);
+                }
+                BackgroundTask::DeletePage { page, pixel_per_pt } => {
+                    rctx.pixel_per_pt = pixel_per_pt;
+                    commands::run_delete_page(page, &mut rctx);
+                }
+                BackgroundTask::RebuildPages {
+                    pages,
+                    pixel_per_pt,
+                } => {
+                    rctx.pixel_per_pt = pixel_per_pt;
+                    commands::run_rebuild_pages(pages, &mut rctx);
+                }
+                BackgroundTask::RebuildAll { pixel_per_pt } => {
+                    rctx.pixel_per_pt = pixel_per_pt;
+                    commands::run_rebuild_all(&mut rctx);
+                }
+                BackgroundTask::ReleaseBuild { pixel_per_pt } => {
+                    rctx.pixel_per_pt = pixel_per_pt;
+                    commands::run_release_build(&mut rctx);
+                }
             }
         }
     });

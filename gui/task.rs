@@ -50,6 +50,38 @@ pub enum BackgroundTask {
         value: String,
         pixel_per_pt: f32,
     },
+    MoveToNewPage {
+        src_page: usize,
+        src_slots: Vec<usize>,
+        at_position: usize,
+        pixel_per_pt: f32,
+    },
+    SwapRange {
+        src_page: usize,
+        src_slots: Vec<usize>,
+        dst_page: usize,
+        dst_slots: Vec<usize>,
+        pixel_per_pt: f32,
+    },
+    Unplace {
+        page: usize,
+        slots: Vec<usize>,
+        pixel_per_pt: f32,
+    },
+    DeletePage {
+        page: usize,
+        pixel_per_pt: f32,
+    },
+    RebuildPages {
+        pages: Vec<usize>,
+        pixel_per_pt: f32,
+    },
+    RebuildAll {
+        pixel_per_pt: f32,
+    },
+    ReleaseBuild {
+        pixel_per_pt: f32,
+    },
 }
 
 #[derive(Debug)]

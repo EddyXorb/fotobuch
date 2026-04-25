@@ -40,6 +40,9 @@ pub struct InteractionState {
     pub drag: DragState,
     pub viewport: Viewport,
     pub config: ConfigPanelState,
+    pub goto_open: bool,
+    pub rebuild_all_confirm: bool,
+    pub add_dialog_open: bool,
 }
 
 pub struct GuiState {
@@ -65,6 +68,9 @@ impl GuiState {
                 drag: DragState::default(),
                 viewport: Viewport::default(),
                 config: ConfigPanelState::default(),
+                goto_open: false,
+                rebuild_all_confirm: false,
+                add_dialog_open: false,
             },
         }
     }

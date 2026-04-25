@@ -31,4 +31,34 @@ pub enum PendingCommand {
         key: String,
         value: String,
     },
+    /// Move slots onto a newly inserted page.
+    MoveToNewPage {
+        src_page: usize,
+        src_slots: Vec<usize>,
+        at_position: usize,
+    },
+    /// Cross-page swap with contiguous slot ranges.
+    SwapRange {
+        src_page: usize,
+        src_slots: Vec<usize>,
+        dst_page: usize,
+        dst_slots: Vec<usize>,
+    },
+    /// Remove photos from specified slots (photos become unplaced in the pool).
+    Unplace {
+        page: usize,
+        slots: Vec<usize>,
+    },
+    /// Delete an entire page; photos return to the pool as unplaced.
+    DeletePage {
+        page: usize,
+    },
+    /// Rebuild auto-layout for the given pages.
+    RebuildPages {
+        pages: Vec<usize>,
+    },
+    /// Rebuild all auto-layout pages after user confirmation.
+    RebuildAll,
+    /// Release-quality PDF build.
+    ReleaseBuild,
 }
