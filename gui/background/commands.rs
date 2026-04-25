@@ -168,6 +168,7 @@ pub(super) fn run_place_photos(
 ) {
     let config = PlaceConfig {
         filters: vec![],
+        ids: photo_ids,
         into_page: dst_page,
     };
     match place(rctx.project_root, &config) {
@@ -177,9 +178,7 @@ pub(super) fn run_place_photos(
                 .send(BackgroundResult::CommandFailed(e.to_string()));
         }
         Ok(output) => {
-            let dirty = output.result.pages_affected;
-            let _ = photo_ids;
-            send_command_done(output.changed_state, dirty, rctx);
+            send_command_done(output.changed_state, output.result.pages_affected, rctx);
         }
     }
 }

@@ -63,6 +63,7 @@ fn test_place_no_unplaced_photos_returns_zero() -> Result<()> {
     // All photos are placed from build - place should do nothing
     let config = PlaceConfig {
         filters: vec![],
+        ids: vec![],
         into_page: None,
     };
     let result = place(&project_root, &config)?;
@@ -115,6 +116,7 @@ fn test_place_requires_layout() -> Result<()> {
     // Try to place without build - should fail
     let config = PlaceConfig {
         filters: vec![],
+        ids: vec![],
         into_page: None,
     };
     let result = place(&project_root, &config);
@@ -139,6 +141,7 @@ fn test_place_with_invalid_page_number() -> Result<()> {
     // Try placing into page beyond layout (0-based, so page_count is out of bounds)
     let config = PlaceConfig {
         filters: vec![],
+        ids: vec![],
         into_page: Some(page_count),
     };
     let result = place(&project_root, &config);
@@ -147,6 +150,7 @@ fn test_place_with_invalid_page_number() -> Result<()> {
     // Try placing far beyond layout
     let config = PlaceConfig {
         filters: vec![],
+        ids: vec![],
         into_page: Some(page_count + 10),
     };
     let result = place(&project_root, &config);
@@ -180,6 +184,7 @@ fn test_place_into_specific_page() -> Result<()> {
     // Now place the unplaced photo into page 0 (0-based first page)
     let config = PlaceConfig {
         filters: vec![],
+        ids: vec![],
         into_page: Some(0),
     };
     let result = place(&project_root, &config)?;
@@ -236,6 +241,7 @@ fn test_place_filter_by_pattern() -> Result<()> {
     // Place with a pattern that matches the test fixture path
     let config = PlaceConfig {
         filters: vec!["test_photos".to_string()],
+        ids: vec![],
         into_page: None,
     };
     let result = place(&project_root, &config)?;
@@ -257,6 +263,7 @@ fn test_place_chronologically_without_unplaced() -> Result<()> {
     // All photos already placed from build
     let config = PlaceConfig {
         filters: vec![],
+        ids: vec![],
         into_page: None,
     };
     let result = place(&project_root, &config)?;
@@ -288,6 +295,7 @@ fn test_place_invalid_filter_pattern() -> Result<()> {
     // Use invalid regex pattern
     let config = PlaceConfig {
         filters: vec!["[invalid".to_string()],
+        ids: vec![],
         into_page: None,
     };
     let result = place(&project_root, &config);
@@ -300,6 +308,55 @@ fn test_place_invalid_filter_pattern() -> Result<()> {
         "Actual: {}",
         &error_message
     );
+
+    Ok(())
+}
+
+#[test]
+fn test_place_ids_filter_restricts_to_selected_photos() -> Result<()> {
+    let temp_dir = TempDir::new()?;
+    let project_root = create_test_project_with_layout(&temp_dir)?;
+
+    let yaml_path = project_root.join("testplace.yaml");
+    let mut state = ProjectState::load(&yaml_path)?;
+
+    // Remove first two photos from page 0 to create two unplaced photos.
+    if state.layout.is_empty() || state.layout[0].photos.len() < 2 {
+        return Ok(());
+    }
+    let id_a = state.layout[0].photos.remove(0);
+    let id_b = state.layout[0].photos.remove(0);
+    if state.layout[0].slots.len() >= 2 {
+        state.layout[0].slots.remove(0);
+        state.layout[0].slots.remove(0);
+    }
+    state.save(&yaml_path)?;
+
+    // Place only id_a via ids filter.
+    let config = PlaceConfig {
+        filters: vec![],
+        ids: vec![id_a.clone()],
+        into_page: Some(0),
+    };
+    let result = place(&project_root, &config)?;
+
+    assert_eq!(
+        result.result.photos_placed, 1,
+        "only 1 of 2 unplaced photos should be placed"
+    );
+
+    let state_after = ProjectState::load(&yaml_path)?;
+    assert!(
+        state_after.layout[0].photos.contains(&id_a),
+        "id_a should be placed"
+    );
+    // id_b must still be unplaced (not in any layout page).
+    let placed: std::collections::HashSet<_> = state_after
+        .layout
+        .iter()
+        .flat_map(|p| p.photos.iter())
+        .collect();
+    assert!(!placed.contains(&id_b), "id_b should remain unplaced");
 
     Ok(())
 }

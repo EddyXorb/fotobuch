@@ -16,6 +16,8 @@ use crate::state_manager::StateManager;
 pub struct PlaceConfig {
     /// Only place photos matching these patterns (all must match)
     pub filters: Vec<String>,
+    /// Restrict to these photo IDs (empty = no restriction)
+    pub ids: Vec<String>,
     /// Place all matching photos onto this page (optional)
     pub into_page: Option<usize>,
 }
@@ -111,7 +113,15 @@ pub fn place(project_root: &Path, config: &PlaceConfig) -> Result<CommandOutput<
     }
 
     // 2. Apply filters
-    let filtered = apply_filters(&unplaced, &config.filters)?;
+    let after_regex = apply_filters(&unplaced, &config.filters)?;
+    let filtered: Vec<_> = if config.ids.is_empty() {
+        after_regex
+    } else {
+        after_regex
+            .into_iter()
+            .filter(|p| config.ids.contains(&p.id))
+            .collect()
+    };
     if filtered.is_empty() {
         let changed_state = mgr.finish("")?;
         return Ok(CommandOutput {

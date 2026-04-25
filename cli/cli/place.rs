@@ -10,6 +10,7 @@ pub fn handle(filters: Vec<String>, into: Option<usize>) -> Result<()> {
 
     let config = commands::place::PlaceConfig {
         filters,
+        ids: vec![],
         into_page: into,
     };
 
