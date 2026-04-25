@@ -1,6 +1,7 @@
 use crate::state::{DataState, HoveredTarget, InteractionState};
 
 use super::super::page_nav;
+use super::draw_new_page_slot;
 use super::draw_page;
 
 pub(super) fn draw_pages(
@@ -30,6 +31,14 @@ pub(super) fn draw_pages(
     }
     let output = sa.show(ui, |ui| {
         ui.vertical_centered(|ui| {
+            // [+] before page 0 — omitted when a cover is active (cover is always page 0).
+            if !data.project.has_cover() {
+                let (_, slot_hovered) = draw_new_page_slot::draw(ui, 0, interaction);
+                if hovered.is_none() && slot_hovered {
+                    hovered = Some(HoveredTarget::NewPageSlot { at_position: 0 });
+                }
+            }
+
             for i in 0..num_pages {
                 let (slot_idx, over_page, page_rect) =
                     draw_page::draw_page(ui, data, interaction, i);
@@ -49,6 +58,12 @@ pub(super) fn draw_pages(
                     };
                 }
                 page_nav::apply_scroll_if_needed(ui, interaction, i, page_rect);
+
+                // [+] after each page (including after the last page).
+                let (_, slot_hovered) = draw_new_page_slot::draw(ui, i + 1, interaction);
+                if hovered.is_none() && slot_hovered {
+                    hovered = Some(HoveredTarget::NewPageSlot { at_position: i + 1 });
+                }
             }
         });
     });
