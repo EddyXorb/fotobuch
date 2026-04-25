@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 
 use crate::app::pending::PendingCommand;
+use crate::app::rebuild::{PagesForRebuild, selected_pages_for_rebuild};
 use crate::state::{DragMode, HoveredTarget, InteractionState};
 
 pub fn draw(ui: &mut egui::Ui, interaction: &mut InteractionState) -> HashSet<PendingCommand> {
@@ -12,7 +13,8 @@ pub fn draw(ui: &mut egui::Ui, interaction: &mut InteractionState) -> HashSet<Pe
 fn show(ui: &mut egui::Ui, interaction: &mut InteractionState) -> HashSet<PendingCommand> {
     let mut cmds = HashSet::new();
     ui.horizontal(|ui| {
-        build_buttons(ui);
+        rebuild_button(ui, interaction, &mut cmds);
+        release_button(ui, &mut cmds);
         history_buttons(ui, &mut cmds);
         config_button(ui, interaction);
         ui.separator();
@@ -23,9 +25,31 @@ fn show(ui: &mut egui::Ui, interaction: &mut InteractionState) -> HashSet<Pendin
     cmds
 }
 
-fn build_buttons(ui: &mut egui::Ui) {
-    ui.add_enabled(false, egui::Button::new("Build"));
-    ui.add_enabled(false, egui::Button::new("Release"));
+fn rebuild_button(
+    ui: &mut egui::Ui,
+    interaction: &mut InteractionState,
+    cmds: &mut HashSet<PendingCommand>,
+) {
+    let label = match selected_pages_for_rebuild(interaction) {
+        PagesForRebuild::Selected(ref pages) => format!("Rebuild ({})", pages.len()),
+        PagesForRebuild::None => "Rebuild …".to_string(),
+    };
+    if ui.button(label).clicked() {
+        match selected_pages_for_rebuild(interaction) {
+            PagesForRebuild::Selected(pages) => {
+                cmds.insert(PendingCommand::RebuildPages { pages });
+            }
+            PagesForRebuild::None => {
+                interaction.rebuild_all_confirm = true;
+            }
+        }
+    }
+}
+
+fn release_button(ui: &mut egui::Ui, cmds: &mut HashSet<PendingCommand>) {
+    if ui.button("Release").clicked() {
+        cmds.insert(PendingCommand::ReleaseBuild);
+    }
 }
 
 fn history_buttons(ui: &mut egui::Ui, cmds: &mut HashSet<PendingCommand>) {
