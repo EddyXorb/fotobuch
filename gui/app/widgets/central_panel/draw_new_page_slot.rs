@@ -1,37 +1,47 @@
 use crate::state::{ActiveDrag, InteractionState};
 
-pub(super) const HEIGHT_PT: f32 = 14.0;
+const SIZE_PT: f32 = 32.0;
 
 pub(super) fn draw(
     ui: &mut egui::Ui,
     at_position: usize,
     interaction: &InteractionState,
 ) -> (egui::Rect, bool) {
-    let desired = egui::vec2(ui.available_width(), HEIGHT_PT);
-    let (rect, resp) = ui.allocate_exact_size(desired, egui::Sense::hover());
+    // Reserve full-width row, then center a square within it.
+    let row_desired = egui::vec2(ui.available_width(), SIZE_PT + 8.0);
+    let (row_rect, resp) = ui.allocate_exact_size(row_desired, egui::Sense::hover());
+
+    let center = row_rect.center();
+    let half = SIZE_PT / 2.0;
+    let sq = egui::Rect::from_center_size(center, egui::vec2(SIZE_PT, SIZE_PT));
 
     let drag_active = !matches!(interaction.drag.active, ActiveDrag::Idle);
     let hovered = resp.hovered();
 
     let alpha: u8 = match (drag_active, hovered) {
-        (_, true) => 180,
-        (true, false) => 80,
-        _ => 20,
+        (_, true) => 200,
+        (true, false) => 100,
+        _ => 30,
     };
-    ui.painter().rect_filled(
-        rect,
-        3.0,
-        egui::Color32::from_rgba_unmultiplied(80, 160, 255, alpha),
+    let fill = egui::Color32::from_rgba_unmultiplied(80, 160, 255, alpha);
+    let stroke_color =
+        egui::Color32::from_rgba_unmultiplied(80, 160, 255, alpha.saturating_add(40));
+
+    ui.painter().rect(
+        sq,
+        4.0,
+        fill,
+        egui::Stroke::new(1.5, stroke_color),
+        egui::StrokeKind::Inside,
     );
-    if hovered {
-        ui.painter().text(
-            rect.center(),
-            egui::Align2::CENTER_CENTER,
-            "+",
-            egui::FontId::proportional(HEIGHT_PT - 2.0),
-            egui::Color32::WHITE,
-        );
-    }
+    ui.painter().text(
+        center,
+        egui::Align2::CENTER_CENTER,
+        "+",
+        egui::FontId::proportional(half + 2.0),
+        egui::Color32::from_rgba_unmultiplied(255, 255, 255, alpha.saturating_add(55)),
+    );
+
     let _ = at_position;
-    (rect, hovered)
+    (sq, hovered)
 }
