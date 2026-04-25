@@ -134,11 +134,15 @@ impl FotobuchApp {
                     tracing::error!("background worker closed; thumb load dropped");
                 }
             }
+            for d in &mut self.state.data.pages.dirty {
+                *d = false;
+            }
             for &p in &dirty_pages {
                 if let Some(d) = self.state.data.pages.dirty.get_mut(p) {
                     *d = true;
                 }
             }
+            self.state.interaction.selections.slots.clear();
         } else {
             for d in &mut self.state.data.pages.dirty {
                 *d = false;
