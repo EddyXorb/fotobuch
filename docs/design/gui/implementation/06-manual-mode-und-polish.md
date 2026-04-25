@@ -196,26 +196,53 @@ Seite, siehe Phase 4.2.12.)
 
 ### 6.0.3 Remove via `Delete` im Pool
 
-`handle_delete` aus Phase 5.3.1 bekommt einen Zweig **vor** dem
-Slot-Unplace-Zweig: wenn eine **Pool-Selektion** existiert und **keine**
-Slot-Selektion aktiv ist, werden die Pool-Fotos entfernt:
+`handle_delete` aus Phase 5.3.1 hat schon drei Pfade in fester
+Prioritätsreihenfolge:
+
+1. Slot-Selektion → Unplace
+2. Pool-Selektion (Phase-5-Hook ist leer)
+3. Hovered Page ohne Selektion → DeletePage
+
+Phase 6 füllt **nur den zweiten Pfad** — die Reihenfolge bleibt
+identisch, damit eine bewusste Slot-Selektion nicht durch eine
+versehentlich offene Pool-Selektion übertrumpft wird, und ein
+Pool-Selection-Delete nicht versehentlich eine ganze hovered Page kippt:
 
 ```rust
 fn handle_delete(
+    data: &DataState,
     interaction: &mut InteractionState,
     ctx: &egui::Context,
     cmds: &mut HashSet<PendingCommand>,
 ) {
     if !ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Delete)) { return; }
 
-    // Pool-Selektion zuerst.
+    // 1) Slot-Selektion gewinnt (Phase 5.3.1).
+    if let SlotSelection::OnPage { page, slots, .. } = &interaction.selections.slots
+        && !slots.is_empty()
+    {
+        cmds.insert(PendingCommand::Unplace {
+            page: *page, slots: slots.iter().copied().collect(),
+        });
+        return;
+    }
+
+    // 2) Pool-Selektion (NEU in Phase 6).
     let pool_ids = interaction.selections.photos.ids();
-    if !pool_ids.is_empty() && matches!(interaction.selections.slots, SlotSelection::None) {
+    if !pool_ids.is_empty() {
         cmds.insert(PendingCommand::RemovePhotos { photo_ids: pool_ids });
         return;
     }
 
-    // Bestehender Slot-Unplace-Pfad (siehe Phase 5.3.1) …
+    // 3) Hovered Page → DeletePage (Phase 5.3.1).
+    let target_page = interaction.hovered.as_ref().and_then(|h| match h {
+        HoveredTarget::Page { page, slot: None } | HoveredTarget::NavPage(page) => Some(*page),
+        _ => None,
+    });
+    if let Some(page) = target_page {
+        if data.project.has_cover() && page == 0 { return; }
+        cmds.insert(PendingCommand::DeletePage { page });
+    }
 }
 ```
 

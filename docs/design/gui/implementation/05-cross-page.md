@@ -103,6 +103,12 @@ pub enum PendingCommand {
     /// Selektierte Slots unplacen (Delete-Taste, Drop auf Pool).
     Unplace { page: usize, slots: Vec<usize> },
 
+    /// Ganze Seite löschen (Delete auf hovered Page/NavPage ohne
+    /// Selection). Fotos werden zu unplaced. Cover (Seite 0 bei
+    /// `has_cover()`) ist UI-seitig nicht erreichbar; die Lib lehnt
+    /// einen direkten Aufruf zusätzlich ab.
+    DeletePage { page: usize },
+
     /// Selektierte Seiten neu bauen (R-Taste oder Toolbar-Button mit
     /// expliziter Selection — nur Auto-Pages, Manual werden in der Lib
     /// gefiltert).
@@ -150,6 +156,10 @@ pub enum BackgroundTask {
     Unplace {
         page: usize,
         slots: Vec<usize>,
+        pixel_per_pt: f32,
+    },
+    DeletePage {
+        page: usize,
         pixel_per_pt: f32,
     },
     RebuildPages {
@@ -287,6 +297,14 @@ pub(super) fn run_unplace(
         Err(e) => { let _ = rctx.result_tx.send(BackgroundResult::CommandFailed(e.to_string())); }
         Ok(out) => finish_with_build(out, rctx),
     }
+}
+
+pub(super) fn run_delete_page(page: usize, rctx: &mut super::RenderCtx<'_>) {
+    let cmd = PageMoveCmd::Move {
+        src: Src::Pages(PagesExpr::single(page as u32)),
+        dst: DstMove::Unplace,
+    };
+    run_page_command(cmd, rctx);
 }
 
 pub(super) fn run_rebuild_pages(
@@ -649,26 +667,85 @@ Alle fehlenden Hotkeys aus `docs/design/gui/01-ux-konzept.md` nachziehen.
 Ein Commit pro Hotkey-Gruppe (nicht pro Taste), damit die Tests pro Feature
 sinnvoll gebündelt bleiben.
 
-### 5.3.1 `Delete` → Unplace
+### 5.3.1 `Delete` → Unplace (Slots oder ganze Seite)
+
+`Delete` adressiert drei disjunkte Fälle, in dieser **Prioritätsreihenfolge**
+(erster Treffer gewinnt — analog zu `docs/design/gui/03-cli-gui-mapping.md`
+§ Drop-Target-Auflösung, damit eine bewusste Slot-Selection nicht von
+einem zufällig hovered NavPage übertrumpft wird):
+
+1. **Slot-Selektion** vorhanden → die selektierten Slots werden unplaced
+   (`execute_unplace`). Die Lib löscht die Seite mit, falls sie dadurch
+   leer wird.
+2. **Pool-Selektion** vorhanden, **Slot-Selektion leer** → Pool-Remove.
+   *Phase-6-Erweiterung*, Details in 6.0.3 — Phase 5 lässt diesen Zweig
+   noch leer.
+3. **Hovered Page** (Central oder NavPage), **keine** Selektion → ganze
+   Seite löschen (`PageMoveCmd::Move { src: Src::Pages(...), dst:
+   DstMove::Unplace }`). Fotos kehren als unplaced in den Pool zurück,
+   die Seite verschwindet aus dem Layout. **Cover-Sonderfall**: bei
+   `has_cover() && page == 0` → silent no-op in der GUI; die Lib lehnt
+   denselben Aufruf zusätzlich ab (Defense-in-Depth, 5.3.1.1).
 
 ```rust
 // gui/app/input_handler.rs
-fn handle_delete(interaction: &mut InteractionState, ctx: &egui::Context, cmds: &mut HashSet<PendingCommand>) {
+fn handle_delete(
+    data: &DataState,
+    interaction: &mut InteractionState,
+    ctx: &egui::Context,
+    cmds: &mut HashSet<PendingCommand>,
+) {
     if !ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Delete)) { return; }
-    let SlotSelection::OnPage { page, slots, .. } = &interaction.selections.slots else { return; };
-    if slots.is_empty() { return; }
-    cmds.insert(PendingCommand::Unplace {
-        page: *page,
-        slots: slots.iter().copied().collect(),
+
+    // 1) Slot-Selektion gewinnt.
+    if let SlotSelection::OnPage { page, slots, .. } = &interaction.selections.slots
+        && !slots.is_empty()
+    {
+        cmds.insert(PendingCommand::Unplace {
+            page: *page,
+            slots: slots.iter().copied().collect(),
+        });
+        return;
+    }
+
+    // 2) Pool-Selektion (Phase 6) — hier nur Hook, Implementation in 6.0.3.
+
+    // 3) Ganze Seite per Hover.
+    let target_page = interaction.hovered.as_ref().and_then(|h| match h {
+        HoveredTarget::Page { page, slot: None } => Some(*page),
+        HoveredTarget::NavPage(page) => Some(*page),
+        _ => None,
     });
-    // Selektion bleibt — wird erst in drain_results geleert (bestehendes Muster).
+    if let Some(page) = target_page {
+        if data.project.has_cover() && page == 0 { return; }  // Cover-Schutz
+        cmds.insert(PendingCommand::DeletePage { page });
+    }
 }
 ```
 
 Aufruf in `handle()` **vor** `handle_click`, damit Delete nie fälschlich
-eine Selektion verwirft.
+eine Selektion verwirft. `handle_delete` braucht ab jetzt `&DataState`
+für den Cover-Check — Aufrufer reicht das durch (analog
+`handle_select_all`, `gui/app/input_handler.rs:218`).
 
-Pool-Selektion + Delete wird in Phase 6 (Pool-Remove) gesondert behandelt.
+`PendingCommand::DeletePage { page: usize }` ist eine neue Variante in
+5.0.2; Worker-Mapping siehe 5.0.4. Bewusst kein Confirm-Popup — `Ctrl+Z`
+macht jeden versehentlichen Page-Delete rückgängig (gleiche UX-Erwartung
+wie bei Slot-Unplace, das auch eine Seite kollabieren lassen kann).
+
+#### 5.3.1.1 Lib: Cover-Schutz für `Src::Pages(...)` + `DstMove::Unplace`
+
+Damit nicht nur die UI das Cover schützt, lehnt `execute_move_to` (in dem
+Zweig, der `Src::Pages` mit `DstMove::Unplace` behandelt — siehe
+`src/commands/page/move_cmd.rs:73-95`) den Aufruf bei `has_cover() &&
+pages.contains(&0)` mit `ValidationError::PageNotFound(0)` ab. Damit
+existiert das Cover-Invariant **einmal** UI-seitig (visuelle Sperre,
+silent no-op) und einmal Lib-seitig (Defense-in-Depth, sichtbarer
+Fehler). Dieselbe Klausel wie 5.1 für `NewPageAt(0)` — beide Cover-
+Schutzregeln nutzen `ProjectState::has_cover()` als Single Source of
+Truth.
+
+Lib-Test: `execute_move_pages_unplace_rejects_cover_when_active`.
 
 ### 5.3.2 `R` → Rebuild selektierter Seite(n)
 
@@ -964,7 +1041,11 @@ Struktur in Phase 6.0. Phase-5-Widget zeigt nur ein Fenster mit
 Tests (jeweils in `gui/app/input_handler.rs::tests` oder passendem
 Submodul):
 - `handle_delete_emits_unplace_with_selection_slots`.
-- `handle_delete_noop_without_selection`.
+- `handle_delete_emits_delete_page_when_only_page_hovered`.
+- `handle_delete_emits_delete_page_when_navpage_hovered`.
+- `handle_delete_prefers_slot_selection_over_hovered_page`.
+- `handle_delete_noop_on_cover_when_active`.
+- `handle_delete_noop_without_selection_or_hover`.
 - `rebuild::selected_pages_for_rebuild_uses_slot_selection_when_present`.
 - `rebuild::selected_pages_for_rebuild_uses_hovered_page_otherwise`.
 - `rebuild::selected_pages_for_rebuild_returns_none_without_signal`.
@@ -1001,8 +1082,12 @@ Submodul):
       eine zusammenhängende Slot-Range gegen eine gleich große Range am
       Ziel. Overrun wird durch ein rotes Overlay angekündigt und silent
       nicht emittiert.
-- [ ] `Delete` unplaced die selektierten Slots (Multi ok). Leere Seite
-      verschwindet.
+- [ ] `Delete` mit Slot-Selektion unplaced die selektierten Slots (Multi
+      ok). Leere Seite verschwindet automatisch.
+- [ ] `Delete` ohne Selektion auf hovered Page (Central oder Nav) löscht
+      die ganze Seite; Fotos kehren in den Pool zurück (unplaced).
+- [ ] `Delete` auf Cover (Seite 0 bei aktivem Cover) ist UI-seitig
+      no-op; Lib weist denselben Aufruf zusätzlich ab.
 - [ ] `R` rebuildet die aktive Seite (Slot-Selektion bevorzugt, sonst
       hovered Page). Manual-Pages liefern einen Fehler-Toast.
 - [ ] `Ctrl+G` öffnet Popup; Enter mit gültigem 0-basierten Index scrollt
