@@ -171,11 +171,10 @@ fn selection_slots_for(
     src_slot: usize,
 ) -> Vec<usize> {
     if interaction.selections.slots.is_selected(src_page, src_slot) {
-        match &interaction.selections.slots {
-            SlotSelection::OnPage { page, slots, .. } if *page == src_page => {
-                slots.iter().copied().collect()
-            }
-            _ => vec![src_slot],
+        if interaction.selections.slots.page == Some(src_page) {
+            interaction.selections.slots.slots_on_active_page()
+        } else {
+            vec![src_slot]
         }
     } else {
         vec![src_slot]
@@ -279,6 +278,7 @@ fn handle_escape(interaction: &mut InteractionState, ctx: &egui::Context) {
     if ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Escape)) {
         interaction.drag.active = ActiveDrag::Idle;
         interaction.selections.slots.clear();
+        interaction.selections.nav_pages.clear();
     }
 }
 
@@ -291,10 +291,7 @@ fn handle_select_all(data: &DataState, interaction: &mut InteractionState, ctx: 
         .as_ref()
         .and_then(|h| h.slot())
         .map(|(p, _)| p)
-        .or(match &interaction.selections.slots {
-            SlotSelection::OnPage { page, .. } => Some(*page),
-            SlotSelection::None => None,
-        });
+        .or(interaction.selections.slots.page);
     if let Some(page) = current_page {
         let slot_count = data
             .project
@@ -375,6 +372,7 @@ fn handle_click(interaction: &mut InteractionState, ctx: &egui::Context) {
     }
     let modifiers = ctx.input(|i| i.modifiers);
     if let Some((page, slot)) = interaction.hovered.as_ref().and_then(|h| h.slot()) {
+        interaction.selections.nav_pages.clear();
         if modifiers.shift {
             interaction.selections.slots.range_to(page, slot);
         } else if modifiers.ctrl || modifiers.command {
@@ -396,13 +394,26 @@ fn handle_delete(
     if !ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Delete)) {
         return;
     }
-    if let SlotSelection::OnPage { page, slots, .. } = &interaction.selections.slots
-        && !slots.is_empty()
+    if let Some(page) = interaction.selections.slots.page
+        && !interaction.selections.slots.is_empty()
     {
         cmds.insert(PendingCommand::Unplace {
-            page: *page,
-            slots: slots.iter().copied().collect(),
+            page,
+            slots: interaction.selections.slots.slots_on_active_page(),
         });
+        return;
+    }
+    // Nav-panel multi-selection takes priority over hovered single page.
+    let nav_sel = interaction.selections.nav_pages.items();
+    if !nav_sel.is_empty() {
+        let pages: Vec<usize> = if data.project.has_cover() {
+            nav_sel.into_iter().filter(|&p| p != 0).collect()
+        } else {
+            nav_sel
+        };
+        if !pages.is_empty() {
+            cmds.insert(PendingCommand::DeletePages { pages });
+        }
         return;
     }
     let target_page = interaction.hovered.as_ref().and_then(|h| match h {
@@ -414,7 +425,7 @@ fn handle_delete(
         if data.project.has_cover() && page == 0 {
             return;
         }
-        cmds.insert(PendingCommand::DeletePage { page });
+        cmds.insert(PendingCommand::DeletePages { pages: vec![page] });
     }
 }
 
@@ -427,14 +438,15 @@ fn handle_rebuild(
     if !ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::R)) {
         return;
     }
-    let pages = match &interaction.selections.slots {
-        SlotSelection::OnPage { page, .. } => vec![*page],
-        SlotSelection::None => match &interaction.hovered {
+    let pages = if let Some(page) = interaction.selections.slots.page {
+        vec![page]
+    } else {
+        match &interaction.hovered {
             Some(HoveredTarget::Page { page, .. }) | Some(HoveredTarget::NavPage(page)) => {
                 vec![*page]
             }
             _ => return,
-        },
+        }
     };
     let _ = data;
     cmds.insert(PendingCommand::RebuildPages { pages });
@@ -477,8 +489,6 @@ fn handle_add_hotkey(interaction: &mut InteractionState, ctx: &egui::Context) {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeSet;
-
     use fotobuch::dto_models::ProjectState;
 
     use super::*;
@@ -486,12 +496,12 @@ mod tests {
 
     fn state_with_selection(sel_page: usize, sel_slots: Vec<usize>) -> GuiState {
         let mut state = GuiState::new(ProjectState::default());
-        if !sel_slots.is_empty() {
-            state.interaction.selections.slots = SlotSelection::OnPage {
-                page: sel_page,
-                slots: BTreeSet::from_iter(sel_slots),
-                anchor: 0,
-            };
+        for (i, &slot) in sel_slots.iter().enumerate() {
+            if i == 0 {
+                state.interaction.selections.slots = SlotSelection::single(sel_page, slot);
+            } else {
+                state.interaction.selections.slots.toggle(sel_page, slot);
+            }
         }
         state
     }
@@ -850,12 +860,12 @@ mod tests {
         let state = state_with_selection(2, vec![0, 3]);
         let mut cmds = HashSet::new();
         // Directly simulate the logic (no egui context available in unit tests).
-        if let SlotSelection::OnPage { page, slots, .. } = &state.interaction.selections.slots
-            && !slots.is_empty()
+        if let Some(page) = state.interaction.selections.slots.page
+            && !state.interaction.selections.slots.is_empty()
         {
             cmds.insert(PendingCommand::Unplace {
-                page: *page,
-                slots: slots.iter().copied().collect(),
+                page,
+                slots: state.interaction.selections.slots.slots_on_active_page(),
             });
         }
         assert_eq!(cmds.len(), 1);
@@ -886,10 +896,8 @@ mod tests {
     fn handle_delete_prefers_slot_selection_over_hovered_page() {
         let state = state_with_selection(1, vec![0]);
         // If slot-selection is present, delete-page must NOT be emitted.
-        let slot_sel_present = matches!(
-            &state.interaction.selections.slots,
-            SlotSelection::OnPage { slots, .. } if !slots.is_empty()
-        );
+        let slot_sel_present = state.interaction.selections.slots.page.is_some()
+            && !state.interaction.selections.slots.is_empty();
         assert!(slot_sel_present, "selection must win over hovered");
     }
 
@@ -918,11 +926,7 @@ mod tests {
     fn rebuild_selection_matches_selected_page() {
         use crate::app::rebuild::{PagesForRebuild, selected_pages_for_rebuild};
         let mut interaction = GuiState::new(ProjectState::default()).interaction;
-        interaction.selections.slots = SlotSelection::OnPage {
-            page: 5,
-            slots: BTreeSet::from([0]),
-            anchor: 0,
-        };
+        interaction.selections.slots = SlotSelection::single(5, 0);
         assert!(
             matches!(selected_pages_for_rebuild(&interaction), PagesForRebuild::Selected(p) if p == vec![5])
         );

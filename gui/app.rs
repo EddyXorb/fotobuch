@@ -248,8 +248,8 @@ impl FotobuchApp {
                     slots,
                     pixel_per_pt: ppt,
                 },
-                PendingCommand::DeletePage { page } => BackgroundTask::DeletePage {
-                    page,
+                PendingCommand::DeletePages { pages } => BackgroundTask::DeletePages {
+                    pages,
                     pixel_per_pt: ppt,
                 },
                 PendingCommand::RebuildPages { pages } => BackgroundTask::RebuildPages {
@@ -345,7 +345,7 @@ fn mark_dirty(dirty: &mut [bool], task: &BackgroundTask) {
         | BackgroundTask::MoveToNewPage { .. }
         | BackgroundTask::SwapRange { .. }
         | BackgroundTask::Unplace { .. }
-        | BackgroundTask::DeletePage { .. }
+        | BackgroundTask::DeletePages { .. }
         | BackgroundTask::RebuildPages { .. }
         | BackgroundTask::RebuildAll { .. }
         | BackgroundTask::ReleaseBuild { .. } => {

@@ -1,6 +1,6 @@
 use egui::vec2;
 
-use crate::state::{ActiveDrag, DataState, DragMode, DragSource, InteractionState, SlotSelection};
+use crate::state::{ActiveDrag, DataState, DragMode, DragSource, InteractionState};
 
 use super::super::geometry::{self, A4_ASPECT, PageDimensions, PageScale};
 
@@ -57,14 +57,15 @@ pub(super) fn draw_drag_ghosts(
         return;
     }
 
-    let secondary: Vec<usize> = match &interaction.selections.slots {
-        SlotSelection::OnPage { page, slots, .. } if *page == page_idx && slots.len() > 1 => slots
-            .iter()
-            .filter(|&&s| s != src_slot_idx)
-            .copied()
-            .collect(),
-        _ => return,
-    };
+    let slots_sel = &interaction.selections.slots;
+    if slots_sel.page != Some(page_idx) || slots_sel.slots_on_active_page().len() <= 1 {
+        return;
+    }
+    let secondary: Vec<usize> = slots_sel
+        .slots_on_active_page()
+        .into_iter()
+        .filter(|&s| s != src_slot_idx)
+        .collect();
 
     let rects: Vec<egui::Rect> = secondary
         .iter()

@@ -1,4 +1,4 @@
-use crate::state::{HoveredTarget, InteractionState, SlotSelection};
+use crate::state::{HoveredTarget, InteractionState};
 
 pub enum PagesForRebuild {
     Selected(Vec<usize>),
@@ -6,21 +6,20 @@ pub enum PagesForRebuild {
 }
 
 pub fn selected_pages_for_rebuild(interaction: &InteractionState) -> PagesForRebuild {
-    match &interaction.selections.slots {
-        SlotSelection::OnPage { page, .. } => PagesForRebuild::Selected(vec![*page]),
-        SlotSelection::None => match &interaction.hovered {
+    if let Some(page) = interaction.selections.slots.page {
+        PagesForRebuild::Selected(vec![page])
+    } else {
+        match &interaction.hovered {
             Some(HoveredTarget::Page { page, .. }) | Some(HoveredTarget::NavPage(page)) => {
                 PagesForRebuild::Selected(vec![*page])
             }
             _ => PagesForRebuild::None,
-        },
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeSet;
-
     use fotobuch::dto_models::ProjectState;
 
     use super::*;
@@ -33,11 +32,7 @@ mod tests {
     #[test]
     fn selected_pages_for_rebuild_uses_slot_selection_when_present() {
         let mut interaction = make_interaction();
-        interaction.selections.slots = SlotSelection::OnPage {
-            page: 2,
-            slots: BTreeSet::from([0]),
-            anchor: 0,
-        };
+        interaction.selections.slots = SlotSelection::single(2, 0);
         assert!(
             matches!(selected_pages_for_rebuild(&interaction), PagesForRebuild::Selected(p) if p == vec![2])
         );

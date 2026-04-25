@@ -48,7 +48,8 @@ fn show(
                 }
 
                 if response.clicked() {
-                    on_click(interaction, i);
+                    let modifiers = ui.ctx().input(|inp| inp.modifiers);
+                    on_click(interaction, i, num_pages, modifiers);
                 }
 
                 ui.add_space(4.0);
@@ -97,6 +98,20 @@ fn draw_highlights(
         ActiveDrag::Dragging(DragSource::Pool { .. })
     ) && pointer_over;
 
+    let is_nav_selected = interaction.selections.nav_pages.is_selected(&page_idx);
+    if is_nav_selected {
+        painter.rect_filled(
+            rect,
+            0.0,
+            egui::Color32::from_rgba_unmultiplied(255, 200, 0, 60),
+        );
+        painter.rect_stroke(
+            rect,
+            2.0,
+            egui::Stroke::new(2.0, egui::Color32::from_rgb(220, 160, 0)),
+            egui::StrokeKind::Inside,
+        );
+    }
     if is_pool_drag_target || is_slot_drag_target {
         let alpha = if is_slot_drag_target { 100 } else { 48 };
         painter.rect_filled(
@@ -123,9 +138,25 @@ fn draw_highlights(
     }
 }
 
-fn on_click(interaction: &mut InteractionState, page_idx: usize) {
+fn on_click(
+    interaction: &mut InteractionState,
+    page_idx: usize,
+    num_pages: usize,
+    modifiers: egui::Modifiers,
+) {
     interaction.viewport.scroll_to_page = Some(page_idx);
     interaction.selections.slots.clear();
+    if modifiers.shift {
+        let order: Vec<usize> = (0..num_pages).collect();
+        interaction
+            .selections
+            .nav_pages
+            .range_to_ordered(page_idx, &order);
+    } else if modifiers.ctrl || modifiers.command {
+        interaction.selections.nav_pages.toggle(page_idx);
+    } else {
+        interaction.selections.nav_pages = crate::state::MultiSelection::single(page_idx);
+    }
 }
 
 /// Computes thumb display size, preserving page aspect ratio at panel width - margin.

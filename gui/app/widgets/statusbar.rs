@@ -1,4 +1,4 @@
-use crate::state::{ActiveDrag, DataState, HoveredTarget, InteractionState, SlotSelection};
+use crate::state::{ActiveDrag, DataState, HoveredTarget, InteractionState};
 
 pub fn draw(ui: &mut egui::Ui, data: &DataState, interaction: &InteractionState) {
     egui::Panel::bottom("statusbar").show_inside(ui, |ui| show(ui, data, interaction));
@@ -15,10 +15,11 @@ fn show(ui: &mut egui::Ui, data: &DataState, interaction: &InteractionState) {
             None => format!("Page \u{2013}/{total}"),
         };
 
-        let sel_str = match &interaction.selections.slots {
-            SlotSelection::None => "Sel: \u{2013}".to_string(),
-            SlotSelection::OnPage { page, slots, .. } => {
-                format!("Sel: {} on page {page}", slots.len())
+        let sel_str = match interaction.selections.slots.page {
+            None => "Sel: \u{2013}".to_string(),
+            Some(page) => {
+                let count = interaction.selections.slots.slots_on_active_page().len();
+                format!("Sel: {count} on page {page}")
             }
         };
 

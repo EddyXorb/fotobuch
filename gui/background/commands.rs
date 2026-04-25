@@ -292,9 +292,11 @@ pub(super) fn run_unplace(page: usize, slots: Vec<usize>, rctx: &mut super::Rend
     }
 }
 
-pub(super) fn run_delete_page(page: usize, rctx: &mut super::RenderCtx<'_>) {
+pub(super) fn run_delete_pages(pages: Vec<usize>, rctx: &mut super::RenderCtx<'_>) {
     let cmd = PageMoveCmd::Move {
-        src: Src::Pages(PagesExpr::single(page as u32)),
+        src: Src::Pages(PagesExpr::from_list(
+            pages.iter().map(|&p| p as u32).collect(),
+        )),
         dst: DstMove::Unplace,
     };
     run_page_command(cmd, rctx);

@@ -1,102 +1,82 @@
-use std::collections::BTreeSet;
+use super::MultiSelection;
 
 /// Which slots are currently selected. SlotSelection is always restricted to a single page.
-#[derive(Default)]
-pub enum SlotSelection {
-    #[default]
-    None,
-    OnPage {
-        page: usize,
-        /// Sorted set → deterministic iteration and tests.
-        slots: BTreeSet<usize>,
-        /// Pivot for Shift+click range extension.
-        anchor: usize,
-    },
+pub struct SlotSelection {
+    pub page: Option<usize>,
+    sel: MultiSelection<usize>,
+}
+
+impl Default for SlotSelection {
+    fn default() -> Self {
+        Self {
+            page: None,
+            sel: MultiSelection::None,
+        }
+    }
 }
 
 impl SlotSelection {
     /// Select exactly one slot; replaces any previous selection.
     pub fn single(page: usize, slot: usize) -> Self {
-        SlotSelection::OnPage {
-            page,
-            slots: BTreeSet::from([slot]),
-            anchor: slot,
+        Self {
+            page: Some(page),
+            sel: MultiSelection::single(slot),
         }
     }
 
-    /// Toggle `slot` on `page` (Ctrl+click).
-    ///
-    /// Clicking on a different page clears the old selection and starts fresh.
+    /// Toggle `slot` on `page` (Ctrl+click). Different page resets to single.
     pub fn toggle(&mut self, page: usize, slot: usize) {
-        match self {
-            SlotSelection::OnPage {
-                page: p,
-                slots,
-                anchor,
-            } if *p == page => {
-                if slots.contains(&slot) {
-                    slots.remove(&slot);
-                    if slots.is_empty() {
-                        *self = SlotSelection::None;
-                    }
-                } else {
-                    slots.insert(slot);
-                    *anchor = slot;
-                }
+        if self.page == Some(page) {
+            self.sel.toggle(slot);
+            if self.sel.is_empty() {
+                self.page = None;
             }
-            _ => {
-                *self = SlotSelection::single(page, slot);
-            }
+        } else {
+            *self = Self::single(page, slot);
         }
     }
 
-    /// Extend selection from anchor to `slot` (Shift+click).
-    ///
-    /// Replaces the entire slot set with `min(anchor, slot)..=max(anchor, slot)`.
-    /// Anchor stays fixed so repeated Shift+clicks pull from the same origin.
-    /// Clicking on a different page starts a fresh single selection.
+    /// Extend selection from anchor to `slot` (Shift+click). Different page resets to single.
     pub fn range_to(&mut self, page: usize, slot: usize) {
-        match self {
-            SlotSelection::OnPage {
-                page: p,
-                slots,
-                anchor,
-            } if *p == page => {
-                let a = *anchor;
-                let lo = a.min(slot);
-                let hi = a.max(slot);
-                *slots = (lo..=hi).collect();
-            }
-            _ => {
-                *self = SlotSelection::single(page, slot);
-            }
+        if self.page == Some(page) {
+            self.sel.range_to_numeric(slot);
+        } else {
+            *self = Self::single(page, slot);
         }
     }
 
     /// Clear selection (Escape / click on empty space).
     pub fn clear(&mut self) {
-        *self = SlotSelection::None;
+        self.page = None;
+        self.sel.clear();
     }
 
     /// Select all slots on `page` (Ctrl+A). No-op when `slot_count == 0`.
     pub fn select_all_on(&mut self, page: usize, slot_count: usize) {
         if slot_count == 0 {
-            *self = SlotSelection::None;
+            self.page = None;
+            self.sel.clear();
             return;
         }
-        *self = SlotSelection::OnPage {
-            page,
-            slots: (0..slot_count).collect(),
+        self.page = Some(page);
+        self.sel = MultiSelection::Some {
+            items: (0..slot_count).collect(),
             anchor: 0,
         };
     }
 
     /// Returns `true` if `slot` on `page` is currently selected.
     pub fn is_selected(&self, page: usize, slot: usize) -> bool {
-        match self {
-            SlotSelection::OnPage { page: p, slots, .. } => *p == page && slots.contains(&slot),
-            SlotSelection::None => false,
-        }
+        self.page == Some(page) && self.sel.is_selected(&slot)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.sel.is_empty()
+    }
+
+    /// Returns selected slots on the active page.
+    pub fn slots_on_active_page(&self) -> Vec<usize> {
+        self.sel.items()
     }
 }
 
@@ -124,10 +104,11 @@ mod tests {
     }
 
     #[test]
-    fn toggle_last_slot_gives_none() {
+    fn toggle_last_slot_gives_empty() {
         let mut sel = SlotSelection::single(0, 3);
         sel.toggle(0, 3);
-        assert!(matches!(sel, SlotSelection::None));
+        assert!(sel.is_empty());
+        assert_eq!(sel.page, None);
     }
 
     #[test]
@@ -137,7 +118,6 @@ mod tests {
         for i in 2..=5 {
             assert!(sel.is_selected(0, i), "slot {i} should be selected");
         }
-        // Pull back: anchor stays at 2
         sel.range_to(0, 0);
         for i in 0..=2 {
             assert!(
@@ -158,7 +138,7 @@ mod tests {
 
     #[test]
     fn select_all_picks_all_indices() {
-        let mut sel = SlotSelection::None;
+        let mut sel = SlotSelection::default();
         sel.select_all_on(2, 4);
         for i in 0..4 {
             assert!(sel.is_selected(2, i));
@@ -167,9 +147,10 @@ mod tests {
     }
 
     #[test]
-    fn clear_resets_to_none() {
+    fn clear_resets_to_empty() {
         let mut sel = SlotSelection::single(0, 0);
         sel.clear();
-        assert!(matches!(sel, SlotSelection::None));
+        assert!(sel.is_empty());
+        assert_eq!(sel.page, None);
     }
 }

@@ -49,9 +49,9 @@ pub enum PendingCommand {
         page: usize,
         slots: Vec<usize>,
     },
-    /// Delete an entire page; photos return to the pool as unplaced.
-    DeletePage {
-        page: usize,
+    /// Delete one or more entire pages; photos return to the pool as unplaced.
+    DeletePages {
+        pages: Vec<usize>,
     },
     /// Rebuild auto-layout for the given pages.
     RebuildPages {

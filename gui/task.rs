@@ -68,8 +68,8 @@ pub enum BackgroundTask {
         slots: Vec<usize>,
         pixel_per_pt: f32,
     },
-    DeletePage {
-        page: usize,
+    DeletePages {
+        pages: Vec<usize>,
         pixel_per_pt: f32,
     },
     RebuildPages {

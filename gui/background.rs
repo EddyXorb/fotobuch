@@ -139,9 +139,12 @@ pub fn spawn(
                     rctx.pixel_per_pt = pixel_per_pt;
                     commands::run_unplace(page, slots, &mut rctx);
                 }
-                BackgroundTask::DeletePage { page, pixel_per_pt } => {
+                BackgroundTask::DeletePages {
+                    pages,
+                    pixel_per_pt,
+                } => {
                     rctx.pixel_per_pt = pixel_per_pt;
-                    commands::run_delete_page(page, &mut rctx);
+                    commands::run_delete_pages(pages, &mut rctx);
                 }
                 BackgroundTask::RebuildPages {
                     pages,
