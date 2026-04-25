@@ -279,55 +279,58 @@ Tests:
 
 ## 6.1 — Manual Mode
 
-### 6.1.1 Lib: Solver-Skip für Manual-Pages
+### 6.1.1 Lib: Solver-Skip für Manual-Pages — Single Source of Truth
 
-Kommentar in `src/commands/build/incremental_build.rs:68` durch echte
-Skip-Logik ersetzen:
+Aktuell hat die Lib **drei** Stellen, an denen ein „skip Manual" stehen
+müsste (`incremental_build`, `rebuild_range`, `rebuild_all`) plus den
+Book-Layout-Solver. Drei verstreute `if mode == Manual { continue; }`-
+Klauseln sind exakt der Code-Smell, den der `incremental_build.rs:68`-
+Kommentar bereits illustriert (er verspricht Skip, aber niemand setzt es
+um). Phase 6 ersetzt das durch **einen einzigen Helper** in
+`src/dto_models/layout.rs` (oder dem bestehenden Layout-Submodul):
 
 ```rust
-// 5. Rebuild each modified auto page (manual pages keep their slots).
-for &page_idx in &pages_needing_rebuild {
-    if mgr.state.layout[page_idx].mode == PageMode::Manual { continue; }
-    rebuild_single_page(&mut mgr.state, page_idx, &photo_index)?;
+impl ProjectState {
+    /// Iteriert über Indizes der Pages, die der Solver anfassen darf.
+    /// Manual-Pages werden ausgeschlossen — sie sind explizit fixiert.
+    pub fn auto_page_indices(&self) -> impl Iterator<Item = usize> + '_ {
+        self.layout.iter().enumerate()
+            .filter(|(_, p)| p.mode == PageMode::Auto)
+            .map(|(i, _)| i)
+    }
 }
 ```
 
-Achtung: `pages_rebuilt` im `BuildResult` muss auch die übersprungenen
-**nicht** enthalten — Filterung analog anpassen. Dafür die bisherige
-Zuweisung `pages_rebuilt: pages_needing_rebuild` (Zeile 88) durch eine
-Variable ersetzen, die vor/parallel zur Schleife die wirklich neu
-berechneten Indizes sammelt:
+**Drei Aufrufer migrieren** (alle bisherigen Schleifen über
+`pages_needing_rebuild`/`range` rufen `auto_page_indices().filter(...)`
+oder `pages.iter().filter(|p| state.layout[*p].mode == Auto)` — eine
+Zeile pro Stelle, keine duplizierte Skip-Regel mehr):
 
-```rust
-let mut pages_rebuilt: Vec<usize> = Vec::with_capacity(pages_needing_rebuild.len());
-for &page_idx in &pages_needing_rebuild {
-    if mgr.state.layout[page_idx].mode == PageMode::Manual { continue; }
-    rebuild_single_page(&mut mgr.state, page_idx, &photo_index)?;
-    pages_rebuilt.push(page_idx);
-}
-// … später: BuildResult { pages_rebuilt, … }
-```
+| Datei | Heute | Nach 6.1.1 |
+|---|---|---|
+| `src/commands/build/incremental_build.rs:68` | Kommentar verspricht Skip, Code skippt nicht | filter via `auto_page_indices` |
+| `src/commands/rebuild.rs::rebuild_range` | kein Skip | filter via `auto_page_indices` |
+| `src/commands/rebuild.rs::rebuild_all` | kein Skip | filter via `auto_page_indices` |
 
-Zusätzlich in `rebuild_range` (`src/commands/rebuild.rs`) Manual-Pages im
-Range analog skippen — die Book-Layout-Solver-Ebene fasst Manual-Pages als
-„fixiert" auf (siehe unten). `rebuild_all` skippt ebenfalls.
+`pages_rebuilt` im `BuildResult` enthält danach nur die wirklich neu
+geplanten Indizes — automatisch, weil die Sammlung jetzt aus dem
+gefilterten Iterator entsteht.
 
-**Book-Layout-Solver** (`src/solver/book_layout_solver.rs`): Bevor die
-Photos für die Neu-Verteilung eingesammelt werden, müssen die Fotos
-**platzierter Manual-Pages** aus dem Pool entfernt und die betroffenen
-Page-Slots als belegt markiert werden. Die MIP-Formulierung berücksichtigt
-Manual-Pages als Fixed-Size-Blöcke (Slots werden 1:1 übernommen, keine
-Alternativlayouts). Konkret:
+**Book-Layout-Solver** (`src/solver/book_layout_solver.rs`): Manual-Pages
+werden als Fixed-Size-Blöcke an ihren Indizes belassen — der Solver
+verteilt nur die Fotos der Auto-Pages neu. Umsetzung:
 
-1. In `collect_photos_as_groups` (src/commands/build/core.rs oder helpers)
-   die Fotos von Manual-Pages herausfiltern.
-2. In `multipage_build` nach dem Book-Layout-Solver-Lauf die Manual-Pages
-   an ihren Indizes wieder in das Layout einsetzen (Photos + Slots
-   unverändert). Umsetzung: vorher einen `Vec<(usize, LayoutPage)>`
-   snapshotten, nach dem Solver-Lauf `layout.splice(...)`.
+1. Vor dem Solver-Lauf einen Snapshot `Vec<(usize, LayoutPage)>` aller
+   Manual-Pages anlegen (genau über `auto_page_indices` invertiert,
+   damit dieselbe Wahrheit gilt).
+2. Solver bekommt nur die Fotos der Auto-Pages.
+3. Nach dem Lauf: Manual-Pages per `layout.splice` an ihren
+   ursprünglichen Indizes wieder einsetzen.
 
-Diese Änderung ist der umfangreichste Lib-Teil dieser Phase. Ein
-**eigener Commit** davor, damit Review isoliert möglich bleibt.
+Damit existiert die „Manual-Page wird nicht angefasst"-Regel **genau
+einmal** in der Lib. Eigener Commit
+`refactor(lib): single Manual-skip helper for solver and rebuilders`,
+direkt vor dem GUI-Toggle-Commit.
 
 ### 6.1.2 Hotkey `A` → Modus toggeln
 
@@ -495,24 +498,29 @@ fn corner_rect(slot_rect: egui::Rect, corner: Corner) -> egui::Rect {
 }
 ```
 
-Während des Resize-Drags bleibt das Seitenverhältnis aus dem
-`slot_origin_mm` erhalten. Mathematik:
+Spezifikation als **pure Funktion** in `gui/app/widgets/central_panel/manual_resize.rs`:
 
-```
-ratio = origin_w / origin_h
-delta_dominant_px = match corner {
-    NW|SE => use diagonal signum: (dx + dy) / 2,
-    NE|SW => use anti-diagonal: (dx - dy) / 2 * sign_by_corner,
-}
-scale = 1.0 + delta_dominant_px / (origin_diag_px * 0.5)
-new_w = origin_w * scale
-new_h = origin_h * scale
-// Origin-Verschiebung je nach gezogener Ecke (NW verschiebt x,y; SE nicht).
+```rust
+pub fn compute(
+    origin: (f64, f64, f64, f64), // x, y, w, h in mm
+    corner: Corner,
+    delta_px: egui::Vec2,
+    pixel_per_mm: f64,
+) -> (f64, f64, f64, f64) // new x, y, w, h in mm
 ```
 
-Umsetzung als pure Funktion `manual_resize::compute(origin, corner, dx_px,
-dy_px, pixel_per_mm) -> (new_x_mm, new_y_mm, new_w_mm, new_h_mm)`,
-unittestbar ohne egui.
+Invarianten (unittests, jeweils eine Assertion):
+- `compute_keeps_aspect_ratio`: `new_w / new_h ≈ origin_w / origin_h` (eps).
+- `compute_se_corner_keeps_origin_xy`: SE bewegt nur Größe.
+- `compute_nw_corner_shifts_origin_xy_by_size_delta`: NW behält gegenüber-
+  liegende Ecke (`origin_x + origin_w`, `origin_y + origin_h`) fix.
+- `compute_zero_delta_is_identity`.
+
+Implementierung: Distanz Cursor → Gegenecke vor/nach Drag, Scale =
+`new_diag / origin_diag`, neue Größe = `origin_size * scale`, neue Origin
+so, dass die Gegenecke fix bleibt. Welche Ecke gegenüberliegt, bestimmt
+`Corner` (NW ↔ SE, NE ↔ SW). 8 Zeilen Code, 4 Unit-Tests, kein Prosa-
+Pseudocode nötig.
 
 **Release** emittiert:
 
@@ -823,37 +831,29 @@ Tests:
 - `input_handler::quick_rmb_tap_opens_context_menu`.
 - `input_handler::rmb_hold_or_drag_does_not_open_menu`.
 
-### 6.2.7 Toast-System
+### 6.2.7 Toast-System (nur Error)
 
 Jedes `BackgroundResult::CommandFailed(msg)` landet bislang nur im Log.
-Toasts:
+Phase 6 zeigt **ausschließlich Error-Toasts** — `Info`/`Warning` sind
+YAGNI (kein Caller existiert), kommen erst, wenn ein konkreter Bedarf
+auftaucht.
 
 ```rust
 // gui/state/toasts.rs
-pub struct Toast { pub kind: ToastKind, pub message: String, pub shown_since: Instant }
-pub enum ToastKind { Error, Info }
+pub struct ErrorToast { pub message: String, pub shown_since: Instant }
 
-pub struct ToastQueue { pub items: VecDeque<Toast> }
+pub struct ToastQueue { pub items: VecDeque<ErrorToast> }
 impl ToastQueue {
-    pub fn push_error(&mut self, msg: impl Into<String>) { … }
-    pub fn gc(&mut self, now: Instant) {
-        const TTL: Duration = Duration::from_secs(6);
-        while self.items.front().is_some_and(|t| now.duration_since(t.shown_since) > TTL) {
-            self.items.pop_front();
-        }
-    }
+    pub fn push(&mut self, msg: impl Into<String>) { /* TTL=6s gc inline */ }
 }
 ```
 
-`DataState::toasts: ToastQueue` (neues Feld).
+`DataState::toasts: ToastQueue` (neues Feld). `drain_results` bei
+`CommandFailed(msg)` → `data.toasts.push(msg)`. Widget
+`gui/app/widgets/toasts.rs`: `egui::Area` bottom-right, rote Icon-Zeile
+pro Toast, Auto-Fade nach 6 s.
 
-`drain_results` bei `CommandFailed(msg)` → `data.toasts.push_error(msg)`.
-
-Widget `gui/app/widgets/toasts.rs`: `egui::Area` bottom-right, pro Toast
-eine Zeile mit rotem Icon (Error) bzw. blauem (Info), Auto-Fade nach
-`TTL`.
-
-Commit: `feat(gui): toast notifications for command failures`.
+Commit: `feat(gui): error toasts for command failures`.
 
 ---
 
@@ -887,6 +887,38 @@ Commit: `feat(gui): toast notifications for command failures`.
       als roter Toast, der nach ~6 s verschwindet.
 - [ ] `cargo build --features gui`, `cargo clippy --features gui --
       -D warnings`, `cargo fmt --check`, `cargo test` alle grün.
+
+## 6.3.1 Code-Smell-Review (Self-Audit)
+
+**1. Manual-Skip-Logik ist EIN Helper** (6.1.1).
+`ProjectState::auto_page_indices()` ist die einzige Stelle, an der „nicht
+Manual" definiert wird. Drei bisherige Aufrufer-Stellen (`incremental_build`,
+`rebuild_range`, `rebuild_all`) und der Book-Layout-Solver-Snapshot
+ziehen aus derselben Quelle.
+
+**2. `remove_by_ids` als Thin-Wrapper, nicht als Regex-Roundtrip** (6.0.3).
+Die GUI hat IDs zur Hand — den Umweg über `^id$`-Regex (mit
+`source` ≠ `id`-Falle) zu nehmen wäre ein Code-Smell. Stattdessen ein
+schmaler Lib-Helper, der die existierende `remove`-Pipeline nach der
+Match-Phase anstößt.
+
+**3. `ToastKind::Info` ist YAGNI** (6.2.7).
+Im Phase-6-Plan gibt es keinen Caller für `Info`/`Warning`. Toast-Typ
+wird auf `ErrorToast` reduziert. Erweiterung erst, wenn ein zweiter
+Toast-Pfad aufkommt.
+
+**4. ManualDrag und ActiveDrag bleiben getrennt — bewusst**.
+Der erste Reflex ist „beide Drag-States in ein Enum mergen". Aber RMB-
+Drag (Swap/Move/Cross-Page) und LMB-Drag (Manual-Position/Resize) haben
+unterschiedliche Trigger, unterschiedliche Quellen, unterschiedliche
+Releases. Ein gemeinsames Enum hätte sieben Varianten, jede mit eigener
+disjunkter Felder-Menge — das ist die Definition von „Vermischung".
+Belassen.
+
+**5. `selection_slots_for` als pure Funktion** (5.1.3).
+Drei Aufrufer (`MoveToNewPage`, `Move`, `SwapRange`) teilen sich die
+Snippet aus der ursprünglichen `dispatch_move`. Nur einmal definiert,
+dreimal aufgerufen.
 
 ## 6.4 Was NICHT in Phase 6 gehört
 

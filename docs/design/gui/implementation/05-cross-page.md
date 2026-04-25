@@ -103,13 +103,10 @@ pub enum PendingCommand {
     /// Selektierte Slots unplacen (Delete-Taste, Drop auf Pool).
     Unplace { page: usize, slots: Vec<usize> },
 
-    /// Selektierte Seiten neu bauen (R-Taste, nur Auto-Pages).
+    /// Selektierte Seiten neu bauen (R-Taste oder Toolbar-Button mit
+    /// expliziter Selection — nur Auto-Pages, Manual werden in der Lib
+    /// gefiltert).
     RebuildPages { pages: Vec<usize> },
-
-    /// Toolbar-Rebuild-Button: UI-Auflösung in `RebuildPages` oder
-    /// `RebuildAll` (siehe 5.3.6). Kein Worker-Task — wird im
-    /// UI-Frame zerlegt.
-    RebuildRequest,
 
     /// Bestätigtes „alles neu bauen" (Cover wird wie immer übersprungen).
     RebuildAll,
@@ -120,6 +117,11 @@ pub enum PendingCommand {
     ReleaseBuild,
 }
 ```
+
+`PendingCommand` enthält bewusst **keine** UI-Marker („irgendwann
+RebuildAll, vielleicht RebuildPages, kommt drauf an"). Solche Verzweigung
+gehört in den UI-Code direkt am Trigger (5.3.6) — `PendingCommand` bleibt
+ein „what to dispatch", nicht „what to ask the user about".
 
 `PendingCommand::Swap` (single-slot) bleibt für Same-Page-Swaps ohne
 Selektion. `SwapRange` ist der neue Pfad bei Multi-Selection-Drag — siehe
@@ -169,28 +171,30 @@ Worker gesendet.
 
 ### 5.0.4 Worker-Dispatch für neue Tasks (inkl. Lib-Erweiterung)
 
-**Lib-Erweiterung — `DstMove::NewPageAt(u32)`** (`src/commands/page/types.rs`):
+**Lib-Refactor — `DstMove::NewPageAfter` durch `DstMove::NewPageAt` ersetzen**
+(`src/commands/page/types.rs`):
 
-Bisher gibt es nur `DstMove::NewPageAfter(u32)`, das **nicht in der Lage
-ist, eine Seite vor Seite 0 einzufügen**. Phase 5 ergänzt:
+`NewPageAfter(u32)` kann nicht vor Seite 0 einfügen — und für die CLI-
+Migration `to N+` ist das Mapping `+` → `at_position = N + 1` ohnehin
+trivial. Statt eine zweite Variante als „ergonomic alias" zu führen
+(Code-Duplikation, ODR-Verstoß: jeder Reader/Writer der Lib müsste beide
+Pfade verstehen), wird `NewPageAfter` ersatzlos gestrichen und alle
+Aufrufer wandern auf `NewPageAt`:
 
 ```rust
 pub enum DstMove {
     Page(u32),
-    /// New page inserted directly **after** this page number (legacy).
-    NewPageAfter(u32),
     /// New page inserted **at** this 0-based array index. Symmetric to
     /// `Vec::insert`: existing pages at `>= index` shift right by one.
-    /// `index = layout.len()` is allowed (append). `NewPageAfter(p)` is
-    /// equivalent to `NewPageAt(p+1)` and stays as ergonomic alias for the
-    /// CLI parser; new GUI/internal callers should use `NewPageAt`.
+    /// `index = layout.len()` is allowed (append). `index = 0` inserts
+    /// before the first existing page.
     NewPageAt(u32),
     Unplace,
 }
 ```
 
-`execute_move_to` (`src/commands/page/move_cmd.rs:122-141`) bekommt einen
-neuen Match-Arm:
+`execute_move_to` (`src/commands/page/move_cmd.rs:122-141`): bestehender
+`NewPageAfter`-Match-Arm wird zu:
 
 ```rust
 DstMove::NewPageAt(idx) => {
@@ -207,15 +211,26 @@ DstMove::NewPageAt(idx) => {
 }
 ```
 
-Bestehender `NewPageAfter`-Arm bleibt unverändert. Lib-Tests:
+**Migration aller Aufrufer** (Bestandsaufnahme via `git grep
+NewPageAfter`):
+
+| Datei | Anpassung |
+|---|---|
+| `src/commands/page/types.rs` | `NewPageAfter` aus enum entfernen |
+| `src/commands/page/move_cmd.rs` | Match-Arm umbenennen, Kommentar bei `pre_insert_src` mit nachziehen |
+| `src/commands/page/move_cmd.rs::tests` (`NewPageAfter(0)`, …) | `NewPageAt(0+1) = NewPageAt(1)` etc. — selbe Semantik, geänderte Konstante |
+| `cli/cli/page/parser.rs:148` | `to N+` parst künftig zu `NewPageAt(N+1)` |
+| `cli/cli/page/tests.rs:175` | Konstante in Test anpassen |
+
+Eigener Commit `refactor(lib): replace DstMove::NewPageAfter with NewPageAt
+for symmetric insertion` direkt vor dem Phase-5-GUI-Scaffolding-Commit.
+
+Lib-Tests:
 
 - `execute_move_new_page_at_zero_inserts_before_first_page`
 - `execute_move_new_page_at_len_appends`
 - `execute_move_new_page_at_out_of_range_errors`
-
-Das ist die einzige Lib-Änderung in Phase 5. Eigener Commit
-`feat(lib): page move supports NewPageAt for index-based insertion`
-direkt vor dem GUI-Scaffolding-Commit.
+- CLI-Parser-Test: `parse_to_n_plus_yields_new_page_at_n_plus_1`.
 
 **GUI-Worker** (`gui/background/commands.rs`):
 
@@ -349,9 +364,21 @@ Tests (rein logisch):
 
 ### 5.1.1 Layout in `draw_pages.rs`
 
-**Vor** der ersten Seite, **zwischen** je zwei Seiten und **nach** der
-letzten Seite wird ein schmales horizontales Rect gezeichnet — also
-`num_pages + 1` Slots, indiziert mit `at_position = 0..=num_pages`. Inhalt
+**Zwischen** je zwei Seiten und **nach** der letzten Seite wird ein
+schmales horizontales Rect gezeichnet. Vor Seite 0 wird der Slot **nur
+dann** gezeichnet, wenn das Projekt **kein Cover** hat
+(`!data.project.has_cover()`, siehe `src/dto_models/state.rs:45-47`):
+ein Cover ist per Definition immer Seite 0, davor passt nichts hin. Die
+Quelle der Wahrheit ist `ProjectState::has_cover()` — nicht in der GUI
+nochmal `config.book.cover.active` lesen, sonst entstünde eine zweite
+Stelle, die diese Regel kennt.
+
+Damit ergibt sich die Anzahl der Drop-Zonen:
+
+| Cover aktiv? | Drop-Zonen | gültiger `at_position`-Bereich |
+|---|---|---|
+| nein | `num_pages + 1` | `0..=num_pages` |
+| ja   | `num_pages`     | `1..=num_pages` (vor Cover ausgeschlossen) | Inhalt
 lebt in neuem Submodul
 `gui/app/widgets/central_panel/draw_new_page_slot.rs`:
 
@@ -405,10 +432,13 @@ ein `draw_new_page_slot::draw`. Hover wird in dasselbe
 ist:
 
 ```rust
-// [+] vor Seite 0
-let (_, slot_hovered) = draw_new_page_slot::draw(ui, 0, interaction);
-if hovered.is_none() && slot_hovered {
-    hovered = Some(HoveredTarget::NewPageSlot { at_position: 0 });
+// [+] vor Seite 0 — entfällt, wenn das Projekt ein Cover hat
+// (Cover ist per Definition Seite 0).
+if !data.project.has_cover() {
+    let (_, slot_hovered) = draw_new_page_slot::draw(ui, 0, interaction);
+    if hovered.is_none() && slot_hovered {
+        hovered = Some(HoveredTarget::NewPageSlot { at_position: 0 });
+    }
 }
 
 for i in 0..num_pages {
@@ -421,6 +451,21 @@ for i in 0..num_pages {
     }
 }
 ```
+
+**Verteidigungslinie auch in der Lib**: damit ein böswilliger oder
+fehlerhafter `at_position = 0`-Aufruf bei aktivem Cover nicht das Layout
+korrumpiert (Cover würde auf Index 1 rutschen), prüft `execute_move_to`
+zusätzlich:
+
+```rust
+DstMove::NewPageAt(0) if mgr.state.has_cover() => {
+    return Err(ValidationError::PageNotFound(0).into());
+}
+```
+
+Damit ist das Cover-Invariant (`has_cover() ⇒ layout[0] ist Cover`) sowohl
+UI- als auch Lib-seitig geschützt — die UI verhindert die Aktion, die Lib
+verweigert sie als Defense-in-Depth.
 
 Reihenfolge der Hit-Test-Prio (siehe `docs/design/gui/03-cli-gui-mapping.md`
 § Drop-Target-Auflösung): `[+]`-Slot hat Vorrang vor angrenzender Seite.
@@ -775,35 +820,23 @@ entsprechend nachgezogen (Phase 5 setzt das in einem Doc-Commit um, siehe
 
 ```rust
 // gui/app/widgets/toolbar.rs
-let rebuild_label = match selected_pages_for_rebuild(state) {
-    PagesForRebuild::Selected(pages) if !pages.is_empty() =>
-        format!("Rebuild ({})", pages.len()),
-    _ => "Rebuild …".to_string(),
+let label = match selected_pages_for_rebuild(state) {
+    PagesForRebuild::Selected(pages) => format!("Rebuild ({})", pages.len()),
+    PagesForRebuild::None            => "Rebuild …".to_string(),
 };
-if ui.button(rebuild_label).clicked() {
-    cmds.insert(PendingCommand::RebuildRequest);
-}
-```
-
-`PendingCommand::RebuildRequest` ist **eine zwischengeschaltete UI-Aktion,
-kein Background-Task**. Im Frame-Handler (`FotobuchApp::dispatch` oder
-`process_pending_commands`) wird `RebuildRequest` so aufgelöst:
-
-```rust
-match selected_pages_for_rebuild(&self.state) {
-    PagesForRebuild::Selected(pages) if !pages.is_empty() => {
-        // Direkt rebuilden — Selektion ist explizite Wahl des Users.
-        let _ = self.task_tx.send(BackgroundTask::RebuildPages {
-            pages,
-            pixel_per_pt: self.state.interaction.viewport.zoom * BASE_PPP,
-        });
-    }
-    _ => {
-        // Keine Selektion → User muss bewusst „alle Seiten" bestätigen.
-        self.state.interaction.rebuild_all_confirm = true;
+if ui.button(label).clicked() {
+    match selected_pages_for_rebuild(state) {
+        PagesForRebuild::Selected(pages) =>
+            { cmds.insert(PendingCommand::RebuildPages { pages }); }
+        PagesForRebuild::None =>
+            { state.interaction.rebuild_all_confirm = true; }
     }
 }
 ```
+
+Die Verzweigung liegt **direkt am Click** — kein zwischengeschalteter
+„RebuildRequest"-Marker, der `PendingCommand` mit UI-Zustand vermischen
+würde.
 
 `selected_pages_for_rebuild(&GuiState) -> PagesForRebuild` ist eine
 **pure** Funktion in `gui/app/rebuild.rs` (neues Submodul, um die
@@ -864,13 +897,8 @@ pub fn show(ctx: &egui::Context, interaction: &mut InteractionState, cmds: &mut 
 }
 ```
 
-Neu in `pending.rs` und `task.rs`:
-
-```rust
-PendingCommand::RebuildRequest,            // UI-Resolver, kein Worker-Task
-PendingCommand::RebuildAll,                // nach Confirm
-BackgroundTask::RebuildAll { pixel_per_pt: f32 },
-```
+Neu in `task.rs` (alle Phase-5-Rebuild/Release-Tasks bereits in 5.0.3
+deklariert; hier nur Verweis auf Worker-Side):
 
 Worker (`run_rebuild_all`) ruft
 `fotobuch::commands::rebuild::rebuild(rctx.project_root, RebuildScope::All)`
@@ -955,8 +983,12 @@ Submodul):
 - [ ] Zwischen je zwei Seiten sowie nach der letzten Seite erscheint im
       Central-Panel ein schmales blaues Rechteck (sehr dezent ohne Drag,
       heller bei aktivem Drag, leuchtend bei Hover).
-- [ ] Auch **vor** Seite 0 erscheint ein `[+]`-Rect; insgesamt
+- [ ] Ohne Cover: `[+]`-Rect auch vor Seite 0; insgesamt
       `num_pages + 1` Drop-Zonen.
+- [ ] Mit Cover (`config.book.cover.active = true`): kein `[+]` vor
+      Seite 0; nur `num_pages` Drop-Zonen.
+- [ ] Lib weist `DstMove::NewPageAt(0)` bei aktivem Cover ab (Defense-in-
+      Depth).
 - [ ] RMB-Drag auf ein `[+]`-Rect erzeugt eine neue Seite an
       `at_position` (0 = vor erster, num_pages = ans Ende) und
       verschiebt die Selektion (oder den einzeln gedraggten Slot)
@@ -989,6 +1021,50 @@ Submodul):
 - [ ] `Ctrl+O` öffnet einen Stub-Dialog (echte Add-Funktion in Phase 6).
 - [ ] `cargo build --features gui` und `cargo clippy --features gui --
       -D warnings` sauber; `cargo fmt --check` sauber; `cargo test` grün.
+
+## 5.4.1 Code-Smell-Review (Self-Audit)
+
+Drei Befunde aus der zweiten Durchsicht — die ersten zwei werden in
+Phase 5 selbst umgesetzt, der dritte bleibt als bewusst nicht
+ausgeführter Refactor-Hinweis:
+
+**1. Lib-Insertion ist EIN Command, nicht zwei** (5.0.4).
+`DstMove::NewPageAfter` wird durch `NewPageAt` ersetzt — kein „ergonomic
+alias", weil zwei Wege zum gleichen Ziel = ODR-Verstoß. CLI-Parser
+übersetzt `to N+` zur Compile-Zeit nach `NewPageAt(N+1)`.
+
+**2. `PendingCommand` enthält keine UI-Marker** (5.3.6).
+Der erste Plan-Entwurf hatte `PendingCommand::RebuildRequest` als
+Indirection für „Frage den User noch". Das mischt UI-Zustand
+(„Confirm-Popup öffnen") mit Worker-Dispatch. Toolbar entscheidet
+inline: mit Selection → `RebuildPages`, ohne → `rebuild_all_confirm =
+true`. Keine zwischengeschalteten Marker-Varianten.
+
+**3. `BackgroundTask` hat zu viele page-mutierende Varianten —
+Konsolidierungs-Chance über Phase 5 hinaus**.
+Aktuell sind `SwapSlots`, `MoveSlot`, `Undo`, `Redo`, `PageSwap`
+(Phase 3/4) plus die Phase-5-Neulinge `MoveToNewPage`, `SwapRange`,
+`Unplace` allesamt Varianten, die der Worker auf einen `PageMoveCmd`
+mappt und durch `run_page_command` schickt. Die saubere Form wäre **eine
+einzige Variante**:
+
+```rust
+BackgroundTask::PageMove { cmd: PageMoveCmd, pixel_per_pt: f32 }
+```
+
+Das eliminiert sieben Wrapper-Funktionen in
+`gui/background/commands.rs`. Phase 5 zieht diesen Refactor **nicht
+ein** — Begründung: er wäre eine Änderung an Phase-3/4-Code, die
+Phase 5 als Side-Effect kassiert hätte. Stattdessen bleibt die
+Konsolidierung ein eigenständiger Refactor-Commit (z. B. als 5.0.0
+oder Phase 4.x-Cleanup), der die existierenden Varianten zusammenführt
+und dann Phase-5-Tasks als zusätzliche `PageMoveCmd`-Konstruktoren
+einklinkt.
+
+YAGNI-Hinweis: bevor `PageMoveCmd` konsolidiert wird, müsste das Enum
+einen sauberen `Unplace`-Pfad haben. Aktuell gibt es ihn (über
+`DstMove::Unplace`) — also blockt nichts; es ist nur außerhalb des
+Phase-5-Scopes.
 
 ## 5.5 Was NICHT in Phase 5 gehört
 
