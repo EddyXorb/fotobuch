@@ -47,21 +47,27 @@ pub enum HoveredTarget {
     NavPage(usize),
     PoolItem(String),
     /// [+]-Platzhalter zwischen Seiten im Central-Panel.
-    /// `after_page = i` ⇒ Drop erzeugt eine neue Seite zwischen `i` und `i+1`.
-    /// `after_page = num_pages - 1` ist zulässig (Seite ans Ende anhängen).
-    NewPageSlot { after_page: usize },
+    ///
+    /// `at_position = i` heißt: neue Seite landet **an Index `i`**, die
+    /// bestehende Seite an `i` rutscht auf `i+1`. Damit ist der gesamte
+    /// Bereich `0..=num_pages` adressierbar:
+    ///   - `at_position = 0`        → neue Seite ganz vorne (vor Seite 0)
+    ///   - `at_position = num_pages` → neue Seite ans Ende anhängen
+    /// Diese symmetrische Zählung ist Pflicht — `after_page` (das nur
+    /// `0..num_pages` adressiert hätte) wäre nicht in der Lage, vor
+    /// Seite 0 einzufügen.
+    NewPageSlot { at_position: usize },
 }
 ```
 
-Neue Helper-Methoden (ersetzen bestehende `page_idx`, `central_page`, `slot`
-nicht — diese dürfen bei `NewPageSlot` weiterhin `None` liefern, damit
-bestehender Code nicht versehentlich die `[+]`-Zone als Zielseite
-missinterpretiert):
+Neue Helper-Methode (`page_idx`, `central_page`, `slot` liefern für
+`NewPageSlot` weiterhin `None`, damit bestehender Code die `[+]`-Zone
+nicht versehentlich als reguläre Zielseite missinterpretiert):
 
 ```rust
 impl HoveredTarget {
-    pub fn new_page_after(&self) -> Option<usize> {
-        match self { Self::NewPageSlot { after_page } => Some(*after_page), _ => None }
+    pub fn new_page_at_position(&self) -> Option<usize> {
+        match self { Self::NewPageSlot { at_position } => Some(*at_position), _ => None }
     }
 }
 ```
@@ -73,12 +79,14 @@ impl HoveredTarget {
 pub enum PendingCommand {
     // … bestehende Varianten …
 
-    /// Slots auf neuer Seite direkt nach `after_page` platzieren
-    /// (= `page move {src_page}:{src_slots} to {after_page}+`).
+    /// Slots auf eine **neu eingefügte** Seite verschieben.
+    /// `at_position` zählt analog zu `Vec::insert`:
+    /// 0 = neue Seite ganz am Anfang, `num_pages` = neue Seite ans Ende
+    /// (siehe `HoveredTarget::NewPageSlot`).
     MoveToNewPage {
         src_page: usize,
         src_slots: Vec<usize>,
-        after_page: usize,
+        at_position: usize,
     },
 
     /// Cross-Page Swap mit Slot-Range(s). Beide Seiten nutzen **eine**
@@ -98,8 +106,18 @@ pub enum PendingCommand {
     /// Selektierte Seiten neu bauen (R-Taste, nur Auto-Pages).
     RebuildPages { pages: Vec<usize> },
 
-    /// Inkrementeller Build (Ctrl+B) bzw. Release-Build (Ctrl+Shift+B).
-    Build { release: bool },
+    /// Toolbar-Rebuild-Button: UI-Auflösung in `RebuildPages` oder
+    /// `RebuildAll` (siehe 5.3.6). Kein Worker-Task — wird im
+    /// UI-Frame zerlegt.
+    RebuildRequest,
+
+    /// Bestätigtes „alles neu bauen" (Cover wird wie immer übersprungen).
+    RebuildAll,
+
+    /// Release-Build (`Ctrl+Shift+B` oder Toolbar-Button `[Release]`).
+    /// Inkrementelle Builds laufen automatisch nach jedem Mutations-
+    /// Command — daher kein eigener Build-Trigger mehr.
+    ReleaseBuild,
 }
 ```
 
@@ -117,7 +135,7 @@ pub enum BackgroundTask {
     MoveToNewPage {
         src_page: usize,
         src_slots: Vec<usize>,
-        after_page: usize,
+        at_position: usize,
         pixel_per_pt: f32,
     },
     SwapRange {
@@ -136,24 +154,76 @@ pub enum BackgroundTask {
         pages: Vec<usize>,
         pixel_per_pt: f32,
     },
-    Build {
-        release: bool,
+    RebuildAll {
+        pixel_per_pt: f32,
+    },
+    ReleaseBuild {
         pixel_per_pt: f32,
     },
 }
 ```
 
-### 5.0.4 Worker-Dispatch für neue Tasks
+`RebuildRequest` taucht hier **nicht** auf — er wird im UI-Frame in
+`RebuildPages` oder `RebuildAll` (nach Confirm) zerlegt und nie an den
+Worker gesendet.
 
-Neue Match-Arms in `gui/background.rs`, Delegierung an Helper in
-`gui/background/commands.rs` nach bekanntem Muster (wie `run_swap_slots`):
+### 5.0.4 Worker-Dispatch für neue Tasks (inkl. Lib-Erweiterung)
+
+**Lib-Erweiterung — `DstMove::NewPageAt(u32)`** (`src/commands/page/types.rs`):
+
+Bisher gibt es nur `DstMove::NewPageAfter(u32)`, das **nicht in der Lage
+ist, eine Seite vor Seite 0 einzufügen**. Phase 5 ergänzt:
 
 ```rust
-// gui/background/commands.rs
+pub enum DstMove {
+    Page(u32),
+    /// New page inserted directly **after** this page number (legacy).
+    NewPageAfter(u32),
+    /// New page inserted **at** this 0-based array index. Symmetric to
+    /// `Vec::insert`: existing pages at `>= index` shift right by one.
+    /// `index = layout.len()` is allowed (append). `NewPageAfter(p)` is
+    /// equivalent to `NewPageAt(p+1)` and stays as ergonomic alias for the
+    /// CLI parser; new GUI/internal callers should use `NewPageAt`.
+    NewPageAt(u32),
+    Unplace,
+}
+```
+
+`execute_move_to` (`src/commands/page/move_cmd.rs:122-141`) bekommt einen
+neuen Match-Arm:
+
+```rust
+DstMove::NewPageAt(idx) => {
+    if (idx as usize) > mgr.state.layout.len() {
+        return Err(ValidationError::PageNotFound(idx).into());
+    }
+    let new_idx = idx as usize;
+    let new_page_num = new_idx;
+    mgr.state.layout.insert(
+        new_idx,
+        LayoutPage { page: new_page_num, photos: vec![], slots: vec![], mode: PageMode::Auto },
+    );
+    (new_idx, Some(new_page_num as u32))
+}
+```
+
+Bestehender `NewPageAfter`-Arm bleibt unverändert. Lib-Tests:
+
+- `execute_move_new_page_at_zero_inserts_before_first_page`
+- `execute_move_new_page_at_len_appends`
+- `execute_move_new_page_at_out_of_range_errors`
+
+Das ist die einzige Lib-Änderung in Phase 5. Eigener Commit
+`feat(lib): page move supports NewPageAt for index-based insertion`
+direkt vor dem GUI-Scaffolding-Commit.
+
+**GUI-Worker** (`gui/background/commands.rs`):
+
+```rust
 pub(super) fn run_move_to_new_page(
     src_page: usize,
     src_slots: Vec<usize>,
-    after_page: usize,
+    at_position: usize,
     rctx: &mut super::RenderCtx<'_>,
 ) {
     let cmd = PageMoveCmd::Move {
@@ -161,7 +231,7 @@ pub(super) fn run_move_to_new_page(
             page: src_page as u32,
             slots: SlotExpr::from_list(src_slots.iter().map(|&s| s as u32).collect()),
         },
-        dst: DstMove::NewPageAfter(after_page as u32),
+        dst: DstMove::NewPageAt(at_position as u32),
     };
     run_page_command(cmd, rctx);
 }
@@ -231,11 +301,9 @@ pub(super) fn run_rebuild_pages(
     super::render::send_command_done(new_state.map(|b| *b), dirty, rctx);
 }
 
-pub(super) fn run_build(release: bool, rctx: &mut super::RenderCtx<'_>) {
-    let cfg = if release {
-        fotobuch::commands::build::BuildConfig { release: true, force: false, pages: None }
-    } else {
-        fotobuch::commands::build::BuildConfig { release: false, force: false, pages: None }
+pub(super) fn run_release_build(rctx: &mut super::RenderCtx<'_>) {
+    let cfg = fotobuch::commands::build::BuildConfig {
+        release: true, force: false, pages: None,
     };
     match fotobuch::commands::build::build(rctx.project_root, &cfg) {
         Err(e) => { let _ = rctx.result_tx.send(BackgroundResult::CommandFailed(e.to_string())); }
@@ -244,7 +312,21 @@ pub(super) fn run_build(release: bool, rctx: &mut super::RenderCtx<'_>) {
         ),
     }
 }
+
+pub(super) fn run_rebuild_all(rctx: &mut super::RenderCtx<'_>) {
+    use fotobuch::commands::rebuild::{rebuild, RebuildScope};
+    match rebuild(rctx.project_root, RebuildScope::All) {
+        Err(e) => { let _ = rctx.result_tx.send(BackgroundResult::CommandFailed(e.to_string())); }
+        Ok(out) => super::render::send_command_done(
+            out.changed_state, out.result.pages_rebuilt, rctx,
+        ),
+    }
+}
 ```
+
+`run_rebuild_pages` aus 5.3.2 (das `RebuildScope::SinglePage` pro Seite
+durchläuft) bleibt die Wahl für `RebuildPages` mit konkreter Selection;
+`run_rebuild_all` ist der separate Pfad nach Confirm.
 
 `finish_with_build` ist die in `run_page_command` bereits vorhandene Kette
 (`execute_*` → `build()` → `CommandDone`) — extrahieren als private
@@ -267,9 +349,11 @@ Tests (rein logisch):
 
 ### 5.1.1 Layout in `draw_pages.rs`
 
-Zwischen jedem Paar aufeinanderfolgender Seiten (und **nach** der letzten
-Seite) wird ein schmales horizontales Rect gezeichnet. Inhalt lebt in neuem
-Submodul `gui/app/widgets/central_panel/draw_new_page_slot.rs`:
+**Vor** der ersten Seite, **zwischen** je zwei Seiten und **nach** der
+letzten Seite wird ein schmales horizontales Rect gezeichnet — also
+`num_pages + 1` Slots, indiziert mit `at_position = 0..=num_pages`. Inhalt
+lebt in neuem Submodul
+`gui/app/widgets/central_panel/draw_new_page_slot.rs`:
 
 ```rust
 pub(super) const NEW_PAGE_SLOT_HEIGHT_PT: f32 = 14.0;
@@ -277,7 +361,7 @@ pub(super) const NEW_PAGE_SLOT_MARGIN_PT: f32 = 4.0; // vertikaler Abstand
 
 pub(super) fn draw(
     ui: &mut egui::Ui,
-    after_page: usize,
+    at_position: usize,
     interaction: &InteractionState,
 ) -> (egui::Rect, bool /* hovered */) {
     let desired = egui::vec2(ui.available_width(), NEW_PAGE_SLOT_HEIGHT_PT);
@@ -307,7 +391,7 @@ pub(super) fn draw(
             icon_color,
         );
     }
-    let _ = after_page;
+    let _ = at_position;
     (rect, hovered)
 }
 ```
@@ -315,21 +399,26 @@ pub(super) fn draw(
 ### 5.1.2 Einhängen in die Scroll-Schleife
 
 In `draw_pages::draw_pages` (gui/app/widgets/central_panel/draw_pages.rs,
-Zeile 31-53) erweitern: zwischen je zwei Pages und nach der letzten Page
-wird `draw_new_page_slot::draw` gerufen und der Hover in dasselbe
-`hovered: Option<HoveredTarget>` geschrieben, wenn noch keiner gesetzt
+Zeile 31-53) erweitern: einmal vor der Schleife, dann nach jeder Seite je
+ein `draw_new_page_slot::draw`. Hover wird in dasselbe
+`hovered: Option<HoveredTarget>` geschrieben, sofern noch keiner gesetzt
 ist:
 
 ```rust
+// [+] vor Seite 0
+let (_, slot_hovered) = draw_new_page_slot::draw(ui, 0, interaction);
+if hovered.is_none() && slot_hovered {
+    hovered = Some(HoveredTarget::NewPageSlot { at_position: 0 });
+}
+
 for i in 0..num_pages {
     // bestehende draw_page-Logik für Seite i …
 
-    // Platzhalter NACH Seite i — auch nach der letzten Seite.
-    let (slot_rect, slot_hovered) = draw_new_page_slot::draw(ui, i, interaction);
+    // Platzhalter NACH Seite i — auch nach der letzten Seite (i+1 == num_pages).
+    let (_, slot_hovered) = draw_new_page_slot::draw(ui, i + 1, interaction);
     if hovered.is_none() && slot_hovered {
-        hovered = Some(HoveredTarget::NewPageSlot { after_page: i });
+        hovered = Some(HoveredTarget::NewPageSlot { at_position: i + 1 });
     }
-    let _ = slot_rect; // aktuell kein Scroll-Target nötig
 }
 ```
 
@@ -357,13 +446,15 @@ fn complete_slot_drag(
     src_page: usize,
     src_slot: usize,
 ) {
-    // NEU: Drop auf [+]-Platzhalter → Move auf neue Seite.
-    if let Some(after) = interaction.hovered.as_ref().and_then(HoveredTarget::new_page_after) {
+    // NEU: Drop auf [+]-Platzhalter → Move auf neu eingefügte Seite.
+    if let Some(at_position) = interaction.hovered.as_ref()
+        .and_then(HoveredTarget::new_page_at_position)
+    {
         let src_slots = selection_slots_for(interaction, src_page, src_slot);
         cmds.insert(PendingCommand::MoveToNewPage {
             src_page,
             src_slots,
-            after_page: after,
+            at_position,
         });
         return;
     }
@@ -402,11 +493,12 @@ Pipeline in `run_page_command` füttert die daraus resultierenden
 
 `feat(gui): insertion placeholders between pages trigger new-page move`
 
-- `central_panel::new_page_slot_hover_returns_target` — fakes den Cursor
-  über dem `[+]`-Rect und prüft `HoveredTarget::NewPageSlot`.
+- `central_panel::new_page_slot_hover_at_zero_returns_target_for_before_page_0`.
+- `central_panel::new_page_slot_hover_at_len_returns_target_for_append`.
 - `input_handler::drop_on_new_page_slot_emits_move_to_new_page` — Drag mit
-  Selektion `{1, 2}` + Hover `NewPageSlot { after_page: 3 }` → genau ein
-  `PendingCommand::MoveToNewPage { src_page, src_slots: [1,2], after_page: 3 }`.
+  Selektion `{1, 2}` + Hover `NewPageSlot { at_position: 3 }` → genau ein
+  `PendingCommand::MoveToNewPage { src_page, src_slots: [1,2], at_position: 3 }`.
+- `input_handler::drop_on_new_page_slot_at_zero_inserts_before_first_page`.
 
 ---
 
@@ -559,39 +651,78 @@ Toast an (Toasts selbst kommen in Phase 6.2).
 
 ### 5.3.3 `Ctrl+G` → Gehe zu Seite
 
-Neues Popup-State-Feld:
+Re-uses den bestehenden Scroll-Mechanismus: ein Klick auf eine Nav-Page
+setzt `interaction.viewport.scroll_to_page = Some(idx)`
+(`gui/app/widgets/page_nav.rs:127`), und `apply_scroll_if_needed`
+(`page_nav.rs:154`) konsumiert das Feld einmalig. Der Goto-Dialog **schreibt
+exakt in dieselbe Variable** — kein neuer Scroll-Pfad.
+
+Minimal-State: ein einziges `bool` in `InteractionState` reicht; der
+Eingabe-Buffer lebt im egui-Per-Id-Memory und braucht **kein**
+struct-Feld. Damit gibt es **keine** Code-Duplikation gegenüber dem
+Nav-Klick-Pfad.
 
 ```rust
-// gui/state/viewport.rs (oder neues Submodul gui/state/goto.rs)
-#[derive(Default)]
-pub struct GotoPageDialog {
-    pub open: bool,
-    pub buffer: String, // rohe Eingabe, 0-basiert
+// gui/state.rs — InteractionState bekommt ein einzelnes Flag
+pub struct InteractionState {
+    // … bestehende Felder …
+    pub goto_open: bool,
 }
 ```
 
-Hängt an `InteractionState::goto: GotoPageDialog` (neues Feld).
-
-Input-Handler:
+Input-Handler — Toggle nur das Flag, alles andere passiert im Widget:
 
 ```rust
 fn handle_goto_toggle(interaction: &mut InteractionState, ctx: &egui::Context) {
     if ctx.input_mut(|i| i.consume_key(egui::Modifiers::CTRL, egui::Key::G)) {
-        interaction.goto.open = !interaction.goto.open;
-        if interaction.goto.open { interaction.goto.buffer.clear(); }
+        interaction.goto_open = !interaction.goto_open;
     }
 }
 ```
 
-Widget: `gui/app/widgets/goto_dialog.rs` — `egui::Window::new("Gehe zu
-Seite").open(&mut state.interaction.goto.open).collapsible(false)`,
-Single-Line `text_edit_singleline`. `Enter` parst `buffer` als `usize`,
-setzt bei Erfolg `interaction.viewport.scroll.scroll_to_page = Some(idx)`
-(bestehender Mechanismus aus Phase 4.1.4) und schließt das Fenster;
-`Escape` schließt ohne Aktion. Ungültige Eingaben (kein `usize`, Index
-außerhalb `layout.len()`) bleiben im Fenster und färben das Feld rot
-(`ui.visuals_mut().override_text_color = Some(Color32::LIGHT_RED)` solange
-`parse`+Range-Check scheitert).
+Widget `gui/app/widgets/goto_dialog.rs`:
+
+```rust
+pub fn show(ctx: &egui::Context, interaction: &mut InteractionState, num_pages: usize) {
+    if !interaction.goto_open { return; }
+    let mut open = interaction.goto_open;
+    egui::Window::new("Gehe zu Seite")
+        .open(&mut open).collapsible(false).resizable(false)
+        .show(ctx, |ui| {
+            // Buffer wird per egui-Memory zwischen Frames erhalten,
+            // ohne dass GuiState ihn kennt.
+            let id = egui::Id::new("goto_buffer");
+            let mut buffer = ui.memory(|m| m.data.get_temp::<String>(id).unwrap_or_default());
+            let resp = ui.text_edit_singleline(&mut buffer);
+            ui.memory_mut(|m| m.data.insert_temp(id, buffer.clone()));
+            if ui.input(|i| i.key_pressed(egui::Key::Escape)) {
+                interaction.goto_open = false;
+                ui.memory_mut(|m| m.data.remove::<String>(id));
+                return;
+            }
+            let parsed = buffer.trim().parse::<usize>().ok().filter(|p| *p < num_pages);
+            if resp.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+                if let Some(idx) = parsed {
+                    interaction.viewport.scroll_to_page = Some(idx); // = Nav-Klick
+                    interaction.goto_open = false;
+                    ui.memory_mut(|m| m.data.remove::<String>(id));
+                }
+            }
+            if parsed.is_none() && !buffer.is_empty() {
+                ui.colored_label(egui::Color32::LIGHT_RED, "Ungültige Seite");
+            }
+        });
+    interaction.goto_open = open && interaction.goto_open;
+}
+```
+
+Vorteile dieses Modells:
+- Identischer Scroll-Pfad wie Nav-Klick → keine zweite Code-Stelle, die
+  „zu Seite scrollen" implementiert.
+- Kein struct in `gui/state/`, kein Constructor, keine Default-Impl —
+  einfach ein `bool`.
+- Buffer-Lifetime ist genau so lang wie der Dialog offen ist (Memory wird
+  bei Enter/Escape gelöscht).
 
 ### 5.3.4 `Home` / `End` → Erste / Letzte Seite
 
@@ -619,26 +750,156 @@ fn handle_fit_width(interaction: &mut InteractionState, ctx: &egui::Context) {
 }
 ```
 
-### 5.3.6 `Ctrl+B` / `Ctrl+Shift+B` → Build / Release-Build
+### 5.3.6 Rebuild-Button + `Ctrl+Shift+B` → Release-Build
+
+**Paradigmenwechsel — auto-rebuild ist Pflicht.** Jeder Layout-mutierende
+Command (Swap/Move/MoveToNewPage/Place/Unplace/PageSwap/PagePos/ConfigSet)
+triggert in der Pipeline (`gui/background/commands.rs::run_page_command`)
+bereits automatisch ein `build()`. Phase 5 liefert daher **keinen**
+inkrementellen Build-Hotkey/Button — eine Änderung ohne sichtbares
+Ergebnis ist konzeptionell unmöglich. Stattdessen:
+
+1. **Rebuild-Button** (Toolbar links oben) — erzwingt einen kompletten
+   GA-Rerun (analog `R`-Hotkey aus 5.3.2).
+2. **Release-Build** — explizit, weil kein automatischer Trigger; eigener
+   Hotkey **und** eigener Toolbar-Button.
+
+#### Rebuild-Button
+
+`gui/app/widgets/toolbar.rs`: Bisheriger `[Build]`-Stub wird zum
+**`[Rebuild]`**-Button (der `[Release]`-Stub bleibt — siehe unten).
+`Build` als Toolbar-Aktion existiert in der GUI nicht mehr; der
+Toolbar-Mockup in `01-ux-konzept.md` und das CLI-Mapping werden
+entsprechend nachgezogen (Phase 5 setzt das in einem Doc-Commit um, siehe
+5.3.8).
 
 ```rust
-fn handle_build(ctx: &egui::Context, cmds: &mut HashSet<PendingCommand>) {
-    if ctx.input_mut(|i| i.consume_key(egui::Modifiers::CTRL | egui::Modifiers::SHIFT, egui::Key::B)) {
-        cmds.insert(PendingCommand::Build { release: true });
-        return;
+// gui/app/widgets/toolbar.rs
+let rebuild_label = match selected_pages_for_rebuild(state) {
+    PagesForRebuild::Selected(pages) if !pages.is_empty() =>
+        format!("Rebuild ({})", pages.len()),
+    _ => "Rebuild …".to_string(),
+};
+if ui.button(rebuild_label).clicked() {
+    cmds.insert(PendingCommand::RebuildRequest);
+}
+```
+
+`PendingCommand::RebuildRequest` ist **eine zwischengeschaltete UI-Aktion,
+kein Background-Task**. Im Frame-Handler (`FotobuchApp::dispatch` oder
+`process_pending_commands`) wird `RebuildRequest` so aufgelöst:
+
+```rust
+match selected_pages_for_rebuild(&self.state) {
+    PagesForRebuild::Selected(pages) if !pages.is_empty() => {
+        // Direkt rebuilden — Selektion ist explizite Wahl des Users.
+        let _ = self.task_tx.send(BackgroundTask::RebuildPages {
+            pages,
+            pixel_per_pt: self.state.interaction.viewport.zoom * BASE_PPP,
+        });
     }
-    if ctx.input_mut(|i| i.consume_key(egui::Modifiers::CTRL, egui::Key::B)) {
-        cmds.insert(PendingCommand::Build { release: false });
+    _ => {
+        // Keine Selektion → User muss bewusst „alle Seiten" bestätigen.
+        self.state.interaction.rebuild_all_confirm = true;
     }
 }
 ```
 
-Reihenfolge wichtig: erst `Ctrl+Shift+B` konsumieren (egui meldet Shift als
-Teil der Modifier-Maske — `Ctrl+Shift+B` darf nicht von `Ctrl+B` mit
-„extra Shift“ verschluckt werden, deshalb der frühe `return`).
+`selected_pages_for_rebuild(&GuiState) -> PagesForRebuild` ist eine
+**pure** Funktion in `gui/app/rebuild.rs` (neues Submodul, um die
+Selection-Auflösung von `R` und Button zu teilen):
 
-Toolbar-Buttons `[Build]` / `[Release]` in
-`gui/app/widgets/toolbar.rs` emittieren dieselben `PendingCommand::Build`.
+```rust
+pub enum PagesForRebuild {
+    Selected(Vec<usize>),  // explizite Auswahl (Slot-Selektion oder Hover)
+    None,                  // weder Selektion noch Hover → All-Rebuild-Pfad
+}
+
+pub fn selected_pages_for_rebuild(state: &GuiState) -> PagesForRebuild {
+    match &state.interaction.selections.slots {
+        SlotSelection::OnPage { page, .. } => PagesForRebuild::Selected(vec![*page]),
+        SlotSelection::None => match &state.interaction.hovered {
+            Some(HoveredTarget::Page { page, .. })
+            | Some(HoveredTarget::NavPage(page)) => PagesForRebuild::Selected(vec![*page]),
+            _ => PagesForRebuild::None,
+        },
+    }
+}
+```
+
+Damit nutzt der `R`-Hotkey aus 5.3.2 dieselbe Funktion (statt eigener
+Match-Logik) — eine Quelle der Wahrheit.
+
+#### Confirm-Popup für „Rebuild alles"
+
+Neuer State (1 bool, kein struct) in `InteractionState`:
+
+```rust
+pub rebuild_all_confirm: bool,
+```
+
+Widget `gui/app/widgets/rebuild_confirm.rs`:
+
+```rust
+pub fn show(ctx: &egui::Context, interaction: &mut InteractionState, cmds: &mut HashSet<PendingCommand>) {
+    if !interaction.rebuild_all_confirm { return; }
+    let mut open = true;
+    egui::Window::new("Alle Seiten neu bauen?").open(&mut open)
+        .collapsible(false).resizable(false)
+        .show(ctx, |ui| {
+            ui.label("Keine Seite ausgewählt — der Rebuild würde alle Seiten neu solven.");
+            ui.label("Das kann je nach Projektgröße mehrere Minuten dauern.");
+            ui.separator();
+            ui.horizontal(|ui| {
+                if ui.button("Abbrechen").clicked() {
+                    interaction.rebuild_all_confirm = false;
+                }
+                if ui.button("Alle neu bauen").clicked() {
+                    cmds.insert(PendingCommand::RebuildAll);
+                    interaction.rebuild_all_confirm = false;
+                }
+            });
+        });
+    if !open { interaction.rebuild_all_confirm = false; }
+}
+```
+
+Neu in `pending.rs` und `task.rs`:
+
+```rust
+PendingCommand::RebuildRequest,            // UI-Resolver, kein Worker-Task
+PendingCommand::RebuildAll,                // nach Confirm
+BackgroundTask::RebuildAll { pixel_per_pt: f32 },
+```
+
+Worker (`run_rebuild_all`) ruft
+`fotobuch::commands::rebuild::rebuild(rctx.project_root, RebuildScope::All)`
+auf — Cover wird vom Lib-Befehl ohnehin übersprungen
+(`src/commands/rebuild.rs:208-241`), das ist gewollt (separater
+`R` auf Page 0 für Cover-Rebuild, siehe 5.3.2).
+
+#### Release-Build
+
+```rust
+fn handle_release_build(ctx: &egui::Context, cmds: &mut HashSet<PendingCommand>) {
+    if ctx.input_mut(|i| i.consume_key(
+        egui::Modifiers::CTRL | egui::Modifiers::SHIFT, egui::Key::B,
+    )) {
+        cmds.insert(PendingCommand::ReleaseBuild);
+    }
+}
+```
+
+Toolbar-Button **`[Release]`** (links oben, neben `[Rebuild]`) emittiert
+denselben `PendingCommand::ReleaseBuild`. `BackgroundTask::ReleaseBuild`
+ruft `fotobuch::commands::build::build` mit `BuildConfig { release:
+true, force: false, pages: None }` auf. Dieser Pfad ist der **einzige**
+verbliebene direkte Build-Trigger in der GUI — alle anderen Builds
+laufen automatisch nach Layout-Mutationen.
+
+`PendingCommand::Build` aus 5.0.2 entfällt komplett. `BackgroundTask::Build`
+analog — stattdessen nur `BackgroundTask::ReleaseBuild` und
+`BackgroundTask::RebuildAll`.
 
 ### 5.3.7 `Ctrl+O` → Add-Dialog
 
@@ -663,23 +924,29 @@ Struktur in Phase 6.0. Phase-5-Widget zeigt nur ein Fenster mit
 ### 5.3.8 Commit-Aufteilung + Tests
 
 1. `feat(gui): delete-key unplaces selected slots`
-2. `feat(gui): r-key rebuilds active page(s)`
-3. `feat(gui): ctrl+g go-to-page dialog`
-4. `feat(gui): home/end scroll to first/last page`
-5. `feat(gui): ctrl+0 fits page width`
-6. `feat(gui): ctrl+b/ctrl+shift+b trigger build/release`
-7. `feat(gui): ctrl+o opens add-dialog stub`
+2. `feat(gui): r-key + rebuild button trigger rebuild of selected pages`
+3. `feat(gui): rebuild button without selection asks before rebuilding all`
+4. `feat(gui): ctrl+g go-to-page dialog reuses scroll_to_page`
+5. `feat(gui): home/end scroll to first/last page`
+6. `feat(gui): ctrl+0 fits page width`
+7. `feat(gui): ctrl+shift+b + release toolbar button trigger release build`
+8. `feat(gui): ctrl+o opens add-dialog stub`
+9. `docs(gui): drop incremental build trigger from UX/CLI mapping (auto-rebuild)`
 
 Tests (jeweils in `gui/app/input_handler.rs::tests` oder passendem
 Submodul):
 - `handle_delete_emits_unplace_with_selection_slots`.
 - `handle_delete_noop_without_selection`.
-- `handle_rebuild_uses_slot_selection_page_if_present`.
-- `handle_rebuild_uses_hovered_page_when_no_selection`.
+- `rebuild::selected_pages_for_rebuild_uses_slot_selection_when_present`.
+- `rebuild::selected_pages_for_rebuild_uses_hovered_page_otherwise`.
+- `rebuild::selected_pages_for_rebuild_returns_none_without_signal`.
+- `app::rebuild_request_with_selection_dispatches_rebuild_pages`.
+- `app::rebuild_request_without_selection_opens_confirm_dialog`.
 - `handle_home_end_scrolls_to_correct_page`.
 - `handle_fit_width_sets_fit_pending`.
-- `handle_build_hotkeys_distinguish_release`.
-- `handle_goto_dialog_toggle_clears_buffer_on_open`.
+- `handle_release_build_consumes_ctrl_shift_b`.
+- `goto_dialog::enter_with_valid_index_writes_scroll_to_page`.
+- `goto_dialog::escape_clears_buffer_and_closes`.
 
 ---
 
@@ -688,10 +955,13 @@ Submodul):
 - [ ] Zwischen je zwei Seiten sowie nach der letzten Seite erscheint im
       Central-Panel ein schmales blaues Rechteck (sehr dezent ohne Drag,
       heller bei aktivem Drag, leuchtend bei Hover).
-- [ ] RMB-Drag auf ein `[+]`-Rect erzeugt eine neue Seite direkt nach
-      `after_page` und verschiebt die Selektion (oder den einzeln
-      gedraggten Slot) dorthin. Komplett entleerte Quellseiten
-      verschwinden (durch Lib gehandhabt).
+- [ ] Auch **vor** Seite 0 erscheint ein `[+]`-Rect; insgesamt
+      `num_pages + 1` Drop-Zonen.
+- [ ] RMB-Drag auf ein `[+]`-Rect erzeugt eine neue Seite an
+      `at_position` (0 = vor erster, num_pages = ans Ende) und
+      verschiebt die Selektion (oder den einzeln gedraggten Slot)
+      dorthin. Komplett entleerte Quellseiten verschwinden (durch Lib
+      gehandhabt).
 - [ ] Cross-Page Slot-Move mit Multi-Selektion verschiebt alle selektierten
       Slots auf die gehoverte Zielseite (via `dispatch_move` — bereits
       umgesetzt, Phase 5 fügt nur den Regressionstest hinzu).
@@ -708,7 +978,14 @@ Submodul):
 - [ ] `Home` / `End` scrollen zur ersten / letzten Seite.
 - [ ] `Ctrl+0` passt den Zoom so an, dass die breiteste Seite die
       Panel-Breite füllt.
-- [ ] `Ctrl+B` triggert inkrementellen Build, `Ctrl+Shift+B` Release-Build.
+- [ ] **Kein** inkrementeller Build-Trigger in der GUI: jede
+      Layout-Mutation rebuildet automatisch die betroffenen Seiten.
+- [ ] Toolbar-Button `[Rebuild]` rebuildet die aktive(n) Seite(n)
+      (Slot-Selektion oder hovered Page). Ohne Selektion erscheint ein
+      Bestätigungsdialog mit Begründung „keine Seite ausgewählt"; nur
+      nach Bestätigung wird `RebuildAll` ausgelöst.
+- [ ] `Ctrl+Shift+B` und Toolbar-Button `[Release]` triggern den
+      Release-Build.
 - [ ] `Ctrl+O` öffnet einen Stub-Dialog (echte Add-Funktion in Phase 6).
 - [ ] `cargo build --features gui` und `cargo clippy --features gui --
       -D warnings` sauber; `cargo fmt --check` sauber; `cargo test` grün.

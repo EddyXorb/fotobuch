@@ -57,12 +57,12 @@ Zwischen jeder Seite in der Hauptansicht: schmales Rechteck mit `[+]`, halbtrans
 | **`add`** | `fotobuch add ./fotos -r` | Drag & Drop von Ordnern/Dateien auf das Fenster. Oder: Toolbar-Button / Ctrl+O |
 | **`add --filter`** | `fotobuch add ./fotos --filter "2024-06"` | Add-Dialog mit optionalem Regex-Filter |
 | **`add --weight 2.0`** | `fotobuch add ./fotos --weight 2.0` | Add-Dialog mit Gewicht-Eingabe |
-| **`build`** | `fotobuch build` | Toolbar-Button [Build] / Ctrl+B. Passiert auch automatisch nach jeder Änderung |
-| **`build --pages 3,5`** | `fotobuch build --pages 3,5` | Rechtsklick auf Seite → "Rebuild Page". Oder: `R`-Taste auf selektierter Seite |
-| **`build release`** | `fotobuch build release` | Toolbar-Button [Release] / Ctrl+Shift+B |
-| **`rebuild --page 3`** | `fotobuch rebuild --page 3` | `R`-Taste bei selektierter Seite, oder Rechtsklick → Rebuild |
+| **`build`** | `fotobuch build` | **Kein expliziter Trigger** — die GUI baut nach jeder Layout-Mutation automatisch die betroffenen Seiten. Inkrementelles Build ist kein User-Command in der GUI. |
+| **`build --pages 3,5`** | `fotobuch build --pages 3,5` | Implizit Teil des Auto-Rebuild — sobald Slot-Änderungen Pages 3/5 betreffen, werden sie automatisch neu gebaut. |
+| **`build release`** | `fotobuch build release` | Toolbar-Button [Release] / `Ctrl+Shift+B` |
+| **`rebuild --page 3`** | `fotobuch rebuild --page 3` | `R`-Taste bei selektierter Seite, oder Toolbar-Button [Rebuild] mit Selektion auf Seite 3, oder Rechtsklick → Rebuild |
 | **`rebuild --range-start 2 --range-end 5 --flex 1`** | (wie links) | Multi-Selektion in Seiten-Nav (Shift+Klick), dann Rechtsklick → "Rebuild Range". Flex als Option im Kontextmenü |
-| **`rebuild --all`** | `fotobuch rebuild --all` | Toolbar: [Build] lang drücken oder Rechtsklick → "Rebuild All" |
+| **`rebuild --all`** | `fotobuch rebuild --all` | Toolbar-Button [Rebuild] **ohne** Selektion → Confirm-Popup („keine Seite ausgewählt") → bei Bestätigung; oder Rechtsklick → "Rebuild All" |
 | **`place`** | `fotobuch place` | Drag aus Foto-Pool auf eine Seite. Oder: Toolbar → "Place All" |
 | **`place --into 5`** | `fotobuch place --into 5` | Drag aus Foto-Pool direkt auf Seite 5 |
 | **`place --filter "urlaub"`** | `fotobuch place --filter urlaub` | Foto-Pool hat Suchfeld oben, dann "Place filtered" Button |
@@ -102,8 +102,7 @@ Zwischen jeder Seite in der Hauptansicht: schmales Rechteck mit `[+]`, halbtrans
 | Taste | Aktion |
 |-------|--------|
 | `Ctrl+Z` / `Ctrl+Y` | Undo / Redo |
-| `Ctrl+B` | Build (inkrementell) |
-| `Ctrl+Shift+B` | Release Build |
+| `Ctrl+Shift+B` | Release Build (PDF/Print-Output) |
 | `Ctrl+Scroll` | Zoom |
 | `Ctrl+0` | Zoom: Seitenbreite einpassen |
 | `Ctrl+G` | Gehe zu Seite |

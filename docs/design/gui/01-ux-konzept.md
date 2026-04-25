@@ -8,7 +8,7 @@ Die GUI ist ein **interaktiver Typst-Viewer**. Die gerenderten Seiten SIND das E
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│  fotobuch · my-project       [Build] [Release] [↩][↪] [⚙]  │
+│  fotobuch · my-project     [Rebuild] [Release] [↩][↪] [⚙]  │
 ├───────────┬──────────────────────────────────┬───────────────┤
 │ FOTO-POOL │       HAUPTANSICHT               │ SEITEN-NAV   │
 │           │                                  │              │
@@ -97,13 +97,30 @@ Zwischen jeder Seite: schmales Rechteck mit `[+]`, halbtransparent.
 - **Rötliches Overlay** auf Ziel-Slot: Unterschiedliche Ratio → Solver muss Seite neu layouten
 - **Statusbar** zeigt während Drag: `[Drag: Swap]` bzw. `[M: Move]`
 
-### Auto-Rebuild nach Änderungen
+### Auto-Rebuild nach Änderungen — Architekturprinzip
 
-1. Swap/Move/Unplace/Config-Änderung → betroffene Seiten als "dirty" markieren
-2. Background-Thread baut dirty Pages neu (Solver + Typst-Render)
-3. Während Rebuild: **Gaussian Blur + kleiner Spinner** über der Seite
-4. Alte Version bleibt sichtbar (geblurt) bis neue fertig
-5. UI bleibt immer bei 60fps
+**Grundregel**: Jede Aktion, die das Layout mutiert, triggert automatisch
+einen Rebuild der betroffenen Seiten. Es gibt **keinen** manuellen
+inkrementellen Build-Trigger (Hotkey/Button) — Anzeige und State sind
+immer konsistent ohne expliziten User-Befehl.
+
+1. Swap/Move/Unplace/Place/PageSwap/PagePos/Config-Änderung → die Lib
+   liefert `pages_modified ∪ pages_inserted`; die GUI markiert diese
+   sofort als „dirty".
+2. Background-Thread baut dirty Pages neu (Solver + Typst-Render).
+3. Während Rebuild: **Gaussian Blur + kleiner Spinner** über der Seite.
+4. Alte Version bleibt sichtbar (geblurt) bis neue fertig.
+5. UI bleibt immer bei 60 fps.
+
+**Manuelle Trigger** (alle anderen Build-/Rebuild-Aktionen sind
+explizit):
+
+| Trigger | Wirkung |
+|---------|---------|
+| `R` auf hovered/selektierter Seite | `rebuild --page N` (Solver-Rerun einzelner Seiten) |
+| Toolbar-Button `[Rebuild]` mit Selektion | identisch zu `R` |
+| Toolbar-Button `[Rebuild]` ohne Selektion | öffnet Confirm-Dialog mit Begründung „keine Seite ausgewählt" → bei Bestätigung `rebuild --all` |
+| `Ctrl+Shift+B` / Toolbar-Button `[Release]` | `build release` (PDF/Print-Output) |
 
 ### Seiten-Modus: Auto vs Manual
 
@@ -118,8 +135,7 @@ Zwischen jeder Seite: schmales Rechteck mit `[+]`, halbtransparent.
 | Taste | Aktion |
 |-------|--------|
 | `Ctrl+Z` / `Ctrl+Y` | Undo / Redo |
-| `Ctrl+B` | Build (inkrementell) |
-| `Ctrl+Shift+B` | Release Build |
+| `Ctrl+Shift+B` | Release Build (PDF/Print-Output) |
 | `Ctrl+Scroll` | Zoom |
 | `Ctrl+0` | Zoom: Seitenbreite einpassen |
 | `Ctrl+G` | Gehe zu Seite |
