@@ -42,30 +42,15 @@ pub(super) fn run_load_photo_thumbnails(
     }
 }
 
-pub(super) fn run_page_command(cmd: PageMoveCmd, rctx: &mut super::RenderCtx<'_>) {
-    let move_output = match execute_move(rctx.project_root, cmd) {
-        Err(e) => {
-            let _ = rctx
-                .result_tx
-                .send(BackgroundResult::CommandFailed(e.to_string()));
-            return;
-        }
-        Ok(o) => o,
-    };
-
-    if move_output.changed_state.is_none() {
+fn build_after_command(
+    cmd_changed_state: Option<Box<fotobuch::dto_models::ProjectState>>,
+    cmd_dirty: Vec<usize>,
+    rctx: &mut super::RenderCtx<'_>,
+) {
+    if cmd_changed_state.is_none() {
         send_command_done(None, vec![], rctx);
         return;
     }
-
-    let move_dirty: Vec<usize> = move_output
-        .result
-        .pages_modified
-        .iter()
-        .chain(move_output.result.pages_inserted.iter())
-        .map(|&p| p as usize)
-        .collect();
-
     let build_cfg = BuildConfig {
         release: false,
         force: false,
@@ -77,10 +62,10 @@ pub(super) fn run_page_command(cmd: PageMoveCmd, rctx: &mut super::RenderCtx<'_>
                 .result_tx
                 .send(BackgroundResult::CommandFailed(e.to_string()));
         }
-        Ok(build_output) => {
-            let new_state = build_output.changed_state.or(move_output.changed_state);
-            let mut dirty = move_dirty;
-            for p in build_output.result.pages_rebuilt {
+        Ok(build_out) => {
+            let new_state = build_out.changed_state.or(cmd_changed_state);
+            let mut dirty = cmd_dirty;
+            for p in build_out.result.pages_rebuilt {
                 if !dirty.contains(&p) {
                     dirty.push(p);
                 }
@@ -88,6 +73,26 @@ pub(super) fn run_page_command(cmd: PageMoveCmd, rctx: &mut super::RenderCtx<'_>
             send_command_done(new_state, dirty, rctx);
         }
     }
+}
+
+pub(super) fn run_page_command(cmd: PageMoveCmd, rctx: &mut super::RenderCtx<'_>) {
+    let move_output = match execute_move(rctx.project_root, cmd) {
+        Err(e) => {
+            let _ = rctx
+                .result_tx
+                .send(BackgroundResult::CommandFailed(e.to_string()));
+            return;
+        }
+        Ok(o) => o,
+    };
+    let dirty: Vec<usize> = move_output
+        .result
+        .pages_modified
+        .iter()
+        .chain(move_output.result.pages_inserted.iter())
+        .map(|&p| p as usize)
+        .collect();
+    build_after_command(move_output.changed_state, dirty, rctx);
 }
 
 pub(super) fn run_page_swap(left: usize, right: usize, rctx: &mut super::RenderCtx<'_>) {
@@ -178,32 +183,8 @@ pub(super) fn run_place_photos(
                 .send(BackgroundResult::CommandFailed(e.to_string()));
         }
         Ok(place_out) => {
-            if place_out.changed_state.is_none() {
-                send_command_done(None, vec![], rctx);
-                return;
-            }
-            let build_cfg = BuildConfig {
-                release: false,
-                force: false,
-                pages: None,
-            };
-            match build(rctx.project_root, &build_cfg) {
-                Err(e) => {
-                    let _ = rctx
-                        .result_tx
-                        .send(BackgroundResult::CommandFailed(e.to_string()));
-                }
-                Ok(build_out) => {
-                    let new_state = build_out.changed_state.or(place_out.changed_state);
-                    let mut dirty = place_out.result.pages_affected;
-                    for p in build_out.result.pages_rebuilt {
-                        if !dirty.contains(&p) {
-                            dirty.push(p);
-                        }
-                    }
-                    send_command_done(new_state, dirty, rctx);
-                }
-            }
+            let dirty = place_out.result.pages_affected;
+            build_after_command(place_out.changed_state, dirty, rctx);
         }
     }
 }
@@ -282,37 +263,13 @@ pub(super) fn run_unplace(page: usize, slots: Vec<usize>, rctx: &mut super::Rend
                 .send(BackgroundResult::CommandFailed(e.to_string()));
         }
         Ok(out) => {
-            if out.changed_state.is_none() {
-                send_command_done(None, vec![], rctx);
-                return;
-            }
-            let build_cfg = BuildConfig {
-                release: false,
-                force: false,
-                pages: None,
-            };
-            match build(rctx.project_root, &build_cfg) {
-                Err(e) => {
-                    let _ = rctx
-                        .result_tx
-                        .send(BackgroundResult::CommandFailed(e.to_string()));
-                }
-                Ok(build_out) => {
-                    let new_state = build_out.changed_state.or(out.changed_state);
-                    let mut dirty: Vec<usize> = out
-                        .result
-                        .pages_modified
-                        .iter()
-                        .map(|&p| p as usize)
-                        .collect();
-                    for p in build_out.result.pages_rebuilt {
-                        if !dirty.contains(&p) {
-                            dirty.push(p);
-                        }
-                    }
-                    send_command_done(new_state, dirty, rctx);
-                }
-            }
+            let dirty: Vec<usize> = out
+                .result
+                .pages_modified
+                .iter()
+                .map(|&p| p as usize)
+                .collect();
+            build_after_command(out.changed_state, dirty, rctx);
         }
     }
 }

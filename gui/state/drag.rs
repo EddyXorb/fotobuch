@@ -38,8 +38,6 @@ pub enum DragSource {
         src_page: usize,
         /// All nav-selected pages captured at drag-start (analogous to `src_slots`).
         src_pages: Vec<usize>,
-        #[allow(unused)]
-        cursor_at_drag_start: egui::Pos2,
     },
     /// Right-mouse drag from a photo row in the pool panel.
     Pool { photo_ids: Vec<String> },

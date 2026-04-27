@@ -48,7 +48,6 @@ pub(super) fn handle_drag_start(interaction: &mut InteractionState, ctx: &egui::
         Some(DragSource::NavPage {
             src_page: nav_page,
             src_pages,
-            cursor_at_drag_start: cursor,
         })
     } else if let Some(HoveredTarget::PoolItem(pool_id)) = &interaction.hovered {
         let pool_id = pool_id.clone();
@@ -200,6 +199,7 @@ pub(super) fn complete_nav_drag(
         return;
     }
 
+    // Swap mode always exchanges exactly two pages; src_pages is intentionally ignored here.
     let dst_page = match interaction.hovered.as_ref().and_then(|h| h.as_nav_page()) {
         Some(p) if p != src_page => p,
         _ => return,
@@ -255,6 +255,10 @@ pub(super) fn dispatch_swap(
 }
 
 fn is_contiguous(slots: &[usize]) -> bool {
+    debug_assert!(
+        slots.windows(2).all(|w| w[0] <= w[1]),
+        "is_contiguous requires sorted input"
+    );
     slots.windows(2).all(|w| w[1] == w[0] + 1)
 }
 
