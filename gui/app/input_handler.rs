@@ -35,7 +35,7 @@ pub fn handle(
     if !drag_action {
         hotkeys::handle_escape(interaction, ctx);
         hotkeys::handle_select_all(data, interaction, ctx);
-        hotkeys::handle_click(data, interaction, ctx);
+        hotkeys::handle_click(interaction, ctx);
     }
 
     cmds

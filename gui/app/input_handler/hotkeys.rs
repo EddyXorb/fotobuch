@@ -218,11 +218,7 @@ pub(super) fn handle_add_hotkey(interaction: &mut InteractionState, ctx: &egui::
     }
 }
 
-pub(super) fn handle_click(
-    data: &DataState,
-    interaction: &mut InteractionState,
-    ctx: &egui::Context,
-) {
+pub(super) fn handle_click(interaction: &mut InteractionState, ctx: &egui::Context) {
     if !ctx.input(|i| i.pointer.primary_clicked()) {
         return;
     }
@@ -236,24 +232,7 @@ pub(super) fn handle_click(
         } else {
             interaction.selections.slots = SlotSelection::single(page, slot);
         }
-    } else if let Some(HoveredTarget::Page { page, slot: None }) =
-        interaction.hovered.as_ref().cloned()
-    {
-        interaction.selections.slots.clear();
-        let num_pages = data.project.layout.len();
-        if modifiers.shift {
-            let order: Vec<usize> = (0..num_pages).collect();
-            interaction
-                .selections
-                .nav_pages
-                .range_to_ordered(page, &order);
-        } else if modifiers.ctrl || modifiers.command {
-            interaction.selections.nav_pages.toggle(page);
-        } else {
-            interaction.selections.nav_pages = MultiSelection::single(page);
-        }
     } else {
         interaction.selections.slots.clear();
-        interaction.selections.nav_pages.clear();
     }
 }
