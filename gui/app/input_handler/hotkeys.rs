@@ -159,8 +159,19 @@ pub(super) fn handle_delete(
         } else {
             nav_sel
         };
-        if !pages.is_empty() {
-            cmds.insert(PendingCommand::DeletePages { pages });
+        for page in pages {
+            let slot_count = data
+                .project
+                .layout
+                .get(page)
+                .map(|lp| lp.slots.len())
+                .unwrap_or(0);
+            if slot_count > 0 {
+                cmds.insert(PendingCommand::Unplace {
+                    page,
+                    slots: (0..slot_count).collect(),
+                });
+            }
         }
     }
 }
