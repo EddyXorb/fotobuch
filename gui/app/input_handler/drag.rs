@@ -109,7 +109,7 @@ pub(super) fn complete_slot_drag(
     interaction: &mut InteractionState,
     cmds: &mut HashSet<PendingCommand>,
     src_page: usize,
-    src_slot: usize,
+    _src_slot: usize,
     src_slots: Vec<usize>,
 ) {
     if let Some(at_position) = interaction

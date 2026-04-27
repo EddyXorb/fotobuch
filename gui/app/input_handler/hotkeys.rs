@@ -1,9 +1,7 @@
 use std::collections::HashSet;
 
 use crate::app::rebuild::{PagesForRebuild, selected_pages_for_rebuild};
-use crate::state::{
-    self, DataState, HoveredTarget, InteractionState, MultiSelection, SlotSelection,
-};
+use crate::state::{self, DataState, HoveredTarget, InteractionState, SlotSelection};
 
 use crate::app::pending::PendingCommand;
 
