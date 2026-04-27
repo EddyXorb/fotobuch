@@ -117,7 +117,7 @@ explizit):
 
 | Trigger | Wirkung |
 |---------|---------|
-| `R` auf hovered/selektierter Seite | `rebuild --page N` (Solver-Rerun einzelner Seiten) |
+| `R` auf selektierter Seite | `rebuild --page N` (Solver-Rerun einzelner Seiten) |
 | Toolbar-Button `[Rebuild]` mit Selektion | identisch zu `R` |
 | Toolbar-Button `[Rebuild]` ohne Selektion | öffnet Confirm-Dialog mit Begründung „keine Seite ausgewählt" → bei Bestätigung `rebuild --all` |
 | `Ctrl+Shift+B` / Toolbar-Button `[Release]` | `build release` (PDF/Print-Output) |

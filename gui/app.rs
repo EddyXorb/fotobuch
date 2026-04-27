@@ -134,9 +134,7 @@ impl FotobuchApp {
                     tracing::error!("background worker closed; thumb load dropped");
                 }
             }
-            for d in &mut self.state.data.pages.dirty {
-                *d = false;
-            }
+            unset_dirty_pages(&mut self.state.data.pages.dirty);
             for &p in &dirty_pages {
                 if let Some(d) = self.state.data.pages.dirty.get_mut(p) {
                     *d = true;
@@ -144,17 +142,13 @@ impl FotobuchApp {
             }
             self.state.interaction.selections.slots.clear();
         } else {
-            for d in &mut self.state.data.pages.dirty {
-                *d = false;
-            }
+            unset_dirty_pages(&mut self.state.data.pages.dirty);
         }
     }
 
     fn handle_command_failed(&mut self, e: String) {
         tracing::error!(%e, "command failed");
-        for d in &mut self.state.data.pages.dirty {
-            *d = false;
-        }
+        unset_dirty_pages(&mut self.state.data.pages.dirty);
     }
 
     /// Returns `false` if the loop should `continue` (photo not in project).
@@ -298,6 +292,10 @@ fn render_initial_pages(num_pages: usize, state: &GuiState, task_tx: &Sender<Bac
     {
         tracing::error!("background worker closed before initial render was sent");
     }
+}
+
+fn unset_dirty_pages(dirty: &mut [bool]) {
+    dirty.fill(false);
 }
 
 fn install_fallback_font(ctx: &egui::Context) {
