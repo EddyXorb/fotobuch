@@ -25,13 +25,14 @@ pub(super) fn handle_drag_start(interaction: &mut InteractionState, ctx: &egui::
     }) = &interaction.hovered
     {
         let (src_page, src_slot) = (*page, *slot);
-        let src_slots = if interaction.selections.slots.is_selected(src_page, src_slot)
+        let mut src_slots = if interaction.selections.slots.is_selected(src_page, src_slot)
             && interaction.selections.slots.page == Some(src_page)
         {
             interaction.selections.slots.slots_on_active_page()
         } else {
             vec![src_slot]
         };
+        src_slots.sort_unstable();
         Some(DragSource::Slot {
             src_page,
             src_slot,
@@ -255,11 +256,9 @@ pub(super) fn dispatch_swap(
 }
 
 fn is_contiguous(slots: &[usize]) -> bool {
-    debug_assert!(
-        slots.windows(2).all(|w| w[0] <= w[1]),
-        "is_contiguous requires sorted input"
-    );
-    slots.windows(2).all(|w| w[1] == w[0] + 1)
+    let mut s = slots.to_vec();
+    s.sort_unstable();
+    s.windows(2).all(|w| w[1] == w[0] + 1)
 }
 
 fn compute_dst_range(dst_slot: usize, count: usize, layout_dst: &LayoutPage) -> Option<Vec<usize>> {
