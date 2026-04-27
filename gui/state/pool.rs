@@ -22,9 +22,12 @@ impl PhotoSelection {
         self.0.range_to_ordered(id, order);
     }
 
-    #[allow(dead_code)]
     pub fn clear(&mut self) {
         self.0.clear();
+    }
+
+    pub fn select_all(&mut self, ids: impl IntoIterator<Item = String>) {
+        self.0 = super::MultiSelection::from_items(ids);
     }
 
     pub fn is_selected(&self, id: &str) -> bool {

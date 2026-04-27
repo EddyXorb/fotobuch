@@ -71,6 +71,15 @@ pub(super) fn handle_select_all(
     if !ctx.input_mut(|i| i.consume_key(egui::Modifiers::CTRL, egui::Key::A)) {
         return;
     }
+    if matches!(interaction.hovered, Some(HoveredTarget::PoolItem(_))) {
+        let all_ids = data
+            .project
+            .photos
+            .iter()
+            .flat_map(|g| g.files.iter().map(|f| f.id.clone()));
+        interaction.selections.photos.select_all(all_ids);
+        return;
+    }
     let current_page = interaction
         .hovered
         .as_ref()
@@ -95,6 +104,7 @@ pub(super) fn handle_config_panel_toggle(interaction: &mut InteractionState, ctx
 }
 
 pub(super) fn handle_place_hotkey(
+    data: &DataState,
     interaction: &mut InteractionState,
     ctx: &egui::Context,
     cmds: &mut HashSet<PendingCommand>,
@@ -103,11 +113,20 @@ pub(super) fn handle_place_hotkey(
         return;
     }
     let ids = interaction.selections.photos.ids();
-    if ids.is_empty() {
+    let photo_ids = if ids.is_empty() {
+        data.project
+            .photos
+            .iter()
+            .flat_map(|g| g.files.iter().map(|f| f.id.clone()))
+            .collect::<Vec<_>>()
+    } else {
+        ids
+    };
+    if photo_ids.is_empty() {
         return;
     }
     cmds.insert(PendingCommand::Place {
-        photo_ids: ids,
+        photo_ids,
         dst_page: interaction
             .hovered
             .as_ref()

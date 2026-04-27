@@ -13,6 +13,15 @@ pub enum MultiSelection<K: Ord + Clone> {
 }
 
 impl<K: Ord + Clone> MultiSelection<K> {
+    /// Construct from an arbitrary collection; the first element (sorted) becomes the anchor.
+    pub fn from_items(items: impl IntoIterator<Item = K>) -> Self {
+        let items: BTreeSet<K> = items.into_iter().collect();
+        match items.iter().next().cloned() {
+            None => Self::None,
+            Some(anchor) => Self::Some { items, anchor },
+        }
+    }
+
     pub fn single(k: K) -> Self {
         let anchor = k.clone();
         let mut items = BTreeSet::new();

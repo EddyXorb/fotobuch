@@ -160,6 +160,8 @@ fn handle_selection_click(
             .range_to(id.to_string(), order);
     } else if mods.ctrl || mods.command {
         interaction.selections.photos.toggle(id.to_string());
+    } else if interaction.selections.photos.is_selected(id) {
+        interaction.selections.photos = PhotoSelection::default();
     } else {
         interaction.selections.photos = PhotoSelection::single(id.to_string());
         if let Some(locs) = data.derived.placed_locations.get(id)
