@@ -177,8 +177,33 @@ pub(super) fn run_place_photos(
                 .result_tx
                 .send(BackgroundResult::CommandFailed(e.to_string()));
         }
-        Ok(output) => {
-            send_command_done(output.changed_state, output.result.pages_affected, rctx);
+        Ok(place_out) => {
+            if place_out.changed_state.is_none() {
+                send_command_done(None, vec![], rctx);
+                return;
+            }
+            let build_cfg = BuildConfig {
+                release: false,
+                force: false,
+                pages: None,
+            };
+            match build(rctx.project_root, &build_cfg) {
+                Err(e) => {
+                    let _ = rctx
+                        .result_tx
+                        .send(BackgroundResult::CommandFailed(e.to_string()));
+                }
+                Ok(build_out) => {
+                    let new_state = build_out.changed_state.or(place_out.changed_state);
+                    let mut dirty = place_out.result.pages_affected;
+                    for p in build_out.result.pages_rebuilt {
+                        if !dirty.contains(&p) {
+                            dirty.push(p);
+                        }
+                    }
+                    send_command_done(new_state, dirty, rctx);
+                }
+            }
         }
     }
 }
