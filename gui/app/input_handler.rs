@@ -109,9 +109,18 @@ fn handle_drag_start(interaction: &mut InteractionState, ctx: &egui::Context) {
         slot: Some(slot),
     }) = &interaction.hovered
     {
+        let (src_page, src_slot) = (*page, *slot);
+        let src_slots = if interaction.selections.slots.is_selected(src_page, src_slot)
+            && interaction.selections.slots.page == Some(src_page)
+        {
+            interaction.selections.slots.slots_on_active_page()
+        } else {
+            vec![src_slot]
+        };
         Some(DragSource::Slot {
-            src_page: *page,
-            src_slot: *slot,
+            src_page,
+            src_slot,
+            src_slots,
             cursor_at_drag_start: cursor,
         })
     } else if let Some(HoveredTarget::NavPage(nav_page)) = &interaction.hovered {
@@ -151,9 +160,12 @@ fn handle_drag_complete(
     };
     match source {
         DragSource::Slot {
-            src_page, src_slot, ..
+            src_page,
+            src_slot,
+            src_slots,
+            ..
         } => {
-            complete_slot_drag(data, interaction, cmds, src_page, src_slot);
+            complete_slot_drag(data, interaction, cmds, src_page, src_slot, src_slots);
         }
         DragSource::NavPage { src_page, .. } => {
             complete_nav_drag(interaction, cmds, src_page);
@@ -165,28 +177,13 @@ fn handle_drag_complete(
     true
 }
 
-fn selection_slots_for(
-    interaction: &InteractionState,
-    src_page: usize,
-    src_slot: usize,
-) -> Vec<usize> {
-    if interaction.selections.slots.is_selected(src_page, src_slot) {
-        if interaction.selections.slots.page == Some(src_page) {
-            interaction.selections.slots.slots_on_active_page()
-        } else {
-            vec![src_slot]
-        }
-    } else {
-        vec![src_slot]
-    }
-}
-
 fn complete_slot_drag(
     data: &DataState,
     interaction: &mut InteractionState,
     cmds: &mut HashSet<PendingCommand>,
     src_page: usize,
     src_slot: usize,
+    src_slots: Vec<usize>,
 ) {
     // Drop on [+] new-page placeholder — takes priority over page hover.
     if let Some(at_position) = interaction
@@ -194,7 +191,6 @@ fn complete_slot_drag(
         .as_ref()
         .and_then(HoveredTarget::new_page_at_position)
     {
-        let src_slots = selection_slots_for(interaction, src_page, src_slot);
         cmds.insert(PendingCommand::MoveToNewPage {
             src_page,
             src_slots,
@@ -207,7 +203,6 @@ fn complete_slot_drag(
     let effective_page = interaction.hovered.as_ref().and_then(|h| h.page_idx());
     match (hovered_slot, interaction.drag.mode) {
         (Some((dst_page, dst_slot)), DragMode::Swap) => {
-            let src_slots = selection_slots_for(interaction, src_page, src_slot);
             if src_slots.len() == 1 {
                 dispatch_swap(cmds, src_page, src_slots[0], dst_page, dst_slot);
             } else if is_contiguous(&src_slots)
@@ -223,11 +218,11 @@ fn complete_slot_drag(
             }
         }
         (Some((dst_page, _)), DragMode::Move) => {
-            dispatch_move(interaction, cmds, src_page, src_slot, dst_page);
+            dispatch_move(cmds, src_page, src_slots, dst_page);
         }
         (None, DragMode::Move) => {
             if let Some(dst_page) = effective_page {
-                dispatch_move(interaction, cmds, src_page, src_slot, dst_page);
+                dispatch_move(cmds, src_page, src_slots, dst_page);
             }
         }
         (None, DragMode::Swap) => {}
@@ -330,16 +325,12 @@ fn handle_place_hotkey(
     });
 }
 
-/// Move: cross-page allowed. If the dragged slot is part of the current selection,
-/// all selected slots on the source page are moved together.
 fn dispatch_move(
-    interaction: &InteractionState,
     cmds: &mut HashSet<PendingCommand>,
     src_page: usize,
-    src_slot: usize,
+    src_slots: Vec<usize>,
     dst_page: usize,
 ) {
-    let src_slots = selection_slots_for(interaction, src_page, src_slot);
     cmds.insert(PendingCommand::Move {
         src_page,
         src_slots,

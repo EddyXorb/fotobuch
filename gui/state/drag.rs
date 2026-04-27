@@ -29,6 +29,8 @@ pub enum DragSource {
     Slot {
         src_page: usize,
         src_slot: usize,
+        /// Full slot selection captured at drag-start (may be multi-slot).
+        src_slots: Vec<usize>,
         cursor_at_drag_start: egui::Pos2,
     },
     /// Right-mouse drag from a page thumbnail in the nav panel.

@@ -17,6 +17,7 @@ pub(super) fn draw_drag_ghosts(
             src_page,
             src_slot,
             cursor_at_drag_start,
+            ..
         }) if *src_page == page_idx => (*src_slot, *cursor_at_drag_start),
         _ => return,
     };
