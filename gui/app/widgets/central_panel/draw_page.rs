@@ -26,7 +26,7 @@ pub(super) fn draw_page(
     if let Some(layout_page) = data.project.layout.get(page_idx) {
         draw_slot_overlays(ui, page_rect, data, interaction, page_idx, dims);
         let (hovered_slot, over_page) = hit_test_pointer(ui, page_rect, layout_page, dims);
-        draw_nav_selection_overlay(ui, interaction, page_idx, page_rect);
+        super::super::page_nav::draw_nav_selection_overlay(ui, interaction, page_idx, page_rect);
         draw_page_move_highlight(ui, interaction, page_idx, page_rect, over_page);
         draw_pool_drag_overlay(ui, interaction, page_idx, page_rect);
         draw_drag_ghosts::draw_drag_ghosts(ui, data, interaction, page_idx, page_rect, dims);
@@ -152,28 +152,6 @@ fn hit_test_pointer(
             (slot, page_rect.contains(pos))
         }
     }
-}
-
-fn draw_nav_selection_overlay(
-    ui: &mut egui::Ui,
-    interaction: &InteractionState,
-    page_idx: usize,
-    page_rect: egui::Rect,
-) {
-    if !interaction.selections.nav_pages.is_selected(&page_idx) {
-        return;
-    }
-    ui.painter().rect_filled(
-        page_rect,
-        0.0,
-        egui::Color32::from_rgba_unmultiplied(0, 200, 80, 40),
-    );
-    ui.painter().rect_stroke(
-        page_rect,
-        0.0,
-        egui::Stroke::new(2.0, egui::Color32::from_rgba_unmultiplied(0, 180, 60, 200)),
-        egui::StrokeKind::Inside,
-    );
 }
 
 fn draw_page_move_highlight(

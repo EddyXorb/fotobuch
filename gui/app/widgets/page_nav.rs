@@ -225,6 +225,30 @@ fn draw_nav_drag_ghost(ctx: &egui::Context, data: &DataState, interaction: &Inte
     );
 }
 
+/// Draws the nav-selection overlay on a central-panel page rect.
+/// Called from `draw_page` so the logic stays co-located with nav-panel state.
+pub(crate) fn draw_nav_selection_overlay(
+    ui: &mut egui::Ui,
+    interaction: &InteractionState,
+    page_idx: usize,
+    page_rect: egui::Rect,
+) {
+    if !interaction.selections.nav_pages.is_selected(&page_idx) {
+        return;
+    }
+    ui.painter().rect_filled(
+        page_rect,
+        0.0,
+        egui::Color32::from_rgba_unmultiplied(0, 200, 80, 40),
+    );
+    ui.painter().rect_stroke(
+        page_rect,
+        0.0,
+        egui::Stroke::new(2.0, egui::Color32::from_rgba_unmultiplied(0, 180, 60, 200)),
+        egui::StrokeKind::Inside,
+    );
+}
+
 /// Applies the scroll-to-page request if this page rect is known.
 ///
 /// Called from `draw_pages` once per page after laying it out.
