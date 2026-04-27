@@ -1,10 +1,9 @@
+mod drag;
+mod hotkeys;
+
 use std::collections::HashSet;
 
-use crate::state::{
-    self, ActiveDrag, DataState, DragMode, DragSource, HoveredTarget, InteractionState,
-    SlotSelection,
-};
-use fotobuch::dto_models::LayoutPage;
+use crate::state::{DataState, InteractionState};
 
 use super::pending::PendingCommand;
 
@@ -16,474 +15,43 @@ pub fn handle(
 ) -> HashSet<PendingCommand> {
     let mut cmds = HashSet::new();
 
-    handle_timings_toggle(data, ctx);
-    handle_drag_mode_toggle(interaction, ctx);
-    handle_zoom(interaction, ctx);
-    handle_undo_redo(ctx, &mut cmds);
-    handle_config_panel_toggle(interaction, ctx);
-    handle_place_hotkey(interaction, ctx, &mut cmds);
-    handle_delete(data, interaction, ctx, &mut cmds);
-    handle_rebuild(data, interaction, ctx, &mut cmds);
-    handle_goto_toggle(interaction, ctx);
-    handle_home_end(interaction, data, ctx);
-    handle_fit_width(interaction, ctx);
-    handle_release_build(ctx, &mut cmds);
-    handle_add_hotkey(interaction, ctx);
+    hotkeys::handle_timings_toggle(data, ctx);
+    hotkeys::handle_drag_mode_toggle(interaction, ctx);
+    hotkeys::handle_zoom(interaction, ctx);
+    hotkeys::handle_undo_redo(ctx, &mut cmds);
+    hotkeys::handle_config_panel_toggle(interaction, ctx);
+    hotkeys::handle_place_hotkey(interaction, ctx, &mut cmds);
+    hotkeys::handle_delete(data, interaction, ctx, &mut cmds);
+    hotkeys::handle_rebuild(data, interaction, ctx, &mut cmds);
+    hotkeys::handle_goto_toggle(interaction, ctx);
+    hotkeys::handle_home_end(interaction, data, ctx);
+    hotkeys::handle_fit_width(interaction, ctx);
+    hotkeys::handle_release_build(ctx, &mut cmds);
+    hotkeys::handle_add_hotkey(interaction, ctx);
 
-    let drag_action = handle_drag_complete(data, interaction, ctx, &mut cmds);
-    handle_drag_start(interaction, ctx);
+    let drag_action = drag::handle_drag_complete(data, interaction, ctx, &mut cmds);
+    drag::handle_drag_start(interaction, ctx);
 
     if !drag_action {
-        handle_escape(interaction, ctx);
-        handle_select_all(data, interaction, ctx);
-        handle_click(interaction, ctx);
+        hotkeys::handle_escape(interaction, ctx);
+        hotkeys::handle_select_all(data, interaction, ctx);
+        hotkeys::handle_click(interaction, ctx);
     }
 
     cmds
-}
-
-fn handle_drag_mode_toggle(interaction: &mut InteractionState, ctx: &egui::Context) {
-    if ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::M)) {
-        interaction.drag.mode = interaction.drag.mode.toggle();
-    }
-}
-
-fn handle_timings_toggle(data: &mut DataState, ctx: &egui::Context) {
-    if ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::F2)) {
-        data.timings.show = !data.timings.show;
-    }
-}
-
-fn handle_zoom(interaction: &mut InteractionState, ctx: &egui::Context) {
-    let delta = ctx.input(|i| {
-        if i.modifiers.ctrl {
-            i.zoom_delta()
-        } else {
-            1.0
-        }
-    });
-    if delta == 1.0 {
-        return;
-    }
-    let old_zoom = interaction.viewport.zoom;
-    interaction.viewport.zoom = state::apply_zoom_delta(old_zoom, delta);
-    let ratio = interaction.viewport.zoom / old_zoom;
-    let cursor_y = ctx
-        .pointer_hover_pos()
-        .map_or(interaction.viewport.scroll.viewport_top, |p| p.y);
-    let rel = cursor_y - interaction.viewport.scroll.viewport_top;
-    interaction.viewport.scroll.pending_scroll_y =
-        Some(interaction.viewport.scroll.scroll_y * ratio + rel * (ratio - 1.0));
-}
-
-fn handle_undo_redo(ctx: &egui::Context, cmds: &mut HashSet<PendingCommand>) {
-    let redo = ctx.input_mut(|i| {
-        i.consume_key(egui::Modifiers::CTRL, egui::Key::Y)
-            || i.consume_key(egui::Modifiers::CTRL | egui::Modifiers::SHIFT, egui::Key::Z)
-    });
-    if redo {
-        cmds.insert(PendingCommand::Redo);
-        return;
-    }
-
-    if ctx.input_mut(|i| i.consume_key(egui::Modifiers::CTRL, egui::Key::Z)) {
-        cmds.insert(PendingCommand::Undo);
-    }
-}
-
-/// Detects the start of a drag from any source (slot, nav page, pool row).
-fn handle_drag_start(interaction: &mut InteractionState, ctx: &egui::Context) {
-    if !ctx.input(|i| i.pointer.secondary_pressed()) {
-        return;
-    }
-    if !matches!(interaction.drag.active, ActiveDrag::Idle) {
-        return;
-    }
-    let cursor = match ctx.pointer_hover_pos() {
-        Some(p) => p,
-        None => return,
-    };
-
-    let drag_source = if let Some(HoveredTarget::Page {
-        page,
-        slot: Some(slot),
-    }) = &interaction.hovered
-    {
-        let (src_page, src_slot) = (*page, *slot);
-        let src_slots = if interaction.selections.slots.is_selected(src_page, src_slot)
-            && interaction.selections.slots.page == Some(src_page)
-        {
-            interaction.selections.slots.slots_on_active_page()
-        } else {
-            vec![src_slot]
-        };
-        Some(DragSource::Slot {
-            src_page,
-            src_slot,
-            src_slots,
-            cursor_at_drag_start: cursor,
-        })
-    } else if let Some(HoveredTarget::NavPage(nav_page)) = &interaction.hovered {
-        Some(DragSource::NavPage {
-            src_page: *nav_page,
-            cursor_at_drag_start: cursor,
-        })
-    } else if let Some(HoveredTarget::PoolItem(pool_id)) = &interaction.hovered {
-        let pool_id = pool_id.clone();
-        let ids = if interaction.selections.photos.is_selected(&pool_id) {
-            interaction.selections.photos.ids()
-        } else {
-            vec![pool_id]
-        };
-        Some(DragSource::Pool { photo_ids: ids })
-    } else {
-        None
-    };
-    if let Some(src) = drag_source {
-        interaction.drag.active = ActiveDrag::Dragging(src);
-    }
-}
-
-/// Handles RMB release for all drag sources. Returns `true` when a drag action was taken.
-fn handle_drag_complete(
-    data: &DataState,
-    interaction: &mut InteractionState,
-    ctx: &egui::Context,
-    cmds: &mut HashSet<PendingCommand>,
-) -> bool {
-    if !ctx.input(|i| i.pointer.secondary_released()) {
-        return false;
-    }
-    let source = match std::mem::replace(&mut interaction.drag.active, ActiveDrag::Idle) {
-        ActiveDrag::Dragging(src) => src,
-        ActiveDrag::Idle => return false,
-    };
-    match source {
-        DragSource::Slot {
-            src_page,
-            src_slot,
-            src_slots,
-            ..
-        } => {
-            complete_slot_drag(data, interaction, cmds, src_page, src_slot, src_slots);
-        }
-        DragSource::NavPage { src_page, .. } => {
-            complete_nav_drag(interaction, cmds, src_page);
-        }
-        DragSource::Pool { photo_ids } => {
-            complete_pool_drag(interaction, cmds, photo_ids);
-        }
-    }
-    true
-}
-
-fn complete_slot_drag(
-    data: &DataState,
-    interaction: &mut InteractionState,
-    cmds: &mut HashSet<PendingCommand>,
-    src_page: usize,
-    src_slot: usize,
-    src_slots: Vec<usize>,
-) {
-    // Drop on [+] new-page placeholder — takes priority over page hover.
-    if let Some(at_position) = interaction
-        .hovered
-        .as_ref()
-        .and_then(HoveredTarget::new_page_at_position)
-    {
-        cmds.insert(PendingCommand::MoveToNewPage {
-            src_page,
-            src_slots,
-            at_position,
-        });
-        return;
-    }
-
-    let hovered_slot = interaction.hovered.as_ref().and_then(|h| h.slot());
-    let effective_page = interaction.hovered.as_ref().and_then(|h| h.page_idx());
-    match (hovered_slot, interaction.drag.mode) {
-        (Some((dst_page, dst_slot)), DragMode::Swap) => {
-            if src_slots.len() == 1 {
-                dispatch_swap(cmds, src_page, src_slots[0], dst_page, dst_slot);
-            } else if is_contiguous(&src_slots)
-                && let Some(layout_dst) = data.project.layout.get(dst_page)
-                && let Some(dst_slots) = compute_dst_range(dst_slot, src_slots.len(), layout_dst)
-            {
-                cmds.insert(PendingCommand::SwapRange {
-                    src_page,
-                    src_slots,
-                    dst_page,
-                    dst_slots,
-                });
-            }
-        }
-        (Some((dst_page, _)), DragMode::Move) => {
-            dispatch_move(cmds, src_page, src_slots, dst_page);
-        }
-        (None, DragMode::Move) => {
-            if let Some(dst_page) = effective_page {
-                dispatch_move(cmds, src_page, src_slots, dst_page);
-            }
-        }
-        (None, DragMode::Swap) => {}
-    }
-}
-
-fn is_contiguous(slots: &[usize]) -> bool {
-    slots.windows(2).all(|w| w[1] == w[0] + 1)
-}
-
-fn compute_dst_range(dst_slot: usize, count: usize, layout_dst: &LayoutPage) -> Option<Vec<usize>> {
-    let end_excl = dst_slot + count;
-    if end_excl > layout_dst.slots.len() {
-        return None;
-    }
-    Some((dst_slot..end_excl).collect())
-}
-
-fn complete_nav_drag(
-    interaction: &mut InteractionState,
-    cmds: &mut HashSet<PendingCommand>,
-    src_page: usize,
-) {
-    let dst_page = match interaction.hovered.as_ref().and_then(|h| h.as_nav_page()) {
-        Some(p) if p != src_page => p,
-        _ => return,
-    };
-    cmds.insert(PendingCommand::PageSwap {
-        left: src_page,
-        right: dst_page,
-    });
-}
-
-fn complete_pool_drag(
-    interaction: &mut InteractionState,
-    cmds: &mut HashSet<PendingCommand>,
-    photo_ids: Vec<String>,
-) {
-    if let Some(dst_page) = interaction.hovered.as_ref().and_then(|h| h.page_idx()) {
-        cmds.insert(PendingCommand::Place {
-            photo_ids,
-            dst_page: Some(dst_page),
-        });
-    }
-}
-
-fn handle_escape(interaction: &mut InteractionState, ctx: &egui::Context) {
-    if ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Escape)) {
-        interaction.drag.active = ActiveDrag::Idle;
-        interaction.selections.slots.clear();
-        interaction.selections.nav_pages.clear();
-    }
-}
-
-fn handle_select_all(data: &DataState, interaction: &mut InteractionState, ctx: &egui::Context) {
-    if !ctx.input_mut(|i| i.consume_key(egui::Modifiers::CTRL, egui::Key::A)) {
-        return;
-    }
-    let current_page = interaction
-        .hovered
-        .as_ref()
-        .and_then(|h| h.slot())
-        .map(|(p, _)| p)
-        .or(interaction.selections.slots.page);
-    if let Some(page) = current_page {
-        let slot_count = data
-            .project
-            .layout
-            .get(page)
-            .map(|lp| lp.slots.len())
-            .unwrap_or(0);
-        interaction.selections.slots.select_all_on(page, slot_count);
-    }
-}
-
-fn handle_config_panel_toggle(interaction: &mut InteractionState, ctx: &egui::Context) {
-    if ctx.input_mut(|i| i.consume_key(egui::Modifiers::CTRL, egui::Key::Comma)) {
-        interaction.config.open = !interaction.config.open;
-    }
-}
-
-fn handle_place_hotkey(
-    interaction: &mut InteractionState,
-    ctx: &egui::Context,
-    cmds: &mut HashSet<PendingCommand>,
-) {
-    if !ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::P)) {
-        return;
-    }
-    let ids = interaction.selections.photos.ids();
-    if ids.is_empty() {
-        return;
-    }
-    cmds.insert(PendingCommand::Place {
-        photo_ids: ids,
-        dst_page: interaction
-            .hovered
-            .as_ref()
-            .and_then(HoveredTarget::central_page),
-    });
-}
-
-fn dispatch_move(
-    cmds: &mut HashSet<PendingCommand>,
-    src_page: usize,
-    src_slots: Vec<usize>,
-    dst_page: usize,
-) {
-    cmds.insert(PendingCommand::Move {
-        src_page,
-        src_slots,
-        dst_page,
-    });
-}
-
-/// Swap: same-page only, single slot.
-fn dispatch_swap(
-    cmds: &mut HashSet<PendingCommand>,
-    src_page: usize,
-    src_slot: usize,
-    dst_page: usize,
-    dst_slot: usize,
-) {
-    if src_page == dst_page && src_slot == dst_slot {
-        return;
-    }
-    cmds.insert(PendingCommand::Swap {
-        src_page,
-        src_slot,
-        dst_page,
-        dst_slot,
-    });
-}
-
-fn handle_click(interaction: &mut InteractionState, ctx: &egui::Context) {
-    if !ctx.input(|i| i.pointer.primary_clicked()) {
-        return;
-    }
-    let modifiers = ctx.input(|i| i.modifiers);
-    if let Some((page, slot)) = interaction.hovered.as_ref().and_then(|h| h.slot()) {
-        interaction.selections.nav_pages.clear();
-        if modifiers.shift {
-            interaction.selections.slots.range_to(page, slot);
-        } else if modifiers.ctrl || modifiers.command {
-            interaction.selections.slots.toggle(page, slot);
-        } else {
-            interaction.selections.slots = SlotSelection::single(page, slot);
-        }
-    } else {
-        interaction.selections.slots.clear();
-    }
-}
-
-fn handle_delete(
-    data: &DataState,
-    interaction: &mut InteractionState,
-    ctx: &egui::Context,
-    cmds: &mut HashSet<PendingCommand>,
-) {
-    if !ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Delete)) {
-        return;
-    }
-    if let Some(page) = interaction.selections.slots.page
-        && !interaction.selections.slots.is_empty()
-    {
-        cmds.insert(PendingCommand::Unplace {
-            page,
-            slots: interaction.selections.slots.slots_on_active_page(),
-        });
-        return;
-    }
-    // Nav-panel multi-selection takes priority over hovered single page.
-    let nav_sel = interaction.selections.nav_pages.items();
-    if !nav_sel.is_empty() {
-        let pages: Vec<usize> = if data.project.has_cover() {
-            nav_sel.into_iter().filter(|&p| p != 0).collect()
-        } else {
-            nav_sel
-        };
-        if !pages.is_empty() {
-            cmds.insert(PendingCommand::DeletePages { pages });
-        }
-        return;
-    }
-    let target_page = interaction.hovered.as_ref().and_then(|h| match h {
-        HoveredTarget::Page { page, slot: None } => Some(*page),
-        HoveredTarget::NavPage(page) => Some(*page),
-        _ => None,
-    });
-    if let Some(page) = target_page {
-        if data.project.has_cover() && page == 0 {
-            return;
-        }
-        cmds.insert(PendingCommand::DeletePages { pages: vec![page] });
-    }
-}
-
-fn handle_rebuild(
-    data: &DataState,
-    interaction: &InteractionState,
-    ctx: &egui::Context,
-    cmds: &mut HashSet<PendingCommand>,
-) {
-    if !ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::R)) {
-        return;
-    }
-    let pages = if let Some(page) = interaction.selections.slots.page {
-        vec![page]
-    } else {
-        match &interaction.hovered {
-            Some(HoveredTarget::Page { page, .. }) | Some(HoveredTarget::NavPage(page)) => {
-                vec![*page]
-            }
-            _ => return,
-        }
-    };
-    let _ = data;
-    cmds.insert(PendingCommand::RebuildPages { pages });
-}
-
-fn handle_goto_toggle(interaction: &mut InteractionState, ctx: &egui::Context) {
-    if ctx.input_mut(|i| i.consume_key(egui::Modifiers::CTRL, egui::Key::G)) {
-        interaction.goto_open = !interaction.goto_open;
-    }
-}
-
-fn handle_home_end(interaction: &mut InteractionState, data: &DataState, ctx: &egui::Context) {
-    if ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Home)) {
-        interaction.viewport.scroll_to_page = Some(0);
-    } else if ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::End)) {
-        let last = data.project.layout.len().saturating_sub(1);
-        interaction.viewport.scroll_to_page = Some(last);
-    }
-}
-
-fn handle_fit_width(interaction: &mut InteractionState, ctx: &egui::Context) {
-    if ctx.input_mut(|i| i.consume_key(egui::Modifiers::CTRL, egui::Key::Num0)) {
-        interaction.viewport.fit_pending = true;
-    }
-}
-
-fn handle_release_build(ctx: &egui::Context, cmds: &mut HashSet<PendingCommand>) {
-    if ctx
-        .input_mut(|i| i.consume_key(egui::Modifiers::CTRL | egui::Modifiers::SHIFT, egui::Key::B))
-    {
-        cmds.insert(PendingCommand::ReleaseBuild);
-    }
-}
-
-fn handle_add_hotkey(interaction: &mut InteractionState, ctx: &egui::Context) {
-    if ctx.input_mut(|i| i.consume_key(egui::Modifiers::CTRL, egui::Key::O)) {
-        interaction.add_dialog_open = true;
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use fotobuch::dto_models::ProjectState;
 
+    use super::drag::{
+        complete_nav_drag, complete_pool_drag, complete_slot_drag, dispatch_move, dispatch_swap,
+    };
     use super::*;
-    use crate::state::GuiState;
+    use crate::state::{GuiState, HoveredTarget, SlotSelection};
+
+    use crate::app::pending::PendingCommand;
 
     fn state_with_selection(sel_page: usize, sel_slots: Vec<usize>) -> GuiState {
         let mut state = GuiState::new(ProjectState::default());
@@ -498,10 +66,9 @@ mod tests {
     }
 
     #[test]
-    fn dispatch_move_uses_selection_when_dragged_slot_is_selected() {
-        let mut state = state_with_selection(0, vec![1, 2, 3]);
+    fn dispatch_move_emits_command_with_given_slots() {
         let mut cmds = HashSet::new();
-        dispatch_move(&mut state.interaction, &mut cmds, 0, 2, 1);
+        dispatch_move(&mut cmds, 0, vec![1, 2, 3], 1);
         assert_eq!(cmds.len(), 1);
         let PendingCommand::Move {
             src_page,
@@ -517,10 +84,9 @@ mod tests {
     }
 
     #[test]
-    fn dispatch_move_uses_single_slot_when_not_in_selection() {
-        let mut state = state_with_selection(0, vec![0, 1]);
+    fn dispatch_move_single_slot() {
         let mut cmds = HashSet::new();
-        dispatch_move(&mut state.interaction, &mut cmds, 0, 3, 1);
+        dispatch_move(&mut cmds, 0, vec![3], 1);
         let PendingCommand::Move { src_slots, .. } = cmds.iter().next().unwrap() else {
             panic!()
         };
@@ -538,7 +104,6 @@ mod tests {
     fn dispatch_swap_ignores_same_slot() {
         let mut cmds = HashSet::new();
         dispatch_swap(&mut cmds, 0, 1, 0, 1);
-
         assert!(cmds.is_empty(), "same-slot swap must be ignored");
     }
 
@@ -663,14 +228,11 @@ mod tests {
         }
     }
 
-    // ── Phase 5.1 tests ────────────────────────────────────────────────────────
-
     #[test]
     fn drop_on_new_page_slot_emits_move_to_new_page() {
         let mut state = state_with_selection(1, vec![1, 2]);
         state.interaction.hovered = Some(HoveredTarget::NewPageSlot { at_position: 3 });
         let mut cmds = HashSet::new();
-        // Use complete_slot_drag with a minimal DataState that has no layout.
         let data = crate::state::DataState {
             project: ProjectState::default(),
             derived: crate::state::DerivedState::rebuild(&ProjectState::default()),
@@ -678,7 +240,7 @@ mod tests {
             thumbs: Default::default(),
             timings: Default::default(),
         };
-        complete_slot_drag(&data, &mut state.interaction, &mut cmds, 1, 1);
+        complete_slot_drag(&data, &mut state.interaction, &mut cmds, 1, 1, vec![1, 2]);
         assert_eq!(cmds.len(), 1);
         let PendingCommand::MoveToNewPage {
             src_page,
@@ -705,7 +267,7 @@ mod tests {
             thumbs: Default::default(),
             timings: Default::default(),
         };
-        complete_slot_drag(&data, &mut state.interaction, &mut cmds, 0, 0);
+        complete_slot_drag(&data, &mut state.interaction, &mut cmds, 0, 0, vec![0]);
         assert_eq!(cmds.len(), 1);
         let PendingCommand::MoveToNewPage { at_position, .. } = cmds.iter().next().unwrap() else {
             panic!()
@@ -713,18 +275,10 @@ mod tests {
         assert_eq!(*at_position, 0);
     }
 
-    // ── Phase 5.2 tests ────────────────────────────────────────────────────────
-
     #[test]
     fn cross_page_move_with_selection_moves_all_selected_slots() {
-        let mut state = state_with_selection(3, vec![0, 2]);
-        state.interaction.hovered = Some(HoveredTarget::Page {
-            page: 7,
-            slot: Some(0),
-        });
-        state.interaction.drag.mode = DragMode::Move;
         let mut cmds = HashSet::new();
-        dispatch_move(&state.interaction, &mut cmds, 3, 0, 7);
+        dispatch_move(&mut cmds, 3, vec![0, 2], 7);
         assert_eq!(cmds.len(), 1);
         let PendingCommand::Move {
             src_page,
@@ -742,7 +296,7 @@ mod tests {
     #[test]
     fn swap_range_uses_full_selection_when_dragged_slot_selected() {
         let mut state = state_with_selection(0, vec![1, 2, 3]);
-        state.interaction.drag.mode = DragMode::Swap;
+        state.interaction.drag.mode = crate::state::DragMode::Swap;
         let mut project = ProjectState::default();
         project.layout = vec![layout_page_with_slots(0, 4), layout_page_with_slots(1, 6)];
         state.interaction.hovered = Some(HoveredTarget::Page {
@@ -757,7 +311,14 @@ mod tests {
             timings: Default::default(),
         };
         let mut cmds = HashSet::new();
-        complete_slot_drag(&data, &mut state.interaction, &mut cmds, 0, 1);
+        complete_slot_drag(
+            &data,
+            &mut state.interaction,
+            &mut cmds,
+            0,
+            1,
+            vec![1, 2, 3],
+        );
         assert_eq!(cmds.len(), 1);
         let PendingCommand::SwapRange {
             src_slots,
@@ -774,12 +335,9 @@ mod tests {
     #[test]
     fn swap_range_noop_when_target_too_narrow() {
         let mut state = state_with_selection(0, vec![0, 1, 2]);
-        state.interaction.drag.mode = DragMode::Swap;
+        state.interaction.drag.mode = crate::state::DragMode::Swap;
         let mut project = ProjectState::default();
-        project.layout = vec![
-            layout_page_with_slots(0, 3),
-            layout_page_with_slots(1, 2), // only 2 slots — can't fit 3
-        ];
+        project.layout = vec![layout_page_with_slots(0, 3), layout_page_with_slots(1, 2)];
         state.interaction.hovered = Some(HoveredTarget::Page {
             page: 1,
             slot: Some(0),
@@ -792,14 +350,21 @@ mod tests {
             timings: Default::default(),
         };
         let mut cmds = HashSet::new();
-        complete_slot_drag(&data, &mut state.interaction, &mut cmds, 0, 0);
+        complete_slot_drag(
+            &data,
+            &mut state.interaction,
+            &mut cmds,
+            0,
+            0,
+            vec![0, 1, 2],
+        );
         assert!(cmds.is_empty(), "overrun → no command emitted");
     }
 
     #[test]
     fn swap_range_noop_when_selection_not_contiguous() {
-        let mut state = state_with_selection(0, vec![0, 2]); // gap at 1
-        state.interaction.drag.mode = DragMode::Swap;
+        let mut state = state_with_selection(0, vec![0, 2]);
+        state.interaction.drag.mode = crate::state::DragMode::Swap;
         let mut project = ProjectState::default();
         project.layout = vec![layout_page_with_slots(0, 4), layout_page_with_slots(1, 4)];
         state.interaction.hovered = Some(HoveredTarget::Page {
@@ -814,14 +379,14 @@ mod tests {
             timings: Default::default(),
         };
         let mut cmds = HashSet::new();
-        complete_slot_drag(&data, &mut state.interaction, &mut cmds, 0, 0);
+        complete_slot_drag(&data, &mut state.interaction, &mut cmds, 0, 0, vec![0, 2]);
         assert!(cmds.is_empty(), "non-contiguous selection → no command");
     }
 
     #[test]
     fn swap_falls_back_to_single_when_selection_is_one() {
         let mut state = state_with_selection(0, vec![1]);
-        state.interaction.drag.mode = DragMode::Swap;
+        state.interaction.drag.mode = crate::state::DragMode::Swap;
         let mut project = ProjectState::default();
         project.layout = vec![layout_page_with_slots(0, 3), layout_page_with_slots(1, 3)];
         state.interaction.hovered = Some(HoveredTarget::Page {
@@ -836,7 +401,7 @@ mod tests {
             timings: Default::default(),
         };
         let mut cmds = HashSet::new();
-        complete_slot_drag(&data, &mut state.interaction, &mut cmds, 0, 1);
+        complete_slot_drag(&data, &mut state.interaction, &mut cmds, 0, 1, vec![1]);
         assert_eq!(cmds.len(), 1);
         assert!(
             matches!(cmds.iter().next().unwrap(), PendingCommand::Swap { .. }),
@@ -844,13 +409,10 @@ mod tests {
         );
     }
 
-    // ── Phase 5.3 tests ────────────────────────────────────────────────────────
-
     #[test]
     fn handle_delete_emits_unplace_with_selection_slots() {
         let state = state_with_selection(2, vec![0, 3]);
         let mut cmds = HashSet::new();
-        // Directly simulate the logic (no egui context available in unit tests).
         if let Some(page) = state.interaction.selections.slots.page
             && !state.interaction.selections.slots.is_empty()
         {
@@ -886,7 +448,6 @@ mod tests {
     #[test]
     fn handle_delete_prefers_slot_selection_over_hovered_page() {
         let state = state_with_selection(1, vec![0]);
-        // If slot-selection is present, delete-page must NOT be emitted.
         let slot_sel_present = state.interaction.selections.slots.page.is_some()
             && !state.interaction.selections.slots.is_empty();
         assert!(slot_sel_present, "selection must win over hovered");
@@ -907,7 +468,6 @@ mod tests {
             ..Default::default()
         };
         assert!(project.has_cover());
-        // Simulate guard: cover page 0 must be skipped.
         let page = 0usize;
         let would_emit = !(project.has_cover() && page == 0);
         assert!(!would_emit, "cover page must not be deleted");
