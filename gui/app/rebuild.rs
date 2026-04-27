@@ -1,4 +1,4 @@
-use crate::state::{HoveredTarget, InteractionState};
+use crate::state::InteractionState;
 
 pub enum PagesForRebuild {
     Selected(Vec<usize>),
@@ -7,15 +7,13 @@ pub enum PagesForRebuild {
 
 pub fn selected_pages_for_rebuild(interaction: &InteractionState) -> PagesForRebuild {
     if let Some(page) = interaction.selections.slots.page {
-        PagesForRebuild::Selected(vec![page])
-    } else {
-        match &interaction.hovered {
-            Some(HoveredTarget::Page { page, .. }) | Some(HoveredTarget::NavPage(page)) => {
-                PagesForRebuild::Selected(vec![*page])
-            }
-            _ => PagesForRebuild::None,
-        }
+        return PagesForRebuild::Selected(vec![page]);
     }
+    let nav = interaction.selections.nav_pages.items();
+    if !nav.is_empty() {
+        return PagesForRebuild::Selected(nav);
+    }
+    PagesForRebuild::None
 }
 
 #[cfg(test)]
@@ -39,14 +37,11 @@ mod tests {
     }
 
     #[test]
-    fn selected_pages_for_rebuild_uses_hovered_page_otherwise() {
+    fn selected_pages_for_rebuild_uses_nav_pages_when_no_slot_sel() {
         let mut interaction = make_interaction();
-        interaction.hovered = Some(HoveredTarget::Page {
-            page: 5,
-            slot: None,
-        });
+        interaction.selections.nav_pages = crate::state::MultiSelection::single(3);
         assert!(
-            matches!(selected_pages_for_rebuild(&interaction), PagesForRebuild::Selected(p) if p == vec![5])
+            matches!(selected_pages_for_rebuild(&interaction), PagesForRebuild::Selected(p) if p == vec![3])
         );
     }
 

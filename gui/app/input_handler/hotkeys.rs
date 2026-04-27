@@ -1,6 +1,9 @@
 use std::collections::HashSet;
 
-use crate::state::{self, DataState, HoveredTarget, InteractionState, SlotSelection};
+use crate::app::rebuild::{PagesForRebuild, selected_pages_for_rebuild};
+use crate::state::{
+    self, DataState, HoveredTarget, InteractionState, MultiSelection, SlotSelection,
+};
 
 use crate::app::pending::PendingCommand;
 
@@ -140,23 +143,11 @@ pub(super) fn handle_delete(
         if !pages.is_empty() {
             cmds.insert(PendingCommand::DeletePages { pages });
         }
-        return;
-    }
-    let target_page = interaction.hovered.as_ref().and_then(|h| match h {
-        HoveredTarget::Page { page, slot: None } => Some(*page),
-        HoveredTarget::NavPage(page) => Some(*page),
-        _ => None,
-    });
-    if let Some(page) = target_page {
-        if data.project.has_cover() && page == 0 {
-            return;
-        }
-        cmds.insert(PendingCommand::DeletePages { pages: vec![page] });
     }
 }
 
 pub(super) fn handle_rebuild(
-    data: &DataState,
+    _data: &DataState,
     interaction: &InteractionState,
     ctx: &egui::Context,
     cmds: &mut HashSet<PendingCommand>,
@@ -164,18 +155,9 @@ pub(super) fn handle_rebuild(
     if !ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::R)) {
         return;
     }
-    let pages = if let Some(page) = interaction.selections.slots.page {
-        vec![page]
-    } else {
-        match &interaction.hovered {
-            Some(HoveredTarget::Page { page, .. }) | Some(HoveredTarget::NavPage(page)) => {
-                vec![*page]
-            }
-            _ => return,
-        }
-    };
-    let _ = data;
-    cmds.insert(PendingCommand::RebuildPages { pages });
+    if let PagesForRebuild::Selected(pages) = selected_pages_for_rebuild(interaction) {
+        cmds.insert(PendingCommand::RebuildPages { pages });
+    }
 }
 
 pub(super) fn handle_goto_toggle(interaction: &mut InteractionState, ctx: &egui::Context) {
@@ -217,7 +199,11 @@ pub(super) fn handle_add_hotkey(interaction: &mut InteractionState, ctx: &egui::
     }
 }
 
-pub(super) fn handle_click(interaction: &mut InteractionState, ctx: &egui::Context) {
+pub(super) fn handle_click(
+    data: &DataState,
+    interaction: &mut InteractionState,
+    ctx: &egui::Context,
+) {
     if !ctx.input(|i| i.pointer.primary_clicked()) {
         return;
     }
@@ -231,7 +217,24 @@ pub(super) fn handle_click(interaction: &mut InteractionState, ctx: &egui::Conte
         } else {
             interaction.selections.slots = SlotSelection::single(page, slot);
         }
+    } else if let Some(HoveredTarget::Page { page, slot: None }) =
+        interaction.hovered.as_ref().cloned()
+    {
+        interaction.selections.slots.clear();
+        let num_pages = data.project.layout.len();
+        if modifiers.shift {
+            let order: Vec<usize> = (0..num_pages).collect();
+            interaction
+                .selections
+                .nav_pages
+                .range_to_ordered(page, &order);
+        } else if modifiers.ctrl || modifiers.command {
+            interaction.selections.nav_pages.toggle(page);
+        } else {
+            interaction.selections.nav_pages = MultiSelection::single(page);
+        }
     } else {
         interaction.selections.slots.clear();
+        interaction.selections.nav_pages.clear();
     }
 }
