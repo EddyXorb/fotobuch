@@ -3,7 +3,6 @@ use std::collections::HashSet;
 use egui::Align;
 
 use crate::app::pending::PendingCommand;
-use crate::app::widgets::central_panel::draw_drag_ghosts;
 use crate::app::widgets::geometry::A4_ASPECT;
 use crate::state::{ActiveDrag, DataState, DragMode, DragSource, HoveredTarget, InteractionState};
 
@@ -56,7 +55,7 @@ fn show(
             }
         });
 
-    draw_drag_ghosts::draw_nav_drag_ghost(ui.ctx(), data, interaction);
+    draw_nav_drag_ghost(ui.ctx(), data, interaction);
 }
 
 fn draw_thumb(data: &DataState, page_idx: usize, rect: egui::Rect, painter: &egui::Painter) {
@@ -177,6 +176,53 @@ fn compute_thumb_size(data: &DataState, page_idx: usize, panel_width: f32) -> eg
     }
 
     egui::vec2(w, h)
+}
+
+fn draw_nav_drag_ghost(ctx: &egui::Context, data: &DataState, interaction: &InteractionState) {
+    let src_page = match &interaction.drag.active {
+        ActiveDrag::Dragging(DragSource::NavPage { src_page, .. }) => *src_page,
+        _ => return,
+    };
+    let cursor = match ctx.pointer_hover_pos() {
+        Some(p) => p,
+        None => return,
+    };
+    let painter = ctx.layer_painter(egui::LayerId::new(
+        egui::Order::Tooltip,
+        egui::Id::new("nav_drag_ghost"),
+    ));
+    let ghost_w = 80.0_f32;
+    let ghost_h = if let Some(Some(tex)) = data.pages.thumb_textures.get(src_page) {
+        let sz = tex.size_vec2();
+        if sz.x > 0.0 {
+            ghost_w * sz.y / sz.x
+        } else {
+            ghost_w * A4_ASPECT
+        }
+    } else {
+        ghost_w * A4_ASPECT
+    };
+    let rect = egui::Rect::from_center_size(cursor, egui::vec2(ghost_w, ghost_h));
+    if let Some(Some(tex)) = data.pages.thumb_textures.get(src_page) {
+        painter.image(
+            tex.id(),
+            rect,
+            egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
+            egui::Color32::from_rgba_unmultiplied(255, 255, 255, 200),
+        );
+    } else {
+        painter.rect_filled(
+            rect,
+            4.0,
+            egui::Color32::from_rgba_unmultiplied(100, 149, 237, 120),
+        );
+    }
+    painter.rect_stroke(
+        rect,
+        0.0,
+        egui::Stroke::new(2.0, egui::Color32::from_rgb(100, 149, 237)),
+        egui::StrokeKind::Middle,
+    );
 }
 
 /// Applies the scroll-to-page request if this page rect is known.

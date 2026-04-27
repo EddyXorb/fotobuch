@@ -2,8 +2,7 @@ mod row;
 
 use std::path::PathBuf;
 
-use crate::app::widgets::central_panel::draw_drag_ghosts;
-use crate::state::{DataState, InteractionState};
+use crate::state::{ActiveDrag, DataState, DragSource, InteractionState};
 
 pub fn draw(ui: &mut egui::Ui, data: &DataState, interaction: &mut InteractionState) {
     egui::Panel::left("photo_pool")
@@ -12,6 +11,47 @@ pub fn draw(ui: &mut egui::Ui, data: &DataState, interaction: &mut InteractionSt
         .max_size(400.0)
         .default_size(260.0)
         .show_inside(ui, |ui| show(ui, data, interaction));
+}
+
+fn draw_pool_drag_ghost(ctx: &egui::Context, data: &DataState, interaction: &InteractionState) {
+    const THUMB: f32 = 24.0;
+    const GAP: f32 = 2.0;
+    const OFFSET_X: f32 = 8.0;
+
+    let photo_ids = match &interaction.drag.active {
+        ActiveDrag::Dragging(DragSource::Pool { photo_ids }) => photo_ids,
+        _ => return,
+    };
+    let cursor = match ctx.pointer_hover_pos() {
+        Some(p) => p,
+        None => return,
+    };
+    let painter = ctx.layer_painter(egui::LayerId::new(
+        egui::Order::Tooltip,
+        egui::Id::new("pool_drag_ghost"),
+    ));
+    let n = photo_ids.len();
+    let total_h = n as f32 * THUMB + (n.saturating_sub(1)) as f32 * GAP;
+    let top_y = cursor.y - total_h / 2.0;
+    let left_x = cursor.x + OFFSET_X;
+    for (i, id) in photo_ids.iter().enumerate() {
+        let y = top_y + i as f32 * (THUMB + GAP);
+        let rect = egui::Rect::from_min_size(egui::pos2(left_x, y), egui::vec2(THUMB, THUMB));
+        if let Some(tex) = data.thumbs.get(id) {
+            painter.image(
+                tex.id(),
+                rect,
+                egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
+                egui::Color32::from_rgba_unmultiplied(255, 255, 255, 200),
+            );
+        } else {
+            painter.rect_filled(
+                rect,
+                4.0,
+                egui::Color32::from_rgba_unmultiplied(100, 149, 237, 120),
+            );
+        }
+    }
 }
 
 fn show(ui: &mut egui::Ui, data: &DataState, interaction: &mut InteractionState) {
@@ -61,5 +101,5 @@ fn show(ui: &mut egui::Ui, data: &DataState, interaction: &mut InteractionState)
             }
         });
 
-    draw_drag_ghosts::draw_pool_drag_ghost(ui.ctx(), data, interaction);
+    draw_pool_drag_ghost(ui.ctx(), data, interaction);
 }
