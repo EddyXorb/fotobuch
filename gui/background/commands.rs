@@ -43,7 +43,7 @@ pub(super) fn run_load_photo_thumbnails(
 }
 
 fn build_after_command(
-    cmd_changed_state: Option<Box<fotobuch::dto_models::ProjectState>>,
+    cmd_changed_state: Option<fotobuch::dto_models::ProjectState>,
     cmd_dirty: Vec<usize>,
     rctx: &mut super::RenderCtx<'_>,
 ) {

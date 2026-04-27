@@ -193,7 +193,14 @@ mod tests {
         let mut state = GuiState::new(ProjectState::default());
         state.interaction.hovered = Some(HoveredTarget::NavPage(2));
         let mut cmds = HashSet::new();
-        complete_nav_drag(&mut state.interaction, &mut cmds, 0);
+        let data = crate::state::DataState {
+            project: ProjectState::default(),
+            derived: crate::state::DerivedState::rebuild(&ProjectState::default()),
+            pages: crate::state::PageCache::new(0),
+            thumbs: Default::default(),
+            timings: Default::default(),
+        };
+        complete_nav_drag(&data, &mut state.interaction, &mut cmds, 0, vec![0]);
         assert_eq!(cmds.len(), 1);
         let PendingCommand::PageSwap { left, right } = cmds.iter().next().unwrap() else {
             panic!()
@@ -207,7 +214,14 @@ mod tests {
         let mut state = GuiState::new(ProjectState::default());
         state.interaction.hovered = Some(HoveredTarget::NavPage(1));
         let mut cmds = HashSet::new();
-        complete_nav_drag(&mut state.interaction, &mut cmds, 1);
+        let data = crate::state::DataState {
+            project: ProjectState::default(),
+            derived: crate::state::DerivedState::rebuild(&ProjectState::default()),
+            pages: crate::state::PageCache::new(0),
+            thumbs: Default::default(),
+            timings: Default::default(),
+        };
+        complete_nav_drag(&data, &mut state.interaction, &mut cmds, 1, vec![1]);
         assert!(cmds.is_empty(), "same page → no-op");
     }
 
