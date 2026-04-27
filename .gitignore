@@ -11,6 +11,7 @@ target*
 profile.json.gz
 .VSCode*
 fb_test*
+test_hash
 MEMORY.md
 .claude*
 .venv
