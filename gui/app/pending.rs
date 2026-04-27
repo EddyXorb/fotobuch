@@ -53,6 +53,11 @@ pub enum PendingCommand {
     DeletePages {
         pages: Vec<usize>,
     },
+    /// Move an entire page to a new position (nav drag → `[+]` in Move mode).
+    MovePage {
+        src_page: usize,
+        at_position: usize,
+    },
     /// Rebuild auto-layout for the given pages.
     RebuildPages {
         pages: Vec<usize>,

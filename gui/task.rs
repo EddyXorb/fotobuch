@@ -72,6 +72,11 @@ pub enum BackgroundTask {
         pages: Vec<usize>,
         pixel_per_pt: f32,
     },
+    MovePage {
+        src_page: usize,
+        at_position: usize,
+        pixel_per_pt: f32,
+    },
     RebuildPages {
         pages: Vec<usize>,
         pixel_per_pt: f32,

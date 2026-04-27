@@ -39,8 +39,15 @@ pub(super) fn handle_drag_start(interaction: &mut InteractionState, ctx: &egui::
             cursor_at_drag_start: cursor,
         })
     } else if let Some(HoveredTarget::NavPage(nav_page)) = &interaction.hovered {
+        let nav_page = *nav_page;
+        let src_pages = if interaction.selections.nav_pages.is_selected(&nav_page) {
+            interaction.selections.nav_pages.items()
+        } else {
+            vec![nav_page]
+        };
         Some(DragSource::NavPage {
-            src_page: *nav_page,
+            src_page: nav_page,
+            src_pages,
             cursor_at_drag_start: cursor,
         })
     } else if let Some(HoveredTarget::PoolItem(pool_id)) = &interaction.hovered {
@@ -83,8 +90,12 @@ pub(super) fn handle_drag_complete(
         } => {
             complete_slot_drag(data, interaction, cmds, src_page, src_slot, src_slots);
         }
-        DragSource::NavPage { src_page, .. } => {
-            complete_nav_drag(interaction, cmds, src_page);
+        DragSource::NavPage {
+            src_page,
+            src_pages,
+            ..
+        } => {
+            complete_nav_drag(data, interaction, cmds, src_page, src_pages);
         }
         DragSource::Pool { photo_ids } => {
             complete_pool_drag(interaction, cmds, photo_ids);
@@ -145,10 +156,50 @@ pub(super) fn complete_slot_drag(
 }
 
 pub(super) fn complete_nav_drag(
+    data: &DataState,
     interaction: &mut InteractionState,
     cmds: &mut HashSet<PendingCommand>,
     src_page: usize,
+    src_pages: Vec<usize>,
 ) {
+    if let Some(at_position) = interaction
+        .hovered
+        .as_ref()
+        .and_then(HoveredTarget::new_page_at_position)
+    {
+        if interaction.drag.mode == DragMode::Move {
+            cmds.insert(PendingCommand::MovePage {
+                src_page,
+                at_position,
+            });
+        }
+        return;
+    }
+
+    if interaction.drag.mode == DragMode::Move {
+        if let Some(dst_page) = interaction.hovered.as_ref().and_then(|h| h.page_idx()) {
+            for sp in src_pages {
+                if sp == dst_page {
+                    continue;
+                }
+                let slot_count = data
+                    .project
+                    .layout
+                    .get(sp)
+                    .map(|lp| lp.slots.len())
+                    .unwrap_or(0);
+                if slot_count > 0 {
+                    cmds.insert(PendingCommand::Move {
+                        src_page: sp,
+                        src_slots: (0..slot_count).collect(),
+                        dst_page,
+                    });
+                }
+            }
+        }
+        return;
+    }
+
     let dst_page = match interaction.hovered.as_ref().and_then(|h| h.as_nav_page()) {
         Some(p) if p != src_page => p,
         _ => return,

@@ -146,6 +146,14 @@ pub fn spawn(
                     rctx.pixel_per_pt = pixel_per_pt;
                     commands::run_delete_pages(pages, &mut rctx);
                 }
+                BackgroundTask::MovePage {
+                    src_page,
+                    at_position,
+                    pixel_per_pt,
+                } => {
+                    rctx.pixel_per_pt = pixel_per_pt;
+                    commands::run_move_page(src_page, at_position, &mut rctx);
+                }
                 BackgroundTask::RebuildPages {
                     pages,
                     pixel_per_pt,

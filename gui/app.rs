@@ -246,6 +246,14 @@ impl FotobuchApp {
                     pages,
                     pixel_per_pt: ppt,
                 },
+                PendingCommand::MovePage {
+                    src_page,
+                    at_position,
+                } => BackgroundTask::MovePage {
+                    src_page,
+                    at_position,
+                    pixel_per_pt: ppt,
+                },
                 PendingCommand::RebuildPages { pages } => BackgroundTask::RebuildPages {
                     pages,
                     pixel_per_pt: ppt,
@@ -341,6 +349,7 @@ fn mark_dirty(dirty: &mut [bool], task: &BackgroundTask) {
         | BackgroundTask::ConfigSet { .. }
         | BackgroundTask::PlacePhotos { dst_page: None, .. }
         | BackgroundTask::MoveToNewPage { .. }
+        | BackgroundTask::MovePage { .. }
         | BackgroundTask::SwapRange { .. }
         | BackgroundTask::Unplace { .. }
         | BackgroundTask::DeletePages { .. }
