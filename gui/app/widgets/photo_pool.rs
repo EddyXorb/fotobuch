@@ -2,6 +2,7 @@ mod row;
 
 use std::path::PathBuf;
 
+use crate::app::widgets::central_panel::draw_drag_ghosts;
 use crate::state::{DataState, InteractionState};
 
 pub fn draw(ui: &mut egui::Ui, data: &DataState, interaction: &mut InteractionState) {
@@ -59,4 +60,6 @@ fn show(ui: &mut egui::Ui, data: &DataState, interaction: &mut InteractionState)
                     });
             }
         });
+
+    draw_drag_ghosts::draw_pool_drag_ghost(ui.ctx(), data, interaction);
 }

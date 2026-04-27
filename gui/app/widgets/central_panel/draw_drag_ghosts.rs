@@ -2,6 +2,10 @@ use egui::vec2;
 
 use crate::state::{ActiveDrag, DataState, DragMode, DragSource, InteractionState};
 
+const POOL_THUMB_SIZE: f32 = 24.0;
+const POOL_THUMB_GAP: f32 = 2.0;
+const POOL_GHOST_OFFSET_X: f32 = 8.0;
+
 use super::super::geometry::{self, A4_ASPECT, PageDimensions, PageScale};
 
 pub(super) fn draw_drag_ghosts(
@@ -111,6 +115,50 @@ fn paint_ghost_rect(painter: &egui::Painter, rect: egui::Rect, alpha: u8) {
         4.0,
         egui::Color32::from_rgba_unmultiplied(100, 149, 237, alpha),
     );
+}
+
+/// Draws thumbnail ghosts for pool photos being dragged.
+pub(crate) fn draw_pool_drag_ghost(
+    ctx: &egui::Context,
+    data: &DataState,
+    interaction: &InteractionState,
+) {
+    let photo_ids = match &interaction.drag.active {
+        ActiveDrag::Dragging(DragSource::Pool { photo_ids }) => photo_ids,
+        _ => return,
+    };
+    let cursor = match ctx.pointer_hover_pos() {
+        Some(p) => p,
+        None => return,
+    };
+
+    let painter = ctx.layer_painter(egui::LayerId::new(
+        egui::Order::Tooltip,
+        egui::Id::new("pool_drag_ghost"),
+    ));
+
+    let n = photo_ids.len();
+    let total_h = n as f32 * POOL_THUMB_SIZE + (n.saturating_sub(1)) as f32 * POOL_THUMB_GAP;
+    let top_y = cursor.y - total_h / 2.0;
+    let left_x = cursor.x + POOL_GHOST_OFFSET_X;
+
+    for (i, id) in photo_ids.iter().enumerate() {
+        let y = top_y + i as f32 * (POOL_THUMB_SIZE + POOL_THUMB_GAP);
+        let rect = egui::Rect::from_min_size(
+            egui::pos2(left_x, y),
+            vec2(POOL_THUMB_SIZE, POOL_THUMB_SIZE),
+        );
+        if let Some(tex) = data.thumbs.get(id) {
+            painter.image(
+                tex.id(),
+                rect,
+                egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
+                egui::Color32::from_rgba_unmultiplied(255, 255, 255, 200),
+            );
+        } else {
+            paint_ghost_rect(&painter, rect, 120);
+        }
+    }
 }
 
 /// Draws a floating page-thumbnail ghost while dragging a nav page.
