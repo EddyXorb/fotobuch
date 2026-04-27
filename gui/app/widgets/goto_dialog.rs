@@ -5,7 +5,7 @@ pub fn show(ctx: &egui::Context, interaction: &mut InteractionState, num_pages: 
         return;
     }
     let mut open = interaction.goto_open;
-    egui::Window::new("Gehe zu Seite")
+    egui::Window::new("Go to page")
         .open(&mut open)
         .collapsible(false)
         .resizable(false)
@@ -37,7 +37,7 @@ pub fn show(ctx: &egui::Context, interaction: &mut InteractionState, num_pages: 
             }
 
             if parsed.is_none() && !buffer.is_empty() {
-                ui.colored_label(egui::Color32::LIGHT_RED, "Ungültige Seite");
+                ui.colored_label(egui::Color32::LIGHT_RED, "Invalid page");
             }
         });
     interaction.goto_open = open && interaction.goto_open;

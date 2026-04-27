@@ -12,19 +12,19 @@ pub fn show(
         return;
     }
     let mut open = true;
-    egui::Window::new("Alle Seiten neu bauen?")
+    egui::Window::new("Rebuild all pages?")
         .open(&mut open)
         .collapsible(false)
         .resizable(false)
         .show(ctx, |ui| {
-            ui.label("Keine Seite ausgewählt — der Rebuild würde alle Seiten neu solven.");
-            ui.label("Das kann je nach Projektgröße mehrere Minuten dauern.");
+            ui.label("No page selected — rebuild will re-solve all pages.");
+            ui.label("This may take several minutes depending on project size.");
             ui.separator();
             ui.horizontal(|ui| {
-                if ui.button("Abbrechen").clicked() {
+                if ui.button("Cancel").clicked() {
                     interaction.rebuild_all_confirm = false;
                 }
-                if ui.button("Alle neu bauen").clicked() {
+                if ui.button("Rebuild all").clicked() {
                     cmds.insert(PendingCommand::RebuildAll);
                     interaction.rebuild_all_confirm = false;
                 }
