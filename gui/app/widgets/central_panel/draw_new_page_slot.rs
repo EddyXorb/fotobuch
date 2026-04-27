@@ -19,7 +19,7 @@ pub(super) fn draw(
     let hovered = resp.hovered();
 
     let alpha: u8 = match (drag_active, hovered) {
-        (_, true) => 200,
+        (true, true) => 200,
         (true, false) => 100,
         _ => 30,
     };
