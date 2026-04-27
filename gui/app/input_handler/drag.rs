@@ -1,6 +1,8 @@
 use std::collections::HashSet;
 
-use crate::state::{ActiveDrag, DataState, DragMode, DragSource, HoveredTarget, InteractionState};
+use crate::state::{
+    ActiveDrag, DataState, DragMode, DragSource, HoveredTarget, InteractionState, PhotoSelection,
+};
 use fotobuch::dto_models::LayoutPage;
 
 use crate::app::pending::PendingCommand;
@@ -46,6 +48,7 @@ pub(super) fn handle_drag_start(interaction: &mut InteractionState, ctx: &egui::
         let ids = if interaction.selections.photos.is_selected(&pool_id) {
             interaction.selections.photos.ids()
         } else {
+            interaction.selections.photos = PhotoSelection::single(pool_id.clone());
             vec![pool_id]
         };
         Some(DragSource::Pool { photo_ids: ids })
