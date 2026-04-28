@@ -91,7 +91,7 @@ fn draw_highlights(
         interaction.drag.active,
         ActiveDrag::Dragging(DragSource::Slot { .. })
     ) && pointer_over
-        && interaction.drag.mode == DragMode::Swap;
+        && interaction.drag.mode == DragMode::Move;
     let is_pool_drag_target = matches!(
         interaction.drag.active,
         ActiveDrag::Dragging(DragSource::Pool { .. })
