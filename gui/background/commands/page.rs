@@ -11,7 +11,7 @@ pub fn build_after_command(
     cmd_dirty: Vec<usize>,
     rctx: &mut super::super::RenderCtx<'_>,
 ) {
-    if cmd_changed_state.is_none() {
+    if cmd_changed_state.is_none() && cmd_dirty.is_empty() {
         send_command_done(None, vec![], rctx);
         return;
     }
