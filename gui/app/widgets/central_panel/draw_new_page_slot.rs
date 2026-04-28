@@ -9,18 +9,22 @@ pub(super) fn draw(
 ) -> (egui::Rect, bool) {
     // Reserve full-width row, then center a square within it.
     let row_desired = egui::vec2(ui.available_width(), SIZE_PT + 8.0);
-    let (row_rect, resp) = ui.allocate_exact_size(row_desired, egui::Sense::hover());
+    let (row_rect, _) = ui.allocate_exact_size(row_desired, egui::Sense::hover());
 
     let center = row_rect.center();
     let half = SIZE_PT / 2.0;
     let sq = egui::Rect::from_center_size(center, egui::vec2(SIZE_PT, SIZE_PT));
 
     let drag_active = !matches!(interaction.drag.active, ActiveDrag::Idle);
-    let hovered = resp.hovered();
+    // Use raw pointer position: resp.hovered() is unreliable during RMB drag.
+    let hovered = ui
+        .ctx()
+        .input(|i| i.pointer.latest_pos().map(|p| row_rect.contains(p)))
+        .unwrap_or(false);
 
     let alpha: u8 = match (drag_active, hovered) {
         (true, true) => 200,
-        (true, false) => 100,
+        (true, false) => 30,
         _ => 30,
     };
     let fill = egui::Color32::from_rgba_unmultiplied(80, 160, 255, alpha);
