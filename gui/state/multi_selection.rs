@@ -6,7 +6,7 @@ use std::collections::BTreeSet;
 pub enum MultiSelection<K: Ord + Clone> {
     #[default]
     None,
-    Some {
+    Active {
         items: BTreeSet<K>,
         anchor: K,
     },
@@ -18,7 +18,7 @@ impl<K: Ord + Clone> MultiSelection<K> {
         let items: BTreeSet<K> = items.into_iter().collect();
         match items.iter().next().cloned() {
             None => Self::None,
-            Some(anchor) => Self::Some { items, anchor },
+            Some(anchor) => Self::Active { items, anchor },
         }
     }
 
@@ -26,14 +26,14 @@ impl<K: Ord + Clone> MultiSelection<K> {
         let anchor = k.clone();
         let mut items = BTreeSet::new();
         items.insert(k);
-        Self::Some { items, anchor }
+        Self::Active { items, anchor }
     }
 
     /// Ctrl+click: add or remove.
     pub fn toggle(&mut self, k: K) {
         match self {
             Self::None => *self = Self::single(k),
-            Self::Some { items, anchor } => {
+            Self::Active { items, anchor } => {
                 if items.contains(&k) {
                     items.remove(&k);
                     if items.is_empty() {
@@ -56,14 +56,14 @@ impl<K: Ord + Clone> MultiSelection<K> {
                 *self = Self::single(k);
                 return;
             }
-            Self::Some { anchor, .. } => anchor.clone(),
+            Self::Active { anchor, .. } => anchor.clone(),
         };
         let pos_a = order.iter().position(|x| x == &anchor);
         let pos_k = order.iter().position(|x| x == &k);
         match (pos_a, pos_k) {
             (std::option::Option::Some(a), std::option::Option::Some(b)) => {
                 let items = order[a.min(b)..=a.max(b)].iter().cloned().collect();
-                *self = Self::Some { items, anchor };
+                *self = Self::Active { items, anchor };
             }
             _ => *self = Self::single(k),
         }
@@ -76,7 +76,7 @@ impl<K: Ord + Clone> MultiSelection<K> {
     pub fn is_selected(&self, k: &K) -> bool {
         match self {
             Self::None => false,
-            Self::Some { items, .. } => items.contains(k),
+            Self::Active { items, .. } => items.contains(k),
         }
     }
 
@@ -87,7 +87,7 @@ impl<K: Ord + Clone> MultiSelection<K> {
     pub fn items(&self) -> Vec<K> {
         match self {
             Self::None => vec![],
-            Self::Some { items, .. } => items.iter().cloned().collect(),
+            Self::Active { items, .. } => items.iter().cloned().collect(),
         }
     }
 }
@@ -97,7 +97,7 @@ impl MultiSelection<usize> {
     pub fn range_to_numeric(&mut self, k: usize) {
         match self {
             Self::None => *self = Self::single(k),
-            Self::Some { items, anchor } => {
+            Self::Active { items, anchor } => {
                 let a = *anchor;
                 *items = (a.min(k)..=a.max(k)).collect();
             }

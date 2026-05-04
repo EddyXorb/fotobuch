@@ -59,7 +59,7 @@ impl SlotSelection {
             return;
         }
         self.page = Some(page);
-        self.sel = MultiSelection::Some {
+        self.sel = MultiSelection::Active {
             items: (0..slot_count).collect(),
             anchor: 0,
         };
