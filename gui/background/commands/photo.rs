@@ -1,5 +1,6 @@
 use crossbeam::channel::Sender;
 use egui::Context;
+use fotobuch::commands::PlaceDst;
 use fotobuch::commands::page::SlotExpr;
 use fotobuch::commands::place::{PlaceConfig, place};
 use fotobuch::commands::unplace::execute_unplace;
@@ -36,15 +37,13 @@ pub fn run_load_photo_thumbnails(
 
 pub fn run_place_photos(
     photo_ids: Vec<String>,
-    dst_page: Option<usize>,
-    into_new_page_at: Option<usize>,
+    dst: PlaceDst,
     rctx: &mut crate::background::RenderCtx<'_>,
 ) {
     let config = PlaceConfig {
         filters: vec![],
         ids: photo_ids,
-        into_page: dst_page,
-        into_new_page_at,
+        dst,
     };
     match place(rctx.project_root, &config) {
         Err(e) => {

@@ -3,6 +3,7 @@
 use anyhow::Context;
 use anyhow::Result;
 use fotobuch::commands;
+use fotobuch::commands::PlaceDst;
 use tracing::info;
 
 pub fn handle(
@@ -12,11 +13,16 @@ pub fn handle(
 ) -> Result<()> {
     let project_root = std::env::current_dir().context("Failed to determine current directory")?;
 
+    let dst = match (into, into_new_page_at) {
+        (_, Some(pos)) => PlaceDst::NewPageAt(pos),
+        (Some(page), _) => PlaceDst::Page(page),
+        (None, None) => PlaceDst::Auto,
+    };
+
     let config = commands::place::PlaceConfig {
         filters,
         ids: vec![],
-        into_page: into,
-        into_new_page_at,
+        dst,
     };
 
     let output = commands::place::place(&project_root, &config)?;

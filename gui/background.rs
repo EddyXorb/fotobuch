@@ -90,12 +90,8 @@ pub fn spawn(
                 BackgroundTask::LoadPhotoThumbnails { items } => {
                     commands::run_load_photo_thumbnails(items, &pool, &result_tx, &repaint_ctx);
                 }
-                BackgroundTask::Place {
-                    photo_ids,
-                    dst_page,
-                    into_new_page_at,
-                } => {
-                    commands::run_place_photos(photo_ids, dst_page, into_new_page_at, &mut rctx);
+                BackgroundTask::Place { photo_ids, dst } => {
+                    commands::run_place_photos(photo_ids, dst, &mut rctx);
                 }
                 BackgroundTask::ConfigSet { key, value } => {
                     commands::run_config_set(&key, &value, &mut rctx);

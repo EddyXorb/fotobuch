@@ -1,3 +1,4 @@
+use fotobuch::commands::PlaceDst;
 use fotobuch::dto_models::ProjectState;
 
 use super::drag::{
@@ -78,17 +79,20 @@ fn place_hotkey_emits_place_with_hovered_page() {
     let mut cmds = Vec::new();
     cmds.push(BackgroundTask::Place {
         photo_ids: state.interaction.selections.photos.ids(),
-        dst_page: state
+        dst: match state
             .interaction
             .hovered
             .as_ref()
-            .and_then(HoveredTarget::central_page),
-        into_new_page_at: None,
+            .and_then(HoveredTarget::central_page)
+        {
+            Some(p) => PlaceDst::Page(p),
+            None => PlaceDst::Auto,
+        },
     });
-    let BackgroundTask::Place { dst_page, .. } = cmds.iter().next().unwrap() else {
+    let BackgroundTask::Place { dst, .. } = cmds.iter().next().unwrap() else {
         panic!()
     };
-    assert_eq!(*dst_page, Some(2));
+    assert_eq!(*dst, PlaceDst::Page(2));
 }
 
 #[test]
@@ -98,17 +102,20 @@ fn place_hotkey_emits_place_without_target_when_no_hover() {
     let mut cmds = Vec::new();
     cmds.push(BackgroundTask::Place {
         photo_ids: state.interaction.selections.photos.ids(),
-        dst_page: state
+        dst: match state
             .interaction
             .hovered
             .as_ref()
-            .and_then(HoveredTarget::central_page),
-        into_new_page_at: None,
+            .and_then(HoveredTarget::central_page)
+        {
+            Some(p) => PlaceDst::Page(p),
+            None => PlaceDst::Auto,
+        },
     });
-    let BackgroundTask::Place { dst_page, .. } = cmds.iter().next().unwrap() else {
+    let BackgroundTask::Place { dst, .. } = cmds.iter().next().unwrap() else {
         panic!()
     };
-    assert_eq!(*dst_page, None);
+    assert_eq!(*dst, PlaceDst::Auto);
 }
 
 #[test]
@@ -128,10 +135,10 @@ fn pool_drag_complete_emits_place_on_hovered_page() {
     let mut cmds = Vec::new();
     complete_pool_drag(&mut state.interaction, &mut cmds, vec!["a.jpg".into()]);
     assert_eq!(cmds.len(), 1);
-    let BackgroundTask::Place { dst_page, .. } = cmds.iter().next().unwrap() else {
+    let BackgroundTask::Place { dst, .. } = cmds.iter().next().unwrap() else {
         panic!()
     };
-    assert_eq!(*dst_page, Some(1));
+    assert_eq!(*dst, PlaceDst::Page(1));
 }
 
 #[test]

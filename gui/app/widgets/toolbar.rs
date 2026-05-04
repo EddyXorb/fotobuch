@@ -2,6 +2,7 @@ use crate::task::BackgroundTask;
 
 use crate::app::rebuild::{PagesForRebuild, selected_pages_for_rebuild};
 use crate::state::{DragMode, HoveredTarget, InteractionState};
+use fotobuch::commands::PlaceDst;
 
 pub fn draw(ui: &mut egui::Ui, interaction: &mut InteractionState) -> Vec<BackgroundTask> {
     egui::Panel::top("toolbar")
@@ -84,11 +85,14 @@ fn place_button(
     {
         cmds.push(BackgroundTask::Place {
             photo_ids: interaction.selections.photos.ids(),
-            dst_page: interaction
+            dst: match interaction
                 .hovered
                 .as_ref()
-                .and_then(HoveredTarget::central_page),
-            into_new_page_at: None,
+                .and_then(HoveredTarget::central_page)
+            {
+                Some(p) => PlaceDst::Page(p),
+                None => PlaceDst::Auto,
+            },
         });
     }
 }

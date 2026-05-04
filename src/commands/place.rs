@@ -11,6 +11,17 @@ use crate::commands::build::build_photo_index;
 use crate::dto_models::{PhotoFile, ProjectState};
 use crate::state_manager::StateManager;
 
+/// Target destination for placing photos.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PlaceDst {
+    /// Place chronologically across existing pages (default).
+    Auto,
+    /// Place onto an existing page (0-based index).
+    Page(usize),
+    /// Create a new page at this position and place photos there.
+    NewPageAt(usize),
+}
+
 /// Configuration for placing photos
 #[derive(Debug, Clone)]
 pub struct PlaceConfig {
@@ -18,10 +29,8 @@ pub struct PlaceConfig {
     pub filters: Vec<String>,
     /// Restrict to these photo IDs (empty = no restriction)
     pub ids: Vec<String>,
-    /// Place all matching photos onto this page (optional)
-    pub into_page: Option<usize>,
-    /// Create a new page at this position and place photos there (optional)
-    pub into_new_page_at: Option<usize>,
+    /// Where to place the photos
+    pub dst: PlaceDst,
 }
 
 /// Result of placing photos
@@ -89,28 +98,27 @@ pub fn place(project_root: &Path, config: &PlaceConfig) -> Result<CommandOutput<
     let mut mgr = StateManager::open(project_root)?;
 
     // Validation
-    if mgr.state.layout.is_empty() && config.into_new_page_at.is_none() {
+    if mgr.state.layout.is_empty() && !matches!(config.dst, PlaceDst::NewPageAt(_)) {
         anyhow::bail!("No layout yet. Run `fotobuch build` first.");
     }
-    if let Some(page) = config.into_page
-        && page >= mgr.state.layout.len()
-    {
-        anyhow::bail!(
-            "Invalid page {} (layout has {} pages, indices 0..{})",
-            page,
-            mgr.state.layout.len(),
-            mgr.state.layout.len().saturating_sub(1),
-        );
-    }
-    if let Some(pos) = config.into_new_page_at
-        && pos > mgr.state.layout.len()
-    {
-        anyhow::bail!(
-            "Invalid new page position {} (layout has {} pages, valid range 0..={})",
-            pos,
-            mgr.state.layout.len(),
-            mgr.state.layout.len(),
-        );
+    match config.dst {
+        PlaceDst::Page(page) if page >= mgr.state.layout.len() => {
+            anyhow::bail!(
+                "Invalid page {} (layout has {} pages, indices 0..{})",
+                page,
+                mgr.state.layout.len(),
+                mgr.state.layout.len().saturating_sub(1),
+            );
+        }
+        PlaceDst::NewPageAt(pos) if pos > mgr.state.layout.len() => {
+            anyhow::bail!(
+                "Invalid new page position {} (layout has {} pages, valid range 0..={})",
+                pos,
+                mgr.state.layout.len(),
+                mgr.state.layout.len(),
+            );
+        }
+        _ => {}
     }
 
     // 1. Find unplaced photos
@@ -150,12 +158,10 @@ pub fn place(project_root: &Path, config: &PlaceConfig) -> Result<CommandOutput<
     }
 
     // 3. Place photos
-    let (pages_affected, pages_inserted) = if let Some(pos) = config.into_new_page_at {
-        place_into_new_page(&mut mgr.state, &filtered, pos)
-    } else if let Some(page) = config.into_page {
-        (place_into_page(&mut mgr.state, &filtered, page), vec![])
-    } else {
-        (place_chronologically(&mut mgr.state, &filtered), vec![])
+    let (pages_affected, pages_inserted) = match config.dst {
+        PlaceDst::NewPageAt(pos) => place_into_new_page(&mut mgr.state, &filtered, pos),
+        PlaceDst::Page(page) => (place_into_page(&mut mgr.state, &filtered, page), vec![]),
+        PlaceDst::Auto => (place_chronologically(&mut mgr.state, &filtered), vec![]),
     };
 
     let photos_placed = filtered.len();

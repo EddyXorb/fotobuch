@@ -10,6 +10,7 @@ use fotobuch::state_manager::StateManager;
 
 use crate::state::{self, GuiState};
 use crate::task::{BackgroundResult, BackgroundTask};
+use fotobuch::commands::PlaceDst;
 use fotobuch::dto_models::ProjectState;
 use fotobuch::output::typst::RenderedPage;
 use std::time::Duration;
@@ -257,8 +258,7 @@ fn mark_dirty(dirty: &mut [bool], task: &BackgroundTask) {
             }
         }
         BackgroundTask::Place {
-            dst_page: Some(p),
-            into_new_page_at: None,
+            dst: PlaceDst::Page(p),
             ..
         } => {
             if let Some(d) = dirty.get_mut(*p) {

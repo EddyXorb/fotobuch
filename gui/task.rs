@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 use std::time::Duration;
 
+use fotobuch::commands::PlaceDst;
 use fotobuch::dto_models::ProjectState;
 use fotobuch::output::typst::RenderedPage;
 
@@ -35,8 +36,7 @@ pub enum BackgroundTask {
     /// Fotos platzieren — konkrete Zielseite oder auto-distribute.
     Place {
         photo_ids: Vec<String>,
-        dst_page: Option<usize>,
-        into_new_page_at: Option<usize>,
+        dst: PlaceDst,
     },
     /// `config set key value` im Background.
     ConfigSet {

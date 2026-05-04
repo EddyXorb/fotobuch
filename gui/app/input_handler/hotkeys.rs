@@ -2,6 +2,7 @@ use crate::task::BackgroundTask;
 
 use crate::app::rebuild::{PagesForRebuild, selected_pages_for_rebuild};
 use crate::state::{self, DataState, HoveredTarget, InteractionState, SlotSelection};
+use fotobuch::commands::PlaceDst;
 
 pub(super) fn handle_drag_mode_toggle(interaction: &mut InteractionState, ctx: &egui::Context) {
     if ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::M)) {
@@ -123,11 +124,14 @@ pub(super) fn handle_place_hotkey(
     }
     cmds.push(BackgroundTask::Place {
         photo_ids,
-        dst_page: interaction
+        dst: match interaction
             .hovered
             .as_ref()
-            .and_then(HoveredTarget::central_page),
-        into_new_page_at: None,
+            .and_then(HoveredTarget::central_page)
+        {
+            Some(p) => PlaceDst::Page(p),
+            None => PlaceDst::Auto,
+        },
     });
 }
 

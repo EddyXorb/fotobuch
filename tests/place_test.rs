@@ -64,8 +64,7 @@ fn test_place_no_unplaced_photos_returns_zero() -> Result<()> {
     let config = PlaceConfig {
         filters: vec![],
         ids: vec![],
-        into_page: None,
-        into_new_page_at: None,
+        dst: PlaceDst::Auto,
     };
     let result = place(&project_root, &config)?;
 
@@ -118,8 +117,7 @@ fn test_place_requires_layout() -> Result<()> {
     let config = PlaceConfig {
         filters: vec![],
         ids: vec![],
-        into_page: None,
-        into_new_page_at: None,
+        dst: PlaceDst::Auto,
     };
     let result = place(&project_root, &config);
 
@@ -144,8 +142,7 @@ fn test_place_with_invalid_page_number() -> Result<()> {
     let config = PlaceConfig {
         filters: vec![],
         ids: vec![],
-        into_page: Some(page_count),
-        into_new_page_at: None,
+        dst: PlaceDst::Page(page_count),
     };
     let result = place(&project_root, &config);
     assert!(result.is_err());
@@ -154,8 +151,7 @@ fn test_place_with_invalid_page_number() -> Result<()> {
     let config = PlaceConfig {
         filters: vec![],
         ids: vec![],
-        into_page: Some(page_count + 10),
-        into_new_page_at: None,
+        dst: PlaceDst::Page(page_count + 10),
     };
     let result = place(&project_root, &config);
     assert!(result.is_err());
@@ -189,8 +185,7 @@ fn test_place_into_specific_page() -> Result<()> {
     let config = PlaceConfig {
         filters: vec![],
         ids: vec![],
-        into_page: Some(0),
-        into_new_page_at: None,
+        dst: PlaceDst::Page(0),
     };
     let result = place(&project_root, &config)?;
 
@@ -247,8 +242,7 @@ fn test_place_filter_by_pattern() -> Result<()> {
     let config = PlaceConfig {
         filters: vec!["test_photos".to_string()],
         ids: vec![],
-        into_page: None,
-        into_new_page_at: None,
+        dst: PlaceDst::Auto,
     };
     let result = place(&project_root, &config)?;
 
@@ -270,8 +264,7 @@ fn test_place_chronologically_without_unplaced() -> Result<()> {
     let config = PlaceConfig {
         filters: vec![],
         ids: vec![],
-        into_page: None,
-        into_new_page_at: None,
+        dst: PlaceDst::Auto,
     };
     let result = place(&project_root, &config)?;
 
@@ -303,8 +296,7 @@ fn test_place_invalid_filter_pattern() -> Result<()> {
     let config = PlaceConfig {
         filters: vec!["[invalid".to_string()],
         ids: vec![],
-        into_page: None,
-        into_new_page_at: None,
+        dst: PlaceDst::Auto,
     };
     let result = place(&project_root, &config);
 
@@ -344,8 +336,7 @@ fn test_place_ids_filter_restricts_to_selected_photos() -> Result<()> {
     let config = PlaceConfig {
         filters: vec![],
         ids: vec![id_a.clone()],
-        into_page: Some(0),
-        into_new_page_at: None,
+        dst: PlaceDst::Page(0),
     };
     let result = place(&project_root, &config)?;
 
@@ -395,8 +386,7 @@ fn test_place_into_new_page_at() -> Result<()> {
     let config = PlaceConfig {
         filters: vec![],
         ids: vec![removed_photo.clone()],
-        into_page: None,
-        into_new_page_at: Some(1),
+        dst: PlaceDst::NewPageAt(1),
     };
     let result = place(&project_root, &config)?;
 
@@ -438,8 +428,7 @@ fn test_place_into_new_page_at_invalid_position() -> Result<()> {
     let config = PlaceConfig {
         filters: vec![],
         ids: vec![],
-        into_page: None,
-        into_new_page_at: Some(pages_count + 1),
+        dst: PlaceDst::NewPageAt(pages_count + 1),
     };
     let result = place(&project_root, &config);
     assert!(result.is_err());
