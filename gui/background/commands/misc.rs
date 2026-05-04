@@ -90,6 +90,7 @@ pub fn run_release_build(rctx: &mut crate::background::RenderCtx<'_>) {
         release: true,
         force: false,
         pages: None,
+        skip_pdf: false,
     };
     match build(rctx.project_root, &cfg) {
         Err(e) => {

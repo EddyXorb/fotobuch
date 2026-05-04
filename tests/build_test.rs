@@ -127,6 +127,7 @@ fn test_first_build_creates_layout_and_pdf() -> Result<()> {
         release: false,
         force: false,
         pages: None,
+        skip_pdf: false,
     };
     let result = build(&project_root, &build_config)?;
 
@@ -200,6 +201,7 @@ fn test_incremental_build_without_changes_does_nothing() -> Result<()> {
         release: false,
         force: false,
         pages: None,
+        skip_pdf: true,
     };
     let result1 = build(&project_root, &build_config)?;
     assert!(
@@ -254,14 +256,16 @@ fn test_release_requires_pages_flag_not_allowed() -> Result<()> {
         release: false,
         force: false,
         pages: None,
+        skip_pdf: true,
     };
     build(&project_root, &build_config)?;
 
-    // Try release with --pages (should fail)
+    // Try release with --pages (should fail before PDF generation)
     let release_config = BuildConfig {
         release: true,
         force: false,
         pages: Some(vec![1]),
+        skip_pdf: false,
     };
     let result = build(&project_root, &release_config);
 
@@ -283,6 +287,7 @@ fn test_release_requires_clean_state() -> Result<()> {
         release: false,
         force: false,
         pages: None,
+        skip_pdf: true,
     };
     build(&project_root, &build_config)?;
 
@@ -301,6 +306,7 @@ fn test_release_requires_clean_state() -> Result<()> {
         release: true,
         force: false,
         pages: None,
+        skip_pdf: false,
     };
     let result = build(&project_root, &release_config);
 
@@ -327,6 +333,7 @@ fn test_release_creates_final_cache_and_pdf() -> Result<()> {
         release: false,
         force: false,
         pages: None,
+        skip_pdf: true,
     };
     build(&project_root, &build_config)?;
 
@@ -335,6 +342,7 @@ fn test_release_creates_final_cache_and_pdf() -> Result<()> {
         release: true,
         force: false,
         pages: None,
+        skip_pdf: false,
     };
     let result = build(&project_root, &release_config)?;
 
@@ -389,6 +397,7 @@ fn test_pages_filter_limits_scope() -> Result<()> {
         release: false,
         force: false,
         pages: None,
+        skip_pdf: true,
     };
     let result1 = build(&project_root, &build_config)?;
 
@@ -412,6 +421,7 @@ fn test_pages_filter_limits_scope() -> Result<()> {
         release: false,
         force: false,
         pages: Some(vec![first_page]),
+        skip_pdf: true,
     };
     let result2 = build(&project_root, &filtered_config)?;
 
@@ -454,6 +464,7 @@ fn test_build_handles_empty_photo_list() -> Result<()> {
         release: false,
         force: false,
         pages: None,
+        skip_pdf: true,
     };
     let build_result = build(&project_root, &build_config);
 
@@ -513,6 +524,7 @@ fn test_max_groups_per_page_limits_to_one_group() -> Result<()> {
         release: false,
         force: false,
         pages: None,
+        skip_pdf: true,
     };
     let result = build(&project_root, &build_config)?;
 
@@ -571,6 +583,7 @@ fn test_build_from_scratch_with_max_groups_per_page_one() -> Result<()> {
         release: false,
         force: false,
         pages: None,
+        skip_pdf: true,
     };
     build(&project_root, &build_config)?;
 
@@ -654,6 +667,7 @@ fn test_incremental_build_detects_no_changes_when_swapping_page_order() -> Resul
         release: false,
         force: false,
         pages: None,
+        skip_pdf: true,
     };
     let result1 = build(&project_root, &build_config)?;
     assert!(
@@ -715,6 +729,7 @@ fn test_incremental_rebuild_after_swapping_photos_on_same_page() -> Result<()> {
         release: false,
         force: false,
         pages: None,
+        skip_pdf: true,
     };
     let result1 = build(&project_root, &build_config)?;
     assert!(
@@ -799,6 +814,7 @@ fn test_release_build_with_force_flag() -> Result<()> {
         release: false,
         force: false,
         pages: None,
+        skip_pdf: true,
     };
     build(&project_root, &build_config)?;
 
@@ -809,6 +825,7 @@ fn test_release_build_with_force_flag() -> Result<()> {
         release: true,
         force: true,
         pages: None,
+        skip_pdf: false,
     };
 
     let result = build(&project_root, &release_config);

@@ -199,6 +199,7 @@ fn rebuild_range(
             commit_message: format!("rebuild: pages {}-{}", effective_start, end),
             images_processed: 0,
             always_commit: true,
+            skip_pdf: false,
         },
     )
 }
@@ -236,6 +237,7 @@ fn rebuild_all(mgr: StateManager, project_root: &Path) -> Result<CommandOutput<B
             commit_message: format!("rebuild: {} photos redistributed", photo_count),
             images_processed: 0,
             always_commit: true,
+            skip_pdf: false,
         },
     )
 }

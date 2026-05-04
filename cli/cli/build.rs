@@ -11,6 +11,7 @@ pub fn handle(release: bool, pages: Option<Vec<usize>>) -> Result<()> {
         release,
         force: false,
         pages,
+        skip_pdf: false,
     };
 
     let output = commands::build::build(&project_root, &config)?;
@@ -27,6 +28,7 @@ pub fn handle_release(force: bool) -> Result<()> {
         release: true,
         force,
         pages: None,
+        skip_pdf: false,
     };
 
     let output = commands::build::build(&project_root, &config)?;

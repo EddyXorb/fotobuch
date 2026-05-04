@@ -62,6 +62,7 @@ fn create_test_project_with_build(temp_dir: &TempDir) -> Result<PathBuf> {
         release: false,
         force: false,
         pages: None,
+        skip_pdf: true,
     };
     build(&project_root, &build_config)?;
 
