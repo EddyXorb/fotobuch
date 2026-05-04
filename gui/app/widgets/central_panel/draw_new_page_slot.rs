@@ -1,4 +1,4 @@
-use crate::state::{ActiveDrag, InteractionState};
+use crate::state::{ActiveDrag, DragMode, InteractionState};
 
 const SIZE_PT: f32 = 32.0;
 
@@ -16,11 +16,14 @@ pub(super) fn draw(
     let sq = egui::Rect::from_center_size(center, egui::vec2(SIZE_PT, SIZE_PT));
 
     let drag_active = !matches!(interaction.drag.active, ActiveDrag::Idle);
+    let is_swap = interaction.drag.mode == DragMode::Swap;
     // Use raw pointer position: resp.hovered() is unreliable during RMB drag.
-    let hovered = ui
-        .ctx()
-        .input(|i| i.pointer.latest_pos().map(|p| row_rect.contains(p)))
-        .unwrap_or(false);
+    // In Swap mode, new-page-slot is not a valid drop target.
+    let hovered = !is_swap
+        && ui
+            .ctx()
+            .input(|i| i.pointer.latest_pos().map(|p| row_rect.contains(p)))
+            .unwrap_or(false);
 
     let alpha: u8 = match (drag_active, hovered) {
         (true, true) => 200,
