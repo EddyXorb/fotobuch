@@ -364,6 +364,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "slow-tests")]
     fn test_no_split_needed() {
         let mut params = create_test_params();
         params.max_photos_for_split = 150; // Higher than test
@@ -389,6 +390,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "slow-tests")]
     fn test_integration_large_instance_with_split() {
         let mut params = create_test_params();
         params.max_photos_for_split = 100; // Trigger split at ~150 photos
