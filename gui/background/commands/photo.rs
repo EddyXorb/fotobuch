@@ -16,7 +16,7 @@ pub fn run_load_photo_thumbnails(
         let tx = result_tx.clone();
         let ctx = repaint_ctx.clone();
         pool.spawn(move || {
-            match crate::thumbnail::load(&source, super::super::POOL_THUMB_MAX_EDGE_PX) {
+            match crate::thumbnail::load(&source, crate::background::POOL_THUMB_MAX_EDGE_PX) {
                 Ok((w, h, pixels)) => {
                     let _ = tx.send(BackgroundResult::PhotoThumbnailReady {
                         id,
@@ -37,7 +37,7 @@ pub fn run_load_photo_thumbnails(
 pub fn run_place_photos(
     photo_ids: Vec<String>,
     dst_page: Option<usize>,
-    rctx: &mut super::super::RenderCtx<'_>,
+    rctx: &mut crate::background::RenderCtx<'_>,
 ) {
     let config = PlaceConfig {
         filters: vec![],
@@ -57,7 +57,7 @@ pub fn run_place_photos(
     }
 }
 
-pub fn run_unplace(page: usize, slots: Vec<usize>, rctx: &mut super::super::RenderCtx<'_>) {
+pub fn run_unplace(page: usize, slots: Vec<usize>, rctx: &mut crate::background::RenderCtx<'_>) {
     let slot_expr = SlotExpr::from_list(slots.iter().map(|&s| s as u32).collect());
     match execute_unplace(rctx.project_root, page as u32, slot_expr) {
         Err(e) => {

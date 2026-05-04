@@ -10,9 +10,11 @@ use fotobuch::output::typst_world::TypstWorld;
 use crate::task::{BackgroundResult, BackgroundTask};
 
 pub(super) const NAV_THUMB_MAX_EDGE_PX: u32 = 512;
-pub(super) const POOL_THUMB_MAX_EDGE_PX: u32 = 256;
+pub(crate) const POOL_THUMB_MAX_EDGE_PX: u32 = 256;
 
-pub(super) struct RenderCtx<'a> {
+pub(crate) use render::send_command_done;
+
+pub(crate) struct RenderCtx<'a> {
     pub project_root: &'a std::path::Path,
     pub pool: &'a rayon::ThreadPool,
     pub result_tx: &'a Sender<BackgroundResult>,

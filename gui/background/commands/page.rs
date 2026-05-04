@@ -3,13 +3,13 @@ use fotobuch::commands::page::{
     DstMove, DstSwap, PageMoveCmd, PagesExpr, SlotExpr, Src, execute_move,
 };
 
-use super::super::render::send_command_done;
+use crate::background::send_command_done;
 use crate::task::BackgroundResult;
 
 pub fn build_after_command(
     cmd_changed_state: Option<fotobuch::dto_models::ProjectState>,
     cmd_dirty: Vec<usize>,
-    rctx: &mut super::super::RenderCtx<'_>,
+    rctx: &mut crate::background::RenderCtx<'_>,
 ) {
     if cmd_changed_state.is_none() && cmd_dirty.is_empty() {
         send_command_done(None, vec![], rctx);
@@ -39,7 +39,7 @@ pub fn build_after_command(
     }
 }
 
-pub fn run_page_command(cmd: PageMoveCmd, rctx: &mut super::super::RenderCtx<'_>) {
+pub fn run_page_command(cmd: PageMoveCmd, rctx: &mut crate::background::RenderCtx<'_>) {
     let move_output = match execute_move(rctx.project_root, cmd) {
         Err(e) => {
             let _ = rctx
@@ -59,7 +59,7 @@ pub fn run_page_command(cmd: PageMoveCmd, rctx: &mut super::super::RenderCtx<'_>
     build_after_command(move_output.changed_state, dirty, rctx);
 }
 
-pub fn run_page_swap(left: usize, right: usize, rctx: &mut super::super::RenderCtx<'_>) {
+pub fn run_page_swap(left: usize, right: usize, rctx: &mut crate::background::RenderCtx<'_>) {
     let cmd = PageMoveCmd::Swap {
         left: Src::Pages(PagesExpr::single(left as u32)),
         right: DstSwap::Pages(PagesExpr::single(right as u32)),
@@ -72,7 +72,7 @@ pub fn run_swap_slots(
     src_slot: usize,
     dst_page: usize,
     dst_slot: usize,
-    rctx: &mut super::super::RenderCtx<'_>,
+    rctx: &mut crate::background::RenderCtx<'_>,
 ) {
     let cmd = PageMoveCmd::Swap {
         left: Src::Slots {
@@ -91,7 +91,7 @@ pub fn run_move_slot(
     src_page: usize,
     src_slots: Vec<usize>,
     dst_page: usize,
-    rctx: &mut super::super::RenderCtx<'_>,
+    rctx: &mut crate::background::RenderCtx<'_>,
 ) {
     let cmd = PageMoveCmd::Move {
         src: Src::Slots {
@@ -107,7 +107,7 @@ pub fn run_move_to_new_page(
     src_page: usize,
     src_slots: Vec<usize>,
     at_position: usize,
-    rctx: &mut super::super::RenderCtx<'_>,
+    rctx: &mut crate::background::RenderCtx<'_>,
 ) {
     let cmd = PageMoveCmd::Move {
         src: Src::Slots {
@@ -124,7 +124,7 @@ pub fn run_swap_range(
     src_slots: Vec<usize>,
     dst_page: usize,
     dst_slots: Vec<usize>,
-    rctx: &mut super::super::RenderCtx<'_>,
+    rctx: &mut crate::background::RenderCtx<'_>,
 ) {
     let (Some(s0), Some(s1)) = (src_slots.first(), src_slots.last()) else {
         let _ = rctx
@@ -165,7 +165,7 @@ pub fn run_swap_range(
     run_page_command(cmd, rctx);
 }
 
-pub fn run_delete_pages(pages: Vec<usize>, rctx: &mut super::super::RenderCtx<'_>) {
+pub fn run_delete_pages(pages: Vec<usize>, rctx: &mut crate::background::RenderCtx<'_>) {
     let cmd = PageMoveCmd::Move {
         src: Src::Pages(PagesExpr::from_list(
             pages.iter().map(|&p| p as u32).collect(),
@@ -175,7 +175,11 @@ pub fn run_delete_pages(pages: Vec<usize>, rctx: &mut super::super::RenderCtx<'_
     run_page_command(cmd, rctx);
 }
 
-pub fn run_move_page(src_page: usize, at_position: usize, rctx: &mut super::super::RenderCtx<'_>) {
+pub fn run_move_page(
+    src_page: usize,
+    at_position: usize,
+    rctx: &mut crate::background::RenderCtx<'_>,
+) {
     let cmd = PageMoveCmd::Move {
         src: Src::Pages(PagesExpr::single(src_page as u32)),
         dst: DstMove::NewPageAt(at_position as u32),
