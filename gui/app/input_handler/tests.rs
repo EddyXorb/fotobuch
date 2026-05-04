@@ -158,13 +158,7 @@ fn nav_drag_complete_emits_page_swap() {
     let mut state = GuiState::new(ProjectState::default());
     state.interaction.hovered = Some(HoveredTarget::NavPage(2));
     let mut cmds = HashSet::new();
-    complete_nav_drag(
-        &default_data(),
-        &mut state.interaction,
-        &mut cmds,
-        0,
-        vec![0],
-    );
+    complete_nav_drag(&default_data(), &mut state.interaction, &mut cmds, 0);
     assert_eq!(cmds.len(), 1);
     let PendingCommand::PageSwap { left, right } = cmds.iter().next().unwrap() else {
         panic!()
@@ -178,13 +172,7 @@ fn nav_drag_complete_noop_when_same_page() {
     let mut state = GuiState::new(ProjectState::default());
     state.interaction.hovered = Some(HoveredTarget::NavPage(1));
     let mut cmds = HashSet::new();
-    complete_nav_drag(
-        &default_data(),
-        &mut state.interaction,
-        &mut cmds,
-        1,
-        vec![1],
-    );
+    complete_nav_drag(&default_data(), &mut state.interaction, &mut cmds, 1);
     assert!(cmds.is_empty(), "same page → no-op");
 }
 

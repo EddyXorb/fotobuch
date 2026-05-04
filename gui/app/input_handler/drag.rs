@@ -95,7 +95,7 @@ pub(super) fn handle_drag_complete(
             src_pages,
             ..
         } => {
-            complete_nav_drag(data, interaction, cmds, src_page, src_pages);
+            complete_nav_drag(data, interaction, cmds, src_page);
         }
         DragSource::Pool { photo_ids } => {
             complete_pool_drag(interaction, cmds, photo_ids);
@@ -160,7 +160,6 @@ pub(super) fn complete_nav_drag(
     interaction: &mut InteractionState,
     cmds: &mut HashSet<PendingCommand>,
     src_page: usize,
-    src_pages: Vec<usize>,
 ) {
     if let Some(at_position) = interaction
         .hovered
@@ -178,19 +177,16 @@ pub(super) fn complete_nav_drag(
 
     if interaction.drag.mode == DragMode::Move {
         if let Some(dst_page) = interaction.hovered.as_ref().and_then(|h| h.page_idx()) {
-            for sp in src_pages {
-                if sp == dst_page {
-                    continue;
-                }
+            if src_page != dst_page {
                 let slot_count = data
                     .project
                     .layout
-                    .get(sp)
+                    .get(src_page)
                     .map(|lp| lp.slots.len())
                     .unwrap_or(0);
                 if slot_count > 0 {
                     cmds.insert(PendingCommand::Move {
-                        src_page: sp,
+                        src_page,
                         src_slots: (0..slot_count).collect(),
                         dst_page,
                     });
