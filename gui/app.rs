@@ -347,6 +347,18 @@ fn mark_dirty(dirty: &mut [bool], task: &BackgroundTask) {
                 *d = true;
             }
         }
+        BackgroundTask::Unplace { page, .. } => {
+            if let Some(d) = dirty.get_mut(*page) {
+                *d = true;
+            }
+        }
+        BackgroundTask::RebuildPages { pages, .. } => {
+            for &p in pages {
+                if let Some(d) = dirty.get_mut(p) {
+                    *d = true;
+                }
+            }
+        }
         BackgroundTask::Undo { .. }
         | BackgroundTask::Redo { .. }
         | BackgroundTask::ConfigSet { .. }
@@ -354,9 +366,7 @@ fn mark_dirty(dirty: &mut [bool], task: &BackgroundTask) {
         | BackgroundTask::MoveToNewPage { .. }
         | BackgroundTask::MovePage { .. }
         | BackgroundTask::SwapRange { .. }
-        | BackgroundTask::Unplace { .. }
         | BackgroundTask::DeletePages { .. }
-        | BackgroundTask::RebuildPages { .. }
         | BackgroundTask::RebuildAll { .. }
         | BackgroundTask::ReleaseBuild { .. } => {
             dirty.fill(true);
