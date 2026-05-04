@@ -102,12 +102,12 @@ fn draw_highlights(
         painter.rect_filled(
             rect,
             0.0,
-            egui::Color32::from_rgba_unmultiplied(255, 200, 0, 60),
+            egui::Color32::from_rgba_unmultiplied(0, 200, 80, 60),
         );
         painter.rect_stroke(
             rect,
             2.0,
-            egui::Stroke::new(2.0, egui::Color32::from_rgb(220, 160, 0)),
+            egui::Stroke::new(2.0, egui::Color32::from_rgba_unmultiplied(0, 180, 60, 200)),
             egui::StrokeKind::Inside,
         );
     }
