@@ -111,6 +111,7 @@ impl FotobuchApp {
     ) {
         if let Some(new_state) = new_state {
             let num_pages = new_state.layout.len();
+            let old_layout_len = self.state.data.project.layout.len();
             self.state.data.project = *new_state;
             self.state.data.derived = crate::state::DerivedState::rebuild(&self.state.data.project);
             state::resize_page_vecs(&mut self.state, num_pages);
@@ -140,7 +141,9 @@ impl FotobuchApp {
                     *d = true;
                 }
             }
-            self.state.interaction.selections.slots.clear();
+            if num_pages != old_layout_len {
+                self.state.interaction.selections.slots.clear();
+            }
         } else {
             unset_dirty_pages(&mut self.state.data.pages.dirty);
         }
