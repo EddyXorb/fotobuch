@@ -204,6 +204,7 @@ fn layout_page_with_slots(page: usize, n_slots: usize) -> fotobuch::dto_models::
 fn drop_on_new_page_slot_emits_move_to_new_page() {
     let mut state = state_with_selection(1, vec![1, 2]);
     state.interaction.hovered = Some(HoveredTarget::NewPageSlot { at_position: 3 });
+    state.interaction.drag.mode = crate::state::DragMode::Move;
     let mut cmds = Vec::new();
     complete_slot_drag(
         &default_data(),
@@ -231,6 +232,7 @@ fn drop_on_new_page_slot_emits_move_to_new_page() {
 fn drop_on_new_page_slot_at_zero_inserts_before_first_page() {
     let mut state = GuiState::new(ProjectState::default());
     state.interaction.hovered = Some(HoveredTarget::NewPageSlot { at_position: 0 });
+    state.interaction.drag.mode = crate::state::DragMode::Move;
     let mut cmds = Vec::new();
     complete_slot_drag(
         &default_data(),

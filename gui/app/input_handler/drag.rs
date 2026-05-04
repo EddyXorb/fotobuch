@@ -116,11 +116,13 @@ pub(super) fn complete_slot_drag(
         .as_ref()
         .and_then(HoveredTarget::new_page_at_position)
     {
-        cmds.push(BackgroundTask::MoveToNewPage {
-            src_page,
-            src_slots,
-            at_position,
-        });
+        if interaction.drag.mode == DragMode::Move {
+            cmds.push(BackgroundTask::MoveToNewPage {
+                src_page,
+                src_slots,
+                at_position,
+            });
+        }
         return;
     }
 

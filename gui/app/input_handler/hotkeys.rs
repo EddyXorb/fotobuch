@@ -160,19 +160,8 @@ pub(super) fn handle_delete(
         } else {
             nav_sel
         };
-        for page in pages {
-            let slot_count = data
-                .project
-                .layout
-                .get(page)
-                .map(|lp| lp.slots.len())
-                .unwrap_or(0);
-            if slot_count > 0 {
-                cmds.push(BackgroundTask::Unplace {
-                    page,
-                    slots: (0..slot_count).collect(),
-                });
-            }
+        if !pages.is_empty() {
+            cmds.push(BackgroundTask::DeletePages { pages });
         }
     }
 }

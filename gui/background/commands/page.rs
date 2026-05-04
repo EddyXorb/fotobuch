@@ -50,13 +50,24 @@ pub fn run_page_command(cmd: PageMoveCmd, rctx: &mut crate::background::RenderCt
         }
         Ok(o) => o,
     };
-    let dirty: Vec<usize> = move_output
-        .result
-        .pages_modified
-        .iter()
-        .chain(move_output.result.pages_inserted.iter())
-        .map(|&p| p as usize)
-        .collect();
+    let dirty: Vec<usize> = if !move_output.result.pages_deleted.is_empty() {
+        // When pages are deleted, all remaining pages from the first deleted index onward
+        // shift indices and need re-rendering.
+        let new_len = move_output
+            .changed_state
+            .as_ref()
+            .map(|s| s.layout.len())
+            .unwrap_or(0);
+        (0..new_len).collect()
+    } else {
+        move_output
+            .result
+            .pages_modified
+            .iter()
+            .chain(move_output.result.pages_inserted.iter())
+            .map(|&p| p as usize)
+            .collect()
+    };
     build_after_command(move_output.changed_state, dirty, rctx);
 }
 

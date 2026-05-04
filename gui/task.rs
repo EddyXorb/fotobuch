@@ -58,8 +58,6 @@ pub enum BackgroundTask {
         page: usize,
         slots: Vec<usize>,
     },
-    // TODO: probably remove this code path
-    #[allow(dead_code)]
     DeletePages {
         pages: Vec<usize>,
     },
