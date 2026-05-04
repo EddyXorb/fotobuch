@@ -112,6 +112,10 @@ pub enum Commands {
         /// Place all matching photos onto this specific page (0-based index)
         #[arg(long)]
         into: Option<usize>,
+
+        /// Create a new page at this position and place photos there (0-based index)
+        #[arg(long, value_name = "POS")]
+        into_new_page_at: Option<usize>,
     },
 
     /// Remove photos from the layout at a page:slot address (they stay in the project)
@@ -482,7 +486,11 @@ impl Execute for Commands {
                 flex,
                 all,
             } => rebuild::handle(*page, *range_start, *range_end, *flex, *all),
-            Commands::Place { filter, into } => place::handle(filter.to_vec(), *into),
+            Commands::Place {
+                filter,
+                into,
+                into_new_page_at,
+            } => place::handle(filter.to_vec(), *into, *into_new_page_at),
             Commands::Unplace { address } => page::handle_unplace(address),
             Commands::Page { command } => command.execute(),
             Commands::Remove {
