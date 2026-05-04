@@ -29,6 +29,18 @@ impl<K: Ord + Clone> MultiSelection<K> {
         Self::Active { items, anchor }
     }
 
+    pub fn from_range(range: std::ops::RangeInclusive<K>) -> Self
+    where
+        K: std::iter::Step,
+    {
+        let anchor = range.start().clone();
+        let items: BTreeSet<K> = range.collect();
+        if items.is_empty() {
+            return Self::None;
+        }
+        Self::Active { items, anchor }
+    }
+
     /// Ctrl+click: add or remove.
     pub fn toggle(&mut self, k: K) {
         match self {

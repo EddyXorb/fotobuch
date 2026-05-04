@@ -59,10 +59,7 @@ impl SlotSelection {
             return;
         }
         self.page = Some(page);
-        self.sel = MultiSelection::Active {
-            items: (0..slot_count).collect(),
-            anchor: 0,
-        };
+        self.sel = MultiSelection::from_range(0..=(slot_count - 1));
     }
 
     /// Returns `true` if `slot` on `page` is currently selected.
