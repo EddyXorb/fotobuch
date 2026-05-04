@@ -34,9 +34,13 @@ fn create_test_project_with_build(temp_dir: &TempDir) -> Result<PathBuf> {
     let mut state = ProjectState::load(&yaml_path)?;
     state.config.book_layout_solver.page_max = 5;
     state.config.book_layout_solver.page_target = 5;
-    state.config.book_layout_solver.photos_per_page_max = 2; // Max 2 photos per page
-    state.config.book_layout_solver.photos_per_page_min = 1; // Min 1 photo per page
-    state.config.book_layout_solver.group_min_photos = 1; // Allow single-photo groups
+    state.config.book_layout_solver.photos_per_page_max = 2;
+    state.config.book_layout_solver.photos_per_page_min = 1;
+    state.config.book_layout_solver.group_min_photos = 1;
+    state.config.book_layout_solver.enable_local_search = false;
+    state.config.page_layout_solver.population_size = 20;
+    state.config.page_layout_solver.max_generations = 10;
+    state.config.page_layout_solver.islands_nr = 1;
     state.save(&yaml_path)?;
 
     // Add test photos (use only 5 photos for fast tests)

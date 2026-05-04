@@ -31,11 +31,14 @@ fn create_test_project_with_photos(temp_dir: &TempDir) -> Result<PathBuf> {
     let project_root = result.result.project_root;
 
     let mut mgr = StateManager::open(&project_root)?;
-    mgr.state.config.book_layout_solver.page_max = 5; // Limit pages to speed up tests
+    mgr.state.config.book_layout_solver.page_max = 5;
     mgr.state.config.book_layout_solver.page_target = 3;
-    //mgr.state.config.book_layout_solver.photos_per_page_min = 1; // Allow single-photo pages for testing
-    mgr.state.config.book_layout_solver.group_min_photos = 1; // Allow single-photo groups for testing
-    mgr.finish("test: set page_max to 5 for faster tests")?;
+    mgr.state.config.book_layout_solver.group_min_photos = 1;
+    mgr.state.config.book_layout_solver.enable_local_search = false;
+    mgr.state.config.page_layout_solver.population_size = 20;
+    mgr.state.config.page_layout_solver.max_generations = 10;
+    mgr.state.config.page_layout_solver.islands_nr = 1;
+    mgr.finish("test: configure for fast tests")?;
 
     // Add test photos
     let photos_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -85,6 +88,9 @@ fn create_test_project_with_artificial_photos_3(temp_dir: &TempDir) -> Result<Pa
     mgr.state.config.book_layout_solver.photos_per_page_min = 1;
     mgr.state.config.book_layout_solver.photos_per_page_max = 2;
     mgr.state.config.book_layout_solver.enable_local_search = false;
+    mgr.state.config.page_layout_solver.population_size = 20;
+    mgr.state.config.page_layout_solver.max_generations = 10;
+    mgr.state.config.page_layout_solver.islands_nr = 1;
     mgr.finish("test: configure for artificial photos test")?;
 
     // Add artificial photos with different aspect ratios
