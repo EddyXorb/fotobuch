@@ -31,11 +31,16 @@ fn create_test_project_with_photos(temp_dir: &TempDir) -> Result<PathBuf> {
     let project_root = result.result.project_root;
 
     let mut mgr = StateManager::open(&project_root)?;
-    mgr.state.config.book_layout_solver.page_max = 5; // Limit pages to speed up tests
+    mgr.state.config.book_layout_solver.page_max = 5;
     mgr.state.config.book_layout_solver.page_target = 3;
-    //mgr.state.config.book_layout_solver.photos_per_page_min = 1; // Allow single-photo pages for testing
-    mgr.state.config.book_layout_solver.group_min_photos = 1; // Allow single-photo groups for testing
-    mgr.finish("test: set page_max to 5 for faster tests")?;
+    mgr.state.config.book_layout_solver.group_min_photos = 1;
+    mgr.state.config.book_layout_solver.enable_local_search = false;
+    mgr.state.config.page_layout_solver.population_size = 20;
+    mgr.state.config.page_layout_solver.max_generations = 10;
+    mgr.state.config.page_layout_solver.islands_nr = 1;
+    mgr.state.config.book.dpi = 50.0;
+    mgr.state.config.preview.max_preview_px = 100;
+    mgr.finish("test: configure for fast tests")?;
 
     // Add test photos
     let photos_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -85,6 +90,11 @@ fn create_test_project_with_artificial_photos_3(temp_dir: &TempDir) -> Result<Pa
     mgr.state.config.book_layout_solver.photos_per_page_min = 1;
     mgr.state.config.book_layout_solver.photos_per_page_max = 2;
     mgr.state.config.book_layout_solver.enable_local_search = false;
+    mgr.state.config.page_layout_solver.population_size = 20;
+    mgr.state.config.page_layout_solver.max_generations = 10;
+    mgr.state.config.page_layout_solver.islands_nr = 1;
+    mgr.state.config.book.dpi = 75.0;
+    mgr.state.config.preview.max_preview_px = 100;
     mgr.finish("test: configure for artificial photos test")?;
 
     // Add artificial photos with different aspect ratios
@@ -127,6 +137,7 @@ fn test_first_build_creates_layout_and_pdf() -> Result<()> {
         release: false,
         force: false,
         pages: None,
+        skip_pdf: false,
     };
     let result = build(&project_root, &build_config)?;
 
@@ -200,6 +211,7 @@ fn test_incremental_build_without_changes_does_nothing() -> Result<()> {
         release: false,
         force: false,
         pages: None,
+        skip_pdf: true,
     };
     let result1 = build(&project_root, &build_config)?;
     assert!(
@@ -254,14 +266,16 @@ fn test_release_requires_pages_flag_not_allowed() -> Result<()> {
         release: false,
         force: false,
         pages: None,
+        skip_pdf: true,
     };
     build(&project_root, &build_config)?;
 
-    // Try release with --pages (should fail)
+    // Try release with --pages (should fail before PDF generation)
     let release_config = BuildConfig {
         release: true,
         force: false,
         pages: Some(vec![1]),
+        skip_pdf: false,
     };
     let result = build(&project_root, &release_config);
 
@@ -283,6 +297,7 @@ fn test_release_requires_clean_state() -> Result<()> {
         release: false,
         force: false,
         pages: None,
+        skip_pdf: true,
     };
     build(&project_root, &build_config)?;
 
@@ -301,6 +316,7 @@ fn test_release_requires_clean_state() -> Result<()> {
         release: true,
         force: false,
         pages: None,
+        skip_pdf: false,
     };
     let result = build(&project_root, &release_config);
 
@@ -327,6 +343,7 @@ fn test_release_creates_final_cache_and_pdf() -> Result<()> {
         release: false,
         force: false,
         pages: None,
+        skip_pdf: true,
     };
     build(&project_root, &build_config)?;
 
@@ -335,6 +352,7 @@ fn test_release_creates_final_cache_and_pdf() -> Result<()> {
         release: true,
         force: false,
         pages: None,
+        skip_pdf: false,
     };
     let result = build(&project_root, &release_config)?;
 
@@ -389,6 +407,7 @@ fn test_pages_filter_limits_scope() -> Result<()> {
         release: false,
         force: false,
         pages: None,
+        skip_pdf: true,
     };
     let result1 = build(&project_root, &build_config)?;
 
@@ -412,6 +431,7 @@ fn test_pages_filter_limits_scope() -> Result<()> {
         release: false,
         force: false,
         pages: Some(vec![first_page]),
+        skip_pdf: true,
     };
     let result2 = build(&project_root, &filtered_config)?;
 
@@ -454,6 +474,7 @@ fn test_build_handles_empty_photo_list() -> Result<()> {
         release: false,
         force: false,
         pages: None,
+        skip_pdf: true,
     };
     let build_result = build(&project_root, &build_config);
 
@@ -513,6 +534,7 @@ fn test_max_groups_per_page_limits_to_one_group() -> Result<()> {
         release: false,
         force: false,
         pages: None,
+        skip_pdf: true,
     };
     let result = build(&project_root, &build_config)?;
 
@@ -571,6 +593,7 @@ fn test_build_from_scratch_with_max_groups_per_page_one() -> Result<()> {
         release: false,
         force: false,
         pages: None,
+        skip_pdf: true,
     };
     build(&project_root, &build_config)?;
 
@@ -654,6 +677,7 @@ fn test_incremental_build_detects_no_changes_when_swapping_page_order() -> Resul
         release: false,
         force: false,
         pages: None,
+        skip_pdf: true,
     };
     let result1 = build(&project_root, &build_config)?;
     assert!(
@@ -715,6 +739,7 @@ fn test_incremental_rebuild_after_swapping_photos_on_same_page() -> Result<()> {
         release: false,
         force: false,
         pages: None,
+        skip_pdf: true,
     };
     let result1 = build(&project_root, &build_config)?;
     assert!(
@@ -799,6 +824,7 @@ fn test_release_build_with_force_flag() -> Result<()> {
         release: false,
         force: false,
         pages: None,
+        skip_pdf: true,
     };
     build(&project_root, &build_config)?;
 
@@ -809,6 +835,7 @@ fn test_release_build_with_force_flag() -> Result<()> {
         release: true,
         force: true,
         pages: None,
+        skip_pdf: false,
     };
 
     let result = build(&project_root, &release_config);

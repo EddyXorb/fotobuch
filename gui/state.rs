@@ -2,6 +2,7 @@ mod config_panel;
 mod derived;
 mod drag;
 mod hover;
+mod multi_selection;
 mod page_cache;
 mod pool;
 mod selection;
@@ -13,6 +14,7 @@ pub use config_panel::ConfigPanelState;
 pub use derived::DerivedState;
 pub use drag::{ActiveDrag, DragMode, DragSource, DragState};
 pub use hover::HoveredTarget;
+pub use multi_selection::MultiSelection;
 pub use page_cache::PageCache;
 pub use pool::PhotoSelection;
 pub use selection::SlotSelection;
@@ -40,6 +42,9 @@ pub struct InteractionState {
     pub drag: DragState,
     pub viewport: Viewport,
     pub config: ConfigPanelState,
+    pub goto_open: bool,
+    pub rebuild_all_confirm: bool,
+    pub add_dialog_open: bool,
 }
 
 pub struct GuiState {
@@ -65,6 +70,9 @@ impl GuiState {
                 drag: DragState::default(),
                 viewport: Viewport::default(),
                 config: ConfigPanelState::default(),
+                goto_open: false,
+                rebuild_all_confirm: false,
+                add_dialog_open: false,
             },
         }
     }

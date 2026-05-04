@@ -1,8 +1,8 @@
 use egui::vec2;
 
-use crate::state::{ActiveDrag, DataState, DragMode, DragSource, InteractionState, SlotSelection};
+use crate::state::{ActiveDrag, DataState, DragMode, DragSource, InteractionState};
 
-use super::super::geometry::{self, A4_ASPECT, PageDimensions, PageScale};
+use super::super::geometry::{self, PageDimensions, PageScale};
 
 pub(super) fn draw_drag_ghosts(
     ui: &mut egui::Ui,
@@ -17,6 +17,7 @@ pub(super) fn draw_drag_ghosts(
             src_page,
             src_slot,
             cursor_at_drag_start,
+            ..
         }) if *src_page == page_idx => (*src_slot, *cursor_at_drag_start),
         _ => return,
     };
@@ -57,14 +58,15 @@ pub(super) fn draw_drag_ghosts(
         return;
     }
 
-    let secondary: Vec<usize> = match &interaction.selections.slots {
-        SlotSelection::OnPage { page, slots, .. } if *page == page_idx && slots.len() > 1 => slots
-            .iter()
-            .filter(|&&s| s != src_slot_idx)
-            .copied()
-            .collect(),
-        _ => return,
-    };
+    let slots_sel = &interaction.selections.slots;
+    if slots_sel.page != Some(page_idx) || slots_sel.slots_on_active_page().len() <= 1 {
+        return;
+    }
+    let secondary: Vec<usize> = slots_sel
+        .slots_on_active_page()
+        .into_iter()
+        .filter(|&s| s != src_slot_idx)
+        .collect();
 
     let rects: Vec<egui::Rect> = secondary
         .iter()
@@ -108,58 +110,5 @@ fn paint_ghost_rect(painter: &egui::Painter, rect: egui::Rect, alpha: u8) {
         rect,
         4.0,
         egui::Color32::from_rgba_unmultiplied(100, 149, 237, alpha),
-    );
-}
-
-/// Draws a floating page-thumbnail ghost while dragging a nav page.
-pub(crate) fn draw_nav_drag_ghost(
-    ctx: &egui::Context,
-    data: &DataState,
-    interaction: &InteractionState,
-) {
-    let src_page = match &interaction.drag.active {
-        ActiveDrag::Dragging(DragSource::NavPage { src_page, .. }) => *src_page,
-        _ => return,
-    };
-    let cursor = match ctx.pointer_hover_pos() {
-        Some(p) => p,
-        None => return,
-    };
-
-    let painter = ctx.layer_painter(egui::LayerId::new(
-        egui::Order::Tooltip,
-        egui::Id::new("nav_drag_ghost"),
-    ));
-
-    // Ghost size: fixed width, A4-ish aspect or taken from texture
-    let ghost_w = 80.0_f32;
-    let ghost_h = if let Some(Some(tex)) = data.pages.thumb_textures.get(src_page) {
-        let sz = tex.size_vec2();
-        if sz.x > 0.0 {
-            ghost_w * sz.y / sz.x
-        } else {
-            ghost_w * A4_ASPECT
-        }
-    } else {
-        ghost_w * A4_ASPECT
-    };
-
-    let rect = egui::Rect::from_center_size(cursor, vec2(ghost_w, ghost_h));
-
-    if let Some(Some(tex)) = data.pages.thumb_textures.get(src_page) {
-        painter.image(
-            tex.id(),
-            rect,
-            egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
-            egui::Color32::from_rgba_unmultiplied(255, 255, 255, 200),
-        );
-    } else {
-        paint_ghost_rect(&painter, rect, 120);
-    }
-    painter.rect_stroke(
-        rect,
-        0.0,
-        egui::Stroke::new(2.0, egui::Color32::from_rgb(100, 149, 237)),
-        egui::StrokeKind::Middle,
     );
 }

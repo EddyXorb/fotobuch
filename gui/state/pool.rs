@@ -1,95 +1,46 @@
-use std::collections::BTreeSet;
+use super::MultiSelection;
 
-/// Mehrfach-Selektion im Foto-Pool, analog zu [`crate::state::SlotSelection`] für Slots.
-#[derive(Default)]
-pub enum PhotoSelection {
-    #[default]
-    None,
-    Some {
-        ids: BTreeSet<String>,
-        anchor: String,
-    },
+/// Mehrfach-Selektion im Foto-Pool.
+pub struct PhotoSelection(MultiSelection<String>);
+
+impl Default for PhotoSelection {
+    fn default() -> Self {
+        Self(MultiSelection::None)
+    }
 }
 
 impl PhotoSelection {
     pub fn single(id: String) -> Self {
-        let anchor = id.clone();
-        let mut ids = BTreeSet::new();
-        ids.insert(id);
-        Self::Some { ids, anchor }
+        Self(MultiSelection::single(id))
     }
 
-    /// Ctrl+Klick: fügt hinzu oder entfernt.
     pub fn toggle(&mut self, id: String) {
-        match self {
-            Self::None => {
-                *self = Self::single(id);
-            }
-            Self::Some { ids, anchor } => {
-                if ids.contains(&id) {
-                    ids.remove(&id);
-                    if ids.is_empty() {
-                        *self = Self::None;
-                    } else if *anchor == id {
-                        *anchor = ids.iter().next().cloned().unwrap_or_default();
-                    }
-                } else {
-                    *anchor = id.clone();
-                    ids.insert(id);
-                }
-            }
-        }
+        self.0.toggle(id);
     }
 
-    /// Shift+Klick: Bereich von Anchor bis `id` (inkl.) gemäß `order`.
     pub fn range_to(&mut self, id: String, order: &[String]) {
-        let anchor = match self {
-            Self::None => {
-                *self = Self::single(id);
-                return;
-            }
-            Self::Some { anchor, .. } => anchor.clone(),
-        };
-
-        let pos_anchor = order.iter().position(|s| s == &anchor);
-        let pos_id = order.iter().position(|s| s == &id);
-
-        let (start, end) = match (pos_anchor, pos_id) {
-            (std::option::Option::Some(a), std::option::Option::Some(b)) => (a.min(b), a.max(b)),
-            _ => {
-                *self = Self::single(id);
-                return;
-            }
-        };
-
-        let mut ids = BTreeSet::new();
-        for item in &order[start..=end] {
-            ids.insert(item.clone());
-        }
-        *self = Self::Some { ids, anchor };
+        self.0.range_to_ordered(id, order);
     }
 
     #[allow(dead_code)]
     pub fn clear(&mut self) {
-        *self = Self::None;
+        self.0.clear();
+    }
+
+    pub fn select_all(&mut self, ids: impl IntoIterator<Item = String>) {
+        self.0 = super::MultiSelection::from_items(ids);
     }
 
     pub fn is_selected(&self, id: &str) -> bool {
-        match self {
-            Self::None => false,
-            Self::Some { ids, .. } => ids.contains(id),
-        }
+        self.0.contains(id)
     }
 
     pub fn is_empty(&self) -> bool {
-        matches!(self, Self::None)
+        self.0.is_empty()
     }
 
     pub fn ids(&self) -> Vec<String> {
-        match self {
-            Self::None => vec![],
-            Self::Some { ids, .. } => ids.iter().cloned().collect(),
-        }
+        self.0.items()
     }
 }
 
@@ -131,7 +82,6 @@ mod tests {
         assert!(!sel.is_selected("a"));
         assert!(!sel.is_selected("e"));
 
-        // backwards
         let mut sel2 = PhotoSelection::single("d".into());
         sel2.range_to("b".into(), &order);
         assert!(sel2.is_selected("b"));

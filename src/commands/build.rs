@@ -41,6 +41,8 @@ pub struct BuildConfig {
     pub force: bool,
     /// Only process these pages (0-based indices, optional, default: all)
     pub pages: Option<Vec<usize>>,
+    /// Skip PDF generation (Typst compilation + preview cache). Only produce YAML layout.
+    pub skip_pdf: bool,
 }
 
 /// Result of build command
@@ -115,9 +117,9 @@ pub fn build(
 
     // First build vs incremental build
     if mgr.state.layout.is_empty() {
-        first_build(mgr, project_root)
+        first_build(mgr, project_root, config.skip_pdf)
     } else {
-        incremental_build(mgr, project_root, config.pages.as_deref())
+        incremental_build(mgr, project_root, config.pages.as_deref(), config.skip_pdf)
     }
 }
 

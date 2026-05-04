@@ -5,7 +5,7 @@ use fotobuch::output::render::{downsample, rasterize_page};
 
 use crate::task::BackgroundResult;
 
-pub(super) fn send_command_done(
+pub(crate) fn send_command_done(
     new_state: Option<fotobuch::dto_models::ProjectState>,
     dirty_pages: Vec<usize>,
     rctx: &mut super::RenderCtx<'_>,

@@ -30,6 +30,17 @@ fn create_test_project(temp_dir: &TempDir) -> Result<PathBuf> {
 fn create_test_project_with_layout(temp_dir: &TempDir) -> Result<PathBuf> {
     let project_root = create_test_project(temp_dir)?;
 
+    // Configure solver for fast tests
+    let yaml_path = project_root.join("teststatus.yaml");
+    let mut state = ProjectState::load(&yaml_path)?;
+    state.config.book_layout_solver.page_max = 5;
+    state.config.book_layout_solver.page_target = 3;
+    state.config.book_layout_solver.enable_local_search = false;
+    state.config.page_layout_solver.population_size = 20;
+    state.config.page_layout_solver.max_generations = 10;
+    state.config.page_layout_solver.islands_nr = 1;
+    state.save(&yaml_path)?;
+
     // Add test photos
     let photos_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("tests")
@@ -53,6 +64,7 @@ fn create_test_project_with_layout(temp_dir: &TempDir) -> Result<PathBuf> {
         release: false,
         force: false,
         pages: None,
+        skip_pdf: true,
     };
     build(&project_root, &build_config)?;
 

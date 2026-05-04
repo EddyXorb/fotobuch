@@ -1,14 +1,17 @@
-use std::collections::HashSet;
+use crate::task::BackgroundTask;
 
 use crate::state::{DataState, InteractionState};
 
 pub mod timings_panel;
 
+mod add_dialog;
 mod central_panel;
 mod config_window;
 mod geometry;
+mod goto_dialog;
 mod page_nav;
 mod photo_pool;
+mod rebuild_confirm;
 mod statusbar;
 mod toolbar;
 
@@ -17,9 +20,8 @@ pub fn draw_widgets(
     ctx: &egui::Context,
     data: &DataState,
     interaction: &mut InteractionState,
-) -> HashSet<super::pending::PendingCommand> {
+) -> Vec<BackgroundTask> {
     // Clear per-frame hover state before widgets re-populate it.
-
     interaction.hovered = None;
     let mut cmds = toolbar::draw(ui, interaction);
     statusbar::draw(ui, data, interaction);
@@ -31,5 +33,11 @@ pub fn draw_widgets(
     if interaction.config.open {
         config_window::show(ctx, data, interaction, &mut cmds);
     }
+
+    let num_pages = data.project.layout.len();
+    goto_dialog::show(ctx, interaction, num_pages);
+    rebuild_confirm::show(ctx, interaction, &mut cmds);
+    add_dialog::show(ctx, interaction);
+
     cmds
 }

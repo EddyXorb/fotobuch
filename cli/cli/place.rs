@@ -3,14 +3,26 @@
 use anyhow::Context;
 use anyhow::Result;
 use fotobuch::commands;
+use fotobuch::commands::PlaceDst;
 use tracing::info;
 
-pub fn handle(filters: Vec<String>, into: Option<usize>) -> Result<()> {
+pub fn handle(
+    filters: Vec<String>,
+    into: Option<usize>,
+    into_new_page_at: Option<usize>,
+) -> Result<()> {
     let project_root = std::env::current_dir().context("Failed to determine current directory")?;
+
+    let dst = match (into, into_new_page_at) {
+        (_, Some(pos)) => PlaceDst::NewPageAt(pos),
+        (Some(page), _) => PlaceDst::Page(page),
+        (None, None) => PlaceDst::Auto,
+    };
 
     let config = commands::place::PlaceConfig {
         filters,
-        into_page: into,
+        ids: vec![],
+        dst,
     };
 
     let output = commands::place::place(&project_root, &config)?;

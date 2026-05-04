@@ -26,6 +26,7 @@ pub(super) fn draw_page(
     if let Some(layout_page) = data.project.layout.get(page_idx) {
         draw_slot_overlays(ui, page_rect, data, interaction, page_idx, dims);
         let (hovered_slot, over_page) = hit_test_pointer(ui, page_rect, layout_page, dims);
+        super::super::page_nav::draw_nav_selection_overlay(ui, interaction, page_idx, page_rect);
         draw_page_move_highlight(ui, interaction, page_idx, page_rect, over_page);
         draw_pool_drag_overlay(ui, interaction, page_idx, page_rect);
         draw_drag_ghosts::draw_drag_ghosts(ui, data, interaction, page_idx, page_rect, dims);

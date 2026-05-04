@@ -192,9 +192,14 @@ impl eframe::App for FotobuchApp {
 }
 ```
 
-- **Toolbar** (`app/toolbar.rs`, neu): Stubs `[Build] [Release] [↩] [↪] [⚙]`
+- **Toolbar** (`app/toolbar.rs`, neu): Stubs `[Rebuild] [Release] [↩] [↪] [⚙]`
   als `ui.add_enabled(false, Button::new(…))`. Keine Hotkeys in Phase 2 — die
-  werden in Phase 3 mit den Commands zusammen verdrahtet.
+  werden in Phase 3 mit den Commands zusammen verdrahtet. Bewusst kein
+  `[Build]`-Knopf: jede Layout-Mutation triggert ab Phase 3 automatisch
+  einen inkrementellen Build der betroffenen Seiten (siehe
+  `01-ux-konzept.md` § Auto-Rebuild). Die einzigen expliziten
+  Build-/Rebuild-Trigger sind `[Rebuild]` (selektiv oder global mit
+  Confirm) und `[Release]`.
 - **Statusbar** (`app/statusbar.rs`, neu): `Seite {hovered}/{total} · {photos}
   Fotos · {unplaced} unplatziert · Sel: {n} auf Seite {p}` oder `–`. Alle Werte
   kommen aus `GuiState` / `DerivedState`.

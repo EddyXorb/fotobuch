@@ -13,19 +13,28 @@ pub fn incremental_build(
     mut mgr: StateManager,
     project_root: &Path,
     page_filter: Option<&[usize]>,
+    skip_pdf: bool,
 ) -> Result<CommandOutput<BuildResult>> {
     info!("Incremental build: checking for changes...");
 
     // 1. Generate/update preview cache
-    let preview_cache_dir = mgr.preview_cache_dir();
-    let cache_result = preview::ensure_previews(&mut mgr.state, &preview_cache_dir)?;
-
-    if cache_result.created > 0 {
-        info!(
-            "Preview cache: {} created, {} skipped",
-            cache_result.created, cache_result.skipped
-        );
-    }
+    let cache_result = if skip_pdf {
+        preview::PreviewCacheResult {
+            total: 0,
+            created: 0,
+            skipped: 0,
+        }
+    } else {
+        let preview_cache_dir = mgr.preview_cache_dir();
+        let result = preview::ensure_previews(&mut mgr.state, &preview_cache_dir)?;
+        if result.created > 0 {
+            info!(
+                "Preview cache: {} created, {} skipped",
+                result.created, result.skipped
+            );
+        }
+        result
+    };
 
     // 2. Detect which pages need rebuilding
     let page_indices_needing_rebuild = mgr.outdated_pages_indices();
@@ -35,11 +44,15 @@ pub fn incremental_build(
 
     if pages_needing_rebuild.is_empty() {
         info!("No changes detected. Nothing to do. Build only pdf.");
-        let pdf_path = update_preview_pdf(
-            project_root,
-            mgr.state.config.book.bleed_mm,
-            mgr.project_name(),
-        )?;
+        let pdf_path = if skip_pdf {
+            project_root.join(format!("{}.pdf", mgr.project_name()))
+        } else {
+            update_preview_pdf(
+                project_root,
+                mgr.state.config.book.bleed_mm,
+                mgr.project_name(),
+            )?
+        };
 
         let changed_state = mgr.finish("")?;
         return Ok(CommandOutput {
@@ -80,7 +93,11 @@ pub fn incremental_build(
     ))?;
 
     // 6. Compile Typst template to PDF
-    let pdf_path = update_preview_pdf(project_root, bleed_mm, &project_name)?;
+    let pdf_path = if skip_pdf {
+        project_root.join(format!("{project_name}.pdf"))
+    } else {
+        update_preview_pdf(project_root, bleed_mm, &project_name)?
+    };
 
     Ok(CommandOutput {
         result: BuildResult {

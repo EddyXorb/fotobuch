@@ -44,7 +44,7 @@ pub use add::{AddConfig, AddResult, GroupSummary, add};
 pub use build::{BuildConfig, BuildResult, DpiWarning, build};
 pub use config::{ConfigResult, config, render_config};
 pub use history::{HistoryEntry, history};
-pub use place::{PlaceConfig, PlaceResult, place};
+pub use place::{PlaceConfig, PlaceDst, PlaceResult, place};
 pub use project::new::{project_new, validate_project_name};
 pub use rebuild::{RebuildScope, rebuild};
 pub use remove::{RemoveConfig, RemoveResult, remove};

@@ -26,6 +26,17 @@ fn create_test_project_with_layout(temp_dir: &TempDir) -> Result<PathBuf> {
     let result = project_new(temp_dir.path(), &config)?;
     let project_root = result.result.project_root;
 
+    // Configure solver for fast tests
+    let yaml_path = project_root.join("testplace.yaml");
+    let mut state = ProjectState::load(&yaml_path)?;
+    state.config.book_layout_solver.page_max = 5;
+    state.config.book_layout_solver.page_target = 3;
+    state.config.book_layout_solver.enable_local_search = false;
+    state.config.page_layout_solver.population_size = 20;
+    state.config.page_layout_solver.max_generations = 10;
+    state.config.page_layout_solver.islands_nr = 1;
+    state.save(&yaml_path)?;
+
     // Add test photos
     let photos_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("tests")
@@ -49,6 +60,7 @@ fn create_test_project_with_layout(temp_dir: &TempDir) -> Result<PathBuf> {
         release: false,
         force: false,
         pages: None,
+        skip_pdf: true,
     };
     build(&project_root, &build_config)?;
 
@@ -63,7 +75,8 @@ fn test_place_no_unplaced_photos_returns_zero() -> Result<()> {
     // All photos are placed from build - place should do nothing
     let config = PlaceConfig {
         filters: vec![],
-        into_page: None,
+        ids: vec![],
+        dst: PlaceDst::Auto,
     };
     let result = place(&project_root, &config)?;
 
@@ -115,7 +128,8 @@ fn test_place_requires_layout() -> Result<()> {
     // Try to place without build - should fail
     let config = PlaceConfig {
         filters: vec![],
-        into_page: None,
+        ids: vec![],
+        dst: PlaceDst::Auto,
     };
     let result = place(&project_root, &config);
 
@@ -139,7 +153,8 @@ fn test_place_with_invalid_page_number() -> Result<()> {
     // Try placing into page beyond layout (0-based, so page_count is out of bounds)
     let config = PlaceConfig {
         filters: vec![],
-        into_page: Some(page_count),
+        ids: vec![],
+        dst: PlaceDst::Page(page_count),
     };
     let result = place(&project_root, &config);
     assert!(result.is_err());
@@ -147,7 +162,8 @@ fn test_place_with_invalid_page_number() -> Result<()> {
     // Try placing far beyond layout
     let config = PlaceConfig {
         filters: vec![],
-        into_page: Some(page_count + 10),
+        ids: vec![],
+        dst: PlaceDst::Page(page_count + 10),
     };
     let result = place(&project_root, &config);
     assert!(result.is_err());
@@ -180,7 +196,8 @@ fn test_place_into_specific_page() -> Result<()> {
     // Now place the unplaced photo into page 0 (0-based first page)
     let config = PlaceConfig {
         filters: vec![],
-        into_page: Some(0),
+        ids: vec![],
+        dst: PlaceDst::Page(0),
     };
     let result = place(&project_root, &config)?;
 
@@ -236,7 +253,8 @@ fn test_place_filter_by_pattern() -> Result<()> {
     // Place with a pattern that matches the test fixture path
     let config = PlaceConfig {
         filters: vec!["test_photos".to_string()],
-        into_page: None,
+        ids: vec![],
+        dst: PlaceDst::Auto,
     };
     let result = place(&project_root, &config)?;
 
@@ -257,7 +275,8 @@ fn test_place_chronologically_without_unplaced() -> Result<()> {
     // All photos already placed from build
     let config = PlaceConfig {
         filters: vec![],
-        into_page: None,
+        ids: vec![],
+        dst: PlaceDst::Auto,
     };
     let result = place(&project_root, &config)?;
 
@@ -288,7 +307,8 @@ fn test_place_invalid_filter_pattern() -> Result<()> {
     // Use invalid regex pattern
     let config = PlaceConfig {
         filters: vec!["[invalid".to_string()],
-        into_page: None,
+        ids: vec![],
+        dst: PlaceDst::Auto,
     };
     let result = place(&project_root, &config);
 
@@ -299,6 +319,136 @@ fn test_place_invalid_filter_pattern() -> Result<()> {
         error_message.contains("Invalid filter pattern"),
         "Actual: {}",
         &error_message
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_place_ids_filter_restricts_to_selected_photos() -> Result<()> {
+    let temp_dir = TempDir::new()?;
+    let project_root = create_test_project_with_layout(&temp_dir)?;
+
+    let yaml_path = project_root.join("testplace.yaml");
+    let mut state = ProjectState::load(&yaml_path)?;
+
+    // Remove first two photos from page 0 to create two unplaced photos.
+    if state.layout.is_empty() || state.layout[0].photos.len() < 2 {
+        return Ok(());
+    }
+    let id_a = state.layout[0].photos.remove(0);
+    let id_b = state.layout[0].photos.remove(0);
+    if state.layout[0].slots.len() >= 2 {
+        state.layout[0].slots.remove(0);
+        state.layout[0].slots.remove(0);
+    }
+    state.save(&yaml_path)?;
+
+    // Place only id_a via ids filter.
+    let config = PlaceConfig {
+        filters: vec![],
+        ids: vec![id_a.clone()],
+        dst: PlaceDst::Page(0),
+    };
+    let result = place(&project_root, &config)?;
+
+    assert_eq!(
+        result.result.photos_placed, 1,
+        "only 1 of 2 unplaced photos should be placed"
+    );
+
+    let state_after = ProjectState::load(&yaml_path)?;
+    assert!(
+        state_after.layout[0].photos.contains(&id_a),
+        "id_a should be placed"
+    );
+    // id_b must still be unplaced (not in any layout page).
+    let placed: std::collections::HashSet<_> = state_after
+        .layout
+        .iter()
+        .flat_map(|p| p.photos.iter())
+        .collect();
+    assert!(!placed.contains(&id_b), "id_b should remain unplaced");
+
+    Ok(())
+}
+
+#[test]
+fn test_place_into_new_page_at() -> Result<()> {
+    let temp_dir = TempDir::new()?;
+    let project_root = create_test_project_with_layout(&temp_dir)?;
+
+    let yaml_path = project_root.join("testplace.yaml");
+    let state_before = ProjectState::load(&yaml_path)?;
+    let pages_before = state_before.layout.len();
+
+    // Remove a photo from page 0 to create an unplaced photo
+    let mut state_modified = state_before.clone();
+    assert!(
+        !state_modified.layout[0].photos.is_empty(),
+        "need at least one photo on page 0"
+    );
+    let removed_photo = state_modified.layout[0].photos.remove(0);
+    if !state_modified.layout[0].slots.is_empty() {
+        state_modified.layout[0].slots.remove(0);
+    }
+    state_modified.save(&yaml_path)?;
+
+    // Place the unplaced photo into a new page at position 1
+    let config = PlaceConfig {
+        filters: vec![],
+        ids: vec![removed_photo.clone()],
+        dst: PlaceDst::NewPageAt(1),
+    };
+    let result = place(&project_root, &config)?;
+
+    assert_eq!(result.result.photos_placed, 1);
+    assert_eq!(result.result.pages_affected, vec![1]);
+    assert_eq!(result.result.pages_inserted, vec![1]);
+
+    // Verify state: one more page, photo is on page 1
+    let state_after = ProjectState::load(&yaml_path)?;
+    assert_eq!(state_after.layout.len(), pages_before + 1);
+    assert!(state_after.layout[1].photos.contains(&removed_photo));
+
+    // Verify page numbering invariant: layout[i].page == i
+    for (i, page) in state_after.layout.iter().enumerate() {
+        assert_eq!(page.page, i, "page numbering invariant broken at index {i}");
+    }
+
+    Ok(())
+}
+
+#[test]
+fn test_place_into_new_page_at_invalid_position() -> Result<()> {
+    let temp_dir = TempDir::new()?;
+    let project_root = create_test_project_with_layout(&temp_dir)?;
+
+    let yaml_path = project_root.join("testplace.yaml");
+    let state = ProjectState::load(&yaml_path)?;
+    let pages_count = state.layout.len();
+
+    // Remove a photo to create an unplaced one
+    let mut state_modified = state;
+    state_modified.layout[0].photos.remove(0);
+    if !state_modified.layout[0].slots.is_empty() {
+        state_modified.layout[0].slots.remove(0);
+    }
+    state_modified.save(&yaml_path)?;
+
+    // Try position beyond layout.len() (invalid)
+    let config = PlaceConfig {
+        filters: vec![],
+        ids: vec![],
+        dst: PlaceDst::NewPageAt(pages_count + 1),
+    };
+    let result = place(&project_root, &config);
+    assert!(result.is_err());
+    assert!(
+        result
+            .unwrap_err()
+            .to_string()
+            .contains("Invalid new page position")
     );
 
     Ok(())

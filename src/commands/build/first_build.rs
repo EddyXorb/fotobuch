@@ -7,7 +7,11 @@ use std::path::Path;
 use tracing::info;
 
 /// Performs the first build: generates layout for all photos and creates preview PDF.
-pub fn first_build(mgr: StateManager, project_root: &Path) -> Result<CommandOutput<BuildResult>> {
+pub fn first_build(
+    mgr: StateManager,
+    project_root: &Path,
+    skip_pdf: bool,
+) -> Result<CommandOutput<BuildResult>> {
     info!("First build: creating layout for all photos...");
 
     let groups = mgr.state.photos.clone();
@@ -23,6 +27,7 @@ pub fn first_build(mgr: StateManager, project_root: &Path) -> Result<CommandOutp
             commit_message: "build: initial layout".to_string(),
             images_processed: 0,
             always_commit: false,
+            skip_pdf,
         },
     )?;
 

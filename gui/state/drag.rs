@@ -29,13 +29,16 @@ pub enum DragSource {
     Slot {
         src_page: usize,
         src_slot: usize,
+        /// Full slot selection captured at drag-start (may be multi-slot).
+        src_slots: Vec<usize>,
         cursor_at_drag_start: egui::Pos2,
     },
     /// Right-mouse drag from a page thumbnail in the nav panel.
     NavPage {
         src_page: usize,
-        #[allow(unused)]
-        cursor_at_drag_start: egui::Pos2,
+        /// All nav-selected pages captured at drag-start (analogous to `src_slots`).
+        #[allow(dead_code)]
+        src_pages: Vec<usize>,
     },
     /// Right-mouse drag from a photo row in the pool panel.
     Pool { photo_ids: Vec<String> },

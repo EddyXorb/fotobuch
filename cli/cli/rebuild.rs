@@ -24,7 +24,7 @@ pub fn handle(
         commands::rebuild::RebuildScope::All
     };
 
-    let output = commands::rebuild::rebuild(&project_root, scope)?;
+    let output = commands::rebuild::rebuild(&project_root, scope, false)?;
 
     if !output.result.pages_rebuilt.is_empty() {
         info!(

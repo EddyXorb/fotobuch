@@ -101,8 +101,11 @@ pub enum Src {
 pub enum DstMove {
     /// Existing page number.
     Page(u32),
-    /// New page inserted directly after this page number.
-    NewPageAfter(u32),
+    /// New page inserted **at** this 0-based array index. Symmetric to
+    /// `Vec::insert`: existing pages at `>= index` shift right by one.
+    /// `index = layout.len()` is allowed (append). `index = 0` inserts
+    /// before the first existing page.
+    NewPageAt(u32),
     /// Unplace the source photos (and delete the page if the source is whole pages).
     Unplace,
 }

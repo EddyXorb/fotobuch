@@ -1,8 +1,7 @@
 mod input_handler;
-mod pending;
+pub(super) mod rebuild;
 mod widgets;
 
-use std::collections::HashSet;
 use std::path::PathBuf;
 use std::time::Instant;
 
@@ -11,11 +10,10 @@ use fotobuch::state_manager::StateManager;
 
 use crate::state::{self, GuiState};
 use crate::task::{BackgroundResult, BackgroundTask};
+use fotobuch::commands::PlaceDst;
 use fotobuch::dto_models::ProjectState;
 use fotobuch::output::typst::RenderedPage;
 use std::time::Duration;
-
-use pending::PendingCommand;
 
 pub struct FotobuchApp {
     state: GuiState,
@@ -110,6 +108,7 @@ impl FotobuchApp {
     ) {
         if let Some(new_state) = new_state {
             let num_pages = new_state.layout.len();
+            let _old_layout_len = self.state.data.project.layout.len();
             self.state.data.project = *new_state;
             self.state.data.derived = crate::state::DerivedState::rebuild(&self.state.data.project);
             state::resize_page_vecs(&mut self.state, num_pages);
@@ -133,23 +132,22 @@ impl FotobuchApp {
                     tracing::error!("background worker closed; thumb load dropped");
                 }
             }
+            unset_dirty_pages(&mut self.state.data.pages.dirty);
             for &p in &dirty_pages {
                 if let Some(d) = self.state.data.pages.dirty.get_mut(p) {
                     *d = true;
                 }
             }
+            self.state.interaction.selections.slots.clear();
+            self.state.interaction.selections.nav_pages.clear();
         } else {
-            for d in &mut self.state.data.pages.dirty {
-                *d = false;
-            }
+            unset_dirty_pages(&mut self.state.data.pages.dirty);
         }
     }
 
     fn handle_command_failed(&mut self, e: String) {
         tracing::error!(%e, "command failed");
-        for d in &mut self.state.data.pages.dirty {
-            *d = false;
-        }
+        unset_dirty_pages(&mut self.state.data.pages.dirty);
     }
 
     /// Returns `false` if the loop should `continue` (photo not in project).
@@ -170,53 +168,20 @@ impl FotobuchApp {
         true
     }
 
-    fn dispatch_commands(&mut self, cmds: HashSet<PendingCommand>) {
+    fn dispatch_commands(&mut self, cmds: Vec<BackgroundTask>) {
+        if cmds.is_empty() {
+            return;
+        }
         let ppt = self.state.interaction.viewport.pixel_per_pt;
-        for cmd in cmds {
-            let task = match cmd {
-                PendingCommand::Swap {
-                    src_page,
-                    src_slot,
-                    dst_page,
-                    dst_slot,
-                } => BackgroundTask::SwapSlots {
-                    src_page,
-                    src_slot,
-                    dst_page,
-                    dst_slot,
-                    pixel_per_pt: ppt,
-                },
-                PendingCommand::Move {
-                    src_page,
-                    src_slots,
-                    dst_page,
-                } => BackgroundTask::MoveSlot {
-                    src_page,
-                    src_slots,
-                    dst_page,
-                    pixel_per_pt: ppt,
-                },
-                PendingCommand::Undo => BackgroundTask::Undo { pixel_per_pt: ppt },
-                PendingCommand::Redo => BackgroundTask::Redo { pixel_per_pt: ppt },
-                PendingCommand::Place {
-                    photo_ids,
-                    dst_page,
-                } => BackgroundTask::PlacePhotos {
-                    photo_ids,
-                    dst_page,
-                    pixel_per_pt: ppt,
-                },
-                PendingCommand::PageSwap { left, right } => BackgroundTask::PageSwap {
-                    left,
-                    right,
-                    pixel_per_pt: ppt,
-                },
-                PendingCommand::ConfigSet { key, value } => BackgroundTask::ConfigSet {
-                    key,
-                    value,
-                    pixel_per_pt: ppt,
-                },
-            };
+        if self
+            .task_tx
+            .send(BackgroundTask::SetPixelPerPt(ppt))
+            .is_err()
+        {
+            tracing::error!("background worker closed; command dropped");
+            return;
+        }
+        for task in cmds {
             mark_dirty(&mut self.state.data.pages.dirty, &task);
             if self.task_tx.send(task).is_err() {
                 tracing::error!("background worker closed; command dropped");
@@ -258,6 +223,10 @@ fn render_initial_pages(num_pages: usize, state: &GuiState, task_tx: &Sender<Bac
     }
 }
 
+fn unset_dirty_pages(dirty: &mut [bool]) {
+    dirty.fill(false);
+}
+
 fn install_fallback_font(ctx: &egui::Context) {
     let mut fonts = egui::FontDefinitions::default();
     fonts.font_data.insert(
@@ -272,10 +241,10 @@ fn install_fallback_font(ctx: &egui::Context) {
 
 fn mark_dirty(dirty: &mut [bool], task: &BackgroundTask) {
     match task {
-        BackgroundTask::SwapSlots {
+        BackgroundTask::Swap {
             src_page, dst_page, ..
         }
-        | BackgroundTask::MoveSlot {
+        | BackgroundTask::Move {
             src_page, dst_page, ..
         }
         | BackgroundTask::PageSwap {
@@ -289,20 +258,41 @@ fn mark_dirty(dirty: &mut [bool], task: &BackgroundTask) {
                 }
             }
         }
-        BackgroundTask::PlacePhotos {
-            dst_page: Some(p), ..
+        BackgroundTask::Place {
+            dst: PlaceDst::Page(p),
+            ..
         } => {
             if let Some(d) = dirty.get_mut(*p) {
                 *d = true;
             }
         }
-        BackgroundTask::Undo { .. }
-        | BackgroundTask::Redo { .. }
+        BackgroundTask::Unplace { page, .. } => {
+            if let Some(d) = dirty.get_mut(*page) {
+                *d = true;
+            }
+        }
+        BackgroundTask::RebuildPages { pages, .. } => {
+            for &p in pages {
+                if let Some(d) = dirty.get_mut(p) {
+                    *d = true;
+                }
+            }
+        }
+        BackgroundTask::Undo
+        | BackgroundTask::Redo
         | BackgroundTask::ConfigSet { .. }
-        | BackgroundTask::PlacePhotos { dst_page: None, .. } => {
+        | BackgroundTask::Place { .. }
+        | BackgroundTask::MoveToNewPage { .. }
+        | BackgroundTask::MovePage { .. }
+        | BackgroundTask::SwapRange { .. }
+        | BackgroundTask::DeletePages { .. }
+        | BackgroundTask::RebuildAll
+        | BackgroundTask::ReleaseBuild => {
             dirty.fill(true);
         }
-        BackgroundTask::RenderPages { .. } | BackgroundTask::LoadPhotoThumbnails { .. } => {}
+        BackgroundTask::RenderPages { .. }
+        | BackgroundTask::SetPixelPerPt(..)
+        | BackgroundTask::LoadPhotoThumbnails { .. } => {}
     }
 }
 

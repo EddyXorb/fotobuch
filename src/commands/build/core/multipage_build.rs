@@ -29,6 +29,8 @@ pub struct MultiPageParams<'a> {
     pub images_processed: usize,
     /// Whether to always create a commit even if state doesn't change (for rebuild operations)
     pub always_commit: bool,
+    /// Skip PDF generation (Typst compilation + preview cache)
+    pub skip_pdf: bool,
 }
 
 /// Shared multipage build logic used by first_build, rebuild_all, and rebuild_range.
@@ -45,8 +47,16 @@ pub fn multipage_build(
     params: MultiPageParams,
 ) -> Result<CommandOutput<BuildResult>> {
     // 1. Preview-Cache
-    let preview_cache_dir = mgr.preview_cache_dir();
-    let cache_result = preview::ensure_previews(&mut mgr.state, &preview_cache_dir)?;
+    let cache_result = if params.skip_pdf {
+        preview::PreviewCacheResult {
+            total: 0,
+            created: 0,
+            skipped: 0,
+        }
+    } else {
+        let preview_cache_dir = mgr.preview_cache_dir();
+        preview::ensure_previews(&mut mgr.state, &preview_cache_dir)?
+    };
 
     // 2. Determine solver config
     let config = if let Some(ref custom) = params.custom_config {
@@ -115,7 +125,11 @@ pub fn multipage_build(
     };
 
     // 9. Compile Typst to PDF - do this after commit to ensure yaml is up to date for typst
-    let pdf_path = update_preview_pdf(project_root, bleed_mm, &project_name)?;
+    let pdf_path = if params.skip_pdf {
+        project_root.join(format!("{project_name}.pdf"))
+    } else {
+        update_preview_pdf(project_root, bleed_mm, &project_name)?
+    };
 
     Ok(CommandOutput {
         result: BuildResult {

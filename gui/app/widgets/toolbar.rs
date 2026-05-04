@@ -1,18 +1,20 @@
-use std::collections::HashSet;
+use crate::task::BackgroundTask;
 
-use crate::app::pending::PendingCommand;
+use crate::app::rebuild::{PagesForRebuild, selected_pages_for_rebuild};
 use crate::state::{DragMode, HoveredTarget, InteractionState};
+use fotobuch::commands::PlaceDst;
 
-pub fn draw(ui: &mut egui::Ui, interaction: &mut InteractionState) -> HashSet<PendingCommand> {
+pub fn draw(ui: &mut egui::Ui, interaction: &mut InteractionState) -> Vec<BackgroundTask> {
     egui::Panel::top("toolbar")
         .show_inside(ui, |ui| show(ui, interaction))
         .inner
 }
 
-fn show(ui: &mut egui::Ui, interaction: &mut InteractionState) -> HashSet<PendingCommand> {
-    let mut cmds = HashSet::new();
+fn show(ui: &mut egui::Ui, interaction: &mut InteractionState) -> Vec<BackgroundTask> {
+    let mut cmds = Vec::new();
     ui.horizontal(|ui| {
-        build_buttons(ui);
+        rebuild_button(ui, interaction, &mut cmds);
+        release_button(ui, &mut cmds);
         history_buttons(ui, &mut cmds);
         config_button(ui, interaction);
         ui.separator();
@@ -23,17 +25,39 @@ fn show(ui: &mut egui::Ui, interaction: &mut InteractionState) -> HashSet<Pendin
     cmds
 }
 
-fn build_buttons(ui: &mut egui::Ui) {
-    ui.add_enabled(false, egui::Button::new("Build"));
-    ui.add_enabled(false, egui::Button::new("Release"));
+fn rebuild_button(
+    ui: &mut egui::Ui,
+    interaction: &mut InteractionState,
+    cmds: &mut Vec<BackgroundTask>,
+) {
+    let label = match selected_pages_for_rebuild(interaction) {
+        PagesForRebuild::Selected(ref pages) => format!("Rebuild ({})", pages.len()),
+        PagesForRebuild::None => "Rebuild …".to_string(),
+    };
+    if ui.button(label).clicked() {
+        match selected_pages_for_rebuild(interaction) {
+            PagesForRebuild::Selected(pages) => {
+                cmds.push(BackgroundTask::RebuildPages { pages });
+            }
+            PagesForRebuild::None => {
+                interaction.rebuild_all_confirm = true;
+            }
+        }
+    }
 }
 
-fn history_buttons(ui: &mut egui::Ui, cmds: &mut HashSet<PendingCommand>) {
+fn release_button(ui: &mut egui::Ui, cmds: &mut Vec<BackgroundTask>) {
+    if ui.button("Release").clicked() {
+        cmds.push(BackgroundTask::ReleaseBuild);
+    }
+}
+
+fn history_buttons(ui: &mut egui::Ui, cmds: &mut Vec<BackgroundTask>) {
     if ui.add(egui::Button::new("↩")).clicked() {
-        cmds.insert(PendingCommand::Undo);
+        cmds.push(BackgroundTask::Undo);
     }
     if ui.add(egui::Button::new("↪")).clicked() {
-        cmds.insert(PendingCommand::Redo);
+        cmds.push(BackgroundTask::Redo);
     }
 }
 
@@ -52,19 +76,23 @@ fn config_button(ui: &mut egui::Ui, interaction: &mut InteractionState) {
 fn place_button(
     ui: &mut egui::Ui,
     interaction: &mut InteractionState,
-    cmds: &mut HashSet<PendingCommand>,
+    cmds: &mut Vec<BackgroundTask>,
 ) {
     let place_enabled = !interaction.selections.photos.is_empty();
     if ui
         .add_enabled(place_enabled, egui::Button::new("Place"))
         .clicked()
     {
-        cmds.insert(PendingCommand::Place {
+        cmds.push(BackgroundTask::Place {
             photo_ids: interaction.selections.photos.ids(),
-            dst_page: interaction
+            dst: match interaction
                 .hovered
                 .as_ref()
-                .and_then(HoveredTarget::central_page),
+                .and_then(HoveredTarget::central_page)
+            {
+                Some(p) => PlaceDst::Page(p),
+                None => PlaceDst::Auto,
+            },
         });
     }
 }

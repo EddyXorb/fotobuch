@@ -78,6 +78,7 @@ required-features = ["cli-docs"]
 [features]
 gui = ["dep:eframe", "dep:egui"]
 cli-docs = ["dep:clap-markdown"]
+slow-tests = []
 
 [dependencies.eframe]
 version = "0.34"
