@@ -38,6 +38,8 @@ fn create_test_project_with_photos(temp_dir: &TempDir) -> Result<PathBuf> {
     mgr.state.config.page_layout_solver.population_size = 20;
     mgr.state.config.page_layout_solver.max_generations = 10;
     mgr.state.config.page_layout_solver.islands_nr = 1;
+    mgr.state.config.book.dpi = 50.0;
+    mgr.state.config.preview.max_preview_px = 100;
     mgr.finish("test: configure for fast tests")?;
 
     // Add test photos
@@ -91,6 +93,8 @@ fn create_test_project_with_artificial_photos_3(temp_dir: &TempDir) -> Result<Pa
     mgr.state.config.page_layout_solver.population_size = 20;
     mgr.state.config.page_layout_solver.max_generations = 10;
     mgr.state.config.page_layout_solver.islands_nr = 1;
+    mgr.state.config.book.dpi = 75.0;
+    mgr.state.config.preview.max_preview_px = 100;
     mgr.finish("test: configure for artificial photos test")?;
 
     // Add artificial photos with different aspect ratios
