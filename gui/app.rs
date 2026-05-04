@@ -138,9 +138,7 @@ impl FotobuchApp {
                     *d = true;
                 }
             }
-            if num_pages != old_layout_len {
-                self.state.interaction.selections.slots.clear();
-            }
+            self.state.interaction.selections.slots.clear();
         } else {
             unset_dirty_pages(&mut self.state.data.pages.dirty);
         }
