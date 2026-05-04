@@ -251,10 +251,9 @@ pub(super) fn dispatch_swap(
     });
 }
 
-fn is_contiguous(slots: &[usize]) -> bool {
-    let mut s = slots.to_vec();
-    s.sort_unstable();
-    s.windows(2).all(|w| w[1] == w[0] + 1)
+fn is_contiguous(sorted_slots: &[usize]) -> bool {
+    debug_assert!(sorted_slots.windows(2).all(|w| w[0] <= w[1]));
+    sorted_slots.windows(2).all(|w| w[1] == w[0] + 1)
 }
 
 fn compute_dst_range(dst_slot: usize, count: usize, layout_dst: &LayoutPage) -> Option<Vec<usize>> {

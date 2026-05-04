@@ -92,6 +92,17 @@ impl<K: Ord + Clone> MultiSelection<K> {
         }
     }
 
+    pub fn contains<Q>(&self, k: &Q) -> bool
+    where
+        K: std::borrow::Borrow<Q>,
+        Q: Ord + ?Sized,
+    {
+        match self {
+            Self::Active { items, .. } => items.contains(k),
+            _ => false,
+        }
+    }
+
     pub fn is_empty(&self) -> bool {
         matches!(self, Self::None)
     }

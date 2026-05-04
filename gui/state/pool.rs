@@ -1,7 +1,7 @@
 use super::MultiSelection;
 
 /// Mehrfach-Selektion im Foto-Pool.
-pub struct PhotoSelection(pub MultiSelection<String>);
+pub struct PhotoSelection(MultiSelection<String>);
 
 impl Default for PhotoSelection {
     fn default() -> Self {
@@ -31,7 +31,7 @@ impl PhotoSelection {
     }
 
     pub fn is_selected(&self, id: &str) -> bool {
-        self.0.is_selected(&id.to_owned())
+        self.0.contains(id)
     }
 
     pub fn is_empty(&self) -> bool {
