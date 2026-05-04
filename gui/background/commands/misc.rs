@@ -54,25 +54,24 @@ pub fn run_config_set(key: &str, value: &str, rctx: &mut super::super::RenderCtx
 
 pub fn run_rebuild_pages(pages: Vec<usize>, rctx: &mut super::super::RenderCtx<'_>) {
     let mut dirty: Vec<usize> = vec![];
-    let mut new_state: Option<Box<fotobuch::dto_models::ProjectState>> = None;
+    let mut new_state: Option<fotobuch::dto_models::ProjectState> = None;
     for p in pages {
         match rebuild(rctx.project_root, RebuildScope::SinglePage(p)) {
             Err(e) => {
                 let _ = rctx.result_tx.send(BackgroundResult::CommandFailed(format!(
                     "rebuild page {p}: {e}"
                 )));
+                return;
             }
             Ok(out) => {
-                if !dirty.contains(&p) {
-                    dirty.push(p);
-                }
+                dirty.push(p);
                 if let Some(s) = out.changed_state {
-                    new_state = Some(Box::new(s));
+                    new_state = Some(s);
                 }
             }
         }
     }
-    send_command_done(new_state.map(|b| *b), dirty, rctx);
+    send_command_done(new_state, dirty, rctx);
 }
 
 pub fn run_rebuild_all(rctx: &mut super::super::RenderCtx<'_>) {
