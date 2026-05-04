@@ -93,8 +93,9 @@ pub fn spawn(
                 BackgroundTask::Place {
                     photo_ids,
                     dst_page,
+                    into_new_page_at,
                 } => {
-                    commands::run_place_photos(photo_ids, dst_page, &mut rctx);
+                    commands::run_place_photos(photo_ids, dst_page, into_new_page_at, &mut rctx);
                 }
                 BackgroundTask::ConfigSet { key, value } => {
                     commands::run_config_set(&key, &value, &mut rctx);

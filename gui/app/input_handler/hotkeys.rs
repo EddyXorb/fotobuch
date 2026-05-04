@@ -127,6 +127,7 @@ pub(super) fn handle_place_hotkey(
             .hovered
             .as_ref()
             .and_then(HoveredTarget::central_page),
+        into_new_page_at: None,
     });
 }
 

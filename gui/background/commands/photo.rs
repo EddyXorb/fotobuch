@@ -37,13 +37,14 @@ pub fn run_load_photo_thumbnails(
 pub fn run_place_photos(
     photo_ids: Vec<String>,
     dst_page: Option<usize>,
+    into_new_page_at: Option<usize>,
     rctx: &mut crate::background::RenderCtx<'_>,
 ) {
     let config = PlaceConfig {
         filters: vec![],
         ids: photo_ids,
         into_page: dst_page,
-        into_new_page_at: None,
+        into_new_page_at,
     };
     match place(rctx.project_root, &config) {
         Err(e) => {

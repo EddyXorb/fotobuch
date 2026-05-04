@@ -210,10 +210,21 @@ pub(super) fn complete_pool_drag(
     cmds: &mut Vec<BackgroundTask>,
     photo_ids: Vec<String>,
 ) {
-    if let Some(dst_page) = interaction.hovered.as_ref().and_then(|h| h.page_idx()) {
+    if let Some(pos) = interaction
+        .hovered
+        .as_ref()
+        .and_then(HoveredTarget::new_page_at_position)
+    {
+        cmds.push(BackgroundTask::Place {
+            photo_ids,
+            dst_page: None,
+            into_new_page_at: Some(pos),
+        });
+    } else if let Some(dst_page) = interaction.hovered.as_ref().and_then(|h| h.page_idx()) {
         cmds.push(BackgroundTask::Place {
             photo_ids,
             dst_page: Some(dst_page),
+            into_new_page_at: None,
         });
     }
 }

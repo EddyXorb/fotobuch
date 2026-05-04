@@ -257,7 +257,9 @@ fn mark_dirty(dirty: &mut [bool], task: &BackgroundTask) {
             }
         }
         BackgroundTask::Place {
-            dst_page: Some(p), ..
+            dst_page: Some(p),
+            into_new_page_at: None,
+            ..
         } => {
             if let Some(d) = dirty.get_mut(*p) {
                 *d = true;
@@ -278,7 +280,7 @@ fn mark_dirty(dirty: &mut [bool], task: &BackgroundTask) {
         BackgroundTask::Undo
         | BackgroundTask::Redo
         | BackgroundTask::ConfigSet { .. }
-        | BackgroundTask::Place { dst_page: None, .. }
+        | BackgroundTask::Place { .. }
         | BackgroundTask::MoveToNewPage { .. }
         | BackgroundTask::MovePage { .. }
         | BackgroundTask::SwapRange { .. }

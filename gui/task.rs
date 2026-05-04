@@ -36,6 +36,7 @@ pub enum BackgroundTask {
     Place {
         photo_ids: Vec<String>,
         dst_page: Option<usize>,
+        into_new_page_at: Option<usize>,
     },
     /// `config set key value` im Background.
     ConfigSet {

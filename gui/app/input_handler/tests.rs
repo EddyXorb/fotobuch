@@ -83,6 +83,7 @@ fn place_hotkey_emits_place_with_hovered_page() {
             .hovered
             .as_ref()
             .and_then(HoveredTarget::central_page),
+        into_new_page_at: None,
     });
     let BackgroundTask::Place { dst_page, .. } = cmds.iter().next().unwrap() else {
         panic!()
@@ -102,6 +103,7 @@ fn place_hotkey_emits_place_without_target_when_no_hover() {
             .hovered
             .as_ref()
             .and_then(HoveredTarget::central_page),
+        into_new_page_at: None,
     });
     let BackgroundTask::Place { dst_page, .. } = cmds.iter().next().unwrap() else {
         panic!()
