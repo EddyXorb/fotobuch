@@ -126,8 +126,24 @@ pub fn run_swap_range(
     dst_slots: Vec<usize>,
     rctx: &mut super::super::RenderCtx<'_>,
 ) {
-    let (s0, s1) = (*src_slots.first().unwrap(), *src_slots.last().unwrap());
-    let (d0, d1) = (*dst_slots.first().unwrap(), *dst_slots.last().unwrap());
+    let (Some(s0), Some(s1)) = (src_slots.first(), src_slots.last()) else {
+        let _ = rctx
+            .result_tx
+            .send(crate::task::BackgroundResult::CommandFailed(
+                "empty slot list".into(),
+            ));
+        return;
+    };
+    let (Some(d0), Some(d1)) = (dst_slots.first(), dst_slots.last()) else {
+        let _ = rctx
+            .result_tx
+            .send(crate::task::BackgroundResult::CommandFailed(
+                "empty slot list".into(),
+            ));
+        return;
+    };
+    let (s0, s1) = (*s0, *s1);
+    let (d0, d1) = (*d0, *d1);
     let cmd = PageMoveCmd::Swap {
         left: Src::Slots {
             page: src_page as u32,
