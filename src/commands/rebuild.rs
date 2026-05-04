@@ -58,17 +58,21 @@ pub enum RebuildScope {
 /// - All inner photos redistributed fresh via Book-Layout-Solver + Page-Layout-Solver.
 /// - If cover is active: cover is skipped (use `rebuild --page 0` explicitly).
 /// - Manual changes in layout are lost (but git-recoverable).
-pub fn rebuild(project_root: &Path, scope: RebuildScope) -> Result<CommandOutput<BuildResult>> {
+pub fn rebuild(
+    project_root: &Path,
+    scope: RebuildScope,
+    skip_pdf: bool,
+) -> Result<CommandOutput<BuildResult>> {
     let mgr = StateManager::open(project_root)?;
 
     validate_scope(&scope, &mgr)?;
 
     match scope {
-        RebuildScope::SinglePage(idx) => rebuild_single(mgr, project_root, idx),
+        RebuildScope::SinglePage(idx) => rebuild_single(mgr, project_root, idx, skip_pdf),
         RebuildScope::Range { start, end, flex } => {
-            rebuild_range(mgr, project_root, start, end, flex)
+            rebuild_range(mgr, project_root, start, end, flex, skip_pdf)
         }
-        RebuildScope::All => rebuild_all(mgr, project_root),
+        RebuildScope::All => rebuild_all(mgr, project_root, skip_pdf),
     }
 }
 
@@ -111,6 +115,7 @@ fn rebuild_single(
     mut mgr: StateManager,
     project_root: &Path,
     idx: usize,
+    skip_pdf: bool,
 ) -> Result<CommandOutput<BuildResult>> {
     // 1. Check if page is manual - can't rebuild manual pages
     if mgr.state.layout[idx].mode == crate::dto_models::PageMode::Manual {
@@ -122,8 +127,10 @@ fn rebuild_single(
     }
 
     // 2. Preview-Cache
-    let preview_cache_dir = mgr.preview_cache_dir();
-    preview::ensure_previews(&mut mgr.state, &preview_cache_dir)?;
+    if !skip_pdf {
+        let preview_cache_dir = mgr.preview_cache_dir();
+        preview::ensure_previews(&mut mgr.state, &preview_cache_dir)?;
+    }
 
     // 3. Solver — reuse rebuild_single_page from build module
     let photo_index = build_photo_index(&mgr.state.photos);
@@ -131,10 +138,16 @@ fn rebuild_single(
 
     // 4. Compile Typst
     let bleed_mm = mgr.state.config.book.bleed_mm;
-    let pdf_path = typst::compile_preview(project_root, mgr.project_name(), bleed_mm)?;
+    let project_name = mgr.project_name().to_string();
 
     // 5. Save — always commit (even if slots don't change)
     let changed_state = mgr.finish_always(&format!("rebuild: page {}", idx))?;
+
+    let pdf_path = if skip_pdf {
+        project_root.join(format!("{}.pdf", project_name))
+    } else {
+        typst::compile_preview(project_root, &project_name, bleed_mm)?
+    };
 
     Ok(CommandOutput {
         result: BuildResult {
@@ -176,6 +189,7 @@ fn rebuild_range(
     start: usize,
     end: usize,
     flex: usize,
+    skip_pdf: bool,
 ) -> Result<CommandOutput<BuildResult>> {
     let effective_start = skip_cover_if_needed(mgr.state.has_cover(), start, end)?;
 
@@ -199,14 +213,18 @@ fn rebuild_range(
             commit_message: format!("rebuild: pages {}-{}", effective_start, end),
             images_processed: 0,
             always_commit: true,
-            skip_pdf: false,
+            skip_pdf,
         },
     )
 }
 
 /// Rebuild all pages from scratch.
 /// Cover page (index 0) is always skipped — use `rebuild --page 0` to rebuild it explicitly.
-fn rebuild_all(mgr: StateManager, project_root: &Path) -> Result<CommandOutput<BuildResult>> {
+fn rebuild_all(
+    mgr: StateManager,
+    project_root: &Path,
+    skip_pdf: bool,
+) -> Result<CommandOutput<BuildResult>> {
     let layout_len = mgr.state.layout.len();
 
     let effective_start = if layout_len > 0 {
@@ -237,7 +255,7 @@ fn rebuild_all(mgr: StateManager, project_root: &Path) -> Result<CommandOutput<B
             commit_message: format!("rebuild: {} photos redistributed", photo_count),
             images_processed: 0,
             always_commit: true,
-            skip_pdf: false,
+            skip_pdf,
         },
     )
 }
