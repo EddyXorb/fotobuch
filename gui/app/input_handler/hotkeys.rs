@@ -1,5 +1,4 @@
 use crate::task::BackgroundTask;
-use std::collections::HashSet;
 
 use crate::app::rebuild::{PagesForRebuild, selected_pages_for_rebuild};
 use crate::state::{self, DataState, HoveredTarget, InteractionState, SlotSelection};

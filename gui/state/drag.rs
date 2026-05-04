@@ -37,6 +37,7 @@ pub enum DragSource {
     NavPage {
         src_page: usize,
         /// All nav-selected pages captured at drag-start (analogous to `src_slots`).
+        #[allow(dead_code)]
         src_pages: Vec<usize>,
     },
     /// Right-mouse drag from a photo row in the pool panel.

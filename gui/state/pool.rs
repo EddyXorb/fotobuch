@@ -22,6 +22,7 @@ impl PhotoSelection {
         self.0.range_to_ordered(id, order);
     }
 
+    #[allow(dead_code)]
     pub fn clear(&mut self) {
         self.0.clear();
     }

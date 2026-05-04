@@ -12,6 +12,7 @@ pub fn handle(filters: Vec<String>, into: Option<usize>) -> Result<()> {
         filters,
         ids: vec![],
         into_page: into,
+        into_new_page_at: None,
     };
 
     let output = commands::place::place(&project_root, &config)?;

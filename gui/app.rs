@@ -2,7 +2,6 @@ mod input_handler;
 pub(super) mod rebuild;
 mod widgets;
 
-use std::collections::HashSet;
 use std::path::PathBuf;
 use std::time::Instant;
 
@@ -108,7 +107,7 @@ impl FotobuchApp {
     ) {
         if let Some(new_state) = new_state {
             let num_pages = new_state.layout.len();
-            let old_layout_len = self.state.data.project.layout.len();
+            let _old_layout_len = self.state.data.project.layout.len();
             self.state.data.project = *new_state;
             self.state.data.derived = crate::state::DerivedState::rebuild(&self.state.data.project);
             state::resize_page_vecs(&mut self.state, num_pages);
@@ -276,16 +275,16 @@ fn mark_dirty(dirty: &mut [bool], task: &BackgroundTask) {
                 }
             }
         }
-        BackgroundTask::Undo { .. }
-        | BackgroundTask::Redo { .. }
+        BackgroundTask::Undo
+        | BackgroundTask::Redo
         | BackgroundTask::ConfigSet { .. }
         | BackgroundTask::Place { dst_page: None, .. }
         | BackgroundTask::MoveToNewPage { .. }
         | BackgroundTask::MovePage { .. }
         | BackgroundTask::SwapRange { .. }
         | BackgroundTask::DeletePages { .. }
-        | BackgroundTask::RebuildAll { .. }
-        | BackgroundTask::ReleaseBuild { .. } => {
+        | BackgroundTask::RebuildAll
+        | BackgroundTask::ReleaseBuild => {
             dirty.fill(true);
         }
         BackgroundTask::RenderPages { .. }

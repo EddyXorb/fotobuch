@@ -1,5 +1,4 @@
 use crate::task::BackgroundTask;
-use std::collections::HashSet;
 
 use crate::state::{
     ActiveDrag, DataState, DragMode, DragSource, HoveredTarget, InteractionState, PhotoSelection,
@@ -91,7 +90,7 @@ pub(super) fn handle_drag_complete(
         }
         DragSource::NavPage {
             src_page,
-            src_pages,
+            src_pages: _,
             ..
         } => {
             complete_nav_drag(data, interaction, cmds, src_page);
@@ -175,21 +174,21 @@ pub(super) fn complete_nav_drag(
     }
 
     if interaction.drag.mode == DragMode::Move {
-        if let Some(dst_page) = interaction.hovered.as_ref().and_then(|h| h.page_idx()) {
-            if src_page != dst_page {
-                let slot_count = data
-                    .project
-                    .layout
-                    .get(src_page)
-                    .map(|lp| lp.slots.len())
-                    .unwrap_or(0);
-                if slot_count > 0 {
-                    cmds.push(BackgroundTask::Move {
-                        src_page,
-                        src_slots: (0..slot_count).collect(),
-                        dst_page,
-                    });
-                }
+        if let Some(dst_page) = interaction.hovered.as_ref().and_then(|h| h.page_idx())
+            && src_page != dst_page
+        {
+            let slot_count = data
+                .project
+                .layout
+                .get(src_page)
+                .map(|lp| lp.slots.len())
+                .unwrap_or(0);
+            if slot_count > 0 {
+                cmds.push(BackgroundTask::Move {
+                    src_page,
+                    src_slots: (0..slot_count).collect(),
+                    dst_page,
+                });
             }
         }
         return;

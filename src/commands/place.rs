@@ -20,6 +20,8 @@ pub struct PlaceConfig {
     pub ids: Vec<String>,
     /// Place all matching photos onto this page (optional)
     pub into_page: Option<usize>,
+    /// Create a new page at this position and place photos there (optional)
+    pub into_new_page_at: Option<usize>,
 }
 
 /// Result of placing photos
@@ -29,6 +31,8 @@ pub struct PlaceResult {
     pub photos_placed: usize,
     /// Pages affected by placements (need rebuild)
     pub pages_affected: Vec<usize>,
+    /// Pages newly inserted (0-based positions after insertion)
+    pub pages_inserted: Vec<usize>,
 }
 
 /// Represents an unplaced photo with its key metadata
@@ -85,7 +89,7 @@ pub fn place(project_root: &Path, config: &PlaceConfig) -> Result<CommandOutput<
     let mut mgr = StateManager::open(project_root)?;
 
     // Validation
-    if mgr.state.layout.is_empty() {
+    if mgr.state.layout.is_empty() && config.into_new_page_at.is_none() {
         anyhow::bail!("No layout yet. Run `fotobuch build` first.");
     }
     if let Some(page) = config.into_page
@@ -98,6 +102,16 @@ pub fn place(project_root: &Path, config: &PlaceConfig) -> Result<CommandOutput<
             mgr.state.layout.len().saturating_sub(1),
         );
     }
+    if let Some(pos) = config.into_new_page_at
+        && pos > mgr.state.layout.len()
+    {
+        anyhow::bail!(
+            "Invalid new page position {} (layout has {} pages, valid range 0..={})",
+            pos,
+            mgr.state.layout.len(),
+            mgr.state.layout.len(),
+        );
+    }
 
     // 1. Find unplaced photos
     let unplaced = find_unplaced(&mgr.state);
@@ -107,6 +121,7 @@ pub fn place(project_root: &Path, config: &PlaceConfig) -> Result<CommandOutput<
             result: PlaceResult {
                 photos_placed: 0,
                 pages_affected: vec![],
+                pages_inserted: vec![],
             },
             changed_state,
         });
@@ -128,16 +143,19 @@ pub fn place(project_root: &Path, config: &PlaceConfig) -> Result<CommandOutput<
             result: PlaceResult {
                 photos_placed: 0,
                 pages_affected: vec![],
+                pages_inserted: vec![],
             },
             changed_state,
         });
     }
 
     // 3. Place photos
-    let pages_affected = if let Some(page) = config.into_page {
-        place_into_page(&mut mgr.state, &filtered, page)
+    let (pages_affected, pages_inserted) = if let Some(pos) = config.into_new_page_at {
+        place_into_new_page(&mut mgr.state, &filtered, pos)
+    } else if let Some(page) = config.into_page {
+        (place_into_page(&mut mgr.state, &filtered, page), vec![])
     } else {
-        place_chronologically(&mut mgr.state, &filtered)
+        (place_chronologically(&mut mgr.state, &filtered), vec![])
     };
 
     let photos_placed = filtered.len();
@@ -150,6 +168,7 @@ pub fn place(project_root: &Path, config: &PlaceConfig) -> Result<CommandOutput<
         result: PlaceResult {
             photos_placed,
             pages_affected,
+            pages_inserted,
         },
         changed_state,
     })
@@ -269,6 +288,28 @@ fn place_into_page(
         state.layout[page_idx].photos.push(photo.id.clone());
     }
     vec![page_idx]
+}
+
+/// Creates a new page at the given position and places all photos there.
+/// Returns (affected pages, inserted pages).
+fn place_into_new_page(
+    state: &mut ProjectState,
+    photos: &[&UnplacedPhoto],
+    position: usize,
+) -> (Vec<usize>, Vec<usize>) {
+    use crate::dto_models::{LayoutPage, PageMode};
+
+    let photo_ids: Vec<String> = photos.iter().map(|p| p.id.clone()).collect();
+    state.layout.insert(
+        position,
+        LayoutPage {
+            page: position, // will be renumbered by StateManager::finish()
+            photos: photo_ids,
+            slots: vec![],
+            mode: PageMode::Auto,
+        },
+    );
+    (vec![position], vec![position])
 }
 
 /// Formats page list for commit message: "page 5" or "pages 2, 5, 8"

@@ -2,8 +2,6 @@ use crate::task::BackgroundTask;
 mod drag;
 mod hotkeys;
 
-use std::collections::HashSet;
-
 use crate::state::{DataState, InteractionState};
 
 /// Top-level input dispatcher — called once per frame before painting.

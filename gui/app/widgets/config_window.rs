@@ -1,5 +1,4 @@
 use crate::task::BackgroundTask;
-use std::collections::HashSet;
 
 use serde_yaml::Value;
 

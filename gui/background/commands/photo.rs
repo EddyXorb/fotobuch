@@ -43,6 +43,7 @@ pub fn run_place_photos(
         filters: vec![],
         ids: photo_ids,
         into_page: dst_page,
+        into_new_page_at: None,
     };
     match place(rctx.project_root, &config) {
         Err(e) => {
