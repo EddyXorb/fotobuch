@@ -6,8 +6,6 @@ use super::drag::{
 use super::*;
 use crate::state::{GuiState, HoveredTarget, SlotSelection};
 
-use crate::app::pending::PendingCommand;
-
 fn state_with_selection(sel_page: usize, sel_slots: Vec<usize>) -> GuiState {
     let mut state = GuiState::new(ProjectState::default());
     for (i, &slot) in sel_slots.iter().enumerate() {
@@ -22,10 +20,10 @@ fn state_with_selection(sel_page: usize, sel_slots: Vec<usize>) -> GuiState {
 
 #[test]
 fn dispatch_move_emits_command_with_given_slots() {
-    let mut cmds = HashSet::new();
+    let mut cmds = Vec::new();
     dispatch_move(&mut cmds, 0, vec![1, 2, 3], 1);
     assert_eq!(cmds.len(), 1);
-    let PendingCommand::Move {
+    let BackgroundTask::Move {
         src_page,
         src_slots,
         dst_page,
@@ -40,9 +38,9 @@ fn dispatch_move_emits_command_with_given_slots() {
 
 #[test]
 fn dispatch_move_single_slot() {
-    let mut cmds = HashSet::new();
+    let mut cmds = Vec::new();
     dispatch_move(&mut cmds, 0, vec![3], 1);
-    let PendingCommand::Move { src_slots, .. } = cmds.iter().next().unwrap() else {
+    let BackgroundTask::Move { src_slots, .. } = cmds.iter().next().unwrap() else {
         panic!()
     };
     assert_eq!(*src_slots, vec![3]);
@@ -50,14 +48,14 @@ fn dispatch_move_single_slot() {
 
 #[test]
 fn dispatch_swap_cross_page_emits_command() {
-    let mut cmds = HashSet::new();
+    let mut cmds = Vec::new();
     dispatch_swap(&mut cmds, 0, 0, 1, 2);
     assert_eq!(cmds.len(), 1, "cross-page swap must emit a command");
 }
 
 #[test]
 fn dispatch_swap_ignores_same_slot() {
-    let mut cmds = HashSet::new();
+    let mut cmds = Vec::new();
     dispatch_swap(&mut cmds, 0, 1, 0, 1);
     assert!(cmds.is_empty(), "same-slot swap must be ignored");
 }
@@ -77,8 +75,8 @@ fn place_hotkey_emits_place_with_hovered_page() {
         page: 2,
         slot: None,
     });
-    let mut cmds = HashSet::new();
-    cmds.insert(PendingCommand::Place {
+    let mut cmds = Vec::new();
+    cmds.push(BackgroundTask::Place {
         photo_ids: state.interaction.selections.photos.ids(),
         dst_page: state
             .interaction
@@ -86,7 +84,7 @@ fn place_hotkey_emits_place_with_hovered_page() {
             .as_ref()
             .and_then(HoveredTarget::central_page),
     });
-    let PendingCommand::Place { dst_page, .. } = cmds.iter().next().unwrap() else {
+    let BackgroundTask::Place { dst_page, .. } = cmds.iter().next().unwrap() else {
         panic!()
     };
     assert_eq!(*dst_page, Some(2));
@@ -96,8 +94,8 @@ fn place_hotkey_emits_place_with_hovered_page() {
 fn place_hotkey_emits_place_without_target_when_no_hover() {
     let mut state = state_with_pool_selection(vec!["a.jpg"]);
     state.interaction.hovered = None;
-    let mut cmds = HashSet::new();
-    cmds.insert(PendingCommand::Place {
+    let mut cmds = Vec::new();
+    cmds.push(BackgroundTask::Place {
         photo_ids: state.interaction.selections.photos.ids(),
         dst_page: state
             .interaction
@@ -105,7 +103,7 @@ fn place_hotkey_emits_place_without_target_when_no_hover() {
             .as_ref()
             .and_then(HoveredTarget::central_page),
     });
-    let PendingCommand::Place { dst_page, .. } = cmds.iter().next().unwrap() else {
+    let BackgroundTask::Place { dst_page, .. } = cmds.iter().next().unwrap() else {
         panic!()
     };
     assert_eq!(*dst_page, None);
@@ -125,10 +123,10 @@ fn pool_drag_complete_emits_place_on_hovered_page() {
         page: 1,
         slot: None,
     });
-    let mut cmds = HashSet::new();
+    let mut cmds = Vec::new();
     complete_pool_drag(&mut state.interaction, &mut cmds, vec!["a.jpg".into()]);
     assert_eq!(cmds.len(), 1);
-    let PendingCommand::Place { dst_page, .. } = cmds.iter().next().unwrap() else {
+    let BackgroundTask::Place { dst_page, .. } = cmds.iter().next().unwrap() else {
         panic!()
     };
     assert_eq!(*dst_page, Some(1));
@@ -138,7 +136,7 @@ fn pool_drag_complete_emits_place_on_hovered_page() {
 fn pool_drag_complete_cancels_without_hovered_page() {
     let mut state = GuiState::new(ProjectState::default());
     state.interaction.hovered = None;
-    let mut cmds = HashSet::new();
+    let mut cmds = Vec::new();
     complete_pool_drag(&mut state.interaction, &mut cmds, vec!["a.jpg".into()]);
     assert!(cmds.is_empty(), "no hovered page → no command");
 }
@@ -157,10 +155,10 @@ fn default_data() -> crate::state::DataState {
 fn nav_drag_complete_emits_page_swap() {
     let mut state = GuiState::new(ProjectState::default());
     state.interaction.hovered = Some(HoveredTarget::NavPage(2));
-    let mut cmds = HashSet::new();
+    let mut cmds = Vec::new();
     complete_nav_drag(&default_data(), &mut state.interaction, &mut cmds, 0);
     assert_eq!(cmds.len(), 1);
-    let PendingCommand::PageSwap { left, right } = cmds.iter().next().unwrap() else {
+    let BackgroundTask::PageSwap { left, right } = cmds.iter().next().unwrap() else {
         panic!()
     };
     assert_eq!(*left, 0);
@@ -171,7 +169,7 @@ fn nav_drag_complete_emits_page_swap() {
 fn nav_drag_complete_noop_when_same_page() {
     let mut state = GuiState::new(ProjectState::default());
     state.interaction.hovered = Some(HoveredTarget::NavPage(1));
-    let mut cmds = HashSet::new();
+    let mut cmds = Vec::new();
     complete_nav_drag(&default_data(), &mut state.interaction, &mut cmds, 1);
     assert!(cmds.is_empty(), "same page → no-op");
 }
@@ -197,7 +195,7 @@ fn layout_page_with_slots(page: usize, n_slots: usize) -> fotobuch::dto_models::
 fn drop_on_new_page_slot_emits_move_to_new_page() {
     let mut state = state_with_selection(1, vec![1, 2]);
     state.interaction.hovered = Some(HoveredTarget::NewPageSlot { at_position: 3 });
-    let mut cmds = HashSet::new();
+    let mut cmds = Vec::new();
     complete_slot_drag(
         &default_data(),
         &mut state.interaction,
@@ -207,7 +205,7 @@ fn drop_on_new_page_slot_emits_move_to_new_page() {
         vec![1, 2],
     );
     assert_eq!(cmds.len(), 1);
-    let PendingCommand::MoveToNewPage {
+    let BackgroundTask::MoveToNewPage {
         src_page,
         src_slots,
         at_position,
@@ -224,7 +222,7 @@ fn drop_on_new_page_slot_emits_move_to_new_page() {
 fn drop_on_new_page_slot_at_zero_inserts_before_first_page() {
     let mut state = GuiState::new(ProjectState::default());
     state.interaction.hovered = Some(HoveredTarget::NewPageSlot { at_position: 0 });
-    let mut cmds = HashSet::new();
+    let mut cmds = Vec::new();
     complete_slot_drag(
         &default_data(),
         &mut state.interaction,
@@ -234,7 +232,7 @@ fn drop_on_new_page_slot_at_zero_inserts_before_first_page() {
         vec![0],
     );
     assert_eq!(cmds.len(), 1);
-    let PendingCommand::MoveToNewPage { at_position, .. } = cmds.iter().next().unwrap() else {
+    let BackgroundTask::MoveToNewPage { at_position, .. } = cmds.iter().next().unwrap() else {
         panic!()
     };
     assert_eq!(*at_position, 0);
@@ -242,10 +240,10 @@ fn drop_on_new_page_slot_at_zero_inserts_before_first_page() {
 
 #[test]
 fn cross_page_move_with_selection_moves_all_selected_slots() {
-    let mut cmds = HashSet::new();
+    let mut cmds = Vec::new();
     dispatch_move(&mut cmds, 3, vec![0, 2], 7);
     assert_eq!(cmds.len(), 1);
-    let PendingCommand::Move {
+    let BackgroundTask::Move {
         src_page,
         src_slots,
         dst_page,
@@ -282,7 +280,7 @@ fn swap_range_uses_full_selection_when_dragged_slot_selected() {
         page: 1,
         slot: Some(0),
     });
-    let mut cmds = HashSet::new();
+    let mut cmds = Vec::new();
     complete_slot_drag(
         &data,
         &mut state.interaction,
@@ -292,7 +290,7 @@ fn swap_range_uses_full_selection_when_dragged_slot_selected() {
         vec![1, 2, 3],
     );
     assert_eq!(cmds.len(), 1);
-    let PendingCommand::SwapRange {
+    let BackgroundTask::SwapRange {
         src_slots,
         dst_slots,
         ..
@@ -316,7 +314,7 @@ fn swap_range_noop_when_target_too_narrow() {
         page: 1,
         slot: Some(0),
     });
-    let mut cmds = HashSet::new();
+    let mut cmds = Vec::new();
     complete_slot_drag(
         &data,
         &mut state.interaction,
@@ -340,7 +338,7 @@ fn swap_range_noop_when_selection_not_contiguous() {
         page: 1,
         slot: Some(0),
     });
-    let mut cmds = HashSet::new();
+    let mut cmds = Vec::new();
     complete_slot_drag(&data, &mut state.interaction, &mut cmds, 0, 0, vec![0, 2]);
     assert!(cmds.is_empty(), "non-contiguous selection → no command");
 }
@@ -357,11 +355,11 @@ fn swap_falls_back_to_single_when_selection_is_one() {
         page: 1,
         slot: Some(2),
     });
-    let mut cmds = HashSet::new();
+    let mut cmds = Vec::new();
     complete_slot_drag(&data, &mut state.interaction, &mut cmds, 0, 1, vec![1]);
     assert_eq!(cmds.len(), 1);
     assert!(
-        matches!(cmds.iter().next().unwrap(), PendingCommand::Swap { .. }),
+        matches!(cmds.iter().next().unwrap(), BackgroundTask::Swap { .. }),
         "single-slot selection should use Swap, not SwapRange"
     );
 }
@@ -369,17 +367,17 @@ fn swap_falls_back_to_single_when_selection_is_one() {
 #[test]
 fn handle_delete_emits_unplace_with_selection_slots() {
     let state = state_with_selection(2, vec![0, 3]);
-    let mut cmds = HashSet::new();
+    let mut cmds = Vec::new();
     if let Some(page) = state.interaction.selections.slots.page
         && !state.interaction.selections.slots.is_empty()
     {
-        cmds.insert(PendingCommand::Unplace {
+        cmds.push(BackgroundTask::Unplace {
             page,
             slots: state.interaction.selections.slots.slots_on_active_page(),
         });
     }
     assert_eq!(cmds.len(), 1);
-    let PendingCommand::Unplace { page, slots } = cmds.iter().next().unwrap() else {
+    let BackgroundTask::Unplace { page, slots } = cmds.iter().next().unwrap() else {
         panic!()
     };
     assert_eq!(*page, 2);

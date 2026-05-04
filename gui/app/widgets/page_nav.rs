@@ -1,8 +1,8 @@
+use crate::task::BackgroundTask;
 use std::collections::HashSet;
 
 use egui::Align;
 
-use crate::app::pending::PendingCommand;
 use crate::app::widgets::geometry::A4_ASPECT;
 use crate::state::{ActiveDrag, DataState, DragMode, DragSource, HoveredTarget, InteractionState};
 
@@ -10,7 +10,7 @@ pub fn draw(
     ui: &mut egui::Ui,
     data: &DataState,
     interaction: &mut InteractionState,
-    cmds: &mut HashSet<PendingCommand>,
+    cmds: &mut Vec<BackgroundTask>,
 ) {
     egui::Panel::right("page_nav")
         .resizable(true)
@@ -24,7 +24,7 @@ fn show(
     ui: &mut egui::Ui,
     data: &DataState,
     interaction: &mut InteractionState,
-    _cmds: &mut HashSet<PendingCommand>,
+    _cmds: &mut Vec<BackgroundTask>,
 ) {
     let panel_width = ui.available_width();
     let num_pages = data.pages.thumb_textures.len();

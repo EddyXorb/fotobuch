@@ -1,11 +1,10 @@
+use crate::task::BackgroundTask;
 use std::collections::HashSet;
 
 use crate::state::{
     ActiveDrag, DataState, DragMode, DragSource, HoveredTarget, InteractionState, PhotoSelection,
 };
 use fotobuch::dto_models::LayoutPage;
-
-use crate::app::pending::PendingCommand;
 
 pub(super) fn handle_drag_start(interaction: &mut InteractionState, ctx: &egui::Context) {
     if !ctx.input(|i| i.pointer.secondary_pressed()) {
@@ -72,7 +71,7 @@ pub(super) fn handle_drag_complete(
     data: &DataState,
     interaction: &mut InteractionState,
     ctx: &egui::Context,
-    cmds: &mut HashSet<PendingCommand>,
+    cmds: &mut Vec<BackgroundTask>,
 ) -> bool {
     if !ctx.input(|i| i.pointer.secondary_released()) {
         return false;
@@ -107,7 +106,7 @@ pub(super) fn handle_drag_complete(
 pub(super) fn complete_slot_drag(
     data: &DataState,
     interaction: &mut InteractionState,
-    cmds: &mut HashSet<PendingCommand>,
+    cmds: &mut Vec<BackgroundTask>,
     src_page: usize,
     _src_slot: usize,
     src_slots: Vec<usize>,
@@ -117,7 +116,7 @@ pub(super) fn complete_slot_drag(
         .as_ref()
         .and_then(HoveredTarget::new_page_at_position)
     {
-        cmds.insert(PendingCommand::MoveToNewPage {
+        cmds.push(BackgroundTask::MoveToNewPage {
             src_page,
             src_slots,
             at_position,
@@ -135,7 +134,7 @@ pub(super) fn complete_slot_drag(
                 && let Some(layout_dst) = data.project.layout.get(dst_page)
                 && let Some(dst_slots) = compute_dst_range(dst_slot, src_slots.len(), layout_dst)
             {
-                cmds.insert(PendingCommand::SwapRange {
+                cmds.push(BackgroundTask::SwapRange {
                     src_page,
                     src_slots,
                     dst_page,
@@ -158,7 +157,7 @@ pub(super) fn complete_slot_drag(
 pub(super) fn complete_nav_drag(
     data: &DataState,
     interaction: &mut InteractionState,
-    cmds: &mut HashSet<PendingCommand>,
+    cmds: &mut Vec<BackgroundTask>,
     src_page: usize,
 ) {
     if let Some(at_position) = interaction
@@ -167,7 +166,7 @@ pub(super) fn complete_nav_drag(
         .and_then(HoveredTarget::new_page_at_position)
     {
         if interaction.drag.mode == DragMode::Move {
-            cmds.insert(PendingCommand::MovePage {
+            cmds.push(BackgroundTask::MovePage {
                 src_page,
                 at_position,
             });
@@ -185,7 +184,7 @@ pub(super) fn complete_nav_drag(
                     .map(|lp| lp.slots.len())
                     .unwrap_or(0);
                 if slot_count > 0 {
-                    cmds.insert(PendingCommand::Move {
+                    cmds.push(BackgroundTask::Move {
                         src_page,
                         src_slots: (0..slot_count).collect(),
                         dst_page,
@@ -201,7 +200,7 @@ pub(super) fn complete_nav_drag(
         Some(p) if p != src_page => p,
         _ => return,
     };
-    cmds.insert(PendingCommand::PageSwap {
+    cmds.push(BackgroundTask::PageSwap {
         left: src_page,
         right: dst_page,
     });
@@ -209,11 +208,11 @@ pub(super) fn complete_nav_drag(
 
 pub(super) fn complete_pool_drag(
     interaction: &mut InteractionState,
-    cmds: &mut HashSet<PendingCommand>,
+    cmds: &mut Vec<BackgroundTask>,
     photo_ids: Vec<String>,
 ) {
     if let Some(dst_page) = interaction.hovered.as_ref().and_then(|h| h.page_idx()) {
-        cmds.insert(PendingCommand::Place {
+        cmds.push(BackgroundTask::Place {
             photo_ids,
             dst_page: Some(dst_page),
         });
@@ -221,12 +220,12 @@ pub(super) fn complete_pool_drag(
 }
 
 pub(super) fn dispatch_move(
-    cmds: &mut HashSet<PendingCommand>,
+    cmds: &mut Vec<BackgroundTask>,
     src_page: usize,
     src_slots: Vec<usize>,
     dst_page: usize,
 ) {
-    cmds.insert(PendingCommand::Move {
+    cmds.push(BackgroundTask::Move {
         src_page,
         src_slots,
         dst_page,
@@ -234,7 +233,7 @@ pub(super) fn dispatch_move(
 }
 
 pub(super) fn dispatch_swap(
-    cmds: &mut HashSet<PendingCommand>,
+    cmds: &mut Vec<BackgroundTask>,
     src_page: usize,
     src_slot: usize,
     dst_page: usize,
@@ -243,7 +242,7 @@ pub(super) fn dispatch_swap(
     if src_page == dst_page && src_slot == dst_slot {
         return;
     }
-    cmds.insert(PendingCommand::Swap {
+    cmds.push(BackgroundTask::Swap {
         src_page,
         src_slot,
         dst_page,

@@ -1,9 +1,8 @@
+use crate::task::BackgroundTask;
 use std::collections::HashSet;
 
 use crate::app::rebuild::{PagesForRebuild, selected_pages_for_rebuild};
 use crate::state::{self, DataState, HoveredTarget, InteractionState, SlotSelection};
-
-use crate::app::pending::PendingCommand;
 
 pub(super) fn handle_drag_mode_toggle(interaction: &mut InteractionState, ctx: &egui::Context) {
     if ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::M)) {
@@ -39,17 +38,17 @@ pub(super) fn handle_zoom(interaction: &mut InteractionState, ctx: &egui::Contex
         Some(interaction.viewport.scroll.scroll_y * ratio + rel * (ratio - 1.0));
 }
 
-pub(super) fn handle_undo_redo(ctx: &egui::Context, cmds: &mut HashSet<PendingCommand>) {
+pub(super) fn handle_undo_redo(ctx: &egui::Context, cmds: &mut Vec<BackgroundTask>) {
     let redo = ctx.input_mut(|i| {
         i.consume_key(egui::Modifiers::CTRL, egui::Key::Y)
             || i.consume_key(egui::Modifiers::CTRL | egui::Modifiers::SHIFT, egui::Key::Z)
     });
     if redo {
-        cmds.insert(PendingCommand::Redo);
+        cmds.push(BackgroundTask::Redo);
         return;
     }
     if ctx.input_mut(|i| i.consume_key(egui::Modifiers::CTRL, egui::Key::Z)) {
-        cmds.insert(PendingCommand::Undo);
+        cmds.push(BackgroundTask::Undo);
     }
 }
 
@@ -105,7 +104,7 @@ pub(super) fn handle_place_hotkey(
     data: &DataState,
     interaction: &mut InteractionState,
     ctx: &egui::Context,
-    cmds: &mut HashSet<PendingCommand>,
+    cmds: &mut Vec<BackgroundTask>,
 ) {
     if !ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::P)) {
         return;
@@ -123,7 +122,7 @@ pub(super) fn handle_place_hotkey(
     if photo_ids.is_empty() {
         return;
     }
-    cmds.insert(PendingCommand::Place {
+    cmds.push(BackgroundTask::Place {
         photo_ids,
         dst_page: interaction
             .hovered
@@ -136,7 +135,7 @@ pub(super) fn handle_delete(
     data: &DataState,
     interaction: &mut InteractionState,
     ctx: &egui::Context,
-    cmds: &mut HashSet<PendingCommand>,
+    cmds: &mut Vec<BackgroundTask>,
 ) {
     if !ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Delete)) {
         return;
@@ -144,7 +143,7 @@ pub(super) fn handle_delete(
     if let Some(page) = interaction.selections.slots.page
         && !interaction.selections.slots.is_empty()
     {
-        cmds.insert(PendingCommand::Unplace {
+        cmds.push(BackgroundTask::Unplace {
             page,
             slots: interaction.selections.slots.slots_on_active_page(),
         });
@@ -165,7 +164,7 @@ pub(super) fn handle_delete(
                 .map(|lp| lp.slots.len())
                 .unwrap_or(0);
             if slot_count > 0 {
-                cmds.insert(PendingCommand::Unplace {
+                cmds.push(BackgroundTask::Unplace {
                     page,
                     slots: (0..slot_count).collect(),
                 });
@@ -178,13 +177,13 @@ pub(super) fn handle_rebuild(
     _data: &DataState,
     interaction: &InteractionState,
     ctx: &egui::Context,
-    cmds: &mut HashSet<PendingCommand>,
+    cmds: &mut Vec<BackgroundTask>,
 ) {
     if !ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::R)) {
         return;
     }
     if let PagesForRebuild::Selected(pages) = selected_pages_for_rebuild(interaction) {
-        cmds.insert(PendingCommand::RebuildPages { pages });
+        cmds.push(BackgroundTask::RebuildPages { pages });
     }
 }
 
@@ -213,11 +212,11 @@ pub(super) fn handle_fit_width(interaction: &mut InteractionState, ctx: &egui::C
     }
 }
 
-pub(super) fn handle_release_build(ctx: &egui::Context, cmds: &mut HashSet<PendingCommand>) {
+pub(super) fn handle_release_build(ctx: &egui::Context, cmds: &mut Vec<BackgroundTask>) {
     if ctx
         .input_mut(|i| i.consume_key(egui::Modifiers::CTRL | egui::Modifiers::SHIFT, egui::Key::B))
     {
-        cmds.insert(PendingCommand::ReleaseBuild);
+        cmds.push(BackgroundTask::ReleaseBuild);
     }
 }
 

@@ -9,84 +9,66 @@ pub enum BackgroundTask {
         pages: Vec<usize>,
         pixel_per_pt: f32,
     },
-    SwapSlots {
+    SetPixelPerPt(f32),
+    Swap {
         src_page: usize,
         src_slot: usize,
         dst_page: usize,
         dst_slot: usize,
-        pixel_per_pt: f32,
     },
-    MoveSlot {
+    Move {
         src_page: usize,
         src_slots: Vec<usize>,
         dst_page: usize,
-        pixel_per_pt: f32,
     },
-    Undo {
-        pixel_per_pt: f32,
-    },
-    Redo {
-        pixel_per_pt: f32,
-    },
+    Undo,
+    Redo,
     /// Nav-Drag: ganze Seiten tauschen.
     PageSwap {
         left: usize,
         right: usize,
-        pixel_per_pt: f32,
     },
     /// Foto-Thumbnails laden (Pool-Panel).
     LoadPhotoThumbnails {
         items: Vec<(String, PathBuf)>,
     },
     /// Fotos platzieren — konkrete Zielseite oder auto-distribute.
-    PlacePhotos {
+    Place {
         photo_ids: Vec<String>,
         dst_page: Option<usize>,
-        pixel_per_pt: f32,
     },
     /// `config set key value` im Background.
     ConfigSet {
         key: String,
         value: String,
-        pixel_per_pt: f32,
     },
     MoveToNewPage {
         src_page: usize,
         src_slots: Vec<usize>,
         at_position: usize,
-        pixel_per_pt: f32,
     },
     SwapRange {
         src_page: usize,
         src_slots: Vec<usize>,
         dst_page: usize,
         dst_slots: Vec<usize>,
-        pixel_per_pt: f32,
     },
     Unplace {
         page: usize,
         slots: Vec<usize>,
-        pixel_per_pt: f32,
     },
     DeletePages {
         pages: Vec<usize>,
-        pixel_per_pt: f32,
     },
     MovePage {
         src_page: usize,
         at_position: usize,
-        pixel_per_pt: f32,
     },
     RebuildPages {
         pages: Vec<usize>,
-        pixel_per_pt: f32,
     },
-    RebuildAll {
-        pixel_per_pt: f32,
-    },
-    ReleaseBuild {
-        pixel_per_pt: f32,
-    },
+    RebuildAll,
+    ReleaseBuild,
 }
 
 #[derive(Debug)]

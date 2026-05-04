@@ -1,15 +1,15 @@
+use crate::task::BackgroundTask;
 use std::collections::HashSet;
 
 use serde_yaml::Value;
 
-use crate::app::pending::PendingCommand;
 use crate::state::{DataState, InteractionState};
 
 pub fn show(
     ctx: &egui::Context,
     data: &DataState,
     interaction: &mut InteractionState,
-    cmds: &mut HashSet<PendingCommand>,
+    cmds: &mut Vec<BackgroundTask>,
 ) {
     let config_value = match serde_yaml::to_value(&data.project.config) {
         Ok(v) => v,
@@ -36,7 +36,7 @@ pub fn show(
 fn walk(
     ui: &mut egui::Ui,
     buffers: &mut std::collections::HashMap<String, String>,
-    cmds: &mut HashSet<PendingCommand>,
+    cmds: &mut Vec<BackgroundTask>,
     path: &str,
     value: &Value,
 ) {
@@ -71,7 +71,7 @@ fn walk(
 fn leaf_widget(
     ui: &mut egui::Ui,
     buffers: &mut std::collections::HashMap<String, String>,
-    cmds: &mut HashSet<PendingCommand>,
+    cmds: &mut Vec<BackgroundTask>,
     key: &str,
     current: &Value,
 ) {
@@ -87,7 +87,7 @@ fn leaf_widget(
     if let Value::Bool(b) = current {
         let mut val = *b;
         if ui.checkbox(&mut val, "").changed() {
-            cmds.insert(PendingCommand::ConfigSet {
+            cmds.push(BackgroundTask::ConfigSet {
                 key: key.to_string(),
                 value: val.to_string(),
             });
@@ -123,7 +123,7 @@ fn leaf_widget(
     };
 
     if let Some(v) = commit_value {
-        cmds.insert(PendingCommand::ConfigSet {
+        cmds.push(BackgroundTask::ConfigSet {
             key: key.to_string(),
             value: v,
         });
@@ -135,11 +135,11 @@ fn leaf_widget(
 
 #[cfg(test)]
 mod tests {
-    use std::collections::{HashMap, HashSet};
+    use std::collections::HashMap;
 
     use serde_yaml::Value;
 
-    use crate::app::pending::PendingCommand;
+    use crate::task::BackgroundTask;
 
     fn walk_collect_keys(value: &Value) -> Vec<String> {
         let mut keys = Vec::new();
@@ -185,20 +185,16 @@ mod tests {
         assert!(!keys.contains(&"outer".to_string()));
     }
 
-    fn simulate_leaf_commit(
-        current_str: &str,
-        buf_str: &str,
-        escape: bool,
-    ) -> HashSet<PendingCommand> {
+    fn simulate_leaf_commit(current_str: &str, buf_str: &str, escape: bool) -> Vec<BackgroundTask> {
         let key = "book.dpi";
         let mut buffers: HashMap<String, String> = HashMap::new();
         buffers.insert(key.to_string(), buf_str.to_string());
 
-        let mut cmds = HashSet::new();
+        let mut cmds = Vec::new();
 
         // Simulate lost_focus logic from leaf_widget
         if !escape && buf_str != current_str {
-            cmds.insert(PendingCommand::ConfigSet {
+            cmds.push(BackgroundTask::ConfigSet {
                 key: key.to_string(),
                 value: buf_str.to_string(),
             });
@@ -217,7 +213,7 @@ mod tests {
         // Different value → command
         let cmds = simulate_leaf_commit("150", "300", false);
         assert_eq!(cmds.len(), 1);
-        let PendingCommand::ConfigSet { key, value } = cmds.iter().next().unwrap() else {
+        let BackgroundTask::ConfigSet { key, value } = cmds.iter().next().unwrap() else {
             panic!()
         };
         assert_eq!(key, "book.dpi");

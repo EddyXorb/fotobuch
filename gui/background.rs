@@ -60,67 +60,50 @@ pub fn spawn(
                     rctx.pixel_per_pt = pixel_per_pt;
                     render::render_pages(&mut rctx, pages);
                 }
-                BackgroundTask::SwapSlots {
+                BackgroundTask::SetPixelPerPt(ppt) => {
+                    rctx.pixel_per_pt = ppt;
+                }
+                BackgroundTask::Swap {
                     src_page,
                     src_slot,
                     dst_page,
                     dst_slot,
-                    pixel_per_pt,
                 } => {
-                    rctx.pixel_per_pt = pixel_per_pt;
                     commands::run_swap_slots(src_page, src_slot, dst_page, dst_slot, &mut rctx);
                 }
-                BackgroundTask::MoveSlot {
+                BackgroundTask::Move {
                     src_page,
                     src_slots,
                     dst_page,
-                    pixel_per_pt,
                 } => {
-                    rctx.pixel_per_pt = pixel_per_pt;
                     commands::run_move_slot(src_page, src_slots, dst_page, &mut rctx);
                 }
-                BackgroundTask::Undo { pixel_per_pt } => {
-                    rctx.pixel_per_pt = pixel_per_pt;
+                BackgroundTask::Undo => {
                     commands::run_undo(&mut rctx);
                 }
-                BackgroundTask::Redo { pixel_per_pt } => {
-                    rctx.pixel_per_pt = pixel_per_pt;
+                BackgroundTask::Redo => {
                     commands::run_redo(&mut rctx);
                 }
-                BackgroundTask::PageSwap {
-                    left,
-                    right,
-                    pixel_per_pt,
-                } => {
-                    rctx.pixel_per_pt = pixel_per_pt;
+                BackgroundTask::PageSwap { left, right } => {
                     commands::run_page_swap(left, right, &mut rctx);
                 }
                 BackgroundTask::LoadPhotoThumbnails { items } => {
                     commands::run_load_photo_thumbnails(items, &pool, &result_tx, &repaint_ctx);
                 }
-                BackgroundTask::PlacePhotos {
+                BackgroundTask::Place {
                     photo_ids,
                     dst_page,
-                    pixel_per_pt,
                 } => {
-                    rctx.pixel_per_pt = pixel_per_pt;
                     commands::run_place_photos(photo_ids, dst_page, &mut rctx);
                 }
-                BackgroundTask::ConfigSet {
-                    key,
-                    value,
-                    pixel_per_pt,
-                } => {
-                    rctx.pixel_per_pt = pixel_per_pt;
+                BackgroundTask::ConfigSet { key, value } => {
                     commands::run_config_set(&key, &value, &mut rctx);
                 }
                 BackgroundTask::MoveToNewPage {
                     src_page,
                     src_slots,
                     at_position,
-                    pixel_per_pt,
                 } => {
-                    rctx.pixel_per_pt = pixel_per_pt;
                     commands::run_move_to_new_page(src_page, src_slots, at_position, &mut rctx);
                 }
                 BackgroundTask::SwapRange {
@@ -128,47 +111,28 @@ pub fn spawn(
                     src_slots,
                     dst_page,
                     dst_slots,
-                    pixel_per_pt,
                 } => {
-                    rctx.pixel_per_pt = pixel_per_pt;
                     commands::run_swap_range(src_page, src_slots, dst_page, dst_slots, &mut rctx);
                 }
-                BackgroundTask::Unplace {
-                    page,
-                    slots,
-                    pixel_per_pt,
-                } => {
-                    rctx.pixel_per_pt = pixel_per_pt;
+                BackgroundTask::Unplace { page, slots } => {
                     commands::run_unplace(page, slots, &mut rctx);
                 }
-                BackgroundTask::DeletePages {
-                    pages,
-                    pixel_per_pt,
-                } => {
-                    rctx.pixel_per_pt = pixel_per_pt;
+                BackgroundTask::DeletePages { pages } => {
                     commands::run_delete_pages(pages, &mut rctx);
                 }
                 BackgroundTask::MovePage {
                     src_page,
                     at_position,
-                    pixel_per_pt,
                 } => {
-                    rctx.pixel_per_pt = pixel_per_pt;
                     commands::run_move_page(src_page, at_position, &mut rctx);
                 }
-                BackgroundTask::RebuildPages {
-                    pages,
-                    pixel_per_pt,
-                } => {
-                    rctx.pixel_per_pt = pixel_per_pt;
+                BackgroundTask::RebuildPages { pages } => {
                     commands::run_rebuild_pages(pages, &mut rctx);
                 }
-                BackgroundTask::RebuildAll { pixel_per_pt } => {
-                    rctx.pixel_per_pt = pixel_per_pt;
+                BackgroundTask::RebuildAll => {
                     commands::run_rebuild_all(&mut rctx);
                 }
-                BackgroundTask::ReleaseBuild { pixel_per_pt } => {
-                    rctx.pixel_per_pt = pixel_per_pt;
+                BackgroundTask::ReleaseBuild => {
                     commands::run_release_build(&mut rctx);
                 }
             }

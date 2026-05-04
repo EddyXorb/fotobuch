@@ -1,3 +1,4 @@
+use crate::task::BackgroundTask;
 mod drag;
 mod hotkeys;
 
@@ -5,15 +6,13 @@ use std::collections::HashSet;
 
 use crate::state::{DataState, InteractionState};
 
-use super::pending::PendingCommand;
-
 /// Top-level input dispatcher — called once per frame before painting.
 pub fn handle(
     data: &mut DataState,
     interaction: &mut InteractionState,
     ctx: &egui::Context,
-) -> HashSet<PendingCommand> {
-    let mut cmds = HashSet::new();
+) -> Vec<BackgroundTask> {
+    let mut cmds = Vec::new();
 
     hotkeys::handle_timings_toggle(data, ctx);
     hotkeys::handle_drag_mode_toggle(interaction, ctx);

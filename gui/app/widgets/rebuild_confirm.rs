@@ -1,12 +1,12 @@
+use crate::task::BackgroundTask;
 use std::collections::HashSet;
 
-use crate::app::pending::PendingCommand;
 use crate::state::InteractionState;
 
 pub fn show(
     ctx: &egui::Context,
     interaction: &mut InteractionState,
-    cmds: &mut HashSet<PendingCommand>,
+    cmds: &mut Vec<BackgroundTask>,
 ) {
     if !interaction.rebuild_all_confirm {
         return;
@@ -25,7 +25,7 @@ pub fn show(
                     interaction.rebuild_all_confirm = false;
                 }
                 if ui.button("Rebuild all").clicked() {
-                    cmds.insert(PendingCommand::RebuildAll);
+                    cmds.push(BackgroundTask::RebuildAll);
                     interaction.rebuild_all_confirm = false;
                 }
             });

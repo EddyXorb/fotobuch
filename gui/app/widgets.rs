@@ -1,3 +1,4 @@
+use crate::task::BackgroundTask;
 use std::collections::HashSet;
 
 use crate::state::{DataState, InteractionState};
@@ -20,7 +21,7 @@ pub fn draw_widgets(
     ctx: &egui::Context,
     data: &DataState,
     interaction: &mut InteractionState,
-) -> HashSet<super::pending::PendingCommand> {
+) -> Vec<BackgroundTask> {
     // Clear per-frame hover state before widgets re-populate it.
     interaction.hovered = None;
     let mut cmds = toolbar::draw(ui, interaction);

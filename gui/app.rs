@@ -1,5 +1,4 @@
 mod input_handler;
-mod pending;
 pub(super) mod rebuild;
 mod widgets;
 
@@ -15,8 +14,6 @@ use crate::task::{BackgroundResult, BackgroundTask};
 use fotobuch::dto_models::ProjectState;
 use fotobuch::output::typst::RenderedPage;
 use std::time::Duration;
-
-use pending::PendingCommand;
 
 pub struct FotobuchApp {
     state: GuiState,
@@ -172,98 +169,20 @@ impl FotobuchApp {
         true
     }
 
-    fn dispatch_commands(&mut self, cmds: HashSet<PendingCommand>) {
+    fn dispatch_commands(&mut self, cmds: Vec<BackgroundTask>) {
+        if cmds.is_empty() {
+            return;
+        }
         let ppt = self.state.interaction.viewport.pixel_per_pt;
-        for cmd in cmds {
-            let task = match cmd {
-                PendingCommand::Swap {
-                    src_page,
-                    src_slot,
-                    dst_page,
-                    dst_slot,
-                } => BackgroundTask::SwapSlots {
-                    src_page,
-                    src_slot,
-                    dst_page,
-                    dst_slot,
-                    pixel_per_pt: ppt,
-                },
-                PendingCommand::Move {
-                    src_page,
-                    src_slots,
-                    dst_page,
-                } => BackgroundTask::MoveSlot {
-                    src_page,
-                    src_slots,
-                    dst_page,
-                    pixel_per_pt: ppt,
-                },
-                PendingCommand::Undo => BackgroundTask::Undo { pixel_per_pt: ppt },
-                PendingCommand::Redo => BackgroundTask::Redo { pixel_per_pt: ppt },
-                PendingCommand::Place {
-                    photo_ids,
-                    dst_page,
-                } => BackgroundTask::PlacePhotos {
-                    photo_ids,
-                    dst_page,
-                    pixel_per_pt: ppt,
-                },
-                PendingCommand::PageSwap { left, right } => BackgroundTask::PageSwap {
-                    left,
-                    right,
-                    pixel_per_pt: ppt,
-                },
-                PendingCommand::ConfigSet { key, value } => BackgroundTask::ConfigSet {
-                    key,
-                    value,
-                    pixel_per_pt: ppt,
-                },
-                PendingCommand::MoveToNewPage {
-                    src_page,
-                    src_slots,
-                    at_position,
-                } => BackgroundTask::MoveToNewPage {
-                    src_page,
-                    src_slots,
-                    at_position,
-                    pixel_per_pt: ppt,
-                },
-                PendingCommand::SwapRange {
-                    src_page,
-                    src_slots,
-                    dst_page,
-                    dst_slots,
-                } => BackgroundTask::SwapRange {
-                    src_page,
-                    src_slots,
-                    dst_page,
-                    dst_slots,
-                    pixel_per_pt: ppt,
-                },
-                PendingCommand::Unplace { page, slots } => BackgroundTask::Unplace {
-                    page,
-                    slots,
-                    pixel_per_pt: ppt,
-                },
-                PendingCommand::DeletePages { pages } => BackgroundTask::DeletePages {
-                    pages,
-                    pixel_per_pt: ppt,
-                },
-                PendingCommand::MovePage {
-                    src_page,
-                    at_position,
-                } => BackgroundTask::MovePage {
-                    src_page,
-                    at_position,
-                    pixel_per_pt: ppt,
-                },
-                PendingCommand::RebuildPages { pages } => BackgroundTask::RebuildPages {
-                    pages,
-                    pixel_per_pt: ppt,
-                },
-                PendingCommand::RebuildAll => BackgroundTask::RebuildAll { pixel_per_pt: ppt },
-                PendingCommand::ReleaseBuild => BackgroundTask::ReleaseBuild { pixel_per_pt: ppt },
-            };
+        if self
+            .task_tx
+            .send(BackgroundTask::SetPixelPerPt(ppt))
+            .is_err()
+        {
+            tracing::error!("background worker closed; command dropped");
+            return;
+        }
+        for task in cmds {
             mark_dirty(&mut self.state.data.pages.dirty, &task);
             if self.task_tx.send(task).is_err() {
                 tracing::error!("background worker closed; command dropped");
@@ -323,10 +242,10 @@ fn install_fallback_font(ctx: &egui::Context) {
 
 fn mark_dirty(dirty: &mut [bool], task: &BackgroundTask) {
     match task {
-        BackgroundTask::SwapSlots {
+        BackgroundTask::Swap {
             src_page, dst_page, ..
         }
-        | BackgroundTask::MoveSlot {
+        | BackgroundTask::Move {
             src_page, dst_page, ..
         }
         | BackgroundTask::PageSwap {
@@ -340,7 +259,7 @@ fn mark_dirty(dirty: &mut [bool], task: &BackgroundTask) {
                 }
             }
         }
-        BackgroundTask::PlacePhotos {
+        BackgroundTask::Place {
             dst_page: Some(p), ..
         } => {
             if let Some(d) = dirty.get_mut(*p) {
@@ -362,7 +281,7 @@ fn mark_dirty(dirty: &mut [bool], task: &BackgroundTask) {
         BackgroundTask::Undo { .. }
         | BackgroundTask::Redo { .. }
         | BackgroundTask::ConfigSet { .. }
-        | BackgroundTask::PlacePhotos { dst_page: None, .. }
+        | BackgroundTask::Place { dst_page: None, .. }
         | BackgroundTask::MoveToNewPage { .. }
         | BackgroundTask::MovePage { .. }
         | BackgroundTask::SwapRange { .. }
@@ -371,7 +290,9 @@ fn mark_dirty(dirty: &mut [bool], task: &BackgroundTask) {
         | BackgroundTask::ReleaseBuild { .. } => {
             dirty.fill(true);
         }
-        BackgroundTask::RenderPages { .. } | BackgroundTask::LoadPhotoThumbnails { .. } => {}
+        BackgroundTask::RenderPages { .. }
+        | BackgroundTask::SetPixelPerPt(..)
+        | BackgroundTask::LoadPhotoThumbnails { .. } => {}
     }
 }
 
