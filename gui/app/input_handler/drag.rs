@@ -135,7 +135,7 @@ pub(super) fn complete_slot_drag(
     interaction: &mut InteractionState,
     cmds: &mut Vec<BackgroundTask>,
     src_page: usize,
-    _src_slot: usize,
+    src_slot: usize,
     src_slots: Vec<usize>,
 ) {
     if let Some(at_position) = interaction
@@ -157,6 +157,13 @@ pub(super) fn complete_slot_drag(
         .get(src_page)
         .map(|p| p.mode == PageMode::Manual)
         .unwrap_or(false);
+
+    // On a manual page slots can freely overlap; only move the directly-clicked slot.
+    let src_slots = if src_is_manual {
+        vec![src_slot]
+    } else {
+        src_slots
+    };
 
     let hovered_slot = interaction.hovered.as_ref().and_then(|h| h.slot());
     let effective_page = interaction.hovered.as_ref().and_then(|h| h.page_idx());
