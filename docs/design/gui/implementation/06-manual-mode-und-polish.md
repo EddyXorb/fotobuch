@@ -730,141 +730,18 @@ Tests:
 
 ## 6.2 — Polish
 
-Sechs kleine, unabhängige Features. Reihenfolge egal, ein Commit pro
-Feature. Wenn ein Feature neuen State braucht, wird der unmittelbar vor
-dem Feature-Commit in `state/` angelegt.
+Vier kleine, unabhängige Features (Drag-Ghosts, Smooth Scrolling,
+Kontextmenü, Toasts) plus die Weight-UX (6.2.5). Reihenfolge egal, ein
+Commit pro Feature. Wenn ein Feature neuen State braucht, wird er
+unmittelbar vor dem Feature-Commit in `state/` angelegt.
 
-### 6.2.1 Zoom-Debouncing
+> Die früher hier vorgesehenen Themen Zoom-Debouncing, Render-
+> Cancellation und Thumbnails-für-Off-Screen-Seiten sind aus Phase 6
+> herausgenommen — sie sind kein Blocker für Manual-Mode + Pool-Add/
+> Remove und werden, falls notwendig, separat als Performance-Pass
+> nachgezogen.
 
-`Viewport::zoom` schreibt in `handle_zoom` (input_handler.rs:49-69) sofort.
-Das genügt für die GPU-Skalierung der bestehenden Textur, aber der
-eigentliche Re-Render mit höherem `pixel_per_pt` muss **erst nach Ruhe**
-erfolgen, damit die Pipeline nicht bei jedem Scroll-Tick anläuft.
-
-State:
-
-```rust
-// gui/state/viewport.rs
-pub struct Viewport {
-    // … bestehende Felder …
-    /// Timestamp des letzten Zoom-Delta. `None` = stabil.
-    pub zoom_last_change: Option<std::time::Instant>,
-    /// Letzter `pixel_per_pt`-Wert, zu dem gerendert wurde.
-    pub zoom_last_rendered_ppp: f32,
-}
-```
-
-In `FotobuchApp::logic` (bzw. `update`-Äquivalent) nach `handle_input`:
-
-```rust
-const ZOOM_DEBOUNCE: std::time::Duration = std::time::Duration::from_millis(200);
-
-if let Some(t) = self.state.interaction.viewport.zoom_last_change
-    && t.elapsed() >= ZOOM_DEBOUNCE
-{
-    let ppp = self.state.interaction.viewport.zoom * self.state.data.pages.base_pixel_per_pt;
-    let last = self.state.interaction.viewport.zoom_last_rendered_ppp;
-    if (ppp - last).abs() / last > 0.05 {   // mehr als 5% Unterschied → Re-Render lohnt
-        let pages: Vec<usize> = (0..self.state.data.pages.textures.len()).collect();
-        let _ = self.task_tx.send(BackgroundTask::RenderPages { pages, pixel_per_pt: ppp });
-        self.state.interaction.viewport.zoom_last_rendered_ppp = ppp;
-    }
-    self.state.interaction.viewport.zoom_last_change = None;
-}
-```
-
-`handle_zoom` schreibt zusätzlich:
-
-```rust
-interaction.viewport.zoom_last_change = Some(std::time::Instant::now());
-```
-
-`ctx.request_repaint_after(ZOOM_DEBOUNCE)` in `handle_zoom`, damit der
-Debounce-Tick auch ohne weitere Input-Events feuert.
-
-Tests:
-- `viewport::zoom_debounce_emits_after_quiet_period` (simuliert Instant
-  mit `mock_instant` oder extrahiert die Entscheidung als pure Funktion
-  `should_rerender(last_change, now, last_ppp, new_ppp) -> bool`).
-
-### 6.2.2 Render-Cancellation
-
-Das existierende `BackgroundResult::PageRendered`-Handling schluckt jedes
-Rendering, auch wenn die Seite zwischendurch schon wieder neu angefragt
-wurde. Bei schnellen Zoom-Sprüngen oder konsekutiven Commands stapeln sich
-veraltete Pixelbuffer im Channel und überschreiben die frische Textur.
-
-Lösung analog zu `docs/design/gui/02-architektur.md` § „Epoch-basierte
-Invalidierung":
-
-1. `PageCache` bekommt `render_epochs: Vec<u64>` (index-coupled mit
-   `textures`).
-2. `BackgroundTask::RenderPages` und `PageRendered` tragen `epoch: u64`.
-3. Vor jedem `RenderPages`-Send inkrementiert die UI pro betroffener Seite
-   `render_epochs[p]`.
-4. `drain_results` verwirft `PageRendered { epoch, page }` still, wenn
-   `epoch < render_epochs[page.page]`.
-
-Task + Result:
-
-```rust
-BackgroundTask::RenderPages { pages: Vec<(usize, u64 /* epoch */)>, pixel_per_pt: f32 }
-BackgroundResult::PageRendered {
-    page: RenderedPage, thumb: RenderedPage,
-    epoch: u64,
-    rasterize_duration: Duration,
-    compile_duration: Duration,
-}
-```
-
-**Break-Change**: alle bestehenden `RenderPages`-Callsites in
-`background/commands.rs` (nach `execute_move`, `place`, `config_set`, etc.)
-müssen den Epoch-Wert mitgeben. Einfachstes Muster: Der UI-Thread baut
-`Vec<(usize, u64)>` indem er nach jedem dirty-pages-bumping die neuen
-Epochen sammelt und an den Task hängt — der Worker leitet sie nur durch.
-
-Commit: `feat(gui): epoch-based render cancellation`.
-
-Tests:
-- `page_cache::bump_epochs_increments_only_listed_pages`.
-- `app::stale_page_rendered_is_dropped`.
-
-### 6.2.3 Thumbnails statt Full-Res für Off-Screen-Seiten
-
-Im UI-Thread pro Frame in `draw_page` entscheiden, ob die Seite in der
-aktuellen Viewport-Region liegt:
-
-```rust
-let viewport_top    = interaction.viewport.scroll.viewport_top;
-let viewport_bottom = viewport_top + ui.available_height();
-let visible = page_rect.max.y > viewport_top && page_rect.min.y < viewport_bottom;
-
-if visible {
-    if let Some(tex) = &data.pages.textures[page_idx] {
-        ui.add(egui::Image::from_texture(tex).fit_to_exact_size(size));
-    }
-} else if let Some(thumb) = &data.pages.thumb_textures[page_idx] {
-    ui.add(egui::Image::from_texture(thumb).fit_to_exact_size(size));
-}
-```
-
-Full-Res-Texturen werden für nicht sichtbare Seiten **nicht** entladen —
-nur nicht gezeichnet. Das ist billiger als Re-Upload beim nächsten Scroll
-und kostet nur GPU-Memory.
-
-**Dispatch-Regel**: `RenderPages`-Tasks anfragen nur für Seiten, die im
-Viewport sichtbar sind ODER dirty sind. Off-Screen-Dirty-Pages warten, bis
-sie in den Viewport scrollen. Umsetzung: neue `visible_pages()`-Helper aus
-`scroll_offset + viewport_height` + `page_rect_cache` (Phase 3 bereits
-vorgesehen) — rein UI-Thread-seitige Rechnung.
-
-Commit: `feat(gui): use thumbs for off-screen pages, render only visible`.
-
-Tests:
-- `viewport::visible_pages_returns_intersecting_indices`.
-- `app::off_screen_dirty_page_does_not_emit_render_task`.
-
-### 6.2.4 Drag-Ghosts
+### 6.2.1 Drag-Ghosts
 
 Das bestehende `draw_drag_ghosts.rs` wird erweitert: Während
 `ActiveDrag::Dragging(src)` zeichnet die UI auf `ctx.layer_painter(top)`
