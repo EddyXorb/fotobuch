@@ -10,6 +10,7 @@ mod config_window;
 mod context_menu;
 mod geometry;
 mod goto_dialog;
+mod history_panel;
 mod new_project_dialog;
 mod page_nav;
 mod photo_pool;
@@ -48,6 +49,7 @@ pub fn draw_widgets(
     toasts::show(ctx, &mut interaction.toasts);
     weight_slider::show(ctx, interaction, &mut cmds);
     welcome_modal::show(ctx, interaction, &mut cmds);
+    history_panel::show(ctx, data, interaction);
 
     cmds
 }
