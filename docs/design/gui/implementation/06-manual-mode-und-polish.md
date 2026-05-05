@@ -12,33 +12,48 @@ Kontextmenüs.
 
 ## Status quo (Referenzpunkte im Code)
 
-- `LayoutPage.mode: PageMode` existiert (`src/dto_models/layout/layout_page.rs:30-36`).
+- `LayoutPage.mode: PageMode` existiert (`src/dto_models/layout/layout_page.rs`).
   YAML-Backward-Compat via `#[serde(default)]` + `skip_serializing_if = "is_auto"`
   erledigt.
-- Lib: `execute_pos(project_root, page, slots, PosConfig)` verschiebt /
-  skaliert Slots einer **Manual**-Seite
-  (`src/commands/page/pos.rs:67-129`). `PosConfig { position:
-  Option<PosMode>, scale: Option<f64> }`, `PosMode::Relative { dx_mm, dy_mm }`
-  bzw. `Absolute { x_mm, y_mm }`. Manual-Check hart eingebaut —
-  Auto-Pages liefern `ValidationError::PageNotManual`.
+- Lib: `execute_pos(project_root, page, slots, &PosConfig)` verschiebt /
+  skaliert Slots einer **Manual**-Seite (`src/commands/page/pos.rs`).
+  `PosConfig { position: Option<PosMode>, scale: Option<f64> }`,
+  `PosMode::Relative { dx_mm, dy_mm }` bzw. `Absolute { x_mm, y_mm }`.
+  Manual-Check hart eingebaut — Auto-Pages liefern
+  `ValidationError::PageNotManual`.
 - Lib: `execute_mode(project_root, PagesExpr, PageMode)` toggelt den Modus
-  (`src/commands/page/mode.rs:21-54`).
+  (`src/commands/page/mode.rs`).
 - Lib: `commands::add::add(...)` und `commands::remove::remove(...)`
-  existieren komplett (`src/commands/add.rs:85-211`, `remove.rs:209-271`),
-  werden von der GUI aber noch nicht aufgerufen.
-- **Solver-Lücke**: der Kommentar in `incremental_build.rs:68` („skip
-  manual pages") hält nicht — die Schleife ruft `rebuild_single_page`
-  uneingeschränkt auf, und `rebuild_single` in `src/commands/rebuild.rs:116`
-  wirft `anyhow::bail!` bei `PageMode::Manual`. Phase 6.1 zieht diesen Fix
-  auf Lib-Ebene mit.
+  existieren komplett (`src/commands/add.rs`, `src/commands/remove.rs`),
+  werden von der GUI aber noch nicht aufgerufen. `AddConfig.allow_duplicates`
+  ist bereits vorhanden — Default in der GUI: `false` (siehe 6.0.1).
+- **Solver-Lücke**: der Kommentar in
+  `src/commands/build/incremental_build.rs:81` („skip manual pages") hält
+  nicht — die Schleife ruft `rebuild_single_page` uneingeschränkt auf, und
+  `rebuild_single` in `src/commands/rebuild.rs:116` wirft `anyhow::bail!`
+  bei `PageMode::Manual`. Phase 6.1 zieht diesen Fix auf Lib-Ebene mit.
+- GUI dispatcht direkt über `BackgroundTask` (kein zwischengeschalteter
+  `PendingCommand`). Hotkeys/Toolbar pushen Tasks in
+  `Vec<BackgroundTask>` und der Worker schaltet in `gui/background.rs`
+  per `match` durch.
 - `Viewport::zoom` wird in `handle_zoom` sofort gesetzt
-  (`gui/app/input_handler.rs:49-69`). Kein Debouncing, kein
-  Re-Render-Trigger.
-- `draw_drag_ghosts.rs` ist vorhanden, aber kein Vollbild-Drag-Ghost
-  sondern nur Skeleton. Der UX sieht einen halbtransparenten Thumbnail-Stack
-  am Cursor vor.
+  (`gui/app/input_handler/hotkeys.rs::handle_zoom`). Re-Render läuft
+  trotzdem nach jedem Zoom-Tick — Render-Cancellation und Debouncing sind
+  kein Phase-6-Scope (siehe 6.2 — gestrichen).
+- `gui/app/widgets/central_panel/draw_drag_ghosts.rs` zeichnet bereits
+  einen Slot-Ghost mit Stack-Effekt für Multi-Selektion. Phase 6 verbessert
+  ihn (siehe 6.2.1 ehem. 6.2.4).
+- `gui/app/widgets/photo_pool.rs::draw_pool_drag_ghost` zeichnet den
+  Pool-Drag-Ghost. Bleibt unverändert.
 - Toasts: `BackgroundResult::CommandFailed(String)` wird in `drain_results`
-  nur geloggt (siehe Phase-3-TODO). Kein UI-Feedback.
+  nur geloggt. Kein UI-Feedback.
+- `AddDialogState` ist heute nur ein `bool` (`InteractionState::add_dialog_open`),
+  Widget `gui/app/widgets/add_dialog.rs` zeigt einen "Not yet implemented"-
+  Stub (Phase 5.3.7). Phase 6 ersetzt den Stub durch die echte UI.
+- Phase 5 hat den Hover-Pfad für Page-Delete entfernt — Page/NavPage-Delete
+  läuft heute ausschließlich über die **Nav-Selektion**
+  (`gui/app/input_handler/hotkeys.rs::handle_delete`). Phase 6 fügt **nur**
+  den neuen Pool-Selektions-Pfad an.
 
 ---
 
