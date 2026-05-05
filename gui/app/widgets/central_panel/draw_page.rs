@@ -36,8 +36,11 @@ pub(super) fn draw_page(
         // Manual-mode drag handling (move + SE resize via RMB).
         use fotobuch::dto_models::PageMode;
         if layout_page.mode == PageMode::Manual {
-            let pixel_per_mm = if dims.width_mm > 0.0 {
-                page_rect.width() as f64 / dims.width_mm
+            // pixel_per_mm must use the full physical page width (including bleed),
+            // because that is what page_rect.width() represents and what slot_rect_on_screen uses.
+            let full_w_mm = dims.width_mm + 2.0 * dims.bleed_mm;
+            let pixel_per_mm = if full_w_mm > 0.0 {
+                page_rect.width() as f64 / full_w_mm
             } else {
                 1.0
             };
@@ -243,21 +246,6 @@ fn se_corner_rect(slot_rect: egui::Rect) -> egui::Rect {
     egui::Rect::from_center_size(slot_rect.right_bottom(), egui::vec2(SZ, SZ))
 }
 
-/// Convert a slot's mm-coordinates to a screen rect within the page rect.
-fn slot_screen_rect(
-    slot: &fotobuch::dto_models::Slot,
-    page_rect: egui::Rect,
-    dims: PageDimensions,
-) -> egui::Rect {
-    let px_per_mm_x = page_rect.width() / dims.width_mm as f32;
-    let px_per_mm_y = page_rect.height() / dims.height_mm as f32;
-    let x = page_rect.left() + slot.x_mm as f32 * px_per_mm_x;
-    let y = page_rect.top() + slot.y_mm as f32 * px_per_mm_y;
-    let w = slot.width_mm as f32 * px_per_mm_x;
-    let h = slot.height_mm as f32 * px_per_mm_y;
-    egui::Rect::from_min_size(egui::pos2(x, y), egui::vec2(w, h))
-}
-
 #[allow(clippy::too_many_arguments)]
 fn handle_manual_drag(
     ui: &mut egui::Ui,
@@ -282,7 +270,7 @@ fn handle_manual_drag(
     // On RMB press: check if hovering a slot or its SE corner on this manual page.
     if rmb_pressed && matches!(interaction.drag.manual, ManualDrag::Idle) {
         for (slot_idx, slot) in layout_page.slots.iter().enumerate() {
-            let slot_rect = slot_screen_rect(slot, page_rect, dims);
+            let slot_rect = geometry::slot_rect_on_screen(page_rect, dims, slot);
             let se = se_corner_rect(slot_rect);
             if se.contains(cursor) {
                 interaction.drag.manual = ManualDrag::Resize {
@@ -306,7 +294,7 @@ fn handle_manual_drag(
 
     // Draw SE-corner handles for manual slots.
     for slot in &layout_page.slots {
-        let slot_rect = slot_screen_rect(slot, page_rect, dims);
+        let slot_rect = geometry::slot_rect_on_screen(page_rect, dims, slot);
         let se = se_corner_rect(slot_rect);
         ui.painter().rect_filled(
             se,
@@ -333,7 +321,7 @@ fn handle_manual_drag(
                     width_mm: slot_data.width_mm,
                     height_mm: slot_data.height_mm,
                 };
-                let r = slot_screen_rect(&preview_slot, page_rect, dims);
+                let r = geometry::slot_rect_on_screen(page_rect, dims, &preview_slot);
                 ui.painter().rect_stroke(
                     r,
                     0.0,
@@ -358,7 +346,7 @@ fn handle_manual_drag(
                     width_mm: new_w,
                     height_mm: new_h,
                 };
-                let r = slot_screen_rect(&preview_slot, page_rect, dims);
+                let r = geometry::slot_rect_on_screen(page_rect, dims, &preview_slot);
                 ui.painter().rect_stroke(
                     r,
                     0.0,
