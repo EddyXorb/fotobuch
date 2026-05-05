@@ -278,9 +278,9 @@ fn handle_manual_drag(
     let rmb_released = ui.input(|i| i.pointer.secondary_released());
     let cursor = ui.input(|i| i.pointer.hover_pos()).unwrap_or_default();
 
-    // On RMB press: check if hovering a slot or its SE corner on this manual page.
+    // On RMB press: pick the topmost (last-drawn = highest index) slot under the cursor.
     if rmb_pressed && matches!(interaction.drag.manual, ManualDrag::Idle) {
-        for (slot_idx, slot) in layout_page.slots.iter().enumerate() {
+        for (slot_idx, slot) in layout_page.slots.iter().enumerate().rev() {
             let slot_rect = geometry::slot_rect_on_screen(page_rect, dims, slot);
             let se = se_corner_rect(slot_rect);
             if se.contains(cursor) {
@@ -303,15 +303,17 @@ fn handle_manual_drag(
         }
     }
 
-    // Draw SE-corner handles for manual slots.
-    for slot in &layout_page.slots {
-        let slot_rect = geometry::slot_rect_on_screen(page_rect, dims, slot);
-        let se = se_corner_rect(slot_rect);
-        ui.painter().rect_filled(
-            se,
-            0.0,
-            egui::Color32::from_rgba_unmultiplied(255, 200, 0, 200),
-        );
+    // Draw SE-corner handles only when no manual drag is active (avoid visual clutter).
+    if matches!(interaction.drag.manual, ManualDrag::Idle) {
+        for slot in &layout_page.slots {
+            let slot_rect = geometry::slot_rect_on_screen(page_rect, dims, slot);
+            let se = se_corner_rect(slot_rect);
+            ui.painter().rect_filled(
+                se,
+                0.0,
+                egui::Color32::from_rgba_unmultiplied(255, 200, 0, 200),
+            );
+        }
     }
 
     // Draw optimistic overlay for active manual drag.
