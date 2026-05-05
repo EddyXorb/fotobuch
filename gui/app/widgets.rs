@@ -14,17 +14,18 @@ mod page_nav;
 mod photo_pool;
 mod rebuild_confirm;
 mod statusbar;
+mod toasts;
 mod toolbar;
 
 pub fn draw_widgets(
     ui: &mut egui::Ui,
     ctx: &egui::Context,
-    data: &DataState,
+    data: &mut DataState,
     interaction: &mut InteractionState,
 ) -> Vec<BackgroundTask> {
     // Clear per-frame hover state before widgets re-populate it.
     interaction.hovered = None;
-    let mut cmds = toolbar::draw(ui, interaction);
+    let mut cmds = toolbar::draw(ui, data, interaction);
     statusbar::draw(ui, data, interaction);
     // Side panels must come before the central panel (egui ordering requirement).
     photo_pool::draw(ui, data, interaction);
@@ -40,6 +41,7 @@ pub fn draw_widgets(
     rebuild_confirm::show(ctx, interaction, &mut cmds);
     add_dialog::show(ctx, interaction, &mut cmds);
     context_menu::show(ctx, data, interaction, &mut cmds);
+    toasts::show(ctx, data);
 
     cmds
 }

@@ -147,6 +147,7 @@ impl FotobuchApp {
 
     fn handle_command_failed(&mut self, e: String) {
         tracing::error!(%e, "command failed");
+        self.state.data.toasts.push(e);
         unset_dirty_pages(&mut self.state.data.pages.dirty);
     }
 
@@ -312,7 +313,7 @@ impl eframe::App for FotobuchApp {
 
         let t = Instant::now();
         let mut cmds =
-            widgets::draw_widgets(ui, &ctx, &self.state.data, &mut self.state.interaction);
+            widgets::draw_widgets(ui, &ctx, &mut self.state.data, &mut self.state.interaction);
         self.state.data.timings.show_panels = t.elapsed();
 
         // Input handling runs after central panel so that hovered_slot reflects the current

@@ -10,6 +10,7 @@ mod pool;
 mod selection;
 mod selections;
 mod timings;
+mod toasts;
 mod viewport;
 
 pub use add_dialog::AddDialogState;
@@ -24,6 +25,7 @@ pub use pool::PhotoSelection;
 pub use selection::SlotSelection;
 pub use selections::Selections;
 pub use timings::Timings;
+pub use toasts::ToastQueue;
 pub use viewport::Viewport;
 
 use std::collections::HashMap;
@@ -38,6 +40,7 @@ pub struct DataState {
     pub pages: PageCache,
     pub thumbs: HashMap<String, TextureHandle>,
     pub timings: Timings,
+    pub toasts: ToastQueue,
 }
 
 pub struct InteractionState {
@@ -68,6 +71,7 @@ impl GuiState {
                 pages: PageCache::new(num_pages),
                 thumbs: HashMap::new(),
                 timings: Timings::default(),
+                toasts: ToastQueue::default(),
             },
             interaction: InteractionState {
                 selections: Selections::default(),

@@ -1,22 +1,32 @@
 use crate::task::BackgroundTask;
 
 use crate::app::rebuild::{PagesForRebuild, selected_pages_for_rebuild};
-use crate::state::{DragMode, HoveredTarget, InteractionState};
+use crate::state::{DataState, DragMode, HoveredTarget, InteractionState};
 use fotobuch::commands::PlaceDst;
 
-pub fn draw(ui: &mut egui::Ui, interaction: &mut InteractionState) -> Vec<BackgroundTask> {
+pub fn draw(
+    ui: &mut egui::Ui,
+    data: &DataState,
+    interaction: &mut InteractionState,
+) -> Vec<BackgroundTask> {
     egui::Panel::top("toolbar")
-        .show_inside(ui, |ui| show(ui, interaction))
+        .show_inside(ui, |ui| show(ui, data, interaction))
         .inner
 }
 
-fn show(ui: &mut egui::Ui, interaction: &mut InteractionState) -> Vec<BackgroundTask> {
+fn show(
+    ui: &mut egui::Ui,
+    data: &DataState,
+    interaction: &mut InteractionState,
+) -> Vec<BackgroundTask> {
     let mut cmds = Vec::new();
     ui.horizontal(|ui| {
         rebuild_button(ui, interaction, &mut cmds);
         release_button(ui, &mut cmds);
         history_buttons(ui, &mut cmds);
         config_button(ui, interaction);
+        ui.separator();
+        slot_info_checkbox(ui, data, &mut cmds);
         ui.separator();
         place_button(ui, interaction, &mut cmds);
         ui.separator();
@@ -115,5 +125,15 @@ fn drag_mode_buttons(ui: &mut egui::Ui, interaction: &mut InteractionState) {
         .clicked()
     {
         interaction.drag.mode = DragMode::Move;
+    }
+}
+
+fn slot_info_checkbox(ui: &mut egui::Ui, data: &DataState, cmds: &mut Vec<BackgroundTask>) {
+    let mut show = data.project.config.preview.show_slot_info;
+    if ui.checkbox(&mut show, "Slot info").changed() {
+        cmds.push(BackgroundTask::ConfigSet {
+            key: "preview.show_slot_info".to_string(),
+            value: show.to_string(),
+        });
     }
 }
