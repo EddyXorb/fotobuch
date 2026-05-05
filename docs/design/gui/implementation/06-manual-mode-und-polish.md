@@ -741,30 +741,63 @@ unmittelbar vor dem Feature-Commit in `state/` angelegt.
 > Remove und werden, falls notwendig, separat als Performance-Pass
 > nachgezogen.
 
-### 6.2.1 Drag-Ghosts
+### 6.2.1 Drag-Ghosts (Slot-Drag verbessern)
 
-Das bestehende `draw_drag_ghosts.rs` wird erweitert: Während
-`ActiveDrag::Dragging(src)` zeichnet die UI auf `ctx.layer_painter(top)`
-ein halbtransparentes Thumbnail des Drag-Inhalts am Cursor.
+Slot-Ghosts sollen das **tatsächliche Foto** zeigen, nicht einen Block-
+Rect-Stack. Pool- und NavPage-Ghosts bleiben unverändert
+(`gui/app/widgets/photo_pool.rs::draw_pool_drag_ghost` zeichnet bereits
+gedimmte Pool-Thumbs gestapelt; NavPage hat keinen eigenen Ghost und
+braucht auch keinen).
 
-| Quelle | Ghost |
+Datenquelle: jeder Slot eines Renders hat ein Foto-Thumbnail in
+`DataState::thumbs` (`HashMap<photo_id, TextureHandle>`, der Pool-Preview
+nutzt sie schon). Slot → photo_id über
+`data.project.layout[page].photos[slot_idx]`.
+
+**Ghost-Regeln im neuen `draw_drag_ghosts.rs`** (nur der Slot-Pfad ändert
+sich — die Funktionssignatur und die Aufrufstelle bleiben):
+
+| Fall | Ghost |
 |---|---|
-| `DragSource::Slot` | Das Slot-Rect mit **Alpha-gedimmtem Full-Page-Ausschnitt** (aus `page_textures`, geclippt auf die Slot-Koordinaten). Bei Multi-Selektion: pro zusätzlichem Slot leicht verschoben („Stack") + Badge `×N` rechts oben. |
-| `DragSource::NavPage` | Das Page-Thumb gedimmt. |
-| `DragSource::Pool { photo_ids }` | Das Pool-Thumb des **ersten** Fotos gedimmt, bei `>1 id` Badge `×N`. |
+| Slot-Drag ohne Multi-Selektion | Foto-Thumbnail des Drag-Source-Slots, alpha-gedimmt, in Slot-Größe am Cursor (Greifpunkt: `cursor_at_drag_start - slot_top_left` wie bisher). |
+| Slot-Drag mit Multi-Selektion | Stack: ganz oben das **Drag-Source-Foto**, darunter (in der Reihenfolge der weiteren selektierten Slots) jedes weitere Foto leicht versetzt. Versatz pro Stack-Stufe: **+10 px nach Osten und −10 px nach Norden**, sodass die rechte obere Kante des darunterliegenden Thumbs nordöstlich vom obersten Thumb liegt. Alle Layer alpha-gedimmt. |
 
-Umsetzung in einer pure Funktion
-`ghost::draw(ctx, source, cursor_pos, data)`, aufgerufen am Ende von
-`FotobuchApp::ui`. Kein Interaktions-Kapern — Ghost liegt im Overlay-Layer
-(`egui::LayerId::new(egui::Order::Tooltip, Id::new("drag_ghost"))`) und
-bekommt `Sense::hover()` nicht zugewiesen.
+Konkret: rendere die Liste rückwärts (unterster zuerst), so dass das
+Drag-Source-Foto on top liegt:
 
-Commit: `feat(gui): drag ghosts for slot/nav/pool drags`.
+```rust
+// Slots in Render-Reihenfolge (unten → oben). Drag-Source als Letztes.
+let mut order: Vec<usize> = secondary_slots; // alle selektierten außer src
+order.push(src_slot);
 
-Tests (nur Geometrie):
-- `ghost::multi_slot_stack_offset_is_4_px_per_item`.
+const STACK_STEP: egui::Vec2 = egui::vec2(10.0, -10.0);
+for (i, slot_idx) in order.iter().enumerate().rev() {
+    // i = 0 ist Drag-Source (oberste Schicht), höhere i = tiefer im Stack.
+    let offset = STACK_STEP * i as f32;
+    let rect = primary_ghost_rect.translate(offset);
+    let photo_id = &layout_page.photos[*slot_idx];
+    if let Some(tex) = data.thumbs.get(photo_id) {
+        painter.image(tex.id(), rect, full_uv(), dim_color(120 /* alpha */));
+    } else {
+        paint_ghost_rect(&painter, rect, 120); // fallback wenn Thumb nicht geladen
+    }
+}
+```
 
-### 6.2.5 Smooth Scrolling
+Größe pro Layer = Größe des **Drag-Source-Slot-Rects** (also identisch
+mit bisheriger Primary-Ghost-Geometrie). Der Stack ergibt den vom
+Nutzer gewünschten „nordöstlich nach unten versetzte Stapel"-Look.
+
+Pool- und NavPage-Drag bleiben unverändert.
+
+Commit: `feat(gui): slot drag ghosts use real photo thumbnails`.
+
+Tests:
+- `ghost::stack_step_is_ne_10px_per_layer`.
+- `ghost::source_slot_is_topmost_layer`.
+- `ghost::single_selection_uses_only_source_thumb`.
+
+### 6.2.2 Smooth Scrolling
 
 egui hat natives Scroll-Easing nicht an, aber zwei kleine Schrauben
 reichen:
@@ -796,20 +829,21 @@ expliziten Eingaben (Pagenum-Hotkeys, Nav-Klick).
 
 Commit: `feat(gui): ease scroll transitions on page jumps`.
 
-### 6.2.6 Kontextmenü (Rechtsklick)
+### 6.2.3 Kontextmenü (Rechtsklick)
 
-Bislang bindet RMB den Slot/Nav/Pool-Drag. Für ein Kontextmenü braucht es
-eine Abgrenzung: **RMB-Klick mit sofortigem Release** (Dauer < 150 ms,
-Cursor-Bewegung < 4 px) öffnet das Menü, sonst ist es ein Drag-Start.
+Bislang bindet RMB den Slot/Nav/Pool-Drag (und in Manual-Mode den
+ManualDrag, siehe 6.1.4). Für ein Kontextmenü braucht es eine Abgrenzung:
+**RMB-Klick mit sofortigem Release** (Dauer < 150 ms, Cursor-Bewegung
+< 4 px) öffnet das Menü, sonst ist es ein Drag-Start.
 
 Umsetzung:
 
-1. `handle_drag_start` (input_handler.rs:87) merkt sich den
-   RMB-Press-Zeitpunkt in `interaction.drag.press_instant: Option<Instant>`
-   — Drag wird aber nicht sofort aktiv, sondern erst, wenn entweder Maus
-   >4 px bewegt oder Zeit > 150 ms überschritten.
-2. `handle_drag_complete` prüft vor der bestehenden Source-Logik: wenn der
-   Press-Zeitpunkt < 150 ms her ist und die Maus nicht bewegt hat,
+1. `handle_drag_start` merkt sich den RMB-Press-Zeitpunkt in
+   `interaction.drag.press_instant: Option<Instant>` — Drag wird aber
+   nicht sofort aktiv, sondern erst, wenn entweder Maus >4 px bewegt
+   oder Zeit > 150 ms überschritten.
+2. `handle_drag_complete` prüft vor der bestehenden Source-Logik: wenn
+   der Press-Zeitpunkt < 150 ms her ist und die Maus nicht bewegt hat,
    öffne stattdessen `interaction.context_menu = Some(ContextMenu::for(hovered))`.
 
 `ContextMenu` als eigener State:
@@ -826,19 +860,27 @@ pub enum ContextMenu {
 
 Widget `gui/app/widgets/context_menu.rs` öffnet
 `egui::Area::new("ctx_menu").fixed_pos(pos).show(ctx, |ui| …)` mit
-Einträgen je nach Variante:
+englischen Einträgen je nach Variante:
 
 | Kontext | Einträge |
 |---|---|
-| Slot | Unplace · Rebuild · Weight … · Info |
-| Page | Rebuild · Set Mode (Auto/Manual) · Info |
-| NavPage | Set Mode · Rebuild · Delete Page (wenn leer) |
-| PoolItem | Remove |
+| Slot    | Unplace · Weight … · Info |
+| Page    | Rebuild · Set Mode (Auto/Manual) · Info |
+| NavPage | Set Mode · Rebuild · Delete Page |
+| PoolItem  | Remove |
 | PoolGroup | Remove Group · Place All From Group |
 
-Jeder Eintrag emittiert einen bestehenden `PendingCommand`.
-Weight-Eintrag öffnet einen Sub-DragValue (siehe `page weight` Command,
-`src/commands/page/weight.rs` — existierende Lib).
+Jeder Eintrag pusht einen bestehenden `BackgroundTask`. Weight-Eintrag
+öffnet die Weight-UX aus 6.2.5 (Slider). Begründungen:
+
+- **Slot ohne „Rebuild"**: Slot-Rebuild macht semantisch nichts Eigenes
+  — ein einzelner Slot wird nicht separat geplant; der Eintrag ist
+  damit redundant zum Page-Rebuild.
+- **NavPage „Delete Page" auch bei vollen Seiten**: pusht
+  `BackgroundTask::DeletePages { pages: vec![page] }`. Der existierende
+  Pfad behandelt volle Seiten als Unplace-aller-Fotos plus Page-Drop —
+  exakt das gewünschte Verhalten. Die alte Variante „nur wenn leer"
+  entfällt; das Cover bleibt durch `has_cover() && page == 0` gefiltert.
 
 Außerhalb des Menüs geklickt → schließen (`if !area.contains_pointer()`
 und LMB-Press ⇒ `interaction.context_menu = None`).
@@ -848,6 +890,7 @@ Commit: `feat(gui): right-click context menus for slot/page/pool`.
 Tests:
 - `input_handler::quick_rmb_tap_opens_context_menu`.
 - `input_handler::rmb_hold_or_drag_does_not_open_menu`.
+- `context_menu::navpage_delete_dispatches_delete_pages_for_full_page`.
 
 ### 6.2.7 Toast-System (nur Error)
 
