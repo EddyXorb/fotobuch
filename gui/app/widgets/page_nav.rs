@@ -1,7 +1,5 @@
 use crate::task::BackgroundTask;
 
-use egui::Align;
-
 use crate::app::widgets::geometry::A4_ASPECT;
 use crate::state::{ActiveDrag, DataState, DragMode, DragSource, HoveredTarget, InteractionState};
 
@@ -252,13 +250,16 @@ pub(crate) fn draw_nav_selection_overlay(
 ///
 /// Called from `draw_pages` once per page after laying it out.
 pub fn apply_scroll_if_needed(
-    ui: &mut egui::Ui,
+    _ui: &mut egui::Ui,
     interaction: &mut InteractionState,
     page_idx: usize,
     page_rect: egui::Rect,
 ) {
     if interaction.viewport.scroll_to_page == Some(page_idx) {
-        ui.scroll_to_rect(page_rect, Some(Align::TOP));
+        // Convert page screen position to a scroll offset and ease to it.
+        let target_y = interaction.viewport.scroll.scroll_y
+            + (page_rect.min.y - interaction.viewport.scroll.viewport_top);
+        interaction.viewport.scroll.ease_target = Some(target_y.max(0.0));
         interaction.viewport.scroll_to_page = None;
     }
 }

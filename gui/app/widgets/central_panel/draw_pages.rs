@@ -20,6 +20,18 @@ pub(super) fn draw_pages(
         (i.pointer.secondary_down() || i.pointer.secondary_released()) && !i.pointer.primary_down()
     });
 
+    // Ease-scroll: interpolate toward ease_target each frame.
+    if let Some(target_y) = interaction.viewport.scroll.ease_target {
+        let current = interaction.viewport.scroll.scroll_y;
+        let next = current + (target_y - current) * 0.25;
+        interaction.viewport.scroll.pending_scroll_y = Some(next);
+        if (target_y - next).abs() < 1.0 {
+            interaction.viewport.scroll.ease_target = None;
+        } else {
+            ui.ctx().request_repaint();
+        }
+    }
+
     let pending_scroll = interaction.viewport.scroll.pending_scroll_y.take();
     let mut sa = egui::ScrollArea::vertical()
         .auto_shrink([false; 2])
