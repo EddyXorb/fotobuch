@@ -65,93 +65,91 @@ Feature.
 
 ### 6.0.1 Add via Dialog (`Ctrl+O`, Toolbar-Button)
 
-`InteractionState::add_dialog` wird erweitert:
+`InteractionState::add_dialog_open: bool` (heute Phase-5-Stub) wird durch
+einen vollständigen State-Struct ersetzt:
 
 ```rust
-// gui/state/add_dialog.rs (neu)
+// gui/state/add_dialog.rs (neu) — und in gui/state.rs als Feld
+//   pub add_dialog: AddDialogState
 #[derive(Default)]
 pub struct AddDialogState {
     pub open: bool,
-    /// Gewählte Pfade (native FileDialog oder manuelles Drag&Drop).
+    /// Selected paths (from native file picker or OS drop).
     pub pending_paths: Vec<PathBuf>,
     pub recursive: bool,
-    pub weight_buffer: String,   // roh, geparst bei Commit
-    pub source_filter: String,   // Regex, leer = kein Filter
+    pub weight_buffer: String,   // raw input, parsed on commit
+    pub source_filter: String,   // regex, empty = no filter
 }
 ```
 
-Widget `gui/app/widgets/add_dialog.rs`:
+Widget `gui/app/widgets/add_dialog.rs` (Eingaben **englisch**):
 
 ```rust
-pub fn show(ctx: &egui::Context, state: &mut GuiState, cmds: &mut HashSet<PendingCommand>) {
-    if !state.interaction.add_dialog.open { return; }
-    let mut open = state.interaction.add_dialog.open;
-    egui::Window::new("Fotos hinzufügen").open(&mut open)
+pub fn show(
+    ctx: &egui::Context,
+    interaction: &mut InteractionState,
+    cmds: &mut Vec<BackgroundTask>,
+) {
+    if !interaction.add_dialog.open { return; }
+    let mut open = interaction.add_dialog.open;
+    egui::Window::new("Add photos").open(&mut open)
         .default_size([420.0, 320.0])
         .show(ctx, |ui| {
-            if ui.button("Ordner wählen …").clicked() {
+            if ui.button("Choose folder …").clicked() {
                 if let Some(dir) = rfd::FileDialog::new().pick_folder() {
-                    state.interaction.add_dialog.pending_paths.push(dir);
+                    interaction.add_dialog.pending_paths.push(dir);
                 }
             }
-            ui.checkbox(&mut state.interaction.add_dialog.recursive, "Rekursiv");
+            ui.checkbox(&mut interaction.add_dialog.recursive, "Recursive");
             ui.horizontal(|ui| {
-                ui.label("Gewicht:");
-                ui.text_edit_singleline(&mut state.interaction.add_dialog.weight_buffer);
+                ui.label("Weight:");
+                ui.text_edit_singleline(&mut interaction.add_dialog.weight_buffer);
             });
             ui.horizontal(|ui| {
-                ui.label("Pfad-Filter (Regex):");
-                ui.text_edit_singleline(&mut state.interaction.add_dialog.source_filter);
+                ui.label("Path filter (regex):");
+                ui.text_edit_singleline(&mut interaction.add_dialog.source_filter);
             });
-            for p in &state.interaction.add_dialog.pending_paths {
+            for p in &interaction.add_dialog.pending_paths {
                 ui.label(p.display().to_string());
             }
             ui.separator();
-            let can_submit = !state.interaction.add_dialog.pending_paths.is_empty();
-            if ui.add_enabled(can_submit, egui::Button::new("Hinzufügen")).clicked() {
-                let weight = state.interaction.add_dialog.weight_buffer
+            let can_submit = !interaction.add_dialog.pending_paths.is_empty();
+            if ui.add_enabled(can_submit, egui::Button::new("Add")).clicked() {
+                let weight = interaction.add_dialog.weight_buffer
                     .parse::<f64>().unwrap_or(1.0);
-                cmds.insert(PendingCommand::AddPhotos {
-                    paths: std::mem::take(&mut state.interaction.add_dialog.pending_paths),
-                    recursive: state.interaction.add_dialog.recursive,
+                cmds.push(BackgroundTask::AddPhotos {
+                    paths: std::mem::take(&mut interaction.add_dialog.pending_paths),
+                    recursive: interaction.add_dialog.recursive,
                     weight,
-                    source_filter: state.interaction.add_dialog.source_filter.clone(),
+                    source_filter: interaction.add_dialog.source_filter.clone(),
                 });
-                state.interaction.add_dialog.open = false;
+                interaction.add_dialog.open = false;
             }
         });
-    state.interaction.add_dialog.open = open;
+    interaction.add_dialog.open = open && interaction.add_dialog.open;
 }
 ```
 
 Abhängigkeit `rfd = "0.14"` als optionales Feature (`gui`) in `Cargo.toml`
 aufnehmen.
 
-Neu in `pending.rs` und `task.rs`:
+Neu in `gui/task.rs`:
 
 ```rust
-PendingCommand::AddPhotos {
-    paths: Vec<PathBuf>,
-    recursive: bool,
-    weight: f64,
-    source_filter: String,   // leer = kein Filter
-}
-
 BackgroundTask::AddPhotos {
     paths: Vec<PathBuf>,
     recursive: bool,
     weight: f64,
-    source_filter: String,
-    pixel_per_pt: f32,
+    source_filter: String,   // empty = no filter
 }
 ```
 
-Worker (`gui/background/commands.rs`):
+Worker (`gui/background/commands/photo.rs`):
 
 ```rust
-pub(super) fn run_add_photos(
+pub fn run_add_photos(
     paths: Vec<PathBuf>, recursive: bool, weight: f64, source_filter: String,
-    rctx: &mut super::RenderCtx<'_>,
+    rctx: &mut crate::background::RenderCtx<'_>,
 ) {
     let source_filters = if source_filter.is_empty() {
         vec![]
@@ -167,19 +165,41 @@ pub(super) fn run_add_photos(
         }
     };
     let cfg = fotobuch::commands::add::AddConfig {
-        paths, allow_duplicates: false, xmp_filters: vec![], source_filters,
-        dry_run: false, update: false, recursive, weight,
+        paths,
+        allow_duplicates: false,   // GUI never re-adds duplicates (see below)
+        xmp_filters: vec![],
+        source_filters,
+        dry_run: false,
+        update: false,
+        recursive,
+        weight,
     };
     match fotobuch::commands::add::add(rctx.project_root, &cfg) {
         Err(e) => { let _ = rctx.result_tx.send(BackgroundResult::CommandFailed(e.to_string())); }
         Ok(out) => {
-            // Add modifiziert nur photos[], Layout bleibt gleich → keine dirty pages,
-            // aber DerivedState muss neu gebaut werden (apply in drain_results).
-            super::render::send_command_done(out.changed_state, vec![], rctx);
+            // Add only mutates photos[]; layout is untouched → no dirty pages,
+            // but DerivedState must be rebuilt (apply in drain_results).
+            crate::background::send_command_done(out.changed_state, vec![], rctx);
         }
     }
 }
 ```
+
+**Duplikat-Handling**. `AddConfig.allow_duplicates = false` ist die Single
+Source of Truth. Die Lib-Pipeline `add::deduplicate` filtert in dieser
+Reihenfolge:
+
+1. Pfad-Match: existiert eine `PhotoFile.source` mit identischem Pfad,
+   wird die Datei übersprungen (zählt zu `AddResult.skipped`).
+2. Hash-Match: liegt für eine andere Datei bereits derselbe Content-Hash
+   vor, wird die Datei übersprungen + Warnung in `AddResult.warnings`.
+
+Die GUI muss daher **nichts** zusätzlich prüfen — sie verlässt sich auf
+die Lib. Das verhindert das wiederholte Hinzufügen identischer Fotos
+(z. B. nach erneutem File-Drop derselben Quelle), ohne dass die UI eine
+zweite Wahrheit über „was ist schon im Pool?" pflegen müsste. Die
+optionale Anzeige der `skipped`/`warnings`-Counts im Toast (Phase 6.2 ff.)
+ist YAGNI für Phase 6.
 
 ### 6.0.2 Add via OS-Drag (Dateien auf das Fenster)
 
