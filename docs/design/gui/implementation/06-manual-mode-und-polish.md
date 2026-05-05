@@ -523,12 +523,13 @@ gleichen `ui.horizontal`-Zeile, nicht im Page-Overlay — würde Drop-Targets
 kapern):
 
 ```rust
-let label = match data.project.layout[page_idx].mode {
-    PageMode::Auto   => "[A]",
-    PageMode::Manual => "[M]",
+let current_mode = data.project.layout[page_idx].mode;
+let (label, new_mode) = match current_mode {
+    PageMode::Auto   => ("[A]", PageMode::Manual),
+    PageMode::Manual => ("[M]", PageMode::Auto),
 };
 if ui.small_button(label).clicked() {
-    cmds.insert(PendingCommand::TogglePageMode { page: page_idx });
+    cmds.push(BackgroundTask::SetPageMode { page: page_idx, mode: new_mode });
 }
 ```
 
@@ -538,22 +539,29 @@ belegt.
 
 ### 6.1.4 Manual-Drag: Slot auf freie Fläche
 
-In `draw_page` wird für jeden Slot einer **Manual**-Seite ein zusätzlicher
-`egui::Sense::drag()`-Hotspot in der Slot-Rect gelegt, der primäre
-Maustaste akzeptiert (LMB für Manual-Drag, damit sich der Semantik-Split
-zu RMB-Slot-Drag = Swap/Move nicht beißt):
+LMB ist projektweit für Scrollen / Klick-Selektion reserviert (egui
+`ScrollArea` plus `handle_click`). Manual-Drag fährt deshalb auf **RMB**
+— derselben Maustaste, die auf Auto-Pages den Swap/Move-Drag startet.
+Die Trennung ist sauber, weil die Quelle eine **Manual**-Page ist:
+`handle_drag_start` in `gui/app/input_handler/drag.rs` priorisiert die
+neue `ManualDrag`-Aktivierung **vor** dem bestehenden `DragSource::Slot`
+und konsumiert das `secondary_pressed`-Event nur dann, wenn die
+gehoverte Page Manual ist.
 
 ```rust
-// Nur für Manual-Pages:
-let slot_rect = geometry::slot_rect_on_screen(page_rect, w_mm, h_mm, slot);
-let id = egui::Id::new(("manual_slot", page_idx, slot_idx));
-let resp = ui.interact(slot_rect, id, egui::Sense::click_and_drag());
-if resp.drag_started_by(egui::PointerButton::Primary) {
+// gui/app/input_handler/drag.rs (vor dem bestehenden Slot-Branch)
+if !ctx.input(|i| i.pointer.secondary_pressed()) { /* fallthrough */ }
+else if let Some(HoveredTarget::Page { page, slot: Some(slot) }) = &interaction.hovered
+    && data.project.layout.get(*page).map(|p| p.mode) == Some(PageMode::Manual)
+{
+    let cursor = ctx.pointer_hover_pos().unwrap_or_default();
+    let slot_data = &data.project.layout[*page].slots[*slot];
     interaction.manual_drag = ManualDrag::Move {
-        page: page_idx, slot: slot_idx,
-        pointer_origin: resp.hover_pos().unwrap_or(slot_rect.center()),
-        slot_origin_mm: (slot.x_mm, slot.y_mm),
+        page: *page, slot: *slot,
+        pointer_origin: cursor,
+        slot_origin_mm: (slot_data.x_mm, slot_data.y_mm),
     };
+    return; // do not also set ActiveDrag::Dragging
 }
 ```
 
@@ -571,19 +579,18 @@ pub enum ManualDrag {
     },
     Resize {
         page: usize, slot: usize,
-        corner: Corner, // NW|NE|SW|SE
         pointer_origin: egui::Pos2,
         slot_origin_mm: (f64, f64, f64, f64), // x, y, w, h
     },
 }
-
-#[derive(Debug, Clone, Copy)]
-pub enum Corner { NW, NE, SW, SE }
 ```
 
-`InteractionState::manual_drag: ManualDrag` (neues Feld).
+`InteractionState::manual_drag: ManualDrag` (neues Feld). Die fehlende
+`Corner`-Variante ist Absicht — Resize ist auf SE festgelegt (siehe
+6.1.5).
 
-**Drag-Fortschritt** (bei `resp.dragged()` oder global pro Frame):
+**Drag-Fortschritt** (pro Frame, solange RMB gedrückt und
+`ManualDrag::Move`):
 
 1. Aktuelle Cursor-Position `pointer_now`.
 2. Delta in Pixel: `pointer_now - pointer_origin`.
@@ -595,79 +602,77 @@ Die neue Position wird **optimistisch** als lokales Overlay gezeichnet —
 der Slot selbst im `LayoutPage` bleibt unverändert, bis der Drag loslässt.
 Das spart Roundtrip-Latenz und macht den Drag ruckelfrei.
 
-**Drag-Release** (`resp.drag_stopped_by(Primary)` bzw.
-`ctx.input(|i| i.pointer.primary_released())`):
+**Drag-Release** (`ctx.input(|i| i.pointer.secondary_released())`):
 
 ```rust
-let ManualDrag::Move { page, slot, slot_origin_mm, pointer_origin } =
+let ManualDrag::Move { page, slot, slot_origin_mm: _, pointer_origin } =
     std::mem::take(&mut interaction.manual_drag) else { return; };
+let pointer_now = ctx.pointer_hover_pos().unwrap_or(pointer_origin);
 let (dx_mm, dy_mm) = compute_delta_mm(pointer_origin, pointer_now, pixel_per_mm);
-cmds.insert(PendingCommand::PagePos {
+cmds.push(BackgroundTask::PagePos {
     page, slot,
     mode: PagePosMode::Relative { dx_mm, dy_mm },
     scale: None,
 });
 ```
 
-Auto-Pages ignorieren den Drag vollständig (`ui.interact` wird für Slots
-auf Auto-Seiten nicht registriert). Kein visuelles Feedback nötig — der
-bestehende RMB-Swap/Move bleibt die einzige Drag-Semantik dort.
+Auto-Pages ignorieren `ManualDrag` vollständig — der RMB-Press auf einem
+Slot einer Auto-Seite fällt durch in den bestehenden `DragSource::Slot`-
+Pfad (Swap/Move).
 
-### 6.1.5 Manual-Resize: Ecken-Drag
+### 6.1.5 Manual-Resize: SE-Ecken-Drag
 
-Für Manual-Slots zusätzlich vier `ui.interact`-Hotspots in 8×8-Pixel-Rects
-an den Ecken:
+Für Manual-Slots **genau ein** `ui.interact`-Hotspot in einem 8×8-Pixel-
+Rect an der **rechten unteren** (SE) Ecke. Alle vier Ecken zu coden ist
+unnötig kompliziert (vier Hotspot-Rects, vier Dispatch-Pfade, getrennte
+Resize-Mathematik je nach Gegenecke) und für Endanwender verwirrend
+(„welche Ecke macht was?"). SE genügt — Position (Move) plus Größe
+(SE-Resize) decken jede gewünschte Geometrie ab. Die Aktion ist ebenfalls
+**RMB**, konsistent mit 6.1.4.
 
 ```rust
-fn corner_rect(slot_rect: egui::Rect, corner: Corner) -> egui::Rect {
+fn se_corner_rect(slot_rect: egui::Rect) -> egui::Rect {
     const SZ: f32 = 8.0;
-    let c = match corner {
-        Corner::NW => slot_rect.left_top(),
-        Corner::NE => slot_rect.right_top(),
-        Corner::SW => slot_rect.left_bottom(),
-        Corner::SE => slot_rect.right_bottom(),
-    };
-    egui::Rect::from_center_size(c, egui::vec2(SZ, SZ))
+    egui::Rect::from_center_size(slot_rect.right_bottom(), egui::vec2(SZ, SZ))
 }
 ```
 
-Spezifikation als **pure Funktion** in `gui/app/widgets/central_panel/manual_resize.rs`:
+Spezifikation als **pure Funktion** in
+`gui/app/widgets/central_panel/manual_resize.rs`:
 
 ```rust
-pub fn compute(
+pub fn compute_se(
     origin: (f64, f64, f64, f64), // x, y, w, h in mm
-    corner: Corner,
     delta_px: egui::Vec2,
     pixel_per_mm: f64,
 ) -> (f64, f64, f64, f64) // new x, y, w, h in mm
 ```
 
-Invarianten (unittests, jeweils eine Assertion):
-- `compute_keeps_aspect_ratio`: `new_w / new_h ≈ origin_w / origin_h` (eps).
-- `compute_se_corner_keeps_origin_xy`: SE bewegt nur Größe.
-- `compute_nw_corner_shifts_origin_xy_by_size_delta`: NW behält gegenüber-
-  liegende Ecke (`origin_x + origin_w`, `origin_y + origin_h`) fix.
-- `compute_zero_delta_is_identity`.
+Invariante: SE-Resize hält `(x, y)` fest und vergrößert/verkleinert
+`(w, h)` proportional unter Beibehaltung des Seitenverhältnisses. Skalar
+`scale = new_diag / origin_diag` aus dem Cursor-Delta zur fixen
+Gegenecke (NW = `(x, y)`).
 
-Implementierung: Distanz Cursor → Gegenecke vor/nach Drag, Scale =
-`new_diag / origin_diag`, neue Größe = `origin_size * scale`, neue Origin
-so, dass die Gegenecke fix bleibt. Welche Ecke gegenüberliegt, bestimmt
-`Corner` (NW ↔ SE, NE ↔ SW). 8 Zeilen Code, 4 Unit-Tests, kein Prosa-
-Pseudocode nötig.
+Unittests:
+- `compute_se_keeps_origin_xy`.
+- `compute_se_keeps_aspect_ratio`.
+- `compute_se_zero_delta_is_identity`.
+- `compute_se_negative_delta_shrinks`.
 
 **Release** emittiert:
 
 ```rust
-cmds.insert(PendingCommand::PagePos {
+cmds.push(BackgroundTask::PagePos {
     page, slot,
-    mode: PagePosMode::Absolute { x_mm: new_x, y_mm: new_y },
+    mode: PagePosMode::Absolute { x_mm: origin_x, y_mm: origin_y },
     scale: Some(scale_factor),
 });
 ```
 
-`PosConfig` akzeptiert beides in einem Call (siehe `src/commands/page/pos.rs:31-36`).
+`PosConfig` akzeptiert Position + Scale in einem Call (siehe
+`src/commands/page/pos.rs::PosConfig`).
 
-Neu in `pending.rs` und `task.rs`:
+Neu in `gui/task.rs`:
 
 ```rust
 pub enum PagePosMode {
@@ -675,14 +680,16 @@ pub enum PagePosMode {
     Absolute { x_mm: f64, y_mm: f64 },
 }
 
-PendingCommand::PagePos { page: usize, slot: usize, mode: PagePosMode, scale: Option<f64> }
-BackgroundTask::PagePos  { page: usize, slot: usize, mode: PagePosMode, scale: Option<f64>, pixel_per_pt: f32 }
+BackgroundTask::PagePos { page: usize, slot: usize, mode: PagePosMode, scale: Option<f64> }
 ```
 
-Worker:
+Worker (`gui/background/commands/page.rs`):
 
 ```rust
-pub(super) fn run_page_pos(page: usize, slot: usize, mode: PagePosMode, scale: Option<f64>, rctx: &mut super::RenderCtx<'_>) {
+pub fn run_page_pos(
+    page: usize, slot: usize, mode: PagePosMode, scale: Option<f64>,
+    rctx: &mut crate::background::RenderCtx<'_>,
+) {
     use fotobuch::commands::page::{execute_pos, PosConfig, PosMode, SlotExpr};
     let cfg = PosConfig {
         position: Some(match mode {
@@ -693,7 +700,7 @@ pub(super) fn run_page_pos(page: usize, slot: usize, mode: PagePosMode, scale: O
     };
     match execute_pos(rctx.project_root, page as u32, SlotExpr::single(slot as u32), &cfg) {
         Err(e) => { let _ = rctx.result_tx.send(BackgroundResult::CommandFailed(e.to_string())); }
-        Ok(out) => super::render::send_command_done(out.changed_state, vec![page], rctx),
+        Ok(out) => crate::background::send_command_done(out.changed_state, vec![page], rctx),
     }
 }
 ```
@@ -703,16 +710,17 @@ reagiert nur auf die geänderten Slot-Koordinaten.
 
 ### 6.1.6 Commits + Tests
 
-1. `fix(lib): skip manual pages in rebuild/incremental build`
+1. `refactor(lib): single Manual-skip helper for solver and rebuilders`
 2. `feat(lib): book layout solver treats manual pages as fixed blocks`
 3. `feat(gui): A hotkey + [A|M] toggle button per page`
-4. `feat(gui): manual slot free-positioning via primary-drag`
-5. `feat(gui): manual slot resize via corner drag`
+4. `feat(gui): manual slot free-positioning via RMB drag`
+5. `feat(gui): manual slot resize via SE-corner drag`
 
 Tests:
-- `manual_resize::compute_keeps_ratio_for_se_corner`.
-- `manual_resize::compute_shifts_origin_for_nw_corner`.
-- `input_handler::a_hotkey_emits_toggle_page_mode_when_hovered`.
+- `manual_resize::compute_se_keeps_origin_xy`.
+- `manual_resize::compute_se_keeps_aspect_ratio`.
+- `manual_resize::compute_se_zero_delta_is_identity`.
+- `input_handler::a_hotkey_emits_set_page_mode_when_hovered`.
 - `input_handler::manual_drag_release_emits_page_pos_relative`.
 - Lib: `incremental_build_skips_manual_page` (Fixture mit einer Manual-Page,
   erwartet unverändertes `slots[]` nach Build).
