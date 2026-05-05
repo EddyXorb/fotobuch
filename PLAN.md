@@ -149,3 +149,61 @@ fn fresh_project() -> (TempDir, PathBuf) {
 **Isolation:** Jeder Test mutiert nur sein eigenes TempDir. Das Original ist read-only.
 
 **Effekt:** 8 place_tests + diverse build_tests sparen je ~15s Setup → einmalig ~15s + N×~1ms.
+
+---
+
+# Plan: Manual Drag Refactor
+
+## Problem
+
+Manual drag (slot move + SE resize via RMB in `PageMode::Manual`) is a **parallel drag system** implemented entirely inside `handle_manual_drag` in `draw_page.rs`. It uses its own `ManualDrag` state and bypasses the central `ActiveDrag` state machine in `drag.rs`.
+
+Consequence: every rule like "swap mode disables manual drag" must be enforced in **two places** — once in `complete_slot_drag` and once in `draw_page`. The current bugs were all caused by this duplication.
+
+## Goal
+
+Route manual drag through `ActiveDrag::Dragging` so all mode guards, ghost suppression, and completion logic live in one place.
+
+## Steps
+
+### 1. Extend `DragSource`
+
+Add two variants:
+
+```rust
+pub enum DragSource {
+    Slot { .. },           // existing
+    NavPage { .. },        // existing
+    Pool { .. },           // existing
+    ManualMove { page, slot, slot_origin_mm: (f64, f64) },
+    ManualResize { page, slot, slot_origin_mm: (f64, f64, f64, f64) },
+}
+```
+
+### 2. Replace `ManualDrag` state with `ActiveDrag`
+
+- On RMB press in `draw_page` (manual + move mode): set `ActiveDrag::Pending { source: DragSource::ManualMove {..} }`
+- `promote_pending_drag` promotes it to `Dragging` on movement — same threshold as slot drag
+- Delete `ManualDrag` enum and `DragState.manual` field
+
+### 3. Move completion logic into `complete_slot_drag` (or new `complete_manual_drag`)
+
+In `handle_drag_complete`, dispatch `ManualMove`/`ManualResize` to a new `complete_manual_drag` function that emits `BackgroundTask::PagePos`.
+
+### 4. Move overlay drawing out of `handle_manual_drag`
+
+The optimistic preview rect currently drawn during `ManualDrag::Move/Resize` moves to `draw_drag_ghosts` or a dedicated `draw_manual_drag_overlay` function, reading from `ActiveDrag::Dragging(DragSource::ManualMove {..})`.
+
+### 5. SE handle hit-test stays in `draw_page`
+
+Only the press-detection (which slot/corner is under cursor) stays in `draw_page`. It writes to `ActiveDrag::Pending` and returns — no drag state beyond that.
+
+### 6. All guards centralised in `complete_manual_drag`
+
+Swap-mode guard, mode checks, etc. all live in `handle_drag_complete` / `complete_manual_drag`. `draw_page` contains no mode-specific `if` checks.
+
+## Benefit
+
+- Single source of truth for drag state
+- Mode rules enforced once
+- No more parallel `ManualDrag` state to sync
