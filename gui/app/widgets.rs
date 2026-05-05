@@ -16,6 +16,7 @@ mod rebuild_confirm;
 mod statusbar;
 mod toasts;
 mod toolbar;
+mod weight_slider;
 
 pub fn draw_widgets(
     ui: &mut egui::Ui,
@@ -42,6 +43,7 @@ pub fn draw_widgets(
     add_dialog::show(ctx, interaction, &mut cmds);
     context_menu::show(ctx, data, interaction, &mut cmds);
     toasts::show(ctx, data);
+    weight_slider::show(ctx, interaction, &mut cmds);
 
     cmds
 }

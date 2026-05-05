@@ -1,7 +1,7 @@
 use crate::task::BackgroundTask;
 
 use crate::app::rebuild::{PagesForRebuild, selected_pages_for_rebuild};
-use crate::state::{self, DataState, HoveredTarget, InteractionState, SlotSelection};
+use crate::state::{self, DataState, HoveredTarget, InteractionState, SlotSelection, WeightSlider};
 use fotobuch::commands::PlaceDst;
 
 pub(super) fn handle_drag_mode_toggle(interaction: &mut InteractionState, ctx: &egui::Context) {
@@ -58,6 +58,7 @@ pub(super) fn handle_escape(interaction: &mut InteractionState, ctx: &egui::Cont
         interaction.selections.slots.clear();
         interaction.selections.nav_pages.clear();
         interaction.context_menu = None;
+        interaction.weight_slider = WeightSlider::Closed;
     }
 }
 
@@ -279,4 +280,61 @@ pub(super) fn handle_click(interaction: &mut InteractionState, ctx: &egui::Conte
     } else {
         interaction.selections.slots.clear();
     }
+}
+
+pub(super) fn handle_weight_hotkey(
+    data: &DataState,
+    interaction: &mut InteractionState,
+    ctx: &egui::Context,
+) {
+    if !ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::W)) {
+        return;
+    }
+    // Toggle: close if already open.
+    if interaction.weight_slider.is_open() {
+        interaction.weight_slider = WeightSlider::Closed;
+        return;
+    }
+    let Some(page) = interaction.selections.slots.page else {
+        return;
+    };
+    let slots = interaction.selections.slots.slots_on_active_page();
+    if slots.is_empty() {
+        return;
+    }
+    let initial = compute_initial_weight(data, page, &slots);
+    let pos = ctx
+        .pointer_hover_pos()
+        .unwrap_or_else(|| egui::pos2(200.0, 200.0));
+    interaction.weight_slider = WeightSlider::Open {
+        page,
+        slots,
+        screen_pos: pos,
+        value: initial,
+    };
+}
+
+fn compute_initial_weight(data: &DataState, page: usize, slots: &[usize]) -> f64 {
+    let lp = match data.project.layout.get(page) {
+        Some(lp) => lp,
+        None => return 1.0,
+    };
+    let weights: Vec<f64> = slots
+        .iter()
+        .filter_map(|&s| {
+            let photo_id = lp.photos.get(s)?;
+            data.project
+                .photos
+                .iter()
+                .flat_map(|g| g.files.iter())
+                .find(|f| &f.id == photo_id)
+                .map(|f| f.area_weight)
+        })
+        .collect();
+    if weights.is_empty() {
+        return 1.0;
+    }
+    let avg = weights.iter().sum::<f64>() / weights.len() as f64;
+    // Round to nearest 0.1.
+    (avg * 10.0).round() / 10.0
 }

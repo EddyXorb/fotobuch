@@ -89,6 +89,11 @@ pub enum BackgroundTask {
         mode: PagePosMode,
         scale: Option<f64>,
     },
+    SetWeight {
+        page: usize,
+        slots: Vec<usize>,
+        weight: f64,
+    },
 }
 
 #[derive(Debug)]

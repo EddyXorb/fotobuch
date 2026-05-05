@@ -12,6 +12,7 @@ mod selections;
 mod timings;
 mod toasts;
 mod viewport;
+mod weight_slider;
 
 pub use add_dialog::AddDialogState;
 pub use config_panel::ConfigPanelState;
@@ -27,6 +28,7 @@ pub use selections::Selections;
 pub use timings::Timings;
 pub use toasts::ToastQueue;
 pub use viewport::Viewport;
+pub use weight_slider::WeightSlider;
 
 use std::collections::HashMap;
 
@@ -53,6 +55,7 @@ pub struct InteractionState {
     pub rebuild_all_confirm: bool,
     pub add_dialog: AddDialogState,
     pub context_menu: Option<ContextMenu>,
+    pub weight_slider: WeightSlider,
 }
 
 pub struct GuiState {
@@ -83,6 +86,7 @@ impl GuiState {
                 rebuild_all_confirm: false,
                 add_dialog: AddDialogState::default(),
                 context_menu: None,
+                weight_slider: WeightSlider::default(),
             },
         }
     }

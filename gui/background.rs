@@ -154,6 +154,13 @@ pub fn spawn(
                 } => {
                     commands::run_page_pos(page, slot, mode, scale, &mut rctx);
                 }
+                BackgroundTask::SetWeight {
+                    page,
+                    slots,
+                    weight,
+                } => {
+                    commands::run_set_weight(page, slots, weight, &mut rctx);
+                }
             }
         }
     });

@@ -28,6 +28,7 @@ pub fn handle(
     hotkeys::handle_fit_width(interaction, ctx);
     hotkeys::handle_release_build(ctx, &mut cmds);
     hotkeys::handle_add_hotkey(interaction, ctx);
+    hotkeys::handle_weight_hotkey(data, interaction, ctx);
 
     let drag_action = drag::handle_drag_complete(data, interaction, ctx, &mut cmds);
     drag::handle_drag_start(interaction, ctx);

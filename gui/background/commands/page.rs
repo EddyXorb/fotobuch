@@ -252,3 +252,24 @@ pub fn run_page_pos(
         Ok(out) => crate::background::send_command_done(out.changed_state, vec![page], rctx),
     }
 }
+
+pub fn run_set_weight(
+    page: usize,
+    slots: Vec<usize>,
+    weight: f64,
+    rctx: &mut crate::background::RenderCtx<'_>,
+) {
+    use fotobuch::commands::page::{WeightAddress, execute_weight};
+    let address = WeightAddress::Slots {
+        page: page as u32,
+        slots: SlotExpr::from_list(slots.iter().map(|&s| s as u32).collect()),
+    };
+    match execute_weight(rctx.project_root, address, weight) {
+        Err(e) => {
+            let _ = rctx
+                .result_tx
+                .send(crate::task::BackgroundResult::CommandFailed(e.to_string()));
+        }
+        Ok(out) => build_after_command(out.changed_state, vec![page], rctx),
+    }
+}
