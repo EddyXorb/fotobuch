@@ -33,9 +33,9 @@ pub(super) fn draw_drag_ghosts(
             .get(page_idx)
             .map(|p| p.mode == PageMode::Manual)
             .unwrap_or(false)
-        {
-            return;
-        }
+    {
+        return;
+    }
     let cursor = match ui.ctx().pointer_hover_pos() {
         Some(p) => p,
         None => return,

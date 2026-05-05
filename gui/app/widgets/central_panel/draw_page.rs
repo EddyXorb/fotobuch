@@ -35,9 +35,9 @@ pub(super) fn draw_page(
         draw_pool_drag_overlay(ui, interaction, page_idx, page_rect);
         draw_drag_ghosts::draw_drag_ghosts(ui, data, interaction, page_idx, page_rect, dims);
 
-        // Manual-mode drag handling (move + SE resize via RMB).
+        // Manual-mode drag handling (move + SE resize via RMB) — only in Move mode.
         use fotobuch::dto_models::PageMode;
-        if layout_page.mode == PageMode::Manual {
+        if layout_page.mode == PageMode::Manual && interaction.drag.mode == DragMode::Move {
             // pixel_per_mm must use the full physical page width (including bleed),
             // because that is what page_rect.width() represents and what slot_rect_on_screen uses.
             let full_w_mm = dims.width_mm + 2.0 * dims.bleed_mm;
@@ -131,17 +131,16 @@ fn draw_slot_overlays(
 
     // Suppress swap overlays when this page or the drag source page is Manual.
     use fotobuch::dto_models::PageMode;
-    let src_is_manual = if let ActiveDrag::Dragging(DragSource::Slot { src_page, .. }) =
-        &interaction.drag.active
-    {
-        data.project
-            .layout
-            .get(*src_page)
-            .map(|p| p.mode == PageMode::Manual)
-            .unwrap_or(false)
-    } else {
-        false
-    };
+    let src_is_manual =
+        if let ActiveDrag::Dragging(DragSource::Slot { src_page, .. }) = &interaction.drag.active {
+            data.project
+                .layout
+                .get(*src_page)
+                .map(|p| p.mode == PageMode::Manual)
+                .unwrap_or(false)
+        } else {
+            false
+        };
     let this_is_manual = data
         .project
         .layout
