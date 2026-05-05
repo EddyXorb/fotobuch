@@ -70,6 +70,12 @@ pub enum BackgroundTask {
     },
     RebuildAll,
     ReleaseBuild,
+    AddPhotos {
+        paths: Vec<PathBuf>,
+        recursive: bool,
+        weight: f64,
+        source_filter: String,
+    },
 }
 
 #[derive(Debug)]

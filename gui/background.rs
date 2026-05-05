@@ -132,6 +132,14 @@ pub fn spawn(
                 BackgroundTask::ReleaseBuild => {
                     commands::run_release_build(&mut rctx);
                 }
+                BackgroundTask::AddPhotos {
+                    paths,
+                    recursive,
+                    weight,
+                    source_filter,
+                } => {
+                    commands::run_add_photos(paths, recursive, weight, source_filter, &mut rctx);
+                }
             }
         }
     });

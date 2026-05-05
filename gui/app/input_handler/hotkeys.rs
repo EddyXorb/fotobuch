@@ -215,7 +215,7 @@ pub(super) fn handle_release_build(ctx: &egui::Context, cmds: &mut Vec<Backgroun
 
 pub(super) fn handle_add_hotkey(interaction: &mut InteractionState, ctx: &egui::Context) {
     if ctx.input_mut(|i| i.consume_key(egui::Modifiers::CTRL, egui::Key::O)) {
-        interaction.add_dialog_open = true;
+        interaction.add_dialog.open = true;
     }
 }
 

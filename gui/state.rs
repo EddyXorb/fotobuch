@@ -1,3 +1,4 @@
+mod add_dialog;
 mod config_panel;
 mod derived;
 mod drag;
@@ -10,6 +11,7 @@ mod selections;
 mod timings;
 mod viewport;
 
+pub use add_dialog::AddDialogState;
 pub use config_panel::ConfigPanelState;
 pub use derived::DerivedState;
 pub use drag::{ActiveDrag, DragMode, DragSource, DragState};
@@ -44,7 +46,7 @@ pub struct InteractionState {
     pub config: ConfigPanelState,
     pub goto_open: bool,
     pub rebuild_all_confirm: bool,
-    pub add_dialog_open: bool,
+    pub add_dialog: AddDialogState,
 }
 
 pub struct GuiState {
@@ -72,7 +74,7 @@ impl GuiState {
                 config: ConfigPanelState::default(),
                 goto_open: false,
                 rebuild_all_confirm: false,
-                add_dialog_open: false,
+                add_dialog: AddDialogState::default(),
             },
         }
     }

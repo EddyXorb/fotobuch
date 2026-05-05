@@ -287,7 +287,8 @@ fn mark_dirty(dirty: &mut [bool], task: &BackgroundTask) {
         | BackgroundTask::SwapRange { .. }
         | BackgroundTask::DeletePages { .. }
         | BackgroundTask::RebuildAll
-        | BackgroundTask::ReleaseBuild => {
+        | BackgroundTask::ReleaseBuild
+        | BackgroundTask::AddPhotos { .. } => {
             dirty.fill(true);
         }
         BackgroundTask::RenderPages { .. }

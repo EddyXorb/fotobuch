@@ -37,7 +37,7 @@ pub fn draw_widgets(
     let num_pages = data.project.layout.len();
     goto_dialog::show(ctx, interaction, num_pages);
     rebuild_confirm::show(ctx, interaction, &mut cmds);
-    add_dialog::show(ctx, interaction);
+    add_dialog::show(ctx, interaction, &mut cmds);
 
     cmds
 }
