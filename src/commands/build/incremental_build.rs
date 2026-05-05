@@ -80,6 +80,9 @@ pub fn incremental_build(
 
     // 5. Rebuild each modified page (skip manual pages)
     for &page_idx in &pages_needing_rebuild {
+        if mgr.state.layout[page_idx].mode == crate::dto_models::PageMode::Manual {
+            continue;
+        }
         rebuild_single_page(&mut mgr.state, page_idx, &photo_index)?;
     }
 
