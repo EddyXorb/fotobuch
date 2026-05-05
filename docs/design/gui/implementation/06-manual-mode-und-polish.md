@@ -383,16 +383,18 @@ Lib-Tests:
 
 ### 6.0.4 Commits + Tests
 
-1. `feat(lib): remove_by_ids helper for id-based removal`
+1. `refactor(lib): RemoveConfig target enum (Patterns/Ids/Unplaced)`
 2. `feat(gui): add photos dialog (Ctrl+O / toolbar)`
 3. `feat(gui): OS file drop adds photos to pool`
 4. `feat(gui): delete key removes selected pool photos`
 
 Tests:
-- `commands::remove::remove_by_ids_removes_exact_matches_only`.
-- `input_handler::delete_prefers_pool_selection_over_slot_when_slot_empty`.
-- `input_handler::delete_keeps_slot_path_when_both_selections_populated`
-  (Slot gewinnt, weil Pool nur greift, wenn `SlotSelection::None`).
+- Lib: `remove_by_ids_removes_exact_matches_only`,
+  `remove_by_ids_does_not_match_source_or_group`,
+  `remove_unplaced_via_enum_keeps_placed_photos`.
+- `input_handler::delete_prefers_pool_selection_over_nav_when_slot_empty`.
+- `input_handler::delete_keeps_slot_path_when_pool_and_slot_set`
+  (Slot gewinnt, weil Pool nur greift, wenn die Slot-Selektion leer ist).
 - `add_dialog::submit_consumes_pending_paths`.
 
 ---
@@ -404,15 +406,15 @@ Tests:
 Aktuell hat die Lib **drei** Stellen, an denen ein „skip Manual" stehen
 müsste (`incremental_build`, `rebuild_range`, `rebuild_all`) plus den
 Book-Layout-Solver. Drei verstreute `if mode == Manual { continue; }`-
-Klauseln sind exakt der Code-Smell, den der `incremental_build.rs:68`-
-Kommentar bereits illustriert (er verspricht Skip, aber niemand setzt es
-um). Phase 6 ersetzt das durch **einen einzigen Helper** in
-`src/dto_models/layout.rs` (oder dem bestehenden Layout-Submodul):
+Klauseln sind exakt der Code-Smell, den der Kommentar in
+`src/commands/build/incremental_build.rs:81` bereits illustriert (er
+verspricht Skip, aber niemand setzt es um). Phase 6 ersetzt das durch
+**einen einzigen Helper** in `src/dto_models/state.rs`:
 
 ```rust
 impl ProjectState {
-    /// Iteriert über Indizes der Pages, die der Solver anfassen darf.
-    /// Manual-Pages werden ausgeschlossen — sie sind explizit fixiert.
+    /// Indices of pages that the solver may touch. Manual pages are
+    /// excluded — they are explicitly pinned by the user.
     pub fn auto_page_indices(&self) -> impl Iterator<Item = usize> + '_ {
         self.layout.iter().enumerate()
             .filter(|(_, p)| p.mode == PageMode::Auto)
@@ -428,7 +430,7 @@ Zeile pro Stelle, keine duplizierte Skip-Regel mehr):
 
 | Datei | Heute | Nach 6.1.1 |
 |---|---|---|
-| `src/commands/build/incremental_build.rs:68` | Kommentar verspricht Skip, Code skippt nicht | filter via `auto_page_indices` |
+| `src/commands/build/incremental_build.rs:81` | Kommentar verspricht Skip, Code skippt nicht | filter via `auto_page_indices` |
 | `src/commands/rebuild.rs::rebuild_range` | kein Skip | filter via `auto_page_indices` |
 | `src/commands/rebuild.rs::rebuild_all` | kein Skip | filter via `auto_page_indices` |
 
@@ -441,8 +443,8 @@ werden als Fixed-Size-Blöcke an ihren Indizes belassen — der Solver
 verteilt nur die Fotos der Auto-Pages neu. Umsetzung:
 
 1. Vor dem Solver-Lauf einen Snapshot `Vec<(usize, LayoutPage)>` aller
-   Manual-Pages anlegen (genau über `auto_page_indices` invertiert,
-   damit dieselbe Wahrheit gilt).
+   Manual-Pages anlegen (Komplement von `auto_page_indices`, damit
+   dieselbe Wahrheit gilt).
 2. Solver bekommt nur die Fotos der Auto-Pages.
 3. Nach dem Lauf: Manual-Pages per `layout.splice` an ihren
    ursprünglichen Indizes wieder einsetzen.
@@ -454,48 +456,59 @@ direkt vor dem GUI-Toggle-Commit.
 
 ### 6.1.2 Hotkey `A` → Modus toggeln
 
+Toggle-Logik liegt im UI-Thread (kein Read-Modify-Write über mehrere
+Worker-Roundtrips): der Handler liest `data.project.layout[page].mode`,
+berechnet das Gegenteil und pusht direkt `SetPageMode`:
+
 ```rust
-fn handle_mode_toggle(interaction: &InteractionState, ctx: &egui::Context, cmds: &mut HashSet<PendingCommand>) {
+fn handle_mode_toggle(
+    data: &DataState,
+    interaction: &InteractionState,
+    ctx: &egui::Context,
+    cmds: &mut Vec<BackgroundTask>,
+) {
     if !ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::A)) { return; }
-    let page = match &interaction.selections.slots {
-        SlotSelection::OnPage { page, .. } => *page,
-        SlotSelection::None => match &interaction.hovered {
-            Some(HoveredTarget::Page { page, .. }) | Some(HoveredTarget::NavPage(page)) => *page,
-            _ => return,
-        },
+    let page = interaction.selections.slots.page
+        .or_else(|| interaction.hovered.as_ref().and_then(|h| h.page_idx()));
+    let Some(page) = page else { return; };
+    let Some(lp) = data.project.layout.get(page) else { return; };
+    let new_mode = match lp.mode {
+        PageMode::Auto   => PageMode::Manual,
+        PageMode::Manual => PageMode::Auto,
     };
-    cmds.insert(PendingCommand::TogglePageMode { page });
+    cmds.push(BackgroundTask::SetPageMode { page, mode: new_mode });
 }
 ```
 
-Neu in `pending.rs`:
+Neu in `gui/task.rs`:
 
 ```rust
-PendingCommand::TogglePageMode { page: usize }
-BackgroundTask::SetPageMode { page: usize, mode: fotobuch::dto_models::PageMode, pixel_per_pt: f32 }
+BackgroundTask::SetPageMode { page: usize, mode: fotobuch::dto_models::PageMode }
 ```
 
-Der `TogglePageMode`-Dispatcher liest den aktuellen Modus aus
-`data.project.layout[page].mode`, berechnet `mode.toggle()` und sendet
-`SetPageMode`. Toggle-Logik liegt damit im UI-Thread (kein Read-Modify-Write
-über mehrere Worker-Roundtrips).
-
-Worker:
+Worker (`gui/background/commands/page.rs`):
 
 ```rust
-pub(super) fn run_set_page_mode(page: usize, mode: PageMode, rctx: &mut super::RenderCtx<'_>) {
+pub fn run_set_page_mode(
+    page: usize,
+    mode: fotobuch::dto_models::PageMode,
+    rctx: &mut crate::background::RenderCtx<'_>,
+) {
     use fotobuch::commands::page::{execute_mode, PagesExpr};
+    use fotobuch::dto_models::PageMode;
     match execute_mode(rctx.project_root, PagesExpr::single(page as u32), mode) {
-        Err(e) => { let _ = rctx.result_tx.send(BackgroundResult::CommandFailed(e.to_string())); }
+        Err(e) => {
+            let _ = rctx.result_tx.send(BackgroundResult::CommandFailed(e.to_string()));
+        }
         Ok(out) => {
-            // Manual→Auto: Seite wird beim nächsten Build neu geplant.
-            //   run_page_command ruft build() → neue Slots kommen als dirty zurück.
-            // Auto→Manual: Slots bleiben wie sie sind, nur `mode` flippt.
-            //   Kein Build nötig, aber Derived muss neu gebaut werden.
+            // Manual→Auto: page is replanned on the next build.
+            //   build_after_command runs build() → new slots return as dirty.
+            // Auto→Manual: slots stay; only `mode` flips.
+            //   No build needed, but DerivedState must rebuild.
             if mode == PageMode::Auto {
-                super::commands::finish_with_build(out, rctx);
+                build_after_command(out.changed_state, vec![page], rctx);
             } else {
-                super::render::send_command_done(out.changed_state, vec![], rctx);
+                crate::background::send_command_done(out.changed_state, vec![], rctx);
             }
         }
     }
