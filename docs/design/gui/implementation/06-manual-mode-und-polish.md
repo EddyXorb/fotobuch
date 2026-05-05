@@ -1,9 +1,10 @@
-# Phase 6: Manual Mode + Polish
+# Phase 6: Add + Manual Mode + Polish
 
-**Ziel**: Pool-Add/Remove, Manual-Mode (Free-Position + Resize) inklusive
-Solver-Skip, sowie die Polish-Themen Zoom-Debouncing,
-Render-Cancellation, Off-Screen-Thumbnails, Drag-Ghosts, Smooth Scrolling,
-Kontextmenüs.
+**Ziel**: Pool-Add (Dialog + OS-Drop) und Pool-Remove via `Delete`,
+Manual-Mode (Free-Position + SE-Resize) inklusive Solver-Skip, sowie
+die Polish-Themen Drag-Ghosts mit echten Foto-Thumbnails, Smooth
+Scrolling, Kontextmenüs, Error-Toasts und die Weight-UX (Toolbar-
+Checkbox + W-Slider).
 
 **Voraussetzung**: Phase 5 abgeschlossen. Hotkeys komplett,
 [+]-Platzhalter, Cross-Page Drag laufen.
