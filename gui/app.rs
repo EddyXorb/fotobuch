@@ -314,15 +314,20 @@ impl eframe::App for FotobuchApp {
         self.state.interaction.timings.drain_results = t.elapsed();
 
         let t = Instant::now();
-        let mut cmds =
-            widgets::draw_widgets(ui, &ctx, &self.state.data, &mut self.state.interaction);
+        let mut cmds = widgets::draw_widgets(
+            ui,
+            &ctx,
+            &self.state.data, // contract: draw_widgets must not change data state
+            &mut self.state.interaction,
+        );
         self.state.interaction.timings.show_panels = t.elapsed();
 
         // Input handling runs after central panel so that hovered_slot reflects the current
         // frame — prevents toolbar clicks from accidentally triggering a drag.
         let t = Instant::now();
+
         cmds.extend(input_handler::handle(
-            &self.state.data,
+            &self.state.data, // contract:  input_handlers must not change data state, so we
             &mut self.state.interaction,
             &ctx,
         ));
