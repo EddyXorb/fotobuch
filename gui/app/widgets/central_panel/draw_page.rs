@@ -129,6 +129,27 @@ fn draw_slot_overlays(
     );
     let is_swap_drag = is_slot_drag && interaction.drag.mode == DragMode::Swap;
 
+    // Suppress swap overlays when this page or the drag source page is Manual.
+    use fotobuch::dto_models::PageMode;
+    let src_is_manual = if let ActiveDrag::Dragging(DragSource::Slot { src_page, .. }) =
+        &interaction.drag.active
+    {
+        data.project
+            .layout
+            .get(*src_page)
+            .map(|p| p.mode == PageMode::Manual)
+            .unwrap_or(false)
+    } else {
+        false
+    };
+    let this_is_manual = data
+        .project
+        .layout
+        .get(page_idx)
+        .map(|p| p.mode == PageMode::Manual)
+        .unwrap_or(false);
+    let is_swap_drag = is_swap_drag && !src_is_manual && !this_is_manual;
+
     let drag_src_ratio: Option<f64> =
         if let ActiveDrag::Dragging(DragSource::Slot {
             src_page, src_slot, ..

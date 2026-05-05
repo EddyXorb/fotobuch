@@ -23,6 +23,19 @@ pub(super) fn draw_drag_ghosts(
         }) if *src_page == page_idx => (*src_slot, *cursor_at_drag_start),
         _ => return,
     };
+
+    // No ghosts for manual pages in swap mode — swap is disabled there.
+    use fotobuch::dto_models::PageMode;
+    if interaction.drag.mode == DragMode::Swap
+        && data
+            .project
+            .layout
+            .get(page_idx)
+            .map(|p| p.mode == PageMode::Manual)
+            .unwrap_or(false)
+        {
+            return;
+        }
     let cursor = match ui.ctx().pointer_hover_pos() {
         Some(p) => p,
         None => return,
