@@ -1,4 +1,5 @@
 use crate::state::{ActiveDrag, DataState, DragMode, DragSource, InteractionState};
+use crate::task::BackgroundTask;
 
 use super::super::geometry::{self, PageDimensions};
 use super::{draw_drag_ghosts, helpers};
@@ -9,6 +10,7 @@ pub(super) fn draw_page(
     data: &DataState,
     interaction: &InteractionState,
     page_idx: usize,
+    cmds: &mut Vec<BackgroundTask>,
 ) -> (Option<usize>, bool, egui::Rect) {
     ui.label(format!("Page {page_idx}"));
 
@@ -30,6 +32,20 @@ pub(super) fn draw_page(
         draw_page_move_highlight(ui, interaction, page_idx, page_rect, over_page);
         draw_pool_drag_overlay(ui, interaction, page_idx, page_rect);
         draw_drag_ghosts::draw_drag_ghosts(ui, data, interaction, page_idx, page_rect, dims);
+
+        // Mode toggle badge — outside the page overlay to avoid capturing drop targets.
+        use fotobuch::dto_models::PageMode;
+        let (label, new_mode) = match layout_page.mode {
+            PageMode::Auto => ("[A]", PageMode::Manual),
+            PageMode::Manual => ("[M]", PageMode::Auto),
+        };
+        if ui.small_button(label).clicked() {
+            cmds.push(BackgroundTask::SetPageMode {
+                page: page_idx,
+                mode: new_mode,
+            });
+        }
+
         (hovered_slot, over_page, page_rect)
     } else {
         (None, false, page_rect)

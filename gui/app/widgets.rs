@@ -28,7 +28,7 @@ pub fn draw_widgets(
     // Side panels must come before the central panel (egui ordering requirement).
     photo_pool::draw(ui, data, interaction);
     page_nav::draw(ui, data, interaction, &mut cmds);
-    central_panel::draw(ui, data, interaction);
+    central_panel::draw(ui, data, interaction, &mut cmds);
 
     if interaction.config.open {
         config_window::show(ctx, data, interaction, &mut cmds);

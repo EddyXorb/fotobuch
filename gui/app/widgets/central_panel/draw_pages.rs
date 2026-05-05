@@ -1,4 +1,5 @@
 use crate::state::{DataState, HoveredTarget, InteractionState};
+use crate::task::BackgroundTask;
 
 use super::super::page_nav;
 use super::draw_new_page_slot;
@@ -8,6 +9,7 @@ pub(super) fn draw_pages(
     ui: &mut egui::Ui,
     data: &DataState,
     interaction: &mut InteractionState,
+    cmds: &mut Vec<BackgroundTask>,
 ) -> Option<HoveredTarget> {
     // Use page_textures.len() rather than layout.len() so that extra pages
     // produced by Typst (e.g. appendix) are also rendered and displayed.
@@ -41,7 +43,7 @@ pub(super) fn draw_pages(
 
             for i in 0..num_pages {
                 let (slot_idx, over_page, page_rect) =
-                    draw_page::draw_page(ui, data, interaction, i);
+                    draw_page::draw_page(ui, data, interaction, i, cmds);
                 if hovered.is_none() {
                     hovered = if let Some(slot) = slot_idx {
                         Some(HoveredTarget::Page {

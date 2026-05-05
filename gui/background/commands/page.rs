@@ -198,3 +198,26 @@ pub fn run_move_page(
     };
     run_page_command(cmd, rctx);
 }
+
+pub fn run_set_page_mode(
+    page: usize,
+    mode: fotobuch::dto_models::PageMode,
+    rctx: &mut crate::background::RenderCtx<'_>,
+) {
+    use fotobuch::commands::page::{PagesExpr, execute_mode};
+    use fotobuch::dto_models::PageMode;
+    match execute_mode(rctx.project_root, PagesExpr::single(page as u32), mode) {
+        Err(e) => {
+            let _ = rctx
+                .result_tx
+                .send(crate::task::BackgroundResult::CommandFailed(e.to_string()));
+        }
+        Ok(out) => {
+            if mode == PageMode::Auto {
+                build_after_command(out.changed_state, vec![page], rctx);
+            } else {
+                crate::background::send_command_done(out.changed_state, vec![], rctx);
+            }
+        }
+    }
+}

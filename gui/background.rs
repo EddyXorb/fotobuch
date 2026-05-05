@@ -143,6 +143,9 @@ pub fn spawn(
                 BackgroundTask::RemovePhotos { photo_ids } => {
                     commands::run_remove_photos(photo_ids, &mut rctx);
                 }
+                BackgroundTask::SetPageMode { page, mode } => {
+                    commands::run_set_page_mode(page, mode, &mut rctx);
+                }
             }
         }
     });

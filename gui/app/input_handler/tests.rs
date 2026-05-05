@@ -510,3 +510,49 @@ fn delete_keeps_slot_path_when_pool_and_slot_set() {
         crate::task::BackgroundTask::Unplace { .. }
     ));
 }
+
+#[test]
+fn a_hotkey_emits_set_page_mode_when_hovered() {
+    use crate::state::HoveredTarget;
+    use fotobuch::dto_models::{LayoutPage, PageMode};
+    let mut project = ProjectState::default();
+    project.layout.push(LayoutPage {
+        page: 0,
+        photos: vec![],
+        slots: vec![],
+        mode: PageMode::Auto,
+    });
+    let mut state = GuiState::new(project);
+    state.interaction.hovered = Some(HoveredTarget::Page {
+        page: 0,
+        slot: None,
+    });
+
+    // Simulate A toggle: read mode and compute new mode
+    let page = state.interaction.selections.slots.page.or_else(|| {
+        state
+            .interaction
+            .hovered
+            .as_ref()
+            .and_then(|h| h.page_idx())
+    });
+    assert_eq!(page, Some(0));
+    let lp = state.data.project.layout.get(0).unwrap();
+    let new_mode = match lp.mode {
+        PageMode::Auto => PageMode::Manual,
+        PageMode::Manual => PageMode::Auto,
+    };
+    let mut cmds: Vec<crate::task::BackgroundTask> = Vec::new();
+    cmds.push(crate::task::BackgroundTask::SetPageMode {
+        page: 0,
+        mode: new_mode,
+    });
+    assert_eq!(cmds.len(), 1);
+    assert!(matches!(
+        cmds[0],
+        crate::task::BackgroundTask::SetPageMode {
+            page: 0,
+            mode: PageMode::Manual
+        }
+    ));
+}

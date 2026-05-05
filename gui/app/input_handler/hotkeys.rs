@@ -232,6 +232,35 @@ pub(super) fn handle_add_hotkey(interaction: &mut InteractionState, ctx: &egui::
     }
 }
 
+pub(super) fn handle_mode_toggle(
+    data: &DataState,
+    interaction: &InteractionState,
+    ctx: &egui::Context,
+    cmds: &mut Vec<BackgroundTask>,
+) {
+    if !ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::A)) {
+        return;
+    }
+    let page = interaction
+        .selections
+        .slots
+        .page
+        .or_else(|| interaction.hovered.as_ref().and_then(|h| h.page_idx()));
+    let Some(page) = page else { return };
+    let Some(lp) = data.project.layout.get(page) else {
+        return;
+    };
+    use fotobuch::dto_models::PageMode;
+    let new_mode = match lp.mode {
+        PageMode::Auto => PageMode::Manual,
+        PageMode::Manual => PageMode::Auto,
+    };
+    cmds.push(BackgroundTask::SetPageMode {
+        page,
+        mode: new_mode,
+    });
+}
+
 pub(super) fn handle_click(interaction: &mut InteractionState, ctx: &egui::Context) {
     if !ctx.input(|i| i.pointer.primary_clicked()) {
         return;

@@ -79,6 +79,10 @@ pub enum BackgroundTask {
     RemovePhotos {
         photo_ids: Vec<String>,
     },
+    SetPageMode {
+        page: usize,
+        mode: fotobuch::dto_models::PageMode,
+    },
 }
 
 #[derive(Debug)]

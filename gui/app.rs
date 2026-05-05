@@ -289,7 +289,8 @@ fn mark_dirty(dirty: &mut [bool], task: &BackgroundTask) {
         | BackgroundTask::RebuildAll
         | BackgroundTask::ReleaseBuild
         | BackgroundTask::AddPhotos { .. }
-        | BackgroundTask::RemovePhotos { .. } => {
+        | BackgroundTask::RemovePhotos { .. }
+        | BackgroundTask::SetPageMode { .. } => {
             dirty.fill(true);
         }
         BackgroundTask::RenderPages { .. }
