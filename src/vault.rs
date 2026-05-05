@@ -86,7 +86,7 @@ fn has_fotobuch_branches(path: &Path) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-        use tempfile::TempDir;
+    use tempfile::TempDir;
 
     fn empty_settings() -> AppSettings {
         AppSettings::default()

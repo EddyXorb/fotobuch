@@ -17,6 +17,7 @@ mod statusbar;
 mod toasts;
 mod toolbar;
 mod weight_slider;
+mod welcome_modal;
 
 pub fn draw_widgets(
     ui: &mut egui::Ui,
@@ -44,6 +45,7 @@ pub fn draw_widgets(
     context_menu::show(ctx, data, interaction, &mut cmds);
     toasts::show(ctx, &mut interaction.toasts);
     weight_slider::show(ctx, interaction, &mut cmds);
+    welcome_modal::show(ctx, interaction, &mut cmds);
 
     cmds
 }
