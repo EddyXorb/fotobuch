@@ -85,15 +85,16 @@ pub(super) fn promote_pending_drag(interaction: &mut InteractionState, ctx: &egu
     interaction.drag.active.maybe_promote(cursor);
 }
 
-/// Handles RMB release for all drag sources. Returns `true` when a drag action was taken.
+/// Handles RMB release for all drag sources.
+/// Returns `(action_taken, error_message)` — caller must push any error to `data.toasts`.
 pub(super) fn handle_drag_complete(
     data: &DataState,
     interaction: &mut InteractionState,
     ctx: &egui::Context,
     cmds: &mut Vec<BackgroundTask>,
-) -> bool {
+) -> (bool, Option<String>) {
     if !ctx.input(|i| i.pointer.secondary_released()) {
-        return false;
+        return (false, None);
     }
 
     match std::mem::replace(&mut interaction.drag.active, ActiveDrag::Idle) {
@@ -101,9 +102,10 @@ pub(super) fn handle_drag_complete(
         ActiveDrag::Pending { .. } => {
             let cursor = ctx.pointer_hover_pos().unwrap_or_default();
             interaction.context_menu = build_context_menu(&interaction.hovered, cursor);
-            true
+            (true, None)
         }
         ActiveDrag::Dragging(source) => {
+            let mut error: Option<String> = None;
             match source {
                 DragSource::Slot {
                     src_page,
@@ -127,19 +129,27 @@ pub(super) fn handle_drag_complete(
                     page,
                     slot,
                     pointer_origin,
+                    slot_origin_mm,
                     pixel_per_mm,
-                    ..
                 } => {
                     let cursor = ctx.pointer_hover_pos().unwrap_or(pointer_origin);
                     let delta_px = cursor - pointer_origin;
                     let dx_mm = delta_px.x as f64 / pixel_per_mm;
                     let dy_mm = delta_px.y as f64 / pixel_per_mm;
-                    cmds.push(BackgroundTask::PagePos {
-                        page,
-                        slot,
-                        mode: PagePosMode::Relative { dx_mm, dy_mm },
-                        scale: None,
-                    });
+                    let new_x = slot_origin_mm.0 + dx_mm;
+                    let new_y = slot_origin_mm.1 + dy_mm;
+                    if is_slot_visible_on_page(data, page, slot, new_x, new_y) {
+                        cmds.push(BackgroundTask::PagePos {
+                            page,
+                            slot,
+                            mode: PagePosMode::Relative { dx_mm, dy_mm },
+                            scale: None,
+                        });
+                    } else {
+                        error = Some(
+                            "Cannot move slot: it would be completely outside the page.".into(),
+                        );
+                    }
                 }
                 DragSource::ManualResize {
                     page,
@@ -162,9 +172,9 @@ pub(super) fn handle_drag_complete(
                     });
                 }
             }
-            true
+            (true, error)
         }
-        ActiveDrag::Idle => false,
+        ActiveDrag::Idle => (false, None),
     }
 }
 
@@ -417,6 +427,31 @@ fn build_context_menu(hovered: &Option<HoveredTarget>, pos: egui::Pos2) -> Optio
         }),
         _ => None,
     }
+}
+
+/// Returns `true` if placing a slot at `(new_x_mm, new_y_mm)` keeps at least some part of it
+/// visible within the page content area.
+fn is_slot_visible_on_page(
+    data: &DataState,
+    page: usize,
+    slot: usize,
+    new_x_mm: f64,
+    new_y_mm: f64,
+) -> bool {
+    let layout_page = match data.project.layout.get(page) {
+        Some(lp) => lp,
+        None => return false,
+    };
+    let slot_data = match layout_page.slots.get(slot) {
+        Some(s) => s,
+        None => return false,
+    };
+    let (page_w, page_h) = data.project.page_dimensions_mm(page);
+    // The slot rect must overlap [0, page_w] × [0, page_h].
+    new_x_mm + slot_data.width_mm > 0.0
+        && new_x_mm < page_w
+        && new_y_mm + slot_data.height_mm > 0.0
+        && new_y_mm < page_h
 }
 
 /// SE-corner proportional resize math (mirrors `widgets::central_panel::manual_resize::compute_se`).

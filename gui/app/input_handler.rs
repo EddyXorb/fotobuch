@@ -30,7 +30,10 @@ pub fn handle(
     hotkeys::handle_add_hotkey(interaction, ctx);
     hotkeys::handle_weight_hotkey(data, interaction, ctx);
 
-    let drag_action = drag::handle_drag_complete(data, interaction, ctx, &mut cmds);
+    let (drag_action, drag_error) = drag::handle_drag_complete(data, interaction, ctx, &mut cmds);
+    if let Some(msg) = drag_error {
+        data.toasts.push(msg);
+    }
     drag::promote_pending_drag(interaction, ctx);
     drag::handle_drag_start(interaction, ctx);
 
