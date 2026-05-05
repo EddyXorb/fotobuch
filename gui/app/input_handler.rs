@@ -12,6 +12,8 @@ pub fn handle(
 ) -> Vec<BackgroundTask> {
     let mut cmds = Vec::new();
 
+    handle_os_dropped_files(ctx, &mut cmds);
+
     hotkeys::handle_timings_toggle(data, ctx);
     hotkeys::handle_drag_mode_toggle(interaction, ctx);
     hotkeys::handle_zoom(interaction, ctx);
@@ -36,6 +38,25 @@ pub fn handle(
     }
 
     cmds
+}
+
+fn handle_os_dropped_files(ctx: &egui::Context, cmds: &mut Vec<BackgroundTask>) {
+    let paths: Vec<std::path::PathBuf> = ctx.input(|i| {
+        i.raw
+            .dropped_files
+            .iter()
+            .filter_map(|f| f.path.clone())
+            .collect()
+    });
+    if paths.is_empty() {
+        return;
+    }
+    cmds.push(BackgroundTask::AddPhotos {
+        paths,
+        recursive: true,
+        weight: 1.0,
+        source_filter: String::new(),
+    });
 }
 
 #[cfg(test)]

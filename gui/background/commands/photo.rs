@@ -103,6 +103,25 @@ pub fn run_place_photos(
     }
 }
 
+pub fn run_remove_photos(photo_ids: Vec<String>, rctx: &mut crate::background::RenderCtx<'_>) {
+    use fotobuch::commands::remove::{RemoveConfig, RemoveTarget, remove};
+    let cfg = RemoveConfig {
+        target: RemoveTarget::Ids(photo_ids),
+        keep_files: false,
+    };
+    match remove(rctx.project_root, &cfg) {
+        Err(e) => {
+            let _ = rctx
+                .result_tx
+                .send(BackgroundResult::CommandFailed(e.to_string()));
+        }
+        Ok(out) => {
+            let dirty = out.result.pages_affected;
+            super::page::build_after_command(out.changed_state, dirty, rctx);
+        }
+    }
+}
+
 pub fn run_unplace(page: usize, slots: Vec<usize>, rctx: &mut crate::background::RenderCtx<'_>) {
     let slot_expr = SlotExpr::from_list(slots.iter().map(|&s| s as u32).collect());
     match execute_unplace(rctx.project_root, page as u32, slot_expr) {

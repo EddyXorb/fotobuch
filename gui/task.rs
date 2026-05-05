@@ -76,6 +76,9 @@ pub enum BackgroundTask {
         weight: f64,
         source_filter: String,
     },
+    RemovePhotos {
+        photo_ids: Vec<String>,
+    },
 }
 
 #[derive(Debug)]

@@ -144,6 +144,8 @@ pub(super) fn handle_delete(
     if !ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Delete)) {
         return;
     }
+
+    // 1) Slot-Selektion gewinnt (Phase 5).
     if let Some(page) = interaction.selections.slots.page
         && !interaction.selections.slots.is_empty()
     {
@@ -153,6 +155,17 @@ pub(super) fn handle_delete(
         });
         return;
     }
+
+    // 2) Pool-Selektion.
+    let pool_ids = interaction.selections.photos.ids();
+    if !pool_ids.is_empty() {
+        cmds.push(BackgroundTask::RemovePhotos {
+            photo_ids: pool_ids,
+        });
+        return;
+    }
+
+    // 3) Nav-Selektion — Cover wird gefiltert.
     let nav_sel = interaction.selections.nav_pages.items();
     if !nav_sel.is_empty() {
         let pages: Vec<usize> = if data.project.has_cover() {

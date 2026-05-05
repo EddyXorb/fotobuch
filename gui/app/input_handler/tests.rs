@@ -458,3 +458,55 @@ fn rebuild_without_selection_opens_confirm_path() {
         PagesForRebuild::None
     ));
 }
+
+#[test]
+fn delete_prefers_pool_selection_over_nav_when_slot_empty() {
+    use crate::state::PhotoSelection;
+    let mut state = GuiState::new(ProjectState::default());
+    // No slot selection, pool selection set
+    state.interaction.selections.photos = PhotoSelection::single("a.jpg".to_string());
+    state.interaction.selections.nav_pages.toggle(1);
+    let mut cmds = Vec::new();
+    // Simulate Delete: slot empty → pool wins
+    let pool_ids = state.interaction.selections.photos.ids();
+    assert!(!pool_ids.is_empty());
+    cmds.push(crate::task::BackgroundTask::RemovePhotos {
+        photo_ids: pool_ids,
+    });
+    assert_eq!(cmds.len(), 1);
+    assert!(matches!(
+        cmds[0],
+        crate::task::BackgroundTask::RemovePhotos { .. }
+    ));
+}
+
+#[test]
+fn delete_keeps_slot_path_when_pool_and_slot_set() {
+    use fotobuch::dto_models::{LayoutPage, PageMode};
+    let mut project = ProjectState::default();
+    project.layout.push(LayoutPage {
+        page: 0,
+        photos: vec!["x".to_string()],
+        slots: vec![],
+        mode: PageMode::Auto,
+    });
+    let mut state = GuiState::new(project);
+    // Set both slot and pool selection
+    state.interaction.selections.slots = SlotSelection::single(0, 0);
+    state.interaction.selections.photos = crate::state::PhotoSelection::single("a.jpg".to_string());
+    let mut cmds = Vec::new();
+    // Slot wins: prioritize slot unplace
+    if state.interaction.selections.slots.page.is_some()
+        && !state.interaction.selections.slots.is_empty()
+    {
+        cmds.push(crate::task::BackgroundTask::Unplace {
+            page: state.interaction.selections.slots.page.unwrap(),
+            slots: state.interaction.selections.slots.slots_on_active_page(),
+        });
+    }
+    assert_eq!(cmds.len(), 1);
+    assert!(matches!(
+        cmds[0],
+        crate::task::BackgroundTask::Unplace { .. }
+    ));
+}

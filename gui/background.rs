@@ -140,6 +140,9 @@ pub fn spawn(
                 } => {
                     commands::run_add_photos(paths, recursive, weight, source_filter, &mut rctx);
                 }
+                BackgroundTask::RemovePhotos { photo_ids } => {
+                    commands::run_remove_photos(photo_ids, &mut rctx);
+                }
             }
         }
     });
