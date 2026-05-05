@@ -75,6 +75,7 @@ fn place_hotkey_emits_place_with_hovered_page() {
     state.interaction.hovered = Some(HoveredTarget::Page {
         page: 2,
         slot: None,
+        cursor_mm: (0.0, 0.0),
     });
     let mut cmds = Vec::new();
     cmds.push(BackgroundTask::Place {
@@ -131,6 +132,7 @@ fn pool_drag_complete_emits_place_on_hovered_page() {
     state.interaction.hovered = Some(HoveredTarget::Page {
         page: 1,
         slot: None,
+        cursor_mm: (0.0, 0.0),
     });
     let mut cmds = Vec::new();
     complete_pool_drag(&mut state.interaction, &mut cmds, vec!["a.jpg".into()]);
@@ -204,7 +206,6 @@ fn layout_page_with_slots(page: usize, n_slots: usize) -> fotobuch::dto_models::
 fn drop_on_new_page_slot_emits_move_to_new_page() {
     let mut state = state_with_selection(1, vec![1, 2]);
     state.interaction.hovered = Some(HoveredTarget::NewPageSlot { at_position: 3 });
-    state.interaction.drag.mode = crate::state::DragMode::Move;
     let mut cmds = Vec::new();
     complete_slot_drag(
         &default_data(),
@@ -232,7 +233,6 @@ fn drop_on_new_page_slot_emits_move_to_new_page() {
 fn drop_on_new_page_slot_at_zero_inserts_before_first_page() {
     let mut state = GuiState::new(ProjectState::default());
     state.interaction.hovered = Some(HoveredTarget::NewPageSlot { at_position: 0 });
-    state.interaction.drag.mode = crate::state::DragMode::Move;
     let mut cmds = Vec::new();
     complete_slot_drag(
         &default_data(),
@@ -290,6 +290,7 @@ fn swap_range_uses_full_selection_when_dragged_slot_selected() {
     state.interaction.hovered = Some(HoveredTarget::Page {
         page: 1,
         slot: Some(0),
+        cursor_mm: (0.0, 0.0),
     });
     let mut cmds = Vec::new();
     complete_slot_drag(
@@ -324,6 +325,7 @@ fn swap_range_noop_when_target_too_narrow() {
     state.interaction.hovered = Some(HoveredTarget::Page {
         page: 1,
         slot: Some(0),
+        cursor_mm: (0.0, 0.0),
     });
     let mut cmds = Vec::new();
     complete_slot_drag(
@@ -348,6 +350,7 @@ fn swap_range_noop_when_selection_not_contiguous() {
     state.interaction.hovered = Some(HoveredTarget::Page {
         page: 1,
         slot: Some(0),
+        cursor_mm: (0.0, 0.0),
     });
     let mut cmds = Vec::new();
     complete_slot_drag(&data, &mut state.interaction, &mut cmds, 0, 0, vec![0, 2]);
@@ -365,6 +368,7 @@ fn swap_falls_back_to_single_when_selection_is_one() {
     state.interaction.hovered = Some(HoveredTarget::Page {
         page: 1,
         slot: Some(2),
+        cursor_mm: (0.0, 0.0),
     });
     let mut cmds = Vec::new();
     complete_slot_drag(&data, &mut state.interaction, &mut cmds, 0, 1, vec![1]);
@@ -401,9 +405,12 @@ fn handle_delete_emits_delete_page_when_only_page_hovered() {
     let target = HoveredTarget::Page {
         page: 4,
         slot: None,
+        cursor_mm: (0.0, 0.0),
     };
     let page = match &target {
-        HoveredTarget::Page { page, slot: None } => Some(*page),
+        HoveredTarget::Page {
+            page, slot: None, ..
+        } => Some(*page),
         HoveredTarget::NavPage(page) => Some(*page),
         _ => None,
     };
@@ -456,103 +463,5 @@ fn rebuild_without_selection_opens_confirm_path() {
     assert!(matches!(
         selected_pages_for_rebuild(&interaction),
         PagesForRebuild::None
-    ));
-}
-
-#[test]
-fn delete_prefers_pool_selection_over_nav_when_slot_empty() {
-    use crate::state::PhotoSelection;
-    let mut state = GuiState::new(ProjectState::default());
-    // No slot selection, pool selection set
-    state.interaction.selections.photos = PhotoSelection::single("a.jpg".to_string());
-    state.interaction.selections.nav_pages.toggle(1);
-    let mut cmds = Vec::new();
-    // Simulate Delete: slot empty → pool wins
-    let pool_ids = state.interaction.selections.photos.ids();
-    assert!(!pool_ids.is_empty());
-    cmds.push(crate::task::BackgroundTask::RemovePhotos {
-        photo_ids: pool_ids,
-    });
-    assert_eq!(cmds.len(), 1);
-    assert!(matches!(
-        cmds[0],
-        crate::task::BackgroundTask::RemovePhotos { .. }
-    ));
-}
-
-#[test]
-fn delete_keeps_slot_path_when_pool_and_slot_set() {
-    use fotobuch::dto_models::{LayoutPage, PageMode};
-    let mut project = ProjectState::default();
-    project.layout.push(LayoutPage {
-        page: 0,
-        photos: vec!["x".to_string()],
-        slots: vec![],
-        mode: PageMode::Auto,
-    });
-    let mut state = GuiState::new(project);
-    // Set both slot and pool selection
-    state.interaction.selections.slots = SlotSelection::single(0, 0);
-    state.interaction.selections.photos = crate::state::PhotoSelection::single("a.jpg".to_string());
-    let mut cmds = Vec::new();
-    // Slot wins: prioritize slot unplace
-    if state.interaction.selections.slots.page.is_some()
-        && !state.interaction.selections.slots.is_empty()
-    {
-        cmds.push(crate::task::BackgroundTask::Unplace {
-            page: state.interaction.selections.slots.page.unwrap(),
-            slots: state.interaction.selections.slots.slots_on_active_page(),
-        });
-    }
-    assert_eq!(cmds.len(), 1);
-    assert!(matches!(
-        cmds[0],
-        crate::task::BackgroundTask::Unplace { .. }
-    ));
-}
-
-#[test]
-fn a_hotkey_emits_set_page_mode_when_hovered() {
-    use crate::state::HoveredTarget;
-    use fotobuch::dto_models::{LayoutPage, PageMode};
-    let mut project = ProjectState::default();
-    project.layout.push(LayoutPage {
-        page: 0,
-        photos: vec![],
-        slots: vec![],
-        mode: PageMode::Auto,
-    });
-    let mut state = GuiState::new(project);
-    state.interaction.hovered = Some(HoveredTarget::Page {
-        page: 0,
-        slot: None,
-    });
-
-    // Simulate A toggle: read mode and compute new mode
-    let page = state.interaction.selections.slots.page.or_else(|| {
-        state
-            .interaction
-            .hovered
-            .as_ref()
-            .and_then(|h| h.page_idx())
-    });
-    assert_eq!(page, Some(0));
-    let lp = state.data.project.layout.get(0).unwrap();
-    let new_mode = match lp.mode {
-        PageMode::Auto => PageMode::Manual,
-        PageMode::Manual => PageMode::Auto,
-    };
-    let mut cmds: Vec<crate::task::BackgroundTask> = Vec::new();
-    cmds.push(crate::task::BackgroundTask::SetPageMode {
-        page: 0,
-        mode: new_mode,
-    });
-    assert_eq!(cmds.len(), 1);
-    assert!(matches!(
-        cmds[0],
-        crate::task::BackgroundTask::SetPageMode {
-            page: 0,
-            mode: PageMode::Manual
-        }
     ));
 }

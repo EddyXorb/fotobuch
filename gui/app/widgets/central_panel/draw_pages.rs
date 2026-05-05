@@ -54,18 +54,20 @@ pub(super) fn draw_pages(
             }
 
             for i in 0..num_pages {
-                let (slot_idx, over_page, page_rect) =
+                let (slot_idx, over_page, page_rect, cursor_mm) =
                     draw_page::draw_page(ui, data, interaction, i, cmds);
                 if hovered.is_none() {
                     hovered = if let Some(slot) = slot_idx {
                         Some(HoveredTarget::Page {
                             page: i,
                             slot: Some(slot),
+                            cursor_mm,
                         })
                     } else if over_page {
                         Some(HoveredTarget::Page {
                             page: i,
                             slot: None,
+                            cursor_mm,
                         })
                     } else {
                         None

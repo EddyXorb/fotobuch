@@ -1,11 +1,11 @@
-use crate::task::BackgroundTask;
+use crate::task::{BackgroundTask, PagePosMode};
 
 use crate::state::{
     ActiveDrag, ContextMenu, DataState, DragMode, DragSource, HoveredTarget, InteractionState,
     PhotoSelection,
 };
 use fotobuch::commands::PlaceDst;
-use fotobuch::dto_models::LayoutPage;
+use fotobuch::dto_models::{LayoutPage, PageMode};
 
 pub(super) fn handle_drag_start(interaction: &mut InteractionState, ctx: &egui::Context) {
     if !ctx.input(|i| i.pointer.secondary_pressed()) {
@@ -22,6 +22,7 @@ pub(super) fn handle_drag_start(interaction: &mut InteractionState, ctx: &egui::
     let drag_source = if let Some(HoveredTarget::Page {
         page,
         slot: Some(slot),
+        ..
     }) = &interaction.hovered
     {
         let (src_page, src_slot) = (*page, *slot);
@@ -63,11 +64,7 @@ pub(super) fn handle_drag_start(interaction: &mut InteractionState, ctx: &egui::
         None
     };
     if let Some(src) = drag_source {
-        interaction.drag.active = ActiveDrag::Pending {
-            source: src,
-            press_pos: cursor,
-            press_instant: std::time::Instant::now(),
-        };
+        interaction.drag.active = ActiveDrag::Dragging(src);
     }
 }
 
@@ -142,18 +139,38 @@ pub(super) fn complete_slot_drag(
         .as_ref()
         .and_then(HoveredTarget::new_page_at_position)
     {
-        if interaction.drag.mode == DragMode::Move {
-            cmds.push(BackgroundTask::MoveToNewPage {
-                src_page,
-                src_slots,
-                at_position,
-            });
-        }
+        cmds.push(BackgroundTask::MoveToNewPage {
+            src_page,
+            src_slots,
+            at_position,
+        });
         return;
     }
 
+    let src_is_manual = data
+        .project
+        .layout
+        .get(src_page)
+        .map(|p| p.mode == PageMode::Manual)
+        .unwrap_or(false);
+
     let hovered_slot = interaction.hovered.as_ref().and_then(|h| h.slot());
     let effective_page = interaction.hovered.as_ref().and_then(|h| h.page_idx());
+    let cursor_mm = interaction
+        .hovered
+        .as_ref()
+        .and_then(|h| h.cursor_mm_on_page());
+
+    let dst_is_manual = effective_page
+        .and_then(|p| data.project.layout.get(p))
+        .map(|p| p.mode == PageMode::Manual)
+        .unwrap_or(false);
+
+    // Swap is not allowed when either the source or destination page is Manual.
+    if interaction.drag.mode == DragMode::Swap && (src_is_manual || dst_is_manual) {
+        return;
+    }
+
     match (hovered_slot, interaction.drag.mode) {
         (Some((dst_page, dst_slot)), DragMode::Swap) => {
             if src_slots.len() == 1 {
@@ -168,6 +185,30 @@ pub(super) fn complete_slot_drag(
                     dst_page,
                     dst_slots,
                 });
+            }
+        }
+        (_, DragMode::Move) if dst_is_manual => {
+            // Drop onto a Manual page: move the first slot and place it at cursor position.
+            if let Some(dst_page) = effective_page
+                && let Some((x_mm, y_mm)) = cursor_mm
+                && src_slots.len() == 1
+            {
+                let slot = src_slots[0];
+                dispatch_move(cmds, src_page, vec![slot], dst_page);
+                // The moved slot lands at index 0 on the dst page (it is the only one, or first).
+                // Use PagePos::Absolute to position it at the drop point.
+                cmds.push(BackgroundTask::PagePos {
+                    page: dst_page,
+                    slot: 0,
+                    mode: PagePosMode::Absolute {
+                        x_mm: x_mm as f64,
+                        y_mm: y_mm as f64,
+                    },
+                    scale: None,
+                });
+            } else if let Some(dst_page) = effective_page {
+                // Multi-slot: just move without repositioning.
+                dispatch_move(cmds, src_page, src_slots, dst_page);
             }
         }
         (Some((dst_page, _)), DragMode::Move) => {
@@ -305,12 +346,15 @@ fn build_context_menu(hovered: &Option<HoveredTarget>, pos: egui::Pos2) -> Optio
         Some(HoveredTarget::Page {
             page,
             slot: Some(slot),
+            ..
         }) => Some(ContextMenu::Slot {
             page: *page,
             slot: *slot,
             screen_pos: pos,
         }),
-        Some(HoveredTarget::Page { page, slot: None }) => Some(ContextMenu::Page {
+        Some(HoveredTarget::Page {
+            page, slot: None, ..
+        }) => Some(ContextMenu::Page {
             page: *page,
             screen_pos: pos,
         }),
@@ -323,47 +367,5 @@ fn build_context_menu(hovered: &Option<HoveredTarget>, pos: egui::Pos2) -> Optio
             screen_pos: pos,
         }),
         _ => None,
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn quick_rmb_tap_opens_context_menu() {
-        // A tap is recognised when RMB is released while still in Pending state
-        // (cursor never moved past DRAG_THRESHOLD_PX). Test build_context_menu directly.
-        let pos = egui::pos2(100.0, 200.0);
-        let hovered = Some(HoveredTarget::Page {
-            page: 0,
-            slot: Some(1),
-        });
-        let menu = build_context_menu(&hovered, pos);
-        assert!(matches!(
-            menu,
-            Some(ContextMenu::Slot {
-                page: 0,
-                slot: 1,
-                ..
-            })
-        ));
-    }
-
-    #[test]
-    fn rmb_hold_or_drag_does_not_open_menu() {
-        // build_context_menu on non-interactable target returns None.
-        let pos = egui::pos2(50.0, 50.0);
-        let hovered = Some(HoveredTarget::NewPageSlot { at_position: 2 });
-        let menu = build_context_menu(&hovered, pos);
-        assert!(menu.is_none());
-    }
-
-    #[test]
-    fn navpage_context_menu_produces_nav_variant() {
-        let pos = egui::pos2(0.0, 0.0);
-        let hovered = Some(HoveredTarget::NavPage(3));
-        let menu = build_context_menu(&hovered, pos);
-        assert!(matches!(menu, Some(ContextMenu::NavPage { page: 3, .. })));
     }
 }

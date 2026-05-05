@@ -4,14 +4,15 @@ use crate::task::{BackgroundTask, PagePosMode};
 use super::super::geometry::{self, PageDimensions};
 use super::{draw_drag_ghosts, helpers};
 
-/// Returns `(hovered_slot, over_page, page_rect)`.
+/// Returns `(hovered_slot, over_page, page_rect, cursor_mm)`.
+/// `cursor_mm` is the cursor in page-content mm coordinates (offset by bleed+margin).
 pub(super) fn draw_page(
     ui: &mut egui::Ui,
     data: &DataState,
     interaction: &mut InteractionState,
     page_idx: usize,
     cmds: &mut Vec<BackgroundTask>,
-) -> (Option<usize>, bool, egui::Rect) {
+) -> (Option<usize>, bool, egui::Rect, (f32, f32)) {
     ui.label(format!("Page {page_idx}"));
 
     let (width_mm, height_mm) = data.project.page_dimensions_mm(page_idx);
@@ -27,7 +28,8 @@ pub(super) fn draw_page(
 
     if let Some(layout_page) = data.project.layout.get(page_idx) {
         draw_slot_overlays(ui, page_rect, data, interaction, page_idx, dims);
-        let (hovered_slot, over_page) = hit_test_pointer(ui, page_rect, layout_page, dims);
+        let (hovered_slot, over_page, cursor_mm) =
+            hit_test_pointer(ui, page_rect, layout_page, dims);
         super::super::page_nav::draw_nav_selection_overlay(ui, interaction, page_idx, page_rect);
         draw_page_move_highlight(ui, interaction, page_idx, page_rect, over_page);
         draw_pool_drag_overlay(ui, interaction, page_idx, page_rect);
@@ -68,9 +70,9 @@ pub(super) fn draw_page(
             });
         }
 
-        (hovered_slot, over_page, page_rect)
+        (hovered_slot, over_page, page_rect, cursor_mm)
     } else {
-        (None, false, page_rect)
+        (None, false, page_rect, (0.0, 0.0))
     }
 }
 
@@ -182,12 +184,21 @@ fn hit_test_pointer(
     page_rect: egui::Rect,
     layout_page: &fotobuch::dto_models::LayoutPage,
     dims: PageDimensions,
-) -> (Option<usize>, bool) {
+) -> (Option<usize>, bool, (f32, f32)) {
     match ui.input(|i| i.pointer.latest_pos()) {
-        None => (None, false),
+        None => (None, false, (0.0, 0.0)),
         Some(pos) => {
             let slot = geometry::hit_test_slot(pos, page_rect, layout_page, dims);
-            (slot, page_rect.contains(pos))
+            let over = page_rect.contains(pos);
+            let cursor_mm = if over {
+                let s = dims.page_scale(page_rect);
+                let x_mm = (pos.x - page_rect.min.x) / s.scale_x - s.offset_mm;
+                let y_mm = (pos.y - page_rect.min.y) / s.scale_y - s.offset_mm;
+                (x_mm, y_mm)
+            } else {
+                (0.0, 0.0)
+            };
+            (slot, over, cursor_mm)
         }
     }
 }
