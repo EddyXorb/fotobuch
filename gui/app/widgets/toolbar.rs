@@ -30,6 +30,8 @@ fn show(
         ui.separator();
         place_button(ui, interaction, &mut cmds);
         ui.separator();
+        add_button(ui, interaction);
+        ui.separator();
         drag_mode_buttons(ui, interaction);
     });
     cmds
@@ -104,6 +106,12 @@ fn place_button(
                 None => PlaceDst::Auto,
             },
         });
+    }
+}
+
+fn add_button(ui: &mut egui::Ui, interaction: &mut InteractionState) {
+    if ui.button("+ Add").clicked() {
+        interaction.add_dialog.open = true;
     }
 }
 
