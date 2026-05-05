@@ -6,7 +6,7 @@ pub fn show(ctx: &egui::Context, data: &mut DataState) -> bool {
         return false;
     }
 
-    let screen = ctx.screen_rect();
+    let screen = ctx.content_rect();
     const MARGIN: f32 = 12.0;
     const MAX_W: f32 = 360.0;
     const LINE_H: f32 = 28.0;
@@ -28,7 +28,7 @@ pub fn show(ctx: &egui::Context, data: &mut DataState) -> bool {
                 let alpha = ((1.0 - (elapsed / ttl).powi(2)) * 230.0).clamp(60.0, 230.0) as u8;
                 let bg = egui::Color32::from_rgba_unmultiplied(180, 30, 30, alpha);
                 let fg = egui::Color32::from_rgba_unmultiplied(255, 255, 255, alpha);
-                egui::Frame::none()
+                egui::Frame::NONE
                     .fill(bg)
                     .inner_margin(egui::Margin::symmetric(8, 4))
                     .corner_radius(egui::CornerRadius::same(4))

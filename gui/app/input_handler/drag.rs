@@ -64,7 +64,11 @@ pub(super) fn handle_drag_start(interaction: &mut InteractionState, ctx: &egui::
         None
     };
     if let Some(src) = drag_source {
-        interaction.drag.active = ActiveDrag::Dragging(src);
+        interaction.drag.active = ActiveDrag::Pending {
+            source: src,
+            press_pos: cursor,
+            press_instant: std::time::Instant::now(),
+        };
     }
 }
 

@@ -63,6 +63,7 @@ pub enum ActiveDrag {
     Pending {
         source: DragSource,
         press_pos: egui::Pos2,
+        #[allow(dead_code)]
         press_instant: std::time::Instant,
     },
     Dragging(DragSource),
@@ -88,6 +89,7 @@ impl ActiveDrag {
     }
 
     /// Returns the contained `DragSource` if this is `Dragging`.
+    #[allow(dead_code)]
     pub fn dragging_source(&self) -> Option<&DragSource> {
         match self {
             ActiveDrag::Dragging(s) => Some(s),
