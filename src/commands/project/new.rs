@@ -99,16 +99,16 @@ pub fn project_new(
 ) -> Result<CommandOutput<NewResult>> {
     validate_project_name(&config.name)?;
 
-    // Detect mode: check if we're already in a repo with fotobuch branches
-    let mode = if git::is_git_repo(parent_dir_or_root) {
-        let repo = git::open_repo(parent_dir_or_root)?;
-        let branches = git::list_branches_with_prefix(&repo, "fotobuch/")?;
+    if config.with_cover && config.spine_grow_per_10_pages_mm.is_none() && config.spine_mm.is_none()
+    {
+        anyhow::bail!("--with-cover requires either --spine-grow-per-10-pages-mm or --spine-mm");
+    }
 
-        if branches.is_empty() {
-            Mode::FirstProject
-        } else {
-            Mode::AdditionalProject
-        }
+    // Detect mode: an existing git repo means "add project here" (vault or
+    // multi-project repo).  A non-repo directory means "create a new project
+    // directory with its own repo" (classic CLI first-project flow).
+    let mode = if git::is_git_repo(parent_dir_or_root) {
+        Mode::AdditionalProject
     } else {
         Mode::FirstProject
     };
