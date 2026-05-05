@@ -40,6 +40,11 @@ fn main() -> eframe::Result<()> {
 
     let vault_path = resolve_vault(args.vault.as_deref(), env_vault.as_deref(), &cwd, &settings);
 
+    let mut settings = settings;
+    settings.add_recent_vault(&vault_path);
+    settings.last_vault = Some(vault_path.clone());
+    let _ = settings.save();
+
     if let Err(e) = ensure_vault(&vault_path) {
         tracing::warn!(
             "Could not initialize vault at {}: {e}",
