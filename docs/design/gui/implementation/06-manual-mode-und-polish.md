@@ -1034,30 +1034,37 @@ Tests:
 
 ## 6.3 Akzeptanzkriterien
 
-- [ ] `Ctrl+O` öffnet Add-Dialog; Ordner wählen + „Hinzufügen" ruft
-      `commands::add::add` im Worker auf, Pool wird danach aktualisiert.
+- [ ] `Ctrl+O` öffnet den englischsprachigen Add-Dialog; Ordnerauswahl
+      + `Add` ruft `commands::add::add` im Worker auf, Pool wird danach
+      aktualisiert. Duplikate (Pfad oder Hash) werden in der Lib
+      gefiltert und gelangen nicht erneut in den Pool.
 - [ ] OS-Drag von Dateien/Ordnern auf das Fenster fügt Fotos zum Pool
-      hinzu (rekursiv).
-- [ ] `Delete` mit Pool-Selektion entfernt die Fotos komplett; mit
-      Slot-Selektion unplaced.
-- [ ] `[A|M]`-Button wechselt Seitenmodus. `A`-Hotkey auf hovered Seite
-      gleichwertig.
+      hinzu (rekursiv); Duplikate ebenso gefiltert.
+- [ ] `Delete` mit Slot-Selektion unplaced; mit Pool-Selektion entfernt
+      Fotos komplett; mit Nav-Selektion löscht Seiten (Cover gefiltert).
+- [ ] `[A|M]`-Button wechselt Seitenmodus. `A`-Hotkey auf hovered/
+      selektierter Seite gleichwertig.
 - [ ] Build/Rebuild auf Projekten mit Manual-Pages läuft durch (skip statt
       Error). Manual-Page-Slots bleiben unverändert.
-- [ ] LMB-Drag innerhalb eines Manual-Slots verschiebt diesen; Release
+- [ ] RMB-Drag innerhalb eines Manual-Slots verschiebt diesen; Release
       commitet via `page pos`.
-- [ ] LMB-Drag an einer Slot-Ecke (Manual) skaliert unter Beibehaltung des
-      Seitenverhältnisses.
-- [ ] Zoom ruckelfrei: Ctrl+Scroll skaliert sofort (GPU), Re-Render erst
-      ~200 ms nach letzter Änderung, nur wenn >5 % ppp-Änderung.
-- [ ] Nach mehreren Zoom-Tasks bleibt nur der jüngste Render-Output
-      sichtbar, keine Flackerer (Epoch-Invalidierung).
-- [ ] Off-Screen-Seiten zeigen das Nav-Thumb statt Full-Res.
-- [ ] Drag-Ghost am Cursor während Slot/Nav/Pool-Drag, Multi-Selection
-      zeigt `×N`-Badge.
+- [ ] RMB-Drag am SE-Eck-Hotspot eines Manual-Slots skaliert unter
+      Beibehaltung des Seitenverhältnisses; übrige Ecken sind nicht
+      interaktiv.
+- [ ] Slot-Drag-Ghost zeigt das echte Foto-Thumbnail des Drag-Source-
+      Slots (gedimmt). Bei Multi-Selektion liegen die übrigen Fotos als
+      Stack darunter, jeweils 10 px Richtung NE versetzt.
 - [ ] Scroll-to-Page animiert weich.
-- [ ] Kurzer Rechtsklick öffnet Kontextmenü (Slot/Page/NavPage/Pool-Item/
-      Pool-Group), Halten/Bewegen startet stattdessen Drag.
+- [ ] Kurzer Rechtsklick öffnet Kontextmenü (Slot ohne Rebuild-Eintrag;
+      NavPage `Delete Page` funktioniert auch bei vollen Seiten via
+      `DeletePages`), Halten/Bewegen startet stattdessen Drag.
+- [ ] Toolbar-Checkbox `Slot info` spiegelt
+      `config.preview.show_slot_info` und triggert beim Toggle einen
+      Rebuild der sichtbaren Seiten.
+- [ ] Hotkey `W` mit Slot-Selektion blendet einen vertikalen Slider
+      [0.1, 10.0] in 0.1-Schritten ein; der Zielwert wird neben dem
+      Slider angezeigt; Release commitet `SetWeight` für alle
+      selektierten Slots; Escape/Click außerhalb verwirft.
 - [ ] Fehlgeschlagene Commands (z. B. Rebuild auf Manual-Page) erscheinen
       als roter Toast, der nach ~6 s verschwindet.
 - [ ] `cargo build --features gui`, `cargo clippy --features gui --
@@ -1071,29 +1078,34 @@ Manual" definiert wird. Drei bisherige Aufrufer-Stellen (`incremental_build`,
 `rebuild_range`, `rebuild_all`) und der Book-Layout-Solver-Snapshot
 ziehen aus derselben Quelle.
 
-**2. `remove_by_ids` als Thin-Wrapper, nicht als Regex-Roundtrip** (6.0.3).
-Die GUI hat IDs zur Hand — den Umweg über `^id$`-Regex (mit
-`source` ≠ `id`-Falle) zu nehmen wäre ein Code-Smell. Stattdessen ein
-schmaler Lib-Helper, der die existierende `remove`-Pipeline nach der
-Match-Phase anstößt.
+**2. `RemoveConfig` mit `target`-Enum statt orthogonaler Flags** (6.0.3.1).
+Die heutige `patterns: Vec<String> + unplaced: bool`-Kombination
+erlaubt logisch unmögliche States (`unplaced && !patterns.is_empty()`)
+und der Add-für-IDs-Pfad hätte als zweite Funktion das ODR-Prinzip
+gebrochen. `RemoveTarget::{Patterns, Ids, Unplaced}` macht die drei
+Modi disjunkt und teilt die Pipeline.
 
-**3. `ToastKind::Info` ist YAGNI** (6.2.7).
+**3. `ToastKind::Info` ist YAGNI** (6.2.4).
 Im Phase-6-Plan gibt es keinen Caller für `Info`/`Warning`. Toast-Typ
 wird auf `ErrorToast` reduziert. Erweiterung erst, wenn ein zweiter
 Toast-Pfad aufkommt.
 
 **4. ManualDrag und ActiveDrag bleiben getrennt — bewusst**.
-Der erste Reflex ist „beide Drag-States in ein Enum mergen". Aber RMB-
-Drag (Swap/Move/Cross-Page) und LMB-Drag (Manual-Position/Resize) haben
-unterschiedliche Trigger, unterschiedliche Quellen, unterschiedliche
-Releases. Ein gemeinsames Enum hätte sieben Varianten, jede mit eigener
-disjunkter Felder-Menge — das ist die Definition von „Vermischung".
-Belassen.
+Beide laufen heute auf RMB, aber sie unterscheiden sich am Trigger
+(Manual-Page-Slot vs. alle anderen Sources), in den Daten (mm-Delta vs.
+src/dst-Slot/Pool/Nav) und im Release (PagePos vs. Move/Swap/etc.). Ein
+gemeinsames Enum hätte sechs+ disjunkte Varianten — die Definition von
+„Vermischung". Bleiben getrennt.
 
-**5. `selection_slots_for` als pure Funktion** (5.1.3).
-Drei Aufrufer (`MoveToNewPage`, `Move`, `SwapRange`) teilen sich die
-Snippet aus der ursprünglichen `dispatch_move`. Nur einmal definiert,
-dreimal aufgerufen.
+**5. Resize nur SE — keine Vier-Ecken-Mathematik** (6.1.5).
+Eine Ecke + Move decken jede Ziel-Geometrie ab. Vier Ecken hätten vier
+Hotspot-Rects, vier Resize-Pfade und einen `Corner`-Enum-State erzeugt
+— alles zusätzliche Komplexität ohne UX-Gewinn.
+
+**6. Slot-Info als Toolbar-Checkbox spiegelt nur den Config-Wert** (6.2.5).
+Kein zweiter UI-State, keine Sync-Logik — die Checkbox liest
+`data.project.config.preview.show_slot_info` und schreibt per
+`ConfigSet`. Single Source of Truth bleibt die Project-Config.
 
 ## 6.4 Was NICHT in Phase 6 gehört
 
@@ -1106,4 +1118,6 @@ dreimal aufgerufen.
   es ist kein UX-Konzept-Punkt.
 - Drag von Fotos aus Pool in andere Pool-Gruppen (Re-Grouping).
 - Konfigurierbare Toast-TTL / Bell-Sounds.
+- Zoom-Debouncing, Render-Cancellation, Off-Screen-Thumb-Optimierung
+  (siehe Vorbemerkung in 6.2 — Performance-Pass nachgelagert).
 
