@@ -57,6 +57,7 @@ pub(super) fn handle_escape(interaction: &mut InteractionState, ctx: &egui::Cont
         interaction.drag.active = crate::state::ActiveDrag::Idle;
         interaction.selections.slots.clear();
         interaction.selections.nav_pages.clear();
+        interaction.context_menu = None;
     }
 }
 

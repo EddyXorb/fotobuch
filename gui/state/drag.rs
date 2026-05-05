@@ -58,6 +58,10 @@ pub struct DragState {
     pub active: ActiveDrag,
     pub mode: DragMode,
     pub manual: ManualDrag,
+    /// When RMB was pressed (for tap-vs-drag discrimination).
+    pub press_instant: Option<std::time::Instant>,
+    /// Cursor position when RMB was pressed.
+    pub press_pos: Option<egui::Pos2>,
 }
 
 /// Free-position drag on a Manual-mode page (RMB drag).

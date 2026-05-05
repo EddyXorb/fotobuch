@@ -1,5 +1,6 @@
 mod add_dialog;
 mod config_panel;
+mod context_menu;
 mod derived;
 mod drag;
 mod hover;
@@ -13,6 +14,7 @@ mod viewport;
 
 pub use add_dialog::AddDialogState;
 pub use config_panel::ConfigPanelState;
+pub use context_menu::ContextMenu;
 pub use derived::DerivedState;
 pub use drag::{ActiveDrag, DragMode, DragSource, DragState, ManualDrag};
 pub use hover::HoveredTarget;
@@ -47,6 +49,7 @@ pub struct InteractionState {
     pub goto_open: bool,
     pub rebuild_all_confirm: bool,
     pub add_dialog: AddDialogState,
+    pub context_menu: Option<ContextMenu>,
 }
 
 pub struct GuiState {
@@ -75,6 +78,7 @@ impl GuiState {
                 goto_open: false,
                 rebuild_all_confirm: false,
                 add_dialog: AddDialogState::default(),
+                context_menu: None,
             },
         }
     }

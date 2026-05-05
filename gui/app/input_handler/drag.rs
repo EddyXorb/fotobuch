@@ -1,7 +1,8 @@
 use crate::task::BackgroundTask;
 
 use crate::state::{
-    ActiveDrag, DataState, DragMode, DragSource, HoveredTarget, InteractionState, PhotoSelection,
+    ActiveDrag, ContextMenu, DataState, DragMode, DragSource, HoveredTarget, InteractionState,
+    PhotoSelection,
 };
 use fotobuch::commands::PlaceDst;
 use fotobuch::dto_models::LayoutPage;
@@ -63,6 +64,8 @@ pub(super) fn handle_drag_start(interaction: &mut InteractionState, ctx: &egui::
     };
     if let Some(src) = drag_source {
         interaction.drag.active = ActiveDrag::Dragging(src);
+        interaction.drag.press_instant = Some(std::time::Instant::now());
+        interaction.drag.press_pos = Some(cursor);
     }
 }
 
@@ -76,6 +79,20 @@ pub(super) fn handle_drag_complete(
     if !ctx.input(|i| i.pointer.secondary_released()) {
         return false;
     }
+    // Check for a short tap (< 150 ms, < 4 px movement) → context menu instead of drag.
+    let press_instant = interaction.drag.press_instant.take();
+    let press_pos = interaction.drag.press_pos.take();
+    if let (Some(instant), Some(pos)) = (press_instant, press_pos) {
+        let elapsed = instant.elapsed();
+        let cursor_now = ctx.pointer_hover_pos().unwrap_or(pos);
+        let moved = cursor_now.distance(pos);
+        if elapsed < std::time::Duration::from_millis(150) && moved < 4.0 {
+            interaction.drag.active = ActiveDrag::Idle;
+            interaction.context_menu = build_context_menu(&interaction.hovered, cursor_now);
+            return true;
+        }
+    }
+
     let source = match std::mem::replace(&mut interaction.drag.active, ActiveDrag::Idle) {
         ActiveDrag::Dragging(src) => src,
         ActiveDrag::Idle => return false,
@@ -272,4 +289,72 @@ fn compute_dst_range(dst_slot: usize, count: usize, layout_dst: &LayoutPage) -> 
         return None;
     }
     Some((dst_slot..end_excl).collect())
+}
+
+fn build_context_menu(hovered: &Option<HoveredTarget>, pos: egui::Pos2) -> Option<ContextMenu> {
+    match hovered {
+        Some(HoveredTarget::Page {
+            page,
+            slot: Some(slot),
+        }) => Some(ContextMenu::Slot {
+            page: *page,
+            slot: *slot,
+            screen_pos: pos,
+        }),
+        Some(HoveredTarget::Page { page, slot: None }) => Some(ContextMenu::Page {
+            page: *page,
+            screen_pos: pos,
+        }),
+        Some(HoveredTarget::NavPage(page)) => Some(ContextMenu::NavPage {
+            page: *page,
+            screen_pos: pos,
+        }),
+        Some(HoveredTarget::PoolItem(id)) => Some(ContextMenu::PoolItem {
+            id: id.clone(),
+            screen_pos: pos,
+        }),
+        _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn quick_rmb_tap_opens_context_menu() {
+        // A tap is recognised when elapsed < 150 ms AND moved < 4 px.
+        // Test the build_context_menu function directly.
+        let pos = egui::pos2(100.0, 200.0);
+        let hovered = Some(HoveredTarget::Page {
+            page: 0,
+            slot: Some(1),
+        });
+        let menu = build_context_menu(&hovered, pos);
+        assert!(matches!(
+            menu,
+            Some(ContextMenu::Slot {
+                page: 0,
+                slot: 1,
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn rmb_hold_or_drag_does_not_open_menu() {
+        // build_context_menu on non-interactable target returns None.
+        let pos = egui::pos2(50.0, 50.0);
+        let hovered = Some(HoveredTarget::NewPageSlot { at_position: 2 });
+        let menu = build_context_menu(&hovered, pos);
+        assert!(menu.is_none());
+    }
+
+    #[test]
+    fn navpage_context_menu_produces_nav_variant() {
+        let pos = egui::pos2(0.0, 0.0);
+        let hovered = Some(HoveredTarget::NavPage(3));
+        let menu = build_context_menu(&hovered, pos);
+        assert!(matches!(menu, Some(ContextMenu::NavPage { page: 3, .. })));
+    }
 }

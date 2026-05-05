@@ -7,6 +7,7 @@ pub mod timings_panel;
 mod add_dialog;
 mod central_panel;
 mod config_window;
+mod context_menu;
 mod geometry;
 mod goto_dialog;
 mod page_nav;
@@ -38,6 +39,7 @@ pub fn draw_widgets(
     goto_dialog::show(ctx, interaction, num_pages);
     rebuild_confirm::show(ctx, interaction, &mut cmds);
     add_dialog::show(ctx, interaction, &mut cmds);
+    context_menu::show(ctx, data, interaction, &mut cmds);
 
     cmds
 }
