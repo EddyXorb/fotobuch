@@ -198,3 +198,78 @@ pub fn run_move_page(
     };
     run_page_command(cmd, rctx);
 }
+
+pub fn run_set_page_mode(
+    page: usize,
+    mode: fotobuch::dto_models::PageMode,
+    rctx: &mut crate::background::RenderCtx<'_>,
+) {
+    use fotobuch::commands::page::{PagesExpr, execute_mode};
+    use fotobuch::dto_models::PageMode;
+    match execute_mode(rctx.project_root, PagesExpr::single(page as u32), mode) {
+        Err(e) => {
+            let _ = rctx
+                .result_tx
+                .send(crate::task::BackgroundResult::CommandFailed(e.to_string()));
+        }
+        Ok(out) => {
+            if mode == PageMode::Auto {
+                build_after_command(out.changed_state, vec![page], rctx);
+            } else {
+                crate::background::send_command_done(out.changed_state, vec![], rctx);
+            }
+        }
+    }
+}
+
+pub fn run_page_pos(
+    page: usize,
+    slot: usize,
+    pos_mode: crate::task::PagePosMode,
+    scale: Option<f64>,
+    rctx: &mut crate::background::RenderCtx<'_>,
+) {
+    use crate::task::PagePosMode;
+    use fotobuch::commands::page::{PosConfig, PosMode, SlotExpr, execute_pos};
+    let cfg = PosConfig {
+        position: Some(match pos_mode {
+            PagePosMode::Relative { dx_mm, dy_mm } => PosMode::Relative { dx_mm, dy_mm },
+            PagePosMode::Absolute { x_mm, y_mm } => PosMode::Absolute { x_mm, y_mm },
+        }),
+        scale,
+    };
+    match execute_pos(
+        rctx.project_root,
+        page as u32,
+        SlotExpr::single(slot as u32),
+        &cfg,
+    ) {
+        Err(e) => {
+            let _ = rctx
+                .result_tx
+                .send(crate::task::BackgroundResult::CommandFailed(e.to_string()));
+        }
+        Ok(out) => crate::background::send_command_done(out.changed_state, vec![page], rctx),
+    }
+}
+
+pub fn run_set_weight(
+    page: usize,
+    slots: Vec<usize>,
+    weight: f64,
+    rctx: &mut crate::background::RenderCtx<'_>,
+) {
+    use fotobuch::commands::page::{WeightAddress, execute_weight};
+    let address = WeightAddress::Slots {
+        page: page as u32,
+        slots: SlotExpr::from_list(slots.iter().map(|&s| s as u32).collect()),
+    };
+    match execute_weight(rctx.project_root, address, weight) {
+        Err(e) => {
+            let _ = rctx
+                .result_tx
+                .send(crate::task::BackgroundResult::CommandFailed(e.to_string()));
+        }
+        Ok(out) => build_after_command(out.changed_state, vec![page], rctx),
+    }
+}

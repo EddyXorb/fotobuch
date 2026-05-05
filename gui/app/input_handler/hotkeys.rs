@@ -1,7 +1,7 @@
 use crate::task::BackgroundTask;
 
 use crate::app::rebuild::{PagesForRebuild, selected_pages_for_rebuild};
-use crate::state::{self, DataState, HoveredTarget, InteractionState, SlotSelection};
+use crate::state::{self, DataState, HoveredTarget, InteractionState, SlotSelection, WeightSlider};
 use fotobuch::commands::PlaceDst;
 
 pub(super) fn handle_drag_mode_toggle(interaction: &mut InteractionState, ctx: &egui::Context) {
@@ -10,9 +10,9 @@ pub(super) fn handle_drag_mode_toggle(interaction: &mut InteractionState, ctx: &
     }
 }
 
-pub(super) fn handle_timings_toggle(data: &mut DataState, ctx: &egui::Context) {
+pub(super) fn handle_timings_toggle(interaction: &mut InteractionState, ctx: &egui::Context) {
     if ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::F2)) {
-        data.timings.show = !data.timings.show;
+        interaction.timings.show = !interaction.timings.show;
     }
 }
 
@@ -57,6 +57,8 @@ pub(super) fn handle_escape(interaction: &mut InteractionState, ctx: &egui::Cont
         interaction.drag.active = crate::state::ActiveDrag::Idle;
         interaction.selections.slots.clear();
         interaction.selections.nav_pages.clear();
+        interaction.context_menu = None;
+        interaction.weight_slider = WeightSlider::Closed;
     }
 }
 
@@ -144,6 +146,8 @@ pub(super) fn handle_delete(
     if !ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Delete)) {
         return;
     }
+
+    // 1) Slot-Selektion gewinnt (Phase 5).
     if let Some(page) = interaction.selections.slots.page
         && !interaction.selections.slots.is_empty()
     {
@@ -153,6 +157,17 @@ pub(super) fn handle_delete(
         });
         return;
     }
+
+    // 2) Pool-Selektion.
+    let pool_ids = interaction.selections.photos.ids();
+    if !pool_ids.is_empty() {
+        cmds.push(BackgroundTask::RemovePhotos {
+            photo_ids: pool_ids,
+        });
+        return;
+    }
+
+    // 3) Nav-Selektion — Cover wird gefiltert.
     let nav_sel = interaction.selections.nav_pages.items();
     if !nav_sel.is_empty() {
         let pages: Vec<usize> = if data.project.has_cover() {
@@ -215,8 +230,37 @@ pub(super) fn handle_release_build(ctx: &egui::Context, cmds: &mut Vec<Backgroun
 
 pub(super) fn handle_add_hotkey(interaction: &mut InteractionState, ctx: &egui::Context) {
     if ctx.input_mut(|i| i.consume_key(egui::Modifiers::CTRL, egui::Key::O)) {
-        interaction.add_dialog_open = true;
+        interaction.add_dialog.open = true;
     }
+}
+
+pub(super) fn handle_mode_toggle(
+    data: &DataState,
+    interaction: &InteractionState,
+    ctx: &egui::Context,
+    cmds: &mut Vec<BackgroundTask>,
+) {
+    if !ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::A)) {
+        return;
+    }
+    let page = interaction
+        .selections
+        .slots
+        .page
+        .or_else(|| interaction.hovered.as_ref().and_then(|h| h.page_idx()));
+    let Some(page) = page else { return };
+    let Some(lp) = data.project.layout.get(page) else {
+        return;
+    };
+    use fotobuch::dto_models::PageMode;
+    let new_mode = match lp.mode {
+        PageMode::Auto => PageMode::Manual,
+        PageMode::Manual => PageMode::Auto,
+    };
+    cmds.push(BackgroundTask::SetPageMode {
+        page,
+        mode: new_mode,
+    });
 }
 
 pub(super) fn handle_click(interaction: &mut InteractionState, ctx: &egui::Context) {
@@ -236,4 +280,61 @@ pub(super) fn handle_click(interaction: &mut InteractionState, ctx: &egui::Conte
     } else {
         interaction.selections.slots.clear();
     }
+}
+
+pub(super) fn handle_weight_hotkey(
+    data: &DataState,
+    interaction: &mut InteractionState,
+    ctx: &egui::Context,
+) {
+    if !ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::W)) {
+        return;
+    }
+    // Toggle: close if already open.
+    if interaction.weight_slider.is_open() {
+        interaction.weight_slider = WeightSlider::Closed;
+        return;
+    }
+    let Some(page) = interaction.selections.slots.page else {
+        return;
+    };
+    let slots = interaction.selections.slots.slots_on_active_page();
+    if slots.is_empty() {
+        return;
+    }
+    let initial = compute_initial_weight(data, page, &slots);
+    let pos = ctx
+        .pointer_hover_pos()
+        .unwrap_or_else(|| egui::pos2(200.0, 200.0));
+    interaction.weight_slider = WeightSlider::Open {
+        page,
+        slots,
+        screen_pos: pos,
+        value: initial,
+    };
+}
+
+fn compute_initial_weight(data: &DataState, page: usize, slots: &[usize]) -> f64 {
+    let lp = match data.project.layout.get(page) {
+        Some(lp) => lp,
+        None => return 1.0,
+    };
+    let weights: Vec<f64> = slots
+        .iter()
+        .filter_map(|&s| {
+            let photo_id = lp.photos.get(s)?;
+            data.project
+                .photos
+                .iter()
+                .flat_map(|g| g.files.iter())
+                .find(|f| &f.id == photo_id)
+                .map(|f| f.area_weight)
+        })
+        .collect();
+    if weights.is_empty() {
+        return 1.0;
+    }
+    let avg = weights.iter().sum::<f64>() / weights.len() as f64;
+    // Round to nearest 0.1.
+    (avg * 10.0).round() / 10.0
 }

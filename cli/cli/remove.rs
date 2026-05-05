@@ -9,9 +9,12 @@ pub fn handle(patterns: Vec<String>, keep_files: bool, unplaced: bool) -> Result
     let project_root = std::env::current_dir().context("Failed to determine current directory")?;
 
     let config = commands::remove::RemoveConfig {
-        patterns,
+        target: if unplaced {
+            commands::remove::RemoveTarget::Unplaced
+        } else {
+            commands::remove::RemoveTarget::Patterns(patterns)
+        },
         keep_files,
-        unplaced,
     };
 
     let output = commands::remove(&project_root, &config)?;

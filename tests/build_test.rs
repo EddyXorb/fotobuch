@@ -846,3 +846,69 @@ fn test_release_build_with_force_flag() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn incremental_build_skips_manual_page() -> Result<()> {
+    let temp_dir = TempDir::new()?;
+    let project_root = create_test_project_with_photos(&temp_dir)?;
+
+    // First build to create layout
+    build(
+        &project_root,
+        &BuildConfig {
+            release: false,
+            force: false,
+            pages: None,
+            skip_pdf: true,
+        },
+    )?;
+
+    // Mark first page as Manual and capture its slots
+    let yaml_path = project_root.join("testbuild.yaml");
+    let mut state = ProjectState::load(&yaml_path)?;
+    assert!(!state.layout.is_empty(), "need at least one page");
+    state.layout[0].mode = fotobuch::dto_models::PageMode::Manual;
+    let slots_before = state.layout[0].slots.clone();
+    state.save(&yaml_path)?;
+    // commit so StateManager doesn't see dirty files
+    let repo = git2::Repository::open(&project_root)?;
+    let mut index = repo.index()?;
+    index.add_path(std::path::Path::new("testbuild.yaml"))?;
+    index.write()?;
+    let tree_id = index.write_tree()?;
+    let tree = repo.find_tree(tree_id)?;
+    let head = repo.head()?.peel_to_commit()?;
+    let sig = git2::Signature::now("test", "test@test.com")?;
+    repo.commit(
+        Some("HEAD"),
+        &sig,
+        &sig,
+        "test: set manual page",
+        &tree,
+        &[&head],
+    )?;
+
+    // Incremental build — manual page must not be touched
+    let result = build(
+        &project_root,
+        &BuildConfig {
+            release: false,
+            force: false,
+            pages: None,
+            skip_pdf: true,
+        },
+    )?;
+
+    let state_after = ProjectState::load(&yaml_path)?;
+    assert_eq!(
+        state_after.layout[0].slots, slots_before,
+        "Manual page slots must not change after incremental build"
+    );
+    // Manual page should not appear in pages_rebuilt
+    assert!(
+        !result.result.pages_rebuilt.contains(&0),
+        "Manual page must not be in pages_rebuilt"
+    );
+
+    Ok(())
+}

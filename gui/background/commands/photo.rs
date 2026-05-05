@@ -7,6 +7,51 @@ use fotobuch::commands::unplace::execute_unplace;
 
 use crate::task::BackgroundResult;
 
+pub fn run_add_photos(
+    paths: Vec<std::path::PathBuf>,
+    recursive: bool,
+    weight: f64,
+    source_filter: String,
+    rctx: &mut crate::background::RenderCtx<'_>,
+) {
+    use fotobuch::commands::add::{AddConfig, add};
+    use regex::Regex;
+
+    let source_filters = if source_filter.is_empty() {
+        vec![]
+    } else {
+        match Regex::new(&source_filter) {
+            Ok(re) => vec![re],
+            Err(e) => {
+                let _ = rctx.result_tx.send(BackgroundResult::CommandFailed(format!(
+                    "invalid filter regex: {e}"
+                )));
+                return;
+            }
+        }
+    };
+    let cfg = AddConfig {
+        paths,
+        allow_duplicates: false,
+        xmp_filters: vec![],
+        source_filters,
+        dry_run: false,
+        update: false,
+        recursive,
+        weight,
+    };
+    match add(rctx.project_root, &cfg) {
+        Err(e) => {
+            let _ = rctx
+                .result_tx
+                .send(BackgroundResult::CommandFailed(e.to_string()));
+        }
+        Ok(out) => {
+            crate::background::send_command_done(out.changed_state, vec![], rctx);
+        }
+    }
+}
+
 pub fn run_load_photo_thumbnails(
     items: Vec<(String, std::path::PathBuf)>,
     pool: &rayon::ThreadPool,
@@ -54,6 +99,25 @@ pub fn run_place_photos(
         Ok(place_out) => {
             let dirty = place_out.result.pages_affected;
             super::page::build_after_command(place_out.changed_state, dirty, rctx);
+        }
+    }
+}
+
+pub fn run_remove_photos(photo_ids: Vec<String>, rctx: &mut crate::background::RenderCtx<'_>) {
+    use fotobuch::commands::remove::{RemoveConfig, RemoveTarget, remove};
+    let cfg = RemoveConfig {
+        target: RemoveTarget::Ids(photo_ids),
+        keep_files: false,
+    };
+    match remove(rctx.project_root, &cfg) {
+        Err(e) => {
+            let _ = rctx
+                .result_tx
+                .send(BackgroundResult::CommandFailed(e.to_string()));
+        }
+        Ok(out) => {
+            let dirty = out.result.pages_affected;
+            super::page::build_after_command(out.changed_state, dirty, rctx);
         }
     }
 }

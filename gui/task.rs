@@ -70,6 +70,36 @@ pub enum BackgroundTask {
     },
     RebuildAll,
     ReleaseBuild,
+    AddPhotos {
+        paths: Vec<PathBuf>,
+        recursive: bool,
+        weight: f64,
+        source_filter: String,
+    },
+    RemovePhotos {
+        photo_ids: Vec<String>,
+    },
+    SetPageMode {
+        page: usize,
+        mode: fotobuch::dto_models::PageMode,
+    },
+    PagePos {
+        page: usize,
+        slot: usize,
+        mode: PagePosMode,
+        scale: Option<f64>,
+    },
+    SetWeight {
+        page: usize,
+        slots: Vec<usize>,
+        weight: f64,
+    },
+}
+
+#[derive(Debug)]
+pub enum PagePosMode {
+    Relative { dx_mm: f64, dy_mm: f64 },
+    Absolute { x_mm: f64, y_mm: f64 },
 }
 
 #[derive(Debug)]

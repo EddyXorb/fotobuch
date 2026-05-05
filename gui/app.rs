@@ -95,10 +95,11 @@ impl FotobuchApp {
     ) {
         let page_idx = full.page;
         state::apply_rendered(&mut self.state, ctx, full, thumb);
-        self.state
-            .data
-            .timings
-            .record_render(page_idx, rasterize_duration, compile_duration);
+        self.state.interaction.timings.record_render(
+            page_idx,
+            rasterize_duration,
+            compile_duration,
+        );
     }
 
     fn handle_command_done(
@@ -147,6 +148,7 @@ impl FotobuchApp {
 
     fn handle_command_failed(&mut self, e: String) {
         tracing::error!(%e, "command failed");
+        self.state.interaction.toasts.push(e);
         unset_dirty_pages(&mut self.state.data.pages.dirty);
     }
 
@@ -287,7 +289,12 @@ fn mark_dirty(dirty: &mut [bool], task: &BackgroundTask) {
         | BackgroundTask::SwapRange { .. }
         | BackgroundTask::DeletePages { .. }
         | BackgroundTask::RebuildAll
-        | BackgroundTask::ReleaseBuild => {
+        | BackgroundTask::ReleaseBuild
+        | BackgroundTask::AddPhotos { .. }
+        | BackgroundTask::RemovePhotos { .. }
+        | BackgroundTask::SetPageMode { .. }
+        | BackgroundTask::PagePos { .. }
+        | BackgroundTask::SetWeight { .. } => {
             dirty.fill(true);
         }
         BackgroundTask::RenderPages { .. }
@@ -299,32 +306,37 @@ fn mark_dirty(dirty: &mut [bool], task: &BackgroundTask) {
 impl eframe::App for FotobuchApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let t_frame = Instant::now();
-        self.state.data.timings.frame_cnt += 1;
+        self.state.interaction.timings.frame_cnt += 1;
         let ctx = ui.ctx().clone();
 
         let t = Instant::now();
         self.drain_results(&ctx);
-        self.state.data.timings.drain_results = t.elapsed();
+        self.state.interaction.timings.drain_results = t.elapsed();
 
         let t = Instant::now();
-        let mut cmds =
-            widgets::draw_widgets(ui, &ctx, &self.state.data, &mut self.state.interaction);
-        self.state.data.timings.show_panels = t.elapsed();
+        let mut cmds = widgets::draw_widgets(
+            ui,
+            &ctx,
+            &self.state.data, // contract: draw_widgets must not change data state
+            &mut self.state.interaction,
+        );
+        self.state.interaction.timings.show_panels = t.elapsed();
 
         // Input handling runs after central panel so that hovered_slot reflects the current
         // frame — prevents toolbar clicks from accidentally triggering a drag.
         let t = Instant::now();
+
         cmds.extend(input_handler::handle(
-            &mut self.state.data,
+            &self.state.data, // contract:  input_handlers must not change data state, so we
             &mut self.state.interaction,
             &ctx,
         ));
         self.dispatch_commands(cmds);
 
-        self.state.data.timings.input_handlers = t.elapsed();
-        self.state.data.timings.ui_frame = t_frame.elapsed();
-        if self.state.data.timings.show {
-            widgets::timings_panel::draw(&self.state.data.timings, &ctx);
+        self.state.interaction.timings.input_handlers = t.elapsed();
+        self.state.interaction.timings.ui_frame = t_frame.elapsed();
+        if self.state.interaction.timings.show {
+            widgets::timings_panel::draw(&self.state.interaction.timings, &ctx);
         }
     }
 }

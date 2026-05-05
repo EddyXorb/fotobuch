@@ -165,11 +165,15 @@ fn execute_move_to(
         };
         let dst_page_num = mgr.state.layout[dst_page_idx].page as u32;
 
-        // Remove photos from src slots (descending to keep indices stable)
+        // Remove photos (and slots on Manual pages) from src, descending to keep indices stable.
         let mut desc = slot_indices.clone();
         desc.sort_unstable_by(|a, b| b.cmp(a));
+        let src_is_manual = mgr.state.layout[idx].mode == PageMode::Manual;
         for &i in &desc {
             mgr.state.layout[idx].photos.remove(i);
+            if src_is_manual && i < mgr.state.layout[idx].slots.len() {
+                mgr.state.layout[idx].slots.remove(i);
+            }
         }
 
         // Add photos to dst

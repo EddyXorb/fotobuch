@@ -46,6 +46,16 @@ impl ProjectState {
         self.config.book.cover.active
     }
 
+    /// Indices of pages that the solver may touch. Manual pages are
+    /// excluded — they are explicitly pinned by the user.
+    pub fn auto_page_indices(&self) -> impl Iterator<Item = usize> + '_ {
+        self.layout
+            .iter()
+            .enumerate()
+            .filter(|(_, p)| p.mode == crate::dto_models::PageMode::Auto)
+            .map(|(i, _)| i)
+    }
+
     /// Returns `(width_mm, height_mm)` for the given page index.
     ///
     /// Page 0 is the cover when `has_cover()` is true and uses cover dimensions

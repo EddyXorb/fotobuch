@@ -132,6 +132,35 @@ pub fn spawn(
                 BackgroundTask::ReleaseBuild => {
                     commands::run_release_build(&mut rctx);
                 }
+                BackgroundTask::AddPhotos {
+                    paths,
+                    recursive,
+                    weight,
+                    source_filter,
+                } => {
+                    commands::run_add_photos(paths, recursive, weight, source_filter, &mut rctx);
+                }
+                BackgroundTask::RemovePhotos { photo_ids } => {
+                    commands::run_remove_photos(photo_ids, &mut rctx);
+                }
+                BackgroundTask::SetPageMode { page, mode } => {
+                    commands::run_set_page_mode(page, mode, &mut rctx);
+                }
+                BackgroundTask::PagePos {
+                    page,
+                    slot,
+                    mode,
+                    scale,
+                } => {
+                    commands::run_page_pos(page, slot, mode, scale, &mut rctx);
+                }
+                BackgroundTask::SetWeight {
+                    page,
+                    slots,
+                    weight,
+                } => {
+                    commands::run_set_weight(page, slots, weight, &mut rctx);
+                }
             }
         }
     });

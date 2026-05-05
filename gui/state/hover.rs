@@ -1,9 +1,12 @@
 #[derive(Clone, Debug, PartialEq)]
 pub enum HoveredTarget {
     /// Cursor over a central-panel page. `slot` is `Some` when a specific slot is hit.
+    /// `cursor_mm` is the cursor position in page-content mm coordinates
+    /// (origin at the content area, i.e. after bleed+margin offset).
     Page {
         page: usize,
         slot: Option<usize>,
+        cursor_mm: (f32, f32),
     },
     NavPage(usize),
     PoolItem(String),
@@ -39,6 +42,7 @@ impl HoveredTarget {
             Self::Page {
                 page,
                 slot: Some(slot),
+                ..
             } => Some((*page, *slot)),
             _ => None,
         }
@@ -65,6 +69,14 @@ impl HoveredTarget {
             _ => None,
         }
     }
+
+    /// Cursor position in page-content mm coordinates, only for central-panel page hovers.
+    pub fn cursor_mm_on_page(&self) -> Option<(f32, f32)> {
+        match self {
+            Self::Page { cursor_mm, .. } => Some(*cursor_mm),
+            _ => None,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -85,6 +97,7 @@ mod tests {
         let h = HoveredTarget::Page {
             page: 1,
             slot: None,
+            cursor_mm: (0.0, 0.0),
         };
         assert_eq!(h.new_page_at_position(), None);
     }

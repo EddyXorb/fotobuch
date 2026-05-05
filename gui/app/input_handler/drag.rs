@@ -1,10 +1,11 @@
-use crate::task::BackgroundTask;
+use crate::task::{BackgroundTask, PagePosMode};
 
 use crate::state::{
-    ActiveDrag, DataState, DragMode, DragSource, HoveredTarget, InteractionState, PhotoSelection,
+    ActiveDrag, ContextMenu, DataState, DragMode, DragSource, HoveredTarget, InteractionState,
+    PhotoSelection,
 };
 use fotobuch::commands::PlaceDst;
-use fotobuch::dto_models::LayoutPage;
+use fotobuch::dto_models::{LayoutPage, PageMode};
 
 pub(super) fn handle_drag_start(interaction: &mut InteractionState, ctx: &egui::Context) {
     if !ctx.input(|i| i.pointer.secondary_pressed()) {
@@ -21,6 +22,7 @@ pub(super) fn handle_drag_start(interaction: &mut InteractionState, ctx: &egui::
     let drag_source = if let Some(HoveredTarget::Page {
         page,
         slot: Some(slot),
+        ..
     }) = &interaction.hovered
     {
         let (src_page, src_slot) = (*page, *slot);
@@ -62,45 +64,140 @@ pub(super) fn handle_drag_start(interaction: &mut InteractionState, ctx: &egui::
         None
     };
     if let Some(src) = drag_source {
-        interaction.drag.active = ActiveDrag::Dragging(src);
+        interaction.drag.active = ActiveDrag::Pending {
+            source: src,
+            press_pos: cursor,
+            press_instant: std::time::Instant::now(),
+        };
     }
 }
 
-/// Handles RMB release for all drag sources. Returns `true` when a drag action was taken.
+/// Promote `Pending` → `Dragging` if the cursor has moved past the threshold.
+/// Call each frame while RMB is held, before `handle_drag_complete`.
+pub(super) fn promote_pending_drag(interaction: &mut InteractionState, ctx: &egui::Context) {
+    if !ctx.input(|i| i.pointer.secondary_down()) {
+        return;
+    }
+    let cursor = match ctx.pointer_hover_pos() {
+        Some(p) => p,
+        None => return,
+    };
+    interaction.drag.active.maybe_promote(cursor);
+}
+
+/// Handles RMB release for all drag sources.
+/// Returns `(action_taken, error_message)` — caller must push any error to `data.toasts`.
 pub(super) fn handle_drag_complete(
     data: &DataState,
     interaction: &mut InteractionState,
     ctx: &egui::Context,
     cmds: &mut Vec<BackgroundTask>,
-) -> bool {
+) -> (bool, Option<String>) {
     if !ctx.input(|i| i.pointer.secondary_released()) {
-        return false;
+        return (false, None);
     }
-    let source = match std::mem::replace(&mut interaction.drag.active, ActiveDrag::Idle) {
-        ActiveDrag::Dragging(src) => src,
-        ActiveDrag::Idle => return false,
-    };
-    match source {
-        DragSource::Slot {
-            src_page,
-            src_slot,
-            src_slots,
-            ..
-        } => {
-            complete_slot_drag(data, interaction, cmds, src_page, src_slot, src_slots);
+
+    match std::mem::replace(&mut interaction.drag.active, ActiveDrag::Idle) {
+        // RMB released before moving past threshold → it was a tap → context menu.
+        ActiveDrag::Pending { .. } => {
+            let cursor = ctx.pointer_hover_pos().unwrap_or_default();
+            interaction.context_menu = build_context_menu(&interaction.hovered, cursor);
+            (true, None)
         }
-        DragSource::NavPage {
-            src_page,
-            src_pages: _,
-            ..
-        } => {
-            complete_nav_drag(data, interaction, cmds, src_page);
+        ActiveDrag::Dragging(source) => {
+            let mut error: Option<String> = None;
+            match source {
+                DragSource::Slot {
+                    src_page,
+                    src_slot,
+                    src_slots,
+                    ..
+                } => {
+                    complete_slot_drag(data, interaction, cmds, src_page, src_slot, src_slots);
+                }
+                DragSource::NavPage {
+                    src_page,
+                    src_pages: _,
+                    ..
+                } => {
+                    complete_nav_drag(data, interaction, cmds, src_page);
+                }
+                DragSource::Pool { photo_ids } => {
+                    complete_pool_drag(interaction, cmds, photo_ids);
+                }
+                DragSource::ManualMove {
+                    page,
+                    slot,
+                    pointer_origin,
+                    slot_origin_mm,
+                    pixel_per_mm,
+                } => {
+                    let cursor = ctx.pointer_hover_pos().unwrap_or(pointer_origin);
+                    let delta_px = cursor - pointer_origin;
+                    let dx_mm = delta_px.x as f64 / pixel_per_mm;
+                    let dy_mm = delta_px.y as f64 / pixel_per_mm;
+                    let new_x = slot_origin_mm.0 + dx_mm;
+                    let new_y = slot_origin_mm.1 + dy_mm;
+                    if is_slot_visible_on_page(data, page, slot, new_x, new_y) {
+                        cmds.push(BackgroundTask::PagePos {
+                            page,
+                            slot,
+                            mode: PagePosMode::Relative { dx_mm, dy_mm },
+                            scale: None,
+                        });
+                    } else if let Some(at_position) = interaction
+                        .hovered
+                        .as_ref()
+                        .and_then(HoveredTarget::new_page_at_position)
+                    {
+                        cmds.push(BackgroundTask::MoveToNewPage {
+                            src_page: page,
+                            src_slots: vec![slot],
+                            at_position,
+                        });
+                    } else if let Some(dst_page) = interaction
+                        .hovered
+                        .as_ref()
+                        .and_then(|h| h.central_page())
+                        .filter(|&dst| dst != page)
+                    {
+                        // Cursor is over a different page — cross-page move.
+                        cmds.push(BackgroundTask::Move {
+                            src_page: page,
+                            src_slots: vec![slot],
+                            dst_page,
+                        });
+                    } else {
+                        error = Some(
+                            "Cannot move slot: it would be completely outside the page.".into(),
+                        );
+                    }
+                }
+                DragSource::ManualResize {
+                    page,
+                    slot,
+                    pointer_origin,
+                    slot_origin_mm,
+                    pixel_per_mm,
+                } => {
+                    let cursor = ctx.pointer_hover_pos().unwrap_or(pointer_origin);
+                    let delta_px = cursor - pointer_origin;
+                    let (x_mm, y_mm, new_w, _new_h) =
+                        compute_se_resize(slot_origin_mm, delta_px, pixel_per_mm);
+                    let orig_w = slot_origin_mm.2;
+                    let scale = if orig_w > 0.0 { new_w / orig_w } else { 1.0 };
+                    cmds.push(BackgroundTask::PagePos {
+                        page,
+                        slot,
+                        mode: PagePosMode::Absolute { x_mm, y_mm },
+                        scale: Some(scale),
+                    });
+                }
+            }
+            (true, error)
         }
-        DragSource::Pool { photo_ids } => {
-            complete_pool_drag(interaction, cmds, photo_ids);
-        }
+        ActiveDrag::Idle => (false, None),
     }
-    true
 }
 
 pub(super) fn complete_slot_drag(
@@ -108,7 +205,7 @@ pub(super) fn complete_slot_drag(
     interaction: &mut InteractionState,
     cmds: &mut Vec<BackgroundTask>,
     src_page: usize,
-    _src_slot: usize,
+    src_slot: usize,
     src_slots: Vec<usize>,
 ) {
     if let Some(at_position) = interaction
@@ -116,18 +213,45 @@ pub(super) fn complete_slot_drag(
         .as_ref()
         .and_then(HoveredTarget::new_page_at_position)
     {
-        if interaction.drag.mode == DragMode::Move {
-            cmds.push(BackgroundTask::MoveToNewPage {
-                src_page,
-                src_slots,
-                at_position,
-            });
-        }
+        cmds.push(BackgroundTask::MoveToNewPage {
+            src_page,
+            src_slots,
+            at_position,
+        });
         return;
     }
 
+    let src_is_manual = data
+        .project
+        .layout
+        .get(src_page)
+        .map(|p| p.mode == PageMode::Manual)
+        .unwrap_or(false);
+
+    // On a manual page slots can freely overlap; only move the directly-clicked slot.
+    let src_slots = if src_is_manual {
+        vec![src_slot]
+    } else {
+        src_slots
+    };
+
     let hovered_slot = interaction.hovered.as_ref().and_then(|h| h.slot());
     let effective_page = interaction.hovered.as_ref().and_then(|h| h.page_idx());
+    let cursor_mm = interaction
+        .hovered
+        .as_ref()
+        .and_then(|h| h.cursor_mm_on_page());
+
+    let dst_is_manual = effective_page
+        .and_then(|p| data.project.layout.get(p))
+        .map(|p| p.mode == PageMode::Manual)
+        .unwrap_or(false);
+
+    // Swap is not allowed when either the source or destination page is Manual.
+    if interaction.drag.mode == DragMode::Swap && (src_is_manual || dst_is_manual) {
+        return;
+    }
+
     match (hovered_slot, interaction.drag.mode) {
         (Some((dst_page, dst_slot)), DragMode::Swap) => {
             if src_slots.len() == 1 {
@@ -142,6 +266,30 @@ pub(super) fn complete_slot_drag(
                     dst_page,
                     dst_slots,
                 });
+            }
+        }
+        (_, DragMode::Move) if dst_is_manual => {
+            // Drop onto a Manual page: move the first slot and place it at cursor position.
+            if let Some(dst_page) = effective_page
+                && let Some((x_mm, y_mm)) = cursor_mm
+                && src_slots.len() == 1
+            {
+                let slot = src_slots[0];
+                dispatch_move(cmds, src_page, vec![slot], dst_page);
+                // The moved slot lands at index 0 on the dst page (it is the only one, or first).
+                // Use PagePos::Absolute to position it at the drop point.
+                cmds.push(BackgroundTask::PagePos {
+                    page: dst_page,
+                    slot: 0,
+                    mode: PagePosMode::Absolute {
+                        x_mm: x_mm as f64,
+                        y_mm: y_mm as f64,
+                    },
+                    scale: None,
+                });
+            } else if let Some(dst_page) = effective_page {
+                // Multi-slot: just move without repositioning.
+                dispatch_move(cmds, src_page, src_slots, dst_page);
             }
         }
         (Some((dst_page, _)), DragMode::Move) => {
@@ -272,4 +420,81 @@ fn compute_dst_range(dst_slot: usize, count: usize, layout_dst: &LayoutPage) -> 
         return None;
     }
     Some((dst_slot..end_excl).collect())
+}
+
+fn build_context_menu(hovered: &Option<HoveredTarget>, pos: egui::Pos2) -> Option<ContextMenu> {
+    match hovered {
+        Some(HoveredTarget::Page {
+            page,
+            slot: Some(slot),
+            ..
+        }) => Some(ContextMenu::Slot {
+            page: *page,
+            slot: *slot,
+            screen_pos: pos,
+        }),
+        Some(HoveredTarget::Page {
+            page, slot: None, ..
+        }) => Some(ContextMenu::Page {
+            page: *page,
+            screen_pos: pos,
+        }),
+        Some(HoveredTarget::NavPage(page)) => Some(ContextMenu::NavPage {
+            page: *page,
+            screen_pos: pos,
+        }),
+        Some(HoveredTarget::PoolItem(id)) => Some(ContextMenu::PoolItem {
+            id: id.clone(),
+            screen_pos: pos,
+        }),
+        _ => None,
+    }
+}
+
+/// Returns `true` if placing a slot at `(new_x_mm, new_y_mm)` keeps at least some part of it
+/// visible within the page content area.
+fn is_slot_visible_on_page(
+    data: &DataState,
+    page: usize,
+    slot: usize,
+    new_x_mm: f64,
+    new_y_mm: f64,
+) -> bool {
+    let layout_page = match data.project.layout.get(page) {
+        Some(lp) => lp,
+        None => return false,
+    };
+    let slot_data = match layout_page.slots.get(slot) {
+        Some(s) => s,
+        None => return false,
+    };
+    let (page_w, page_h) = data.project.page_dimensions_mm(page);
+    // The slot rect must overlap [0, page_w] × [0, page_h].
+    new_x_mm + slot_data.width_mm > 0.0
+        && new_x_mm < page_w
+        && new_y_mm + slot_data.height_mm > 0.0
+        && new_y_mm < page_h
+}
+
+/// SE-corner proportional resize math (mirrors `widgets::central_panel::manual_resize::compute_se`).
+fn compute_se_resize(
+    origin: (f64, f64, f64, f64),
+    delta_px: egui::Vec2,
+    pixel_per_mm: f64,
+) -> (f64, f64, f64, f64) {
+    let (x, y, w, h) = origin;
+    let orig_diag = (w * w + h * h).sqrt();
+    if orig_diag < f64::EPSILON || pixel_per_mm < f64::EPSILON {
+        return origin;
+    }
+    let dx_mm = delta_px.x as f64 / pixel_per_mm;
+    let dy_mm = delta_px.y as f64 / pixel_per_mm;
+    let new_se_x = w + dx_mm;
+    let new_se_y = h + dy_mm;
+    let new_diag = (new_se_x * new_se_x + new_se_y * new_se_y).sqrt();
+    let scale = new_diag / orig_diag;
+    let min_dim = 1.0_f64;
+    let new_w = (w * scale).max(min_dim);
+    let new_h = (h * scale).max(min_dim);
+    (x, y, new_w, new_h)
 }

@@ -1,4 +1,5 @@
 use crate::state::{DataState, HoveredTarget, InteractionState};
+use crate::task::BackgroundTask;
 
 use super::super::page_nav;
 use super::draw_new_page_slot;
@@ -8,6 +9,7 @@ pub(super) fn draw_pages(
     ui: &mut egui::Ui,
     data: &DataState,
     interaction: &mut InteractionState,
+    cmds: &mut Vec<BackgroundTask>,
 ) -> Option<HoveredTarget> {
     // Use page_textures.len() rather than layout.len() so that extra pages
     // produced by Typst (e.g. appendix) are also rendered and displayed.
@@ -17,6 +19,18 @@ pub(super) fn draw_pages(
     let rmbactive = ui.input(|i| {
         (i.pointer.secondary_down() || i.pointer.secondary_released()) && !i.pointer.primary_down()
     });
+
+    // Ease-scroll: interpolate toward ease_target each frame.
+    if let Some(target_y) = interaction.viewport.scroll.ease_target {
+        let current = interaction.viewport.scroll.scroll_y;
+        let next = current + (target_y - current) * 0.25;
+        interaction.viewport.scroll.pending_scroll_y = Some(next);
+        if (target_y - next).abs() < 1.0 {
+            interaction.viewport.scroll.ease_target = None;
+        } else {
+            ui.ctx().request_repaint();
+        }
+    }
 
     let pending_scroll = interaction.viewport.scroll.pending_scroll_y.take();
     let mut sa = egui::ScrollArea::vertical()
@@ -40,18 +54,20 @@ pub(super) fn draw_pages(
             }
 
             for i in 0..num_pages {
-                let (slot_idx, over_page, page_rect) =
-                    draw_page::draw_page(ui, data, interaction, i);
+                let (slot_idx, over_page, page_rect, cursor_mm) =
+                    draw_page::draw_page(ui, data, interaction, i, cmds);
                 if hovered.is_none() {
                     hovered = if let Some(slot) = slot_idx {
                         Some(HoveredTarget::Page {
                             page: i,
                             slot: Some(slot),
+                            cursor_mm,
                         })
                     } else if over_page {
                         Some(HoveredTarget::Page {
                             page: i,
                             slot: None,
+                            cursor_mm,
                         })
                     } else {
                         None

@@ -47,6 +47,6 @@ pub use history::{HistoryEntry, history};
 pub use place::{PlaceConfig, PlaceDst, PlaceResult, place};
 pub use project::new::{project_new, validate_project_name};
 pub use rebuild::{RebuildScope, rebuild};
-pub use remove::{RemoveConfig, RemoveResult, remove};
+pub use remove::{RemoveConfig, RemoveResult, RemoveTarget, remove};
 pub use status::{PageDetail, ProjectState_, SlotInfo, StatusConfig, StatusReport, status};
 pub use undo::{UndoResult, redo, undo};

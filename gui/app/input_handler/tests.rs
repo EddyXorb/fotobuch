@@ -75,6 +75,7 @@ fn place_hotkey_emits_place_with_hovered_page() {
     state.interaction.hovered = Some(HoveredTarget::Page {
         page: 2,
         slot: None,
+        cursor_mm: (0.0, 0.0),
     });
     let mut cmds = Vec::new();
     cmds.push(BackgroundTask::Place {
@@ -131,6 +132,7 @@ fn pool_drag_complete_emits_place_on_hovered_page() {
     state.interaction.hovered = Some(HoveredTarget::Page {
         page: 1,
         slot: None,
+        cursor_mm: (0.0, 0.0),
     });
     let mut cmds = Vec::new();
     complete_pool_drag(&mut state.interaction, &mut cmds, vec!["a.jpg".into()]);
@@ -204,7 +206,6 @@ fn layout_page_with_slots(page: usize, n_slots: usize) -> fotobuch::dto_models::
 fn drop_on_new_page_slot_emits_move_to_new_page() {
     let mut state = state_with_selection(1, vec![1, 2]);
     state.interaction.hovered = Some(HoveredTarget::NewPageSlot { at_position: 3 });
-    state.interaction.drag.mode = crate::state::DragMode::Move;
     let mut cmds = Vec::new();
     complete_slot_drag(
         &default_data(),
@@ -232,7 +233,6 @@ fn drop_on_new_page_slot_emits_move_to_new_page() {
 fn drop_on_new_page_slot_at_zero_inserts_before_first_page() {
     let mut state = GuiState::new(ProjectState::default());
     state.interaction.hovered = Some(HoveredTarget::NewPageSlot { at_position: 0 });
-    state.interaction.drag.mode = crate::state::DragMode::Move;
     let mut cmds = Vec::new();
     complete_slot_drag(
         &default_data(),
@@ -290,6 +290,7 @@ fn swap_range_uses_full_selection_when_dragged_slot_selected() {
     state.interaction.hovered = Some(HoveredTarget::Page {
         page: 1,
         slot: Some(0),
+        cursor_mm: (0.0, 0.0),
     });
     let mut cmds = Vec::new();
     complete_slot_drag(
@@ -324,6 +325,7 @@ fn swap_range_noop_when_target_too_narrow() {
     state.interaction.hovered = Some(HoveredTarget::Page {
         page: 1,
         slot: Some(0),
+        cursor_mm: (0.0, 0.0),
     });
     let mut cmds = Vec::new();
     complete_slot_drag(
@@ -348,6 +350,7 @@ fn swap_range_noop_when_selection_not_contiguous() {
     state.interaction.hovered = Some(HoveredTarget::Page {
         page: 1,
         slot: Some(0),
+        cursor_mm: (0.0, 0.0),
     });
     let mut cmds = Vec::new();
     complete_slot_drag(&data, &mut state.interaction, &mut cmds, 0, 0, vec![0, 2]);
@@ -365,6 +368,7 @@ fn swap_falls_back_to_single_when_selection_is_one() {
     state.interaction.hovered = Some(HoveredTarget::Page {
         page: 1,
         slot: Some(2),
+        cursor_mm: (0.0, 0.0),
     });
     let mut cmds = Vec::new();
     complete_slot_drag(&data, &mut state.interaction, &mut cmds, 0, 1, vec![1]);
@@ -401,9 +405,12 @@ fn handle_delete_emits_delete_page_when_only_page_hovered() {
     let target = HoveredTarget::Page {
         page: 4,
         slot: None,
+        cursor_mm: (0.0, 0.0),
     };
     let page = match &target {
-        HoveredTarget::Page { page, slot: None } => Some(*page),
+        HoveredTarget::Page {
+            page, slot: None, ..
+        } => Some(*page),
         HoveredTarget::NavPage(page) => Some(*page),
         _ => None,
     };

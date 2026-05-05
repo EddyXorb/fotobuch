@@ -24,10 +24,10 @@ fn show(ui: &mut egui::Ui, data: &DataState, interaction: &InteractionState) {
         };
 
         let mode_str = interaction.drag.mode.label();
-        let mode_display = if matches!(interaction.drag.active, ActiveDrag::Idle) {
-            mode_str.to_string()
-        } else {
+        let mode_display = if matches!(interaction.drag.active, ActiveDrag::Dragging(_)) {
             format!("[{}]", mode_str)
+        } else {
+            mode_str.to_string()
         };
 
         ui.label(format!(

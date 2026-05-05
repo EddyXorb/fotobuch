@@ -4,6 +4,9 @@ pub struct ScrollState {
     pub scroll_y: f32,
     pub viewport_top: f32,
     pub pending_scroll_y: Option<f32>,
+    /// Easing target for explicit navigation (nav click, Home/End, goto).
+    /// Interpolated toward scroll_y each frame at 25% step.
+    pub ease_target: Option<f32>,
 }
 
 /// View parameters for the central panel: zoom level, base DPI scale, scroll, and nav scroll target.

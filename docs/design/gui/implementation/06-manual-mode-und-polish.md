@@ -1,9 +1,10 @@
-# Phase 6: Manual Mode + Polish
+# Phase 6: Add + Manual Mode + Polish
 
-**Ziel**: Pool-Add/Remove, Manual-Mode (Free-Position + Resize) inklusive
-Solver-Skip, sowie die Polish-Themen Zoom-Debouncing,
-Render-Cancellation, Off-Screen-Thumbnails, Drag-Ghosts, Smooth Scrolling,
-Kontextmenüs.
+**Ziel**: Pool-Add (Dialog + OS-Drop) und Pool-Remove via `Delete`,
+Manual-Mode (Free-Position + SE-Resize) inklusive Solver-Skip, sowie
+die Polish-Themen Drag-Ghosts mit echten Foto-Thumbnails, Smooth
+Scrolling, Kontextmenüs, Error-Toasts und die Weight-UX (Toolbar-
+Checkbox + W-Slider).
 
 **Voraussetzung**: Phase 5 abgeschlossen. Hotkeys komplett,
 [+]-Platzhalter, Cross-Page Drag laufen.
@@ -12,33 +13,48 @@ Kontextmenüs.
 
 ## Status quo (Referenzpunkte im Code)
 
-- `LayoutPage.mode: PageMode` existiert (`src/dto_models/layout/layout_page.rs:30-36`).
+- `LayoutPage.mode: PageMode` existiert (`src/dto_models/layout/layout_page.rs`).
   YAML-Backward-Compat via `#[serde(default)]` + `skip_serializing_if = "is_auto"`
   erledigt.
-- Lib: `execute_pos(project_root, page, slots, PosConfig)` verschiebt /
-  skaliert Slots einer **Manual**-Seite
-  (`src/commands/page/pos.rs:67-129`). `PosConfig { position:
-  Option<PosMode>, scale: Option<f64> }`, `PosMode::Relative { dx_mm, dy_mm }`
-  bzw. `Absolute { x_mm, y_mm }`. Manual-Check hart eingebaut —
-  Auto-Pages liefern `ValidationError::PageNotManual`.
+- Lib: `execute_pos(project_root, page, slots, &PosConfig)` verschiebt /
+  skaliert Slots einer **Manual**-Seite (`src/commands/page/pos.rs`).
+  `PosConfig { position: Option<PosMode>, scale: Option<f64> }`,
+  `PosMode::Relative { dx_mm, dy_mm }` bzw. `Absolute { x_mm, y_mm }`.
+  Manual-Check hart eingebaut — Auto-Pages liefern
+  `ValidationError::PageNotManual`.
 - Lib: `execute_mode(project_root, PagesExpr, PageMode)` toggelt den Modus
-  (`src/commands/page/mode.rs:21-54`).
+  (`src/commands/page/mode.rs`).
 - Lib: `commands::add::add(...)` und `commands::remove::remove(...)`
-  existieren komplett (`src/commands/add.rs:85-211`, `remove.rs:209-271`),
-  werden von der GUI aber noch nicht aufgerufen.
-- **Solver-Lücke**: der Kommentar in `incremental_build.rs:68` („skip
-  manual pages") hält nicht — die Schleife ruft `rebuild_single_page`
-  uneingeschränkt auf, und `rebuild_single` in `src/commands/rebuild.rs:116`
-  wirft `anyhow::bail!` bei `PageMode::Manual`. Phase 6.1 zieht diesen Fix
-  auf Lib-Ebene mit.
+  existieren komplett (`src/commands/add.rs`, `src/commands/remove.rs`),
+  werden von der GUI aber noch nicht aufgerufen. `AddConfig.allow_duplicates`
+  ist bereits vorhanden — Default in der GUI: `false` (siehe 6.0.1).
+- **Solver-Lücke**: der Kommentar in
+  `src/commands/build/incremental_build.rs:81` („skip manual pages") hält
+  nicht — die Schleife ruft `rebuild_single_page` uneingeschränkt auf, und
+  `rebuild_single` in `src/commands/rebuild.rs:116` wirft `anyhow::bail!`
+  bei `PageMode::Manual`. Phase 6.1 zieht diesen Fix auf Lib-Ebene mit.
+- GUI dispatcht direkt über `BackgroundTask` (kein zwischengeschalteter
+  `PendingCommand`). Hotkeys/Toolbar pushen Tasks in
+  `Vec<BackgroundTask>` und der Worker schaltet in `gui/background.rs`
+  per `match` durch.
 - `Viewport::zoom` wird in `handle_zoom` sofort gesetzt
-  (`gui/app/input_handler.rs:49-69`). Kein Debouncing, kein
-  Re-Render-Trigger.
-- `draw_drag_ghosts.rs` ist vorhanden, aber kein Vollbild-Drag-Ghost
-  sondern nur Skeleton. Der UX sieht einen halbtransparenten Thumbnail-Stack
-  am Cursor vor.
+  (`gui/app/input_handler/hotkeys.rs::handle_zoom`). Re-Render läuft
+  trotzdem nach jedem Zoom-Tick — Render-Cancellation und Debouncing sind
+  kein Phase-6-Scope (siehe 6.2 — gestrichen).
+- `gui/app/widgets/central_panel/draw_drag_ghosts.rs` zeichnet bereits
+  einen Slot-Ghost mit Stack-Effekt für Multi-Selektion. Phase 6 verbessert
+  ihn (siehe 6.2.1 ehem. 6.2.4).
+- `gui/app/widgets/photo_pool.rs::draw_pool_drag_ghost` zeichnet den
+  Pool-Drag-Ghost. Bleibt unverändert.
 - Toasts: `BackgroundResult::CommandFailed(String)` wird in `drain_results`
-  nur geloggt (siehe Phase-3-TODO). Kein UI-Feedback.
+  nur geloggt. Kein UI-Feedback.
+- `AddDialogState` ist heute nur ein `bool` (`InteractionState::add_dialog_open`),
+  Widget `gui/app/widgets/add_dialog.rs` zeigt einen "Not yet implemented"-
+  Stub (Phase 5.3.7). Phase 6 ersetzt den Stub durch die echte UI.
+- Phase 5 hat den Hover-Pfad für Page-Delete entfernt — Page/NavPage-Delete
+  läuft heute ausschließlich über die **Nav-Selektion**
+  (`gui/app/input_handler/hotkeys.rs::handle_delete`). Phase 6 fügt **nur**
+  den neuen Pool-Selektions-Pfad an.
 
 ---
 
@@ -50,93 +66,91 @@ Feature.
 
 ### 6.0.1 Add via Dialog (`Ctrl+O`, Toolbar-Button)
 
-`InteractionState::add_dialog` wird erweitert:
+`InteractionState::add_dialog_open: bool` (heute Phase-5-Stub) wird durch
+einen vollständigen State-Struct ersetzt:
 
 ```rust
-// gui/state/add_dialog.rs (neu)
+// gui/state/add_dialog.rs (neu) — und in gui/state.rs als Feld
+//   pub add_dialog: AddDialogState
 #[derive(Default)]
 pub struct AddDialogState {
     pub open: bool,
-    /// Gewählte Pfade (native FileDialog oder manuelles Drag&Drop).
+    /// Selected paths (from native file picker or OS drop).
     pub pending_paths: Vec<PathBuf>,
     pub recursive: bool,
-    pub weight_buffer: String,   // roh, geparst bei Commit
-    pub source_filter: String,   // Regex, leer = kein Filter
+    pub weight_buffer: String,   // raw input, parsed on commit
+    pub source_filter: String,   // regex, empty = no filter
 }
 ```
 
-Widget `gui/app/widgets/add_dialog.rs`:
+Widget `gui/app/widgets/add_dialog.rs` (Eingaben **englisch**):
 
 ```rust
-pub fn show(ctx: &egui::Context, state: &mut GuiState, cmds: &mut HashSet<PendingCommand>) {
-    if !state.interaction.add_dialog.open { return; }
-    let mut open = state.interaction.add_dialog.open;
-    egui::Window::new("Fotos hinzufügen").open(&mut open)
+pub fn show(
+    ctx: &egui::Context,
+    interaction: &mut InteractionState,
+    cmds: &mut Vec<BackgroundTask>,
+) {
+    if !interaction.add_dialog.open { return; }
+    let mut open = interaction.add_dialog.open;
+    egui::Window::new("Add photos").open(&mut open)
         .default_size([420.0, 320.0])
         .show(ctx, |ui| {
-            if ui.button("Ordner wählen …").clicked() {
+            if ui.button("Choose folder …").clicked() {
                 if let Some(dir) = rfd::FileDialog::new().pick_folder() {
-                    state.interaction.add_dialog.pending_paths.push(dir);
+                    interaction.add_dialog.pending_paths.push(dir);
                 }
             }
-            ui.checkbox(&mut state.interaction.add_dialog.recursive, "Rekursiv");
+            ui.checkbox(&mut interaction.add_dialog.recursive, "Recursive");
             ui.horizontal(|ui| {
-                ui.label("Gewicht:");
-                ui.text_edit_singleline(&mut state.interaction.add_dialog.weight_buffer);
+                ui.label("Weight:");
+                ui.text_edit_singleline(&mut interaction.add_dialog.weight_buffer);
             });
             ui.horizontal(|ui| {
-                ui.label("Pfad-Filter (Regex):");
-                ui.text_edit_singleline(&mut state.interaction.add_dialog.source_filter);
+                ui.label("Path filter (regex):");
+                ui.text_edit_singleline(&mut interaction.add_dialog.source_filter);
             });
-            for p in &state.interaction.add_dialog.pending_paths {
+            for p in &interaction.add_dialog.pending_paths {
                 ui.label(p.display().to_string());
             }
             ui.separator();
-            let can_submit = !state.interaction.add_dialog.pending_paths.is_empty();
-            if ui.add_enabled(can_submit, egui::Button::new("Hinzufügen")).clicked() {
-                let weight = state.interaction.add_dialog.weight_buffer
+            let can_submit = !interaction.add_dialog.pending_paths.is_empty();
+            if ui.add_enabled(can_submit, egui::Button::new("Add")).clicked() {
+                let weight = interaction.add_dialog.weight_buffer
                     .parse::<f64>().unwrap_or(1.0);
-                cmds.insert(PendingCommand::AddPhotos {
-                    paths: std::mem::take(&mut state.interaction.add_dialog.pending_paths),
-                    recursive: state.interaction.add_dialog.recursive,
+                cmds.push(BackgroundTask::AddPhotos {
+                    paths: std::mem::take(&mut interaction.add_dialog.pending_paths),
+                    recursive: interaction.add_dialog.recursive,
                     weight,
-                    source_filter: state.interaction.add_dialog.source_filter.clone(),
+                    source_filter: interaction.add_dialog.source_filter.clone(),
                 });
-                state.interaction.add_dialog.open = false;
+                interaction.add_dialog.open = false;
             }
         });
-    state.interaction.add_dialog.open = open;
+    interaction.add_dialog.open = open && interaction.add_dialog.open;
 }
 ```
 
 Abhängigkeit `rfd = "0.14"` als optionales Feature (`gui`) in `Cargo.toml`
 aufnehmen.
 
-Neu in `pending.rs` und `task.rs`:
+Neu in `gui/task.rs`:
 
 ```rust
-PendingCommand::AddPhotos {
-    paths: Vec<PathBuf>,
-    recursive: bool,
-    weight: f64,
-    source_filter: String,   // leer = kein Filter
-}
-
 BackgroundTask::AddPhotos {
     paths: Vec<PathBuf>,
     recursive: bool,
     weight: f64,
-    source_filter: String,
-    pixel_per_pt: f32,
+    source_filter: String,   // empty = no filter
 }
 ```
 
-Worker (`gui/background/commands.rs`):
+Worker (`gui/background/commands/photo.rs`):
 
 ```rust
-pub(super) fn run_add_photos(
+pub fn run_add_photos(
     paths: Vec<PathBuf>, recursive: bool, weight: f64, source_filter: String,
-    rctx: &mut super::RenderCtx<'_>,
+    rctx: &mut crate::background::RenderCtx<'_>,
 ) {
     let source_filters = if source_filter.is_empty() {
         vec![]
@@ -152,19 +166,41 @@ pub(super) fn run_add_photos(
         }
     };
     let cfg = fotobuch::commands::add::AddConfig {
-        paths, allow_duplicates: false, xmp_filters: vec![], source_filters,
-        dry_run: false, update: false, recursive, weight,
+        paths,
+        allow_duplicates: false,   // GUI never re-adds duplicates (see below)
+        xmp_filters: vec![],
+        source_filters,
+        dry_run: false,
+        update: false,
+        recursive,
+        weight,
     };
     match fotobuch::commands::add::add(rctx.project_root, &cfg) {
         Err(e) => { let _ = rctx.result_tx.send(BackgroundResult::CommandFailed(e.to_string())); }
         Ok(out) => {
-            // Add modifiziert nur photos[], Layout bleibt gleich → keine dirty pages,
-            // aber DerivedState muss neu gebaut werden (apply in drain_results).
-            super::render::send_command_done(out.changed_state, vec![], rctx);
+            // Add only mutates photos[]; layout is untouched → no dirty pages,
+            // but DerivedState must be rebuilt (apply in drain_results).
+            crate::background::send_command_done(out.changed_state, vec![], rctx);
         }
     }
 }
 ```
+
+**Duplikat-Handling**. `AddConfig.allow_duplicates = false` ist die Single
+Source of Truth. Die Lib-Pipeline `add::deduplicate` filtert in dieser
+Reihenfolge:
+
+1. Pfad-Match: existiert eine `PhotoFile.source` mit identischem Pfad,
+   wird die Datei übersprungen (zählt zu `AddResult.skipped`).
+2. Hash-Match: liegt für eine andere Datei bereits derselbe Content-Hash
+   vor, wird die Datei übersprungen + Warnung in `AddResult.warnings`.
+
+Die GUI muss daher **nichts** zusätzlich prüfen — sie verlässt sich auf
+die Lib. Das verhindert das wiederholte Hinzufügen identischer Fotos
+(z. B. nach erneutem File-Drop derselben Quelle), ohne dass die UI eine
+zweite Wahrheit über „was ist schon im Pool?" pflegen müsste. Die
+optionale Anzeige der `skipped`/`warnings`-Counts im Toast (Phase 6.2 ff.)
+ist YAGNI für Phase 6.
 
 ### 6.0.2 Add via OS-Drag (Dateien auf das Fenster)
 
@@ -174,14 +210,14 @@ neuer früher Schritt (vor `handle_drag_start`, weil Pointer-Drag weniger
 Priorität hat):
 
 ```rust
-fn handle_os_dropped_files(ctx: &egui::Context, cmds: &mut HashSet<PendingCommand>) {
+fn handle_os_dropped_files(ctx: &egui::Context, cmds: &mut Vec<BackgroundTask>) {
     let paths: Vec<PathBuf> = ctx.input(|i| {
         i.raw.dropped_files.iter().filter_map(|f| f.path.clone()).collect()
     });
     if paths.is_empty() { return; }
-    cmds.insert(PendingCommand::AddPhotos {
+    cmds.push(BackgroundTask::AddPhotos {
         paths,
-        recursive: true, // Ordner-Drop = rekursiv, Single-File-Drop verhält sich identisch
+        recursive: true, // folder drop = recursive; single-file drop behaves identically
         weight: 1.0,
         source_filter: String::new(),
     });
@@ -192,37 +228,37 @@ Gilt UI-weit: der Drop landet im Pool — unabhängig davon, wo der Cursor
 das File loslässt. Explizit nicht versucht: Drop in die Hauptansicht als
 „place direkt auf Seite N", weil OS-Drag und Pool-Drag semantisch
 überladen würden. (Wer direkt platzieren will: Add → dann Pool-Drag auf
-Seite, siehe Phase 4.2.12.)
+Seite.) Duplikate werden wie in 6.0.1 von der Lib gefiltert.
 
 ### 6.0.3 Remove via `Delete` im Pool
 
-`handle_delete` aus Phase 5.3.1 hat schon drei Pfade in fester
-Prioritätsreihenfolge:
+`handle_delete` (`gui/app/input_handler/hotkeys.rs`) hat heute zwei Pfade
+aus Phase 5:
 
 1. Slot-Selektion → Unplace
-2. Pool-Selektion (Phase-5-Hook ist leer)
-3. Hovered Page ohne Selektion → DeletePage
+2. Nav-Selektion → DeletePages
 
-Phase 6 füllt **nur den zweiten Pfad** — die Reihenfolge bleibt
-identisch, damit eine bewusste Slot-Selektion nicht durch eine
-versehentlich offene Pool-Selektion übertrumpft wird, und ein
-Pool-Selection-Delete nicht versehentlich eine ganze hovered Page kippt:
+Phase 6 fügt einen dritten Pfad **vor** der Nav-Selektion ein —
+Pool-Selektion. Reihenfolge: Slot > Pool > Nav. Pool kommt vor Nav, weil
+das Klicken im Pool die zuletzt explizit getätigte Auswahl ist und
+typischerweise bewusst auf Pool-Items abzielt.
 
 ```rust
 fn handle_delete(
     data: &DataState,
     interaction: &mut InteractionState,
     ctx: &egui::Context,
-    cmds: &mut HashSet<PendingCommand>,
+    cmds: &mut Vec<BackgroundTask>,
 ) {
     if !ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Delete)) { return; }
 
-    // 1) Slot-Selektion gewinnt (Phase 5.3.1).
-    if let SlotSelection::OnPage { page, slots, .. } = &interaction.selections.slots
-        && !slots.is_empty()
+    // 1) Slot-Selektion gewinnt (Phase 5).
+    if let Some(page) = interaction.selections.slots.page
+        && !interaction.selections.slots.is_empty()
     {
-        cmds.insert(PendingCommand::Unplace {
-            page: *page, slots: slots.iter().copied().collect(),
+        cmds.push(BackgroundTask::Unplace {
+            page,
+            slots: interaction.selections.slots.slots_on_active_page(),
         });
         return;
     }
@@ -230,76 +266,136 @@ fn handle_delete(
     // 2) Pool-Selektion (NEU in Phase 6).
     let pool_ids = interaction.selections.photos.ids();
     if !pool_ids.is_empty() {
-        cmds.insert(PendingCommand::RemovePhotos { photo_ids: pool_ids });
+        cmds.push(BackgroundTask::RemovePhotos { photo_ids: pool_ids });
         return;
     }
 
-    // 3) Hovered Page → DeletePage (Phase 5.3.1).
-    let target_page = interaction.hovered.as_ref().and_then(|h| match h {
-        HoveredTarget::Page { page, slot: None } | HoveredTarget::NavPage(page) => Some(*page),
-        _ => None,
-    });
-    if let Some(page) = target_page {
-        if data.project.has_cover() && page == 0 { return; }
-        cmds.insert(PendingCommand::DeletePage { page });
-    }
-}
-```
-
-Neu in `pending.rs` und `task.rs`:
-
-```rust
-PendingCommand::RemovePhotos { photo_ids: Vec<String> }
-BackgroundTask::RemovePhotos { photo_ids: Vec<String>, pixel_per_pt: f32 }
-```
-
-Worker:
-
-```rust
-pub(super) fn run_remove_photos(
-    photo_ids: Vec<String>,
-    rctx: &mut super::RenderCtx<'_>,
-) {
-    // `patterns` in RemoveConfig erwartet Gruppenname ODER Regex auf source.
-    // Wir übersetzen IDs → exakte `^id$`-Regexe. id == source hat im YAML
-    // keine Garantie (id ist relpath, source kann anders sein), daher
-    // brauchen wir den Photo-Index aus dem aktuellen State. Weil der Worker
-    // den State neu lädt (StateManager::open), laden wir ihn einmal und
-    // ziehen die source-Felder via DerivedState.rebuild — oder direkt aus
-    // state.photos. Simpler: eine neue Lib-Funktion `remove_by_ids(ids)`
-    // in src/commands/remove.rs, weil Regex-Indirektion hier fragil ist.
-    match fotobuch::commands::remove::remove_by_ids(rctx.project_root, &photo_ids) {
-        Err(e) => { let _ = rctx.result_tx.send(BackgroundResult::CommandFailed(e.to_string())); }
-        Ok(out) => {
-            let dirty = out.result.pages_affected;
-            super::render::send_command_done(out.changed_state, dirty, rctx);
+    // 3) Nav-Selektion (Phase 5) — Cover wird gefiltert.
+    let nav_sel = interaction.selections.nav_pages.items();
+    if !nav_sel.is_empty() {
+        let pages: Vec<usize> = if data.project.has_cover() {
+            nav_sel.into_iter().filter(|&p| p != 0).collect()
+        } else { nav_sel };
+        if !pages.is_empty() {
+            cmds.push(BackgroundTask::DeletePages { pages });
         }
     }
 }
 ```
 
-**Lib-Change** (minimal): `remove_by_ids(project_root: &Path, ids: &[String])
--> Result<CommandOutput<RemoveResult>>` als Thin-Wrapper um die bestehende
-Remove-Pipeline — überspringt die Pattern-Match-Phase und setzt
-`matched_ids = ids.iter().cloned().collect()` direkt. Implementiert in
-`src/commands/remove.rs`, keine API-Änderung an `remove()` selbst.
+Neu in `gui/task.rs`:
+
+```rust
+BackgroundTask::RemovePhotos { photo_ids: Vec<String> }
+```
+
+Worker (`gui/background/commands/photo.rs`):
+
+```rust
+pub fn run_remove_photos(
+    photo_ids: Vec<String>,
+    rctx: &mut crate::background::RenderCtx<'_>,
+) {
+    let cfg = fotobuch::commands::remove::RemoveConfig {
+        target: fotobuch::commands::remove::RemoveTarget::Ids(photo_ids),
+        keep_files: false,
+    };
+    match fotobuch::commands::remove::remove(rctx.project_root, &cfg) {
+        Err(e) => { let _ = rctx.result_tx.send(BackgroundResult::CommandFailed(e.to_string())); }
+        Ok(out) => {
+            let dirty = out.result.pages_affected;
+            super::page::build_after_command(out.changed_state, dirty, rctx);
+        }
+    }
+}
+```
+
+**Lib-Change** (siehe 6.0.3.1): das bestehende `remove`-Command bekommt
+einen ID-basierten Modus über ein Enum, statt eine zweite Funktion
+`remove_by_ids` neu einzuführen.
 
 `keep_files` bleibt `false` — Delete im Pool entfernt vollständig. Wer nur
 unplacen will, selektiert im Central-Panel. Die UX-Regel („Pool-Fotos
 Del → removed komplett") ist damit eingehalten.
 
+#### 6.0.3.1 Lib: `RemoveConfig` auf Enum-Target umstellen
+
+Heute hat `RemoveConfig` zwei orthogonale Felder, die sich gegenseitig
+ausschließen:
+
+```rust
+pub struct RemoveConfig {
+    pub patterns: Vec<String>,
+    pub keep_files: bool,
+    pub unplaced: bool,
+}
+```
+
+`unplaced = true` ignoriert `patterns`, `unplaced = false` mit leerem
+`patterns` ist no-op — beides Code-Smell (mehrere Wahrheiten für „was
+wird entfernt"). Phase 6 zieht die drei Modi in ein Enum zusammen und
+ergänzt direkt die ID-Variante, damit die GUI Pool-Delete ohne Regex-
+Indirektion fahren kann (id ≠ source ist im YAML möglich):
+
+```rust
+// src/commands/remove.rs
+pub enum RemoveTarget {
+    /// Match by group name (exact) or regex on photo.source.
+    Patterns(Vec<String>),
+    /// Match by exact photo IDs (GUI Pool-Delete).
+    Ids(Vec<String>),
+    /// All photos not placed in any layout page.
+    Unplaced,
+}
+
+pub struct RemoveConfig {
+    pub target: RemoveTarget,
+    pub keep_files: bool,
+}
+```
+
+`remove(project_root, &config)` matcht entlang `target`:
+
+| Variante | matched_ids |
+|---|---|
+| `Patterns(p)` | bisheriges `match_photos(state, &p)` |
+| `Ids(ids)` | `ids.iter().cloned().collect::<HashSet<_>>()` (kein Regex) |
+| `Unplaced` | bisheriges `collect_unplaced_ids(state)` |
+
+Die restliche Pipeline (Layout-Filter, Empty-Page-Cleanup, Photo-
+Filter) bleibt unverändert — Single Source of Truth für „eine
+Foto-Menge entfernen".
+
+**Aufrufer-Migration** (alle innerhalb der Lib + CLI):
+
+| Datei | Anpassung |
+|---|---|
+| `src/commands/remove.rs` (Tests) | `patterns: …` → `target: RemoveTarget::Patterns(…)`; `unplaced: true` → `target: RemoveTarget::Unplaced` |
+| `cli/cli/remove.rs` | Parser baut `RemoveTarget` aus Args |
+| `gui/background/commands/photo.rs` | nutzt `RemoveTarget::Ids` (siehe oben) |
+
+Eigener Commit `refactor(lib): RemoveConfig target enum (Patterns/Ids/Unplaced)`
+direkt vor dem GUI-Pool-Delete-Commit.
+
+Lib-Tests:
+- `remove_by_ids_removes_exact_matches_only`.
+- `remove_by_ids_does_not_match_source_or_group`.
+- `remove_unplaced_via_enum_keeps_placed_photos`.
+
 ### 6.0.4 Commits + Tests
 
-1. `feat(lib): remove_by_ids helper for id-based removal`
+1. `refactor(lib): RemoveConfig target enum (Patterns/Ids/Unplaced)`
 2. `feat(gui): add photos dialog (Ctrl+O / toolbar)`
 3. `feat(gui): OS file drop adds photos to pool`
 4. `feat(gui): delete key removes selected pool photos`
 
 Tests:
-- `commands::remove::remove_by_ids_removes_exact_matches_only`.
-- `input_handler::delete_prefers_pool_selection_over_slot_when_slot_empty`.
-- `input_handler::delete_keeps_slot_path_when_both_selections_populated`
-  (Slot gewinnt, weil Pool nur greift, wenn `SlotSelection::None`).
+- Lib: `remove_by_ids_removes_exact_matches_only`,
+  `remove_by_ids_does_not_match_source_or_group`,
+  `remove_unplaced_via_enum_keeps_placed_photos`.
+- `input_handler::delete_prefers_pool_selection_over_nav_when_slot_empty`.
+- `input_handler::delete_keeps_slot_path_when_pool_and_slot_set`
+  (Slot gewinnt, weil Pool nur greift, wenn die Slot-Selektion leer ist).
 - `add_dialog::submit_consumes_pending_paths`.
 
 ---
@@ -311,15 +407,15 @@ Tests:
 Aktuell hat die Lib **drei** Stellen, an denen ein „skip Manual" stehen
 müsste (`incremental_build`, `rebuild_range`, `rebuild_all`) plus den
 Book-Layout-Solver. Drei verstreute `if mode == Manual { continue; }`-
-Klauseln sind exakt der Code-Smell, den der `incremental_build.rs:68`-
-Kommentar bereits illustriert (er verspricht Skip, aber niemand setzt es
-um). Phase 6 ersetzt das durch **einen einzigen Helper** in
-`src/dto_models/layout.rs` (oder dem bestehenden Layout-Submodul):
+Klauseln sind exakt der Code-Smell, den der Kommentar in
+`src/commands/build/incremental_build.rs:81` bereits illustriert (er
+verspricht Skip, aber niemand setzt es um). Phase 6 ersetzt das durch
+**einen einzigen Helper** in `src/dto_models/state.rs`:
 
 ```rust
 impl ProjectState {
-    /// Iteriert über Indizes der Pages, die der Solver anfassen darf.
-    /// Manual-Pages werden ausgeschlossen — sie sind explizit fixiert.
+    /// Indices of pages that the solver may touch. Manual pages are
+    /// excluded — they are explicitly pinned by the user.
     pub fn auto_page_indices(&self) -> impl Iterator<Item = usize> + '_ {
         self.layout.iter().enumerate()
             .filter(|(_, p)| p.mode == PageMode::Auto)
@@ -335,7 +431,7 @@ Zeile pro Stelle, keine duplizierte Skip-Regel mehr):
 
 | Datei | Heute | Nach 6.1.1 |
 |---|---|---|
-| `src/commands/build/incremental_build.rs:68` | Kommentar verspricht Skip, Code skippt nicht | filter via `auto_page_indices` |
+| `src/commands/build/incremental_build.rs:81` | Kommentar verspricht Skip, Code skippt nicht | filter via `auto_page_indices` |
 | `src/commands/rebuild.rs::rebuild_range` | kein Skip | filter via `auto_page_indices` |
 | `src/commands/rebuild.rs::rebuild_all` | kein Skip | filter via `auto_page_indices` |
 
@@ -348,8 +444,8 @@ werden als Fixed-Size-Blöcke an ihren Indizes belassen — der Solver
 verteilt nur die Fotos der Auto-Pages neu. Umsetzung:
 
 1. Vor dem Solver-Lauf einen Snapshot `Vec<(usize, LayoutPage)>` aller
-   Manual-Pages anlegen (genau über `auto_page_indices` invertiert,
-   damit dieselbe Wahrheit gilt).
+   Manual-Pages anlegen (Komplement von `auto_page_indices`, damit
+   dieselbe Wahrheit gilt).
 2. Solver bekommt nur die Fotos der Auto-Pages.
 3. Nach dem Lauf: Manual-Pages per `layout.splice` an ihren
    ursprünglichen Indizes wieder einsetzen.
@@ -361,48 +457,59 @@ direkt vor dem GUI-Toggle-Commit.
 
 ### 6.1.2 Hotkey `A` → Modus toggeln
 
+Toggle-Logik liegt im UI-Thread (kein Read-Modify-Write über mehrere
+Worker-Roundtrips): der Handler liest `data.project.layout[page].mode`,
+berechnet das Gegenteil und pusht direkt `SetPageMode`:
+
 ```rust
-fn handle_mode_toggle(interaction: &InteractionState, ctx: &egui::Context, cmds: &mut HashSet<PendingCommand>) {
+fn handle_mode_toggle(
+    data: &DataState,
+    interaction: &InteractionState,
+    ctx: &egui::Context,
+    cmds: &mut Vec<BackgroundTask>,
+) {
     if !ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::A)) { return; }
-    let page = match &interaction.selections.slots {
-        SlotSelection::OnPage { page, .. } => *page,
-        SlotSelection::None => match &interaction.hovered {
-            Some(HoveredTarget::Page { page, .. }) | Some(HoveredTarget::NavPage(page)) => *page,
-            _ => return,
-        },
+    let page = interaction.selections.slots.page
+        .or_else(|| interaction.hovered.as_ref().and_then(|h| h.page_idx()));
+    let Some(page) = page else { return; };
+    let Some(lp) = data.project.layout.get(page) else { return; };
+    let new_mode = match lp.mode {
+        PageMode::Auto   => PageMode::Manual,
+        PageMode::Manual => PageMode::Auto,
     };
-    cmds.insert(PendingCommand::TogglePageMode { page });
+    cmds.push(BackgroundTask::SetPageMode { page, mode: new_mode });
 }
 ```
 
-Neu in `pending.rs`:
+Neu in `gui/task.rs`:
 
 ```rust
-PendingCommand::TogglePageMode { page: usize }
-BackgroundTask::SetPageMode { page: usize, mode: fotobuch::dto_models::PageMode, pixel_per_pt: f32 }
+BackgroundTask::SetPageMode { page: usize, mode: fotobuch::dto_models::PageMode }
 ```
 
-Der `TogglePageMode`-Dispatcher liest den aktuellen Modus aus
-`data.project.layout[page].mode`, berechnet `mode.toggle()` und sendet
-`SetPageMode`. Toggle-Logik liegt damit im UI-Thread (kein Read-Modify-Write
-über mehrere Worker-Roundtrips).
-
-Worker:
+Worker (`gui/background/commands/page.rs`):
 
 ```rust
-pub(super) fn run_set_page_mode(page: usize, mode: PageMode, rctx: &mut super::RenderCtx<'_>) {
+pub fn run_set_page_mode(
+    page: usize,
+    mode: fotobuch::dto_models::PageMode,
+    rctx: &mut crate::background::RenderCtx<'_>,
+) {
     use fotobuch::commands::page::{execute_mode, PagesExpr};
+    use fotobuch::dto_models::PageMode;
     match execute_mode(rctx.project_root, PagesExpr::single(page as u32), mode) {
-        Err(e) => { let _ = rctx.result_tx.send(BackgroundResult::CommandFailed(e.to_string())); }
+        Err(e) => {
+            let _ = rctx.result_tx.send(BackgroundResult::CommandFailed(e.to_string()));
+        }
         Ok(out) => {
-            // Manual→Auto: Seite wird beim nächsten Build neu geplant.
-            //   run_page_command ruft build() → neue Slots kommen als dirty zurück.
-            // Auto→Manual: Slots bleiben wie sie sind, nur `mode` flippt.
-            //   Kein Build nötig, aber Derived muss neu gebaut werden.
+            // Manual→Auto: page is replanned on the next build.
+            //   build_after_command runs build() → new slots return as dirty.
+            // Auto→Manual: slots stay; only `mode` flips.
+            //   No build needed, but DerivedState must rebuild.
             if mode == PageMode::Auto {
-                super::commands::finish_with_build(out, rctx);
+                build_after_command(out.changed_state, vec![page], rctx);
             } else {
-                super::render::send_command_done(out.changed_state, vec![], rctx);
+                crate::background::send_command_done(out.changed_state, vec![], rctx);
             }
         }
     }
@@ -417,12 +524,13 @@ gleichen `ui.horizontal`-Zeile, nicht im Page-Overlay — würde Drop-Targets
 kapern):
 
 ```rust
-let label = match data.project.layout[page_idx].mode {
-    PageMode::Auto   => "[A]",
-    PageMode::Manual => "[M]",
+let current_mode = data.project.layout[page_idx].mode;
+let (label, new_mode) = match current_mode {
+    PageMode::Auto   => ("[A]", PageMode::Manual),
+    PageMode::Manual => ("[M]", PageMode::Auto),
 };
 if ui.small_button(label).clicked() {
-    cmds.insert(PendingCommand::TogglePageMode { page: page_idx });
+    cmds.push(BackgroundTask::SetPageMode { page: page_idx, mode: new_mode });
 }
 ```
 
@@ -432,22 +540,29 @@ belegt.
 
 ### 6.1.4 Manual-Drag: Slot auf freie Fläche
 
-In `draw_page` wird für jeden Slot einer **Manual**-Seite ein zusätzlicher
-`egui::Sense::drag()`-Hotspot in der Slot-Rect gelegt, der primäre
-Maustaste akzeptiert (LMB für Manual-Drag, damit sich der Semantik-Split
-zu RMB-Slot-Drag = Swap/Move nicht beißt):
+LMB ist projektweit für Scrollen / Klick-Selektion reserviert (egui
+`ScrollArea` plus `handle_click`). Manual-Drag fährt deshalb auf **RMB**
+— derselben Maustaste, die auf Auto-Pages den Swap/Move-Drag startet.
+Die Trennung ist sauber, weil die Quelle eine **Manual**-Page ist:
+`handle_drag_start` in `gui/app/input_handler/drag.rs` priorisiert die
+neue `ManualDrag`-Aktivierung **vor** dem bestehenden `DragSource::Slot`
+und konsumiert das `secondary_pressed`-Event nur dann, wenn die
+gehoverte Page Manual ist.
 
 ```rust
-// Nur für Manual-Pages:
-let slot_rect = geometry::slot_rect_on_screen(page_rect, w_mm, h_mm, slot);
-let id = egui::Id::new(("manual_slot", page_idx, slot_idx));
-let resp = ui.interact(slot_rect, id, egui::Sense::click_and_drag());
-if resp.drag_started_by(egui::PointerButton::Primary) {
+// gui/app/input_handler/drag.rs (vor dem bestehenden Slot-Branch)
+if !ctx.input(|i| i.pointer.secondary_pressed()) { /* fallthrough */ }
+else if let Some(HoveredTarget::Page { page, slot: Some(slot) }) = &interaction.hovered
+    && data.project.layout.get(*page).map(|p| p.mode) == Some(PageMode::Manual)
+{
+    let cursor = ctx.pointer_hover_pos().unwrap_or_default();
+    let slot_data = &data.project.layout[*page].slots[*slot];
     interaction.manual_drag = ManualDrag::Move {
-        page: page_idx, slot: slot_idx,
-        pointer_origin: resp.hover_pos().unwrap_or(slot_rect.center()),
-        slot_origin_mm: (slot.x_mm, slot.y_mm),
+        page: *page, slot: *slot,
+        pointer_origin: cursor,
+        slot_origin_mm: (slot_data.x_mm, slot_data.y_mm),
     };
+    return; // do not also set ActiveDrag::Dragging
 }
 ```
 
@@ -465,19 +580,18 @@ pub enum ManualDrag {
     },
     Resize {
         page: usize, slot: usize,
-        corner: Corner, // NW|NE|SW|SE
         pointer_origin: egui::Pos2,
         slot_origin_mm: (f64, f64, f64, f64), // x, y, w, h
     },
 }
-
-#[derive(Debug, Clone, Copy)]
-pub enum Corner { NW, NE, SW, SE }
 ```
 
-`InteractionState::manual_drag: ManualDrag` (neues Feld).
+`InteractionState::manual_drag: ManualDrag` (neues Feld). Die fehlende
+`Corner`-Variante ist Absicht — Resize ist auf SE festgelegt (siehe
+6.1.5).
 
-**Drag-Fortschritt** (bei `resp.dragged()` oder global pro Frame):
+**Drag-Fortschritt** (pro Frame, solange RMB gedrückt und
+`ManualDrag::Move`):
 
 1. Aktuelle Cursor-Position `pointer_now`.
 2. Delta in Pixel: `pointer_now - pointer_origin`.
@@ -489,79 +603,77 @@ Die neue Position wird **optimistisch** als lokales Overlay gezeichnet —
 der Slot selbst im `LayoutPage` bleibt unverändert, bis der Drag loslässt.
 Das spart Roundtrip-Latenz und macht den Drag ruckelfrei.
 
-**Drag-Release** (`resp.drag_stopped_by(Primary)` bzw.
-`ctx.input(|i| i.pointer.primary_released())`):
+**Drag-Release** (`ctx.input(|i| i.pointer.secondary_released())`):
 
 ```rust
-let ManualDrag::Move { page, slot, slot_origin_mm, pointer_origin } =
+let ManualDrag::Move { page, slot, slot_origin_mm: _, pointer_origin } =
     std::mem::take(&mut interaction.manual_drag) else { return; };
+let pointer_now = ctx.pointer_hover_pos().unwrap_or(pointer_origin);
 let (dx_mm, dy_mm) = compute_delta_mm(pointer_origin, pointer_now, pixel_per_mm);
-cmds.insert(PendingCommand::PagePos {
+cmds.push(BackgroundTask::PagePos {
     page, slot,
     mode: PagePosMode::Relative { dx_mm, dy_mm },
     scale: None,
 });
 ```
 
-Auto-Pages ignorieren den Drag vollständig (`ui.interact` wird für Slots
-auf Auto-Seiten nicht registriert). Kein visuelles Feedback nötig — der
-bestehende RMB-Swap/Move bleibt die einzige Drag-Semantik dort.
+Auto-Pages ignorieren `ManualDrag` vollständig — der RMB-Press auf einem
+Slot einer Auto-Seite fällt durch in den bestehenden `DragSource::Slot`-
+Pfad (Swap/Move).
 
-### 6.1.5 Manual-Resize: Ecken-Drag
+### 6.1.5 Manual-Resize: SE-Ecken-Drag
 
-Für Manual-Slots zusätzlich vier `ui.interact`-Hotspots in 8×8-Pixel-Rects
-an den Ecken:
+Für Manual-Slots **genau ein** `ui.interact`-Hotspot in einem 8×8-Pixel-
+Rect an der **rechten unteren** (SE) Ecke. Alle vier Ecken zu coden ist
+unnötig kompliziert (vier Hotspot-Rects, vier Dispatch-Pfade, getrennte
+Resize-Mathematik je nach Gegenecke) und für Endanwender verwirrend
+(„welche Ecke macht was?"). SE genügt — Position (Move) plus Größe
+(SE-Resize) decken jede gewünschte Geometrie ab. Die Aktion ist ebenfalls
+**RMB**, konsistent mit 6.1.4.
 
 ```rust
-fn corner_rect(slot_rect: egui::Rect, corner: Corner) -> egui::Rect {
+fn se_corner_rect(slot_rect: egui::Rect) -> egui::Rect {
     const SZ: f32 = 8.0;
-    let c = match corner {
-        Corner::NW => slot_rect.left_top(),
-        Corner::NE => slot_rect.right_top(),
-        Corner::SW => slot_rect.left_bottom(),
-        Corner::SE => slot_rect.right_bottom(),
-    };
-    egui::Rect::from_center_size(c, egui::vec2(SZ, SZ))
+    egui::Rect::from_center_size(slot_rect.right_bottom(), egui::vec2(SZ, SZ))
 }
 ```
 
-Spezifikation als **pure Funktion** in `gui/app/widgets/central_panel/manual_resize.rs`:
+Spezifikation als **pure Funktion** in
+`gui/app/widgets/central_panel/manual_resize.rs`:
 
 ```rust
-pub fn compute(
+pub fn compute_se(
     origin: (f64, f64, f64, f64), // x, y, w, h in mm
-    corner: Corner,
     delta_px: egui::Vec2,
     pixel_per_mm: f64,
 ) -> (f64, f64, f64, f64) // new x, y, w, h in mm
 ```
 
-Invarianten (unittests, jeweils eine Assertion):
-- `compute_keeps_aspect_ratio`: `new_w / new_h ≈ origin_w / origin_h` (eps).
-- `compute_se_corner_keeps_origin_xy`: SE bewegt nur Größe.
-- `compute_nw_corner_shifts_origin_xy_by_size_delta`: NW behält gegenüber-
-  liegende Ecke (`origin_x + origin_w`, `origin_y + origin_h`) fix.
-- `compute_zero_delta_is_identity`.
+Invariante: SE-Resize hält `(x, y)` fest und vergrößert/verkleinert
+`(w, h)` proportional unter Beibehaltung des Seitenverhältnisses. Skalar
+`scale = new_diag / origin_diag` aus dem Cursor-Delta zur fixen
+Gegenecke (NW = `(x, y)`).
 
-Implementierung: Distanz Cursor → Gegenecke vor/nach Drag, Scale =
-`new_diag / origin_diag`, neue Größe = `origin_size * scale`, neue Origin
-so, dass die Gegenecke fix bleibt. Welche Ecke gegenüberliegt, bestimmt
-`Corner` (NW ↔ SE, NE ↔ SW). 8 Zeilen Code, 4 Unit-Tests, kein Prosa-
-Pseudocode nötig.
+Unittests:
+- `compute_se_keeps_origin_xy`.
+- `compute_se_keeps_aspect_ratio`.
+- `compute_se_zero_delta_is_identity`.
+- `compute_se_negative_delta_shrinks`.
 
 **Release** emittiert:
 
 ```rust
-cmds.insert(PendingCommand::PagePos {
+cmds.push(BackgroundTask::PagePos {
     page, slot,
-    mode: PagePosMode::Absolute { x_mm: new_x, y_mm: new_y },
+    mode: PagePosMode::Absolute { x_mm: origin_x, y_mm: origin_y },
     scale: Some(scale_factor),
 });
 ```
 
-`PosConfig` akzeptiert beides in einem Call (siehe `src/commands/page/pos.rs:31-36`).
+`PosConfig` akzeptiert Position + Scale in einem Call (siehe
+`src/commands/page/pos.rs::PosConfig`).
 
-Neu in `pending.rs` und `task.rs`:
+Neu in `gui/task.rs`:
 
 ```rust
 pub enum PagePosMode {
@@ -569,14 +681,16 @@ pub enum PagePosMode {
     Absolute { x_mm: f64, y_mm: f64 },
 }
 
-PendingCommand::PagePos { page: usize, slot: usize, mode: PagePosMode, scale: Option<f64> }
-BackgroundTask::PagePos  { page: usize, slot: usize, mode: PagePosMode, scale: Option<f64>, pixel_per_pt: f32 }
+BackgroundTask::PagePos { page: usize, slot: usize, mode: PagePosMode, scale: Option<f64> }
 ```
 
-Worker:
+Worker (`gui/background/commands/page.rs`):
 
 ```rust
-pub(super) fn run_page_pos(page: usize, slot: usize, mode: PagePosMode, scale: Option<f64>, rctx: &mut super::RenderCtx<'_>) {
+pub fn run_page_pos(
+    page: usize, slot: usize, mode: PagePosMode, scale: Option<f64>,
+    rctx: &mut crate::background::RenderCtx<'_>,
+) {
     use fotobuch::commands::page::{execute_pos, PosConfig, PosMode, SlotExpr};
     let cfg = PosConfig {
         position: Some(match mode {
@@ -587,7 +701,7 @@ pub(super) fn run_page_pos(page: usize, slot: usize, mode: PagePosMode, scale: O
     };
     match execute_pos(rctx.project_root, page as u32, SlotExpr::single(slot as u32), &cfg) {
         Err(e) => { let _ = rctx.result_tx.send(BackgroundResult::CommandFailed(e.to_string())); }
-        Ok(out) => super::render::send_command_done(out.changed_state, vec![page], rctx),
+        Ok(out) => crate::background::send_command_done(out.changed_state, vec![page], rctx),
     }
 }
 ```
@@ -597,16 +711,17 @@ reagiert nur auf die geänderten Slot-Koordinaten.
 
 ### 6.1.6 Commits + Tests
 
-1. `fix(lib): skip manual pages in rebuild/incremental build`
+1. `refactor(lib): single Manual-skip helper for solver and rebuilders`
 2. `feat(lib): book layout solver treats manual pages as fixed blocks`
 3. `feat(gui): A hotkey + [A|M] toggle button per page`
-4. `feat(gui): manual slot free-positioning via primary-drag`
-5. `feat(gui): manual slot resize via corner drag`
+4. `feat(gui): manual slot free-positioning via RMB drag`
+5. `feat(gui): manual slot resize via SE-corner drag`
 
 Tests:
-- `manual_resize::compute_keeps_ratio_for_se_corner`.
-- `manual_resize::compute_shifts_origin_for_nw_corner`.
-- `input_handler::a_hotkey_emits_toggle_page_mode_when_hovered`.
+- `manual_resize::compute_se_keeps_origin_xy`.
+- `manual_resize::compute_se_keeps_aspect_ratio`.
+- `manual_resize::compute_se_zero_delta_is_identity`.
+- `input_handler::a_hotkey_emits_set_page_mode_when_hovered`.
 - `input_handler::manual_drag_release_emits_page_pos_relative`.
 - Lib: `incremental_build_skips_manual_page` (Fixture mit einer Manual-Page,
   erwartet unverändertes `slots[]` nach Build).
@@ -616,164 +731,74 @@ Tests:
 
 ## 6.2 — Polish
 
-Sechs kleine, unabhängige Features. Reihenfolge egal, ein Commit pro
-Feature. Wenn ein Feature neuen State braucht, wird der unmittelbar vor
-dem Feature-Commit in `state/` angelegt.
+Vier kleine, unabhängige Features (Drag-Ghosts, Smooth Scrolling,
+Kontextmenü, Toasts) plus die Weight-UX (6.2.5). Reihenfolge egal, ein
+Commit pro Feature. Wenn ein Feature neuen State braucht, wird er
+unmittelbar vor dem Feature-Commit in `state/` angelegt.
 
-### 6.2.1 Zoom-Debouncing
+> Die früher hier vorgesehenen Themen Zoom-Debouncing, Render-
+> Cancellation und Thumbnails-für-Off-Screen-Seiten sind aus Phase 6
+> herausgenommen — sie sind kein Blocker für Manual-Mode + Pool-Add/
+> Remove und werden, falls notwendig, separat als Performance-Pass
+> nachgezogen.
 
-`Viewport::zoom` schreibt in `handle_zoom` (input_handler.rs:49-69) sofort.
-Das genügt für die GPU-Skalierung der bestehenden Textur, aber der
-eigentliche Re-Render mit höherem `pixel_per_pt` muss **erst nach Ruhe**
-erfolgen, damit die Pipeline nicht bei jedem Scroll-Tick anläuft.
+### 6.2.1 Drag-Ghosts (Slot-Drag verbessern)
 
-State:
+Slot-Ghosts sollen das **tatsächliche Foto** zeigen, nicht einen Block-
+Rect-Stack. Pool- und NavPage-Ghosts bleiben unverändert
+(`gui/app/widgets/photo_pool.rs::draw_pool_drag_ghost` zeichnet bereits
+gedimmte Pool-Thumbs gestapelt; NavPage hat keinen eigenen Ghost und
+braucht auch keinen).
 
-```rust
-// gui/state/viewport.rs
-pub struct Viewport {
-    // … bestehende Felder …
-    /// Timestamp des letzten Zoom-Delta. `None` = stabil.
-    pub zoom_last_change: Option<std::time::Instant>,
-    /// Letzter `pixel_per_pt`-Wert, zu dem gerendert wurde.
-    pub zoom_last_rendered_ppp: f32,
-}
-```
+Datenquelle: jeder Slot eines Renders hat ein Foto-Thumbnail in
+`DataState::thumbs` (`HashMap<photo_id, TextureHandle>`, der Pool-Preview
+nutzt sie schon). Slot → photo_id über
+`data.project.layout[page].photos[slot_idx]`.
 
-In `FotobuchApp::logic` (bzw. `update`-Äquivalent) nach `handle_input`:
+**Ghost-Regeln im neuen `draw_drag_ghosts.rs`** (nur der Slot-Pfad ändert
+sich — die Funktionssignatur und die Aufrufstelle bleiben):
 
-```rust
-const ZOOM_DEBOUNCE: std::time::Duration = std::time::Duration::from_millis(200);
-
-if let Some(t) = self.state.interaction.viewport.zoom_last_change
-    && t.elapsed() >= ZOOM_DEBOUNCE
-{
-    let ppp = self.state.interaction.viewport.zoom * self.state.data.pages.base_pixel_per_pt;
-    let last = self.state.interaction.viewport.zoom_last_rendered_ppp;
-    if (ppp - last).abs() / last > 0.05 {   // mehr als 5% Unterschied → Re-Render lohnt
-        let pages: Vec<usize> = (0..self.state.data.pages.textures.len()).collect();
-        let _ = self.task_tx.send(BackgroundTask::RenderPages { pages, pixel_per_pt: ppp });
-        self.state.interaction.viewport.zoom_last_rendered_ppp = ppp;
-    }
-    self.state.interaction.viewport.zoom_last_change = None;
-}
-```
-
-`handle_zoom` schreibt zusätzlich:
-
-```rust
-interaction.viewport.zoom_last_change = Some(std::time::Instant::now());
-```
-
-`ctx.request_repaint_after(ZOOM_DEBOUNCE)` in `handle_zoom`, damit der
-Debounce-Tick auch ohne weitere Input-Events feuert.
-
-Tests:
-- `viewport::zoom_debounce_emits_after_quiet_period` (simuliert Instant
-  mit `mock_instant` oder extrahiert die Entscheidung als pure Funktion
-  `should_rerender(last_change, now, last_ppp, new_ppp) -> bool`).
-
-### 6.2.2 Render-Cancellation
-
-Das existierende `BackgroundResult::PageRendered`-Handling schluckt jedes
-Rendering, auch wenn die Seite zwischendurch schon wieder neu angefragt
-wurde. Bei schnellen Zoom-Sprüngen oder konsekutiven Commands stapeln sich
-veraltete Pixelbuffer im Channel und überschreiben die frische Textur.
-
-Lösung analog zu `docs/design/gui/02-architektur.md` § „Epoch-basierte
-Invalidierung":
-
-1. `PageCache` bekommt `render_epochs: Vec<u64>` (index-coupled mit
-   `textures`).
-2. `BackgroundTask::RenderPages` und `PageRendered` tragen `epoch: u64`.
-3. Vor jedem `RenderPages`-Send inkrementiert die UI pro betroffener Seite
-   `render_epochs[p]`.
-4. `drain_results` verwirft `PageRendered { epoch, page }` still, wenn
-   `epoch < render_epochs[page.page]`.
-
-Task + Result:
-
-```rust
-BackgroundTask::RenderPages { pages: Vec<(usize, u64 /* epoch */)>, pixel_per_pt: f32 }
-BackgroundResult::PageRendered {
-    page: RenderedPage, thumb: RenderedPage,
-    epoch: u64,
-    rasterize_duration: Duration,
-    compile_duration: Duration,
-}
-```
-
-**Break-Change**: alle bestehenden `RenderPages`-Callsites in
-`background/commands.rs` (nach `execute_move`, `place`, `config_set`, etc.)
-müssen den Epoch-Wert mitgeben. Einfachstes Muster: Der UI-Thread baut
-`Vec<(usize, u64)>` indem er nach jedem dirty-pages-bumping die neuen
-Epochen sammelt und an den Task hängt — der Worker leitet sie nur durch.
-
-Commit: `feat(gui): epoch-based render cancellation`.
-
-Tests:
-- `page_cache::bump_epochs_increments_only_listed_pages`.
-- `app::stale_page_rendered_is_dropped`.
-
-### 6.2.3 Thumbnails statt Full-Res für Off-Screen-Seiten
-
-Im UI-Thread pro Frame in `draw_page` entscheiden, ob die Seite in der
-aktuellen Viewport-Region liegt:
-
-```rust
-let viewport_top    = interaction.viewport.scroll.viewport_top;
-let viewport_bottom = viewport_top + ui.available_height();
-let visible = page_rect.max.y > viewport_top && page_rect.min.y < viewport_bottom;
-
-if visible {
-    if let Some(tex) = &data.pages.textures[page_idx] {
-        ui.add(egui::Image::from_texture(tex).fit_to_exact_size(size));
-    }
-} else if let Some(thumb) = &data.pages.thumb_textures[page_idx] {
-    ui.add(egui::Image::from_texture(thumb).fit_to_exact_size(size));
-}
-```
-
-Full-Res-Texturen werden für nicht sichtbare Seiten **nicht** entladen —
-nur nicht gezeichnet. Das ist billiger als Re-Upload beim nächsten Scroll
-und kostet nur GPU-Memory.
-
-**Dispatch-Regel**: `RenderPages`-Tasks anfragen nur für Seiten, die im
-Viewport sichtbar sind ODER dirty sind. Off-Screen-Dirty-Pages warten, bis
-sie in den Viewport scrollen. Umsetzung: neue `visible_pages()`-Helper aus
-`scroll_offset + viewport_height` + `page_rect_cache` (Phase 3 bereits
-vorgesehen) — rein UI-Thread-seitige Rechnung.
-
-Commit: `feat(gui): use thumbs for off-screen pages, render only visible`.
-
-Tests:
-- `viewport::visible_pages_returns_intersecting_indices`.
-- `app::off_screen_dirty_page_does_not_emit_render_task`.
-
-### 6.2.4 Drag-Ghosts
-
-Das bestehende `draw_drag_ghosts.rs` wird erweitert: Während
-`ActiveDrag::Dragging(src)` zeichnet die UI auf `ctx.layer_painter(top)`
-ein halbtransparentes Thumbnail des Drag-Inhalts am Cursor.
-
-| Quelle | Ghost |
+| Fall | Ghost |
 |---|---|
-| `DragSource::Slot` | Das Slot-Rect mit **Alpha-gedimmtem Full-Page-Ausschnitt** (aus `page_textures`, geclippt auf die Slot-Koordinaten). Bei Multi-Selektion: pro zusätzlichem Slot leicht verschoben („Stack") + Badge `×N` rechts oben. |
-| `DragSource::NavPage` | Das Page-Thumb gedimmt. |
-| `DragSource::Pool { photo_ids }` | Das Pool-Thumb des **ersten** Fotos gedimmt, bei `>1 id` Badge `×N`. |
+| Slot-Drag ohne Multi-Selektion | Foto-Thumbnail des Drag-Source-Slots, alpha-gedimmt, in Slot-Größe am Cursor (Greifpunkt: `cursor_at_drag_start - slot_top_left` wie bisher). |
+| Slot-Drag mit Multi-Selektion | Stack: ganz oben das **Drag-Source-Foto**, darunter (in der Reihenfolge der weiteren selektierten Slots) jedes weitere Foto leicht versetzt. Versatz pro Stack-Stufe: **+10 px nach Osten und −10 px nach Norden**, sodass die rechte obere Kante des darunterliegenden Thumbs nordöstlich vom obersten Thumb liegt. Alle Layer alpha-gedimmt. |
 
-Umsetzung in einer pure Funktion
-`ghost::draw(ctx, source, cursor_pos, data)`, aufgerufen am Ende von
-`FotobuchApp::ui`. Kein Interaktions-Kapern — Ghost liegt im Overlay-Layer
-(`egui::LayerId::new(egui::Order::Tooltip, Id::new("drag_ghost"))`) und
-bekommt `Sense::hover()` nicht zugewiesen.
+Konkret: rendere die Liste rückwärts (unterster zuerst), so dass das
+Drag-Source-Foto on top liegt:
 
-Commit: `feat(gui): drag ghosts for slot/nav/pool drags`.
+```rust
+// Slots in Render-Reihenfolge (unten → oben). Drag-Source als Letztes.
+let mut order: Vec<usize> = secondary_slots; // alle selektierten außer src
+order.push(src_slot);
 
-Tests (nur Geometrie):
-- `ghost::multi_slot_stack_offset_is_4_px_per_item`.
+const STACK_STEP: egui::Vec2 = egui::vec2(10.0, -10.0);
+for (i, slot_idx) in order.iter().enumerate().rev() {
+    // i = 0 ist Drag-Source (oberste Schicht), höhere i = tiefer im Stack.
+    let offset = STACK_STEP * i as f32;
+    let rect = primary_ghost_rect.translate(offset);
+    let photo_id = &layout_page.photos[*slot_idx];
+    if let Some(tex) = data.thumbs.get(photo_id) {
+        painter.image(tex.id(), rect, full_uv(), dim_color(120 /* alpha */));
+    } else {
+        paint_ghost_rect(&painter, rect, 120); // fallback wenn Thumb nicht geladen
+    }
+}
+```
 
-### 6.2.5 Smooth Scrolling
+Größe pro Layer = Größe des **Drag-Source-Slot-Rects** (also identisch
+mit bisheriger Primary-Ghost-Geometrie). Der Stack ergibt den vom
+Nutzer gewünschten „nordöstlich nach unten versetzte Stapel"-Look.
+
+Pool- und NavPage-Drag bleiben unverändert.
+
+Commit: `feat(gui): slot drag ghosts use real photo thumbnails`.
+
+Tests:
+- `ghost::stack_step_is_ne_10px_per_layer`.
+- `ghost::source_slot_is_topmost_layer`.
+- `ghost::single_selection_uses_only_source_thumb`.
+
+### 6.2.2 Smooth Scrolling
 
 egui hat natives Scroll-Easing nicht an, aber zwei kleine Schrauben
 reichen:
@@ -805,20 +830,21 @@ expliziten Eingaben (Pagenum-Hotkeys, Nav-Klick).
 
 Commit: `feat(gui): ease scroll transitions on page jumps`.
 
-### 6.2.6 Kontextmenü (Rechtsklick)
+### 6.2.3 Kontextmenü (Rechtsklick)
 
-Bislang bindet RMB den Slot/Nav/Pool-Drag. Für ein Kontextmenü braucht es
-eine Abgrenzung: **RMB-Klick mit sofortigem Release** (Dauer < 150 ms,
-Cursor-Bewegung < 4 px) öffnet das Menü, sonst ist es ein Drag-Start.
+Bislang bindet RMB den Slot/Nav/Pool-Drag (und in Manual-Mode den
+ManualDrag, siehe 6.1.4). Für ein Kontextmenü braucht es eine Abgrenzung:
+**RMB-Klick mit sofortigem Release** (Dauer < 150 ms, Cursor-Bewegung
+< 4 px) öffnet das Menü, sonst ist es ein Drag-Start.
 
 Umsetzung:
 
-1. `handle_drag_start` (input_handler.rs:87) merkt sich den
-   RMB-Press-Zeitpunkt in `interaction.drag.press_instant: Option<Instant>`
-   — Drag wird aber nicht sofort aktiv, sondern erst, wenn entweder Maus
-   >4 px bewegt oder Zeit > 150 ms überschritten.
-2. `handle_drag_complete` prüft vor der bestehenden Source-Logik: wenn der
-   Press-Zeitpunkt < 150 ms her ist und die Maus nicht bewegt hat,
+1. `handle_drag_start` merkt sich den RMB-Press-Zeitpunkt in
+   `interaction.drag.press_instant: Option<Instant>` — Drag wird aber
+   nicht sofort aktiv, sondern erst, wenn entweder Maus >4 px bewegt
+   oder Zeit > 150 ms überschritten.
+2. `handle_drag_complete` prüft vor der bestehenden Source-Logik: wenn
+   der Press-Zeitpunkt < 150 ms her ist und die Maus nicht bewegt hat,
    öffne stattdessen `interaction.context_menu = Some(ContextMenu::for(hovered))`.
 
 `ContextMenu` als eigener State:
@@ -835,19 +861,27 @@ pub enum ContextMenu {
 
 Widget `gui/app/widgets/context_menu.rs` öffnet
 `egui::Area::new("ctx_menu").fixed_pos(pos).show(ctx, |ui| …)` mit
-Einträgen je nach Variante:
+englischen Einträgen je nach Variante:
 
 | Kontext | Einträge |
 |---|---|
-| Slot | Unplace · Rebuild · Weight … · Info |
-| Page | Rebuild · Set Mode (Auto/Manual) · Info |
-| NavPage | Set Mode · Rebuild · Delete Page (wenn leer) |
-| PoolItem | Remove |
+| Slot    | Unplace · Weight … · Info |
+| Page    | Rebuild · Set Mode (Auto/Manual) · Info |
+| NavPage | Set Mode · Rebuild · Delete Page |
+| PoolItem  | Remove |
 | PoolGroup | Remove Group · Place All From Group |
 
-Jeder Eintrag emittiert einen bestehenden `PendingCommand`.
-Weight-Eintrag öffnet einen Sub-DragValue (siehe `page weight` Command,
-`src/commands/page/weight.rs` — existierende Lib).
+Jeder Eintrag pusht einen bestehenden `BackgroundTask`. Weight-Eintrag
+öffnet die Weight-UX aus 6.2.5 (Slider). Begründungen:
+
+- **Slot ohne „Rebuild"**: Slot-Rebuild macht semantisch nichts Eigenes
+  — ein einzelner Slot wird nicht separat geplant; der Eintrag ist
+  damit redundant zum Page-Rebuild.
+- **NavPage „Delete Page" auch bei vollen Seiten**: pusht
+  `BackgroundTask::DeletePages { pages: vec![page] }`. Der existierende
+  Pfad behandelt volle Seiten als Unplace-aller-Fotos plus Page-Drop —
+  exakt das gewünschte Verhalten. Die alte Variante „nur wenn leer"
+  entfällt; das Cover bleibt durch `has_cover() && page == 0` gefiltert.
 
 Außerhalb des Menüs geklickt → schließen (`if !area.contains_pointer()`
 und LMB-Press ⇒ `interaction.context_menu = None`).
@@ -857,8 +891,9 @@ Commit: `feat(gui): right-click context menus for slot/page/pool`.
 Tests:
 - `input_handler::quick_rmb_tap_opens_context_menu`.
 - `input_handler::rmb_hold_or_drag_does_not_open_menu`.
+- `context_menu::navpage_delete_dispatches_delete_pages_for_full_page`.
 
-### 6.2.7 Toast-System (nur Error)
+### 6.2.4 Toast-System (nur Error)
 
 Jedes `BackgroundResult::CommandFailed(msg)` landet bislang nur im Log.
 Phase 6 zeigt **ausschließlich Error-Toasts** — `Info`/`Warning` sind
@@ -878,38 +913,159 @@ impl ToastQueue {
 `DataState::toasts: ToastQueue` (neues Feld). `drain_results` bei
 `CommandFailed(msg)` → `data.toasts.push(msg)`. Widget
 `gui/app/widgets/toasts.rs`: `egui::Area` bottom-right, rote Icon-Zeile
-pro Toast, Auto-Fade nach 6 s.
+pro Toast, Auto-Fade nach 6 s. Texte sind die Lib-Fehlermeldungen
+(englisch, kommen so aus `anyhow::Error::to_string()`).
 
 Commit: `feat(gui): error toasts for command failures`.
+
+### 6.2.5 Weight-UX
+
+Heute ist das Setzen von Foto-Gewichten nur über das Konfigurations-
+Fenster oder den CLI `page weight`-Befehl möglich. Phase 6 macht zwei
+Dinge sichtbar und steuerbar:
+
+**(a) Slot-Info-Anzeige als Toolbar-Checkbox.** Die Engine kennt heute
+schon ein Preview-Flag `data.config.preview.show_slot_info` (siehe
+`src/dto_models/config/preview_config.rs:14` und
+`src/templates/fotobuch.typ:21`). Ist es `true`, zeigt der Typst-Preview
+die Slot-Adresse + Weight als Overlay über jedem Slot. Phase 6 spiegelt
+diese Option **als Checkbox in der Toolbar** (`gui/app/widgets/toolbar.rs`,
+links neben `Place`):
+
+```rust
+let mut show = data.project.config.preview.show_slot_info;
+if ui.checkbox(&mut show, "Slot info").changed() {
+    cmds.push(BackgroundTask::ConfigSet {
+        key: "preview.show_slot_info".to_string(),
+        value: show.to_string(),
+    });
+}
+```
+
+`ConfigSet` triggert in der bestehenden Pipeline einen Rebuild aller
+sichtbaren Seiten — das Slot-Info-Overlay erscheint/verschwindet damit
+automatisch.
+
+**(b) Vertikaler Weight-Slider per Hotkey `W`.** Wenn auf einer Seite
+Slots selektiert sind und der Nutzer `W` drückt, blendet die UI an der
+Cursor-Position einen vertikalen Slider ein. Der Slider deckt
+`area_weight ∈ [0.1, 10.0]` in **0.1-Schritten** ab und zeigt den
+aktuellen Zielwert direkt daneben. Bei Multi-Selektion auf einer Seite
+gilt der Wert für alle ausgewählten Slots.
+
+Neuer State (`gui/state/weight_slider.rs`):
+
+```rust
+pub enum WeightSlider {
+    Closed,
+    Open { page: usize, slots: Vec<usize>, screen_pos: egui::Pos2, value: f64 },
+}
+impl Default for WeightSlider { fn default() -> Self { Self::Closed } }
+```
+
+`InteractionState::weight_slider: WeightSlider` (neues Feld).
+
+Hotkey-Handler:
+
+```rust
+fn handle_weight_hotkey(
+    data: &DataState,
+    interaction: &mut InteractionState,
+    ctx: &egui::Context,
+) {
+    if !ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::W)) { return; }
+    let Some(page) = interaction.selections.slots.page else { return; };
+    let slots = interaction.selections.slots.slots_on_active_page();
+    if slots.is_empty() { return; }
+    // Initialwert = Mittel der Gewichte der selektierten Slots, gerundet auf 0.1.
+    let initial = compute_initial_weight(data, page, &slots);
+    let pos = ctx.pointer_hover_pos().unwrap_or_else(|| egui::pos2(200.0, 200.0));
+    interaction.weight_slider = WeightSlider::Open { page, slots, screen_pos: pos, value: initial };
+}
+```
+
+Widget `gui/app/widgets/weight_slider.rs` zeichnet den Slider in einer
+`egui::Area` an `screen_pos`. Ein einzelnes `egui::Slider` mit
+`vertical()`, `step_by(0.1)`, `clamp_range(0.1..=10.0)` und einem
+`Label` rechts daneben (`format!("{:.1}", value)`).
+
+Commit (`Set`) wenn der Slider losgelassen wird (`drag_stopped`):
+
+```rust
+cmds.push(BackgroundTask::SetWeight { page, slots, weight: value });
+interaction.weight_slider = WeightSlider::Closed;
+```
+
+Escape oder Klick außerhalb schließt ohne Commit.
+
+Neu in `gui/task.rs`:
+
+```rust
+BackgroundTask::SetWeight { page: usize, slots: Vec<usize>, weight: f64 }
+```
+
+Worker (`gui/background/commands/page.rs`):
+
+```rust
+pub fn run_set_weight(
+    page: usize, slots: Vec<usize>, weight: f64,
+    rctx: &mut crate::background::RenderCtx<'_>,
+) {
+    use fotobuch::commands::page::{execute_weight, SlotExpr, WeightAddress};
+    let address = WeightAddress::Slots {
+        page: page as u32,
+        slots: SlotExpr::from_list(slots.iter().map(|&s| s as u32).collect()),
+    };
+    match execute_weight(rctx.project_root, address, weight) {
+        Err(e) => { let _ = rctx.result_tx.send(BackgroundResult::CommandFailed(e.to_string())); }
+        Ok(out) => super::page::build_after_command(out.changed_state, vec![page], rctx),
+    }
+}
+```
+
+Commit: `feat(gui): toolbar slot-info checkbox + W-hotkey weight slider`.
+
+Tests:
+- `weight_slider::w_hotkey_opens_with_selected_slots`.
+- `weight_slider::escape_closes_without_dispatch`.
+- `weight_slider::release_dispatches_set_weight`.
+- `toolbar::slot_info_checkbox_dispatches_config_set`.
 
 ---
 
 ## 6.3 Akzeptanzkriterien
 
-- [ ] `Ctrl+O` öffnet Add-Dialog; Ordner wählen + „Hinzufügen" ruft
-      `commands::add::add` im Worker auf, Pool wird danach aktualisiert.
+- [ ] `Ctrl+O` öffnet den englischsprachigen Add-Dialog; Ordnerauswahl
+      + `Add` ruft `commands::add::add` im Worker auf, Pool wird danach
+      aktualisiert. Duplikate (Pfad oder Hash) werden in der Lib
+      gefiltert und gelangen nicht erneut in den Pool.
 - [ ] OS-Drag von Dateien/Ordnern auf das Fenster fügt Fotos zum Pool
-      hinzu (rekursiv).
-- [ ] `Delete` mit Pool-Selektion entfernt die Fotos komplett; mit
-      Slot-Selektion unplaced.
-- [ ] `[A|M]`-Button wechselt Seitenmodus. `A`-Hotkey auf hovered Seite
-      gleichwertig.
+      hinzu (rekursiv); Duplikate ebenso gefiltert.
+- [ ] `Delete` mit Slot-Selektion unplaced; mit Pool-Selektion entfernt
+      Fotos komplett; mit Nav-Selektion löscht Seiten (Cover gefiltert).
+- [ ] `[A|M]`-Button wechselt Seitenmodus. `A`-Hotkey auf hovered/
+      selektierter Seite gleichwertig.
 - [ ] Build/Rebuild auf Projekten mit Manual-Pages läuft durch (skip statt
       Error). Manual-Page-Slots bleiben unverändert.
-- [ ] LMB-Drag innerhalb eines Manual-Slots verschiebt diesen; Release
+- [ ] RMB-Drag innerhalb eines Manual-Slots verschiebt diesen; Release
       commitet via `page pos`.
-- [ ] LMB-Drag an einer Slot-Ecke (Manual) skaliert unter Beibehaltung des
-      Seitenverhältnisses.
-- [ ] Zoom ruckelfrei: Ctrl+Scroll skaliert sofort (GPU), Re-Render erst
-      ~200 ms nach letzter Änderung, nur wenn >5 % ppp-Änderung.
-- [ ] Nach mehreren Zoom-Tasks bleibt nur der jüngste Render-Output
-      sichtbar, keine Flackerer (Epoch-Invalidierung).
-- [ ] Off-Screen-Seiten zeigen das Nav-Thumb statt Full-Res.
-- [ ] Drag-Ghost am Cursor während Slot/Nav/Pool-Drag, Multi-Selection
-      zeigt `×N`-Badge.
+- [ ] RMB-Drag am SE-Eck-Hotspot eines Manual-Slots skaliert unter
+      Beibehaltung des Seitenverhältnisses; übrige Ecken sind nicht
+      interaktiv.
+- [ ] Slot-Drag-Ghost zeigt das echte Foto-Thumbnail des Drag-Source-
+      Slots (gedimmt). Bei Multi-Selektion liegen die übrigen Fotos als
+      Stack darunter, jeweils 10 px Richtung NE versetzt.
 - [ ] Scroll-to-Page animiert weich.
-- [ ] Kurzer Rechtsklick öffnet Kontextmenü (Slot/Page/NavPage/Pool-Item/
-      Pool-Group), Halten/Bewegen startet stattdessen Drag.
+- [ ] Kurzer Rechtsklick öffnet Kontextmenü (Slot ohne Rebuild-Eintrag;
+      NavPage `Delete Page` funktioniert auch bei vollen Seiten via
+      `DeletePages`), Halten/Bewegen startet stattdessen Drag.
+- [ ] Toolbar-Checkbox `Slot info` spiegelt
+      `config.preview.show_slot_info` und triggert beim Toggle einen
+      Rebuild der sichtbaren Seiten.
+- [ ] Hotkey `W` mit Slot-Selektion blendet einen vertikalen Slider
+      [0.1, 10.0] in 0.1-Schritten ein; der Zielwert wird neben dem
+      Slider angezeigt; Release commitet `SetWeight` für alle
+      selektierten Slots; Escape/Click außerhalb verwirft.
 - [ ] Fehlgeschlagene Commands (z. B. Rebuild auf Manual-Page) erscheinen
       als roter Toast, der nach ~6 s verschwindet.
 - [ ] `cargo build --features gui`, `cargo clippy --features gui --
@@ -923,29 +1079,34 @@ Manual" definiert wird. Drei bisherige Aufrufer-Stellen (`incremental_build`,
 `rebuild_range`, `rebuild_all`) und der Book-Layout-Solver-Snapshot
 ziehen aus derselben Quelle.
 
-**2. `remove_by_ids` als Thin-Wrapper, nicht als Regex-Roundtrip** (6.0.3).
-Die GUI hat IDs zur Hand — den Umweg über `^id$`-Regex (mit
-`source` ≠ `id`-Falle) zu nehmen wäre ein Code-Smell. Stattdessen ein
-schmaler Lib-Helper, der die existierende `remove`-Pipeline nach der
-Match-Phase anstößt.
+**2. `RemoveConfig` mit `target`-Enum statt orthogonaler Flags** (6.0.3.1).
+Die heutige `patterns: Vec<String> + unplaced: bool`-Kombination
+erlaubt logisch unmögliche States (`unplaced && !patterns.is_empty()`)
+und der Add-für-IDs-Pfad hätte als zweite Funktion das ODR-Prinzip
+gebrochen. `RemoveTarget::{Patterns, Ids, Unplaced}` macht die drei
+Modi disjunkt und teilt die Pipeline.
 
-**3. `ToastKind::Info` ist YAGNI** (6.2.7).
+**3. `ToastKind::Info` ist YAGNI** (6.2.4).
 Im Phase-6-Plan gibt es keinen Caller für `Info`/`Warning`. Toast-Typ
 wird auf `ErrorToast` reduziert. Erweiterung erst, wenn ein zweiter
 Toast-Pfad aufkommt.
 
 **4. ManualDrag und ActiveDrag bleiben getrennt — bewusst**.
-Der erste Reflex ist „beide Drag-States in ein Enum mergen". Aber RMB-
-Drag (Swap/Move/Cross-Page) und LMB-Drag (Manual-Position/Resize) haben
-unterschiedliche Trigger, unterschiedliche Quellen, unterschiedliche
-Releases. Ein gemeinsames Enum hätte sieben Varianten, jede mit eigener
-disjunkter Felder-Menge — das ist die Definition von „Vermischung".
-Belassen.
+Beide laufen heute auf RMB, aber sie unterscheiden sich am Trigger
+(Manual-Page-Slot vs. alle anderen Sources), in den Daten (mm-Delta vs.
+src/dst-Slot/Pool/Nav) und im Release (PagePos vs. Move/Swap/etc.). Ein
+gemeinsames Enum hätte sechs+ disjunkte Varianten — die Definition von
+„Vermischung". Bleiben getrennt.
 
-**5. `selection_slots_for` als pure Funktion** (5.1.3).
-Drei Aufrufer (`MoveToNewPage`, `Move`, `SwapRange`) teilen sich die
-Snippet aus der ursprünglichen `dispatch_move`. Nur einmal definiert,
-dreimal aufgerufen.
+**5. Resize nur SE — keine Vier-Ecken-Mathematik** (6.1.5).
+Eine Ecke + Move decken jede Ziel-Geometrie ab. Vier Ecken hätten vier
+Hotspot-Rects, vier Resize-Pfade und einen `Corner`-Enum-State erzeugt
+— alles zusätzliche Komplexität ohne UX-Gewinn.
+
+**6. Slot-Info als Toolbar-Checkbox spiegelt nur den Config-Wert** (6.2.5).
+Kein zweiter UI-State, keine Sync-Logik — die Checkbox liest
+`data.project.config.preview.show_slot_info` und schreibt per
+`ConfigSet`. Single Source of Truth bleibt die Project-Config.
 
 ## 6.4 Was NICHT in Phase 6 gehört
 
@@ -958,4 +1119,6 @@ dreimal aufgerufen.
   es ist kein UX-Konzept-Punkt.
 - Drag von Fotos aus Pool in andere Pool-Gruppen (Re-Grouping).
 - Konfigurierbare Toast-TTL / Bell-Sounds.
+- Zoom-Debouncing, Render-Cancellation, Off-Screen-Thumb-Optimierung
+  (siehe Vorbemerkung in 6.2 — Performance-Pass nachgelagert).
 
