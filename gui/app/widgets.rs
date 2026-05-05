@@ -21,7 +21,7 @@ mod weight_slider;
 pub fn draw_widgets(
     ui: &mut egui::Ui,
     ctx: &egui::Context,
-    data: &mut DataState,
+    data: &DataState,
     interaction: &mut InteractionState,
 ) -> Vec<BackgroundTask> {
     // Clear per-frame hover state before widgets re-populate it.
@@ -42,7 +42,7 @@ pub fn draw_widgets(
     rebuild_confirm::show(ctx, interaction, &mut cmds);
     add_dialog::show(ctx, interaction, &mut cmds);
     context_menu::show(ctx, data, interaction, &mut cmds);
-    toasts::show(ctx, data);
+    toasts::show(ctx, &mut interaction.toasts);
     weight_slider::show(ctx, interaction, &mut cmds);
 
     cmds

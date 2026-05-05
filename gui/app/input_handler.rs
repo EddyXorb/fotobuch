@@ -6,7 +6,7 @@ use crate::state::{DataState, InteractionState};
 
 /// Top-level input dispatcher — called once per frame before painting.
 pub fn handle(
-    data: &mut DataState,
+    data: &DataState,
     interaction: &mut InteractionState,
     ctx: &egui::Context,
 ) -> Vec<BackgroundTask> {
@@ -14,7 +14,7 @@ pub fn handle(
 
     handle_os_dropped_files(ctx, &mut cmds);
 
-    hotkeys::handle_timings_toggle(data, ctx);
+    hotkeys::handle_timings_toggle(interaction, ctx);
     hotkeys::handle_drag_mode_toggle(interaction, ctx);
     hotkeys::handle_zoom(interaction, ctx);
     hotkeys::handle_undo_redo(ctx, &mut cmds);
@@ -32,7 +32,7 @@ pub fn handle(
 
     let (drag_action, drag_error) = drag::handle_drag_complete(data, interaction, ctx, &mut cmds);
     if let Some(msg) = drag_error {
-        data.toasts.push(msg);
+        interaction.toasts.push(msg);
     }
     drag::promote_pending_drag(interaction, ctx);
     drag::handle_drag_start(interaction, ctx);

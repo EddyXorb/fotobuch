@@ -1,8 +1,8 @@
-use crate::state::DataState;
+use crate::state::ToastQueue;
 
 /// Draw error toasts bottom-right. Returns `true` if any live toasts were shown.
-pub fn show(ctx: &egui::Context, data: &mut DataState) -> bool {
-    if !data.toasts.gc() {
+pub fn show(ctx: &egui::Context, toasts: &mut ToastQueue) -> bool {
+    if !toasts.gc() {
         return false;
     }
 
@@ -10,7 +10,7 @@ pub fn show(ctx: &egui::Context, data: &mut DataState) -> bool {
     const MARGIN: f32 = 12.0;
     const MAX_W: f32 = 360.0;
     const LINE_H: f32 = 28.0;
-    let n = data.toasts.items.len();
+    let n = toasts.items.len();
     let total_h = n as f32 * LINE_H + (n.saturating_sub(1)) as f32 * 4.0 + 2.0 * MARGIN;
     let pos = egui::pos2(
         screen.max.x - MAX_W - MARGIN,
@@ -22,7 +22,7 @@ pub fn show(ctx: &egui::Context, data: &mut DataState) -> bool {
         .order(egui::Order::Foreground)
         .show(ctx, |ui| {
             ui.set_max_width(MAX_W);
-            for toast in &data.toasts.items {
+            for toast in &toasts.items {
                 let elapsed = toast.shown_since.elapsed().as_secs_f32();
                 let ttl = 6.0_f32;
                 let alpha = ((1.0 - (elapsed / ttl).powi(2)) * 230.0).clamp(60.0, 230.0) as u8;

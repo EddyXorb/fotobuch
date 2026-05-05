@@ -10,9 +10,9 @@ pub(super) fn handle_drag_mode_toggle(interaction: &mut InteractionState, ctx: &
     }
 }
 
-pub(super) fn handle_timings_toggle(data: &mut DataState, ctx: &egui::Context) {
+pub(super) fn handle_timings_toggle(interaction: &mut InteractionState, ctx: &egui::Context) {
     if ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::F2)) {
-        data.timings.show = !data.timings.show;
+        interaction.timings.show = !interaction.timings.show;
     }
 }
 
