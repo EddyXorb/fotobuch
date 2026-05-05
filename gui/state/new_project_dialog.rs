@@ -1,6 +1,5 @@
 /// UI state for the "New Project" dialog.
 #[derive(Default)]
-#[allow(dead_code)]
 pub struct NewProjectDialogState {
     pub open: bool,
     pub name: String,

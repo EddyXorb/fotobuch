@@ -97,7 +97,6 @@ pub enum BackgroundTask {
         weight: f64,
     },
     /// Create a new project in the vault and switch to it.
-    #[allow(dead_code)]
     ProjectNew {
         config: NewConfig,
     },
