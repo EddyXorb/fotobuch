@@ -145,6 +145,16 @@ pub(super) fn handle_drag_complete(
                             mode: PagePosMode::Relative { dx_mm, dy_mm },
                             scale: None,
                         });
+                    } else if let Some(at_position) = interaction
+                        .hovered
+                        .as_ref()
+                        .and_then(HoveredTarget::new_page_at_position)
+                    {
+                        cmds.push(BackgroundTask::MoveToNewPage {
+                            src_page: page,
+                            src_slots: vec![slot],
+                            at_position,
+                        });
                     } else if let Some(dst_page) = interaction
                         .hovered
                         .as_ref()
