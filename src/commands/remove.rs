@@ -9,15 +9,23 @@ use crate::commands::CommandOutput;
 use crate::dto_models::{LayoutPage, PhotoGroup, ProjectState};
 use crate::state_manager::{StateManager, renumber_pages};
 
+/// Determines which photos to remove.
+#[derive(Debug, Clone)]
+pub enum RemoveTarget {
+    /// Match by group name (exact) or regex on photo.source.
+    Patterns(Vec<String>),
+    /// Match by exact photo IDs (GUI Pool-Delete).
+    Ids(Vec<String>),
+    /// All photos not placed in any layout page.
+    Unplaced,
+}
+
 /// Configuration for removing photos
 #[derive(Debug, Clone)]
 pub struct RemoveConfig {
-    /// Photo paths, group names, or glob patterns
-    pub patterns: Vec<String>,
+    pub target: RemoveTarget,
     /// Only remove from layout, keep in photos (makes them unplaced)
     pub keep_files: bool,
-    /// Remove all photos not placed in any layout page
-    pub unplaced: bool,
 }
 
 /// Result of removing photos
@@ -210,11 +218,16 @@ pub fn remove(project_root: &Path, config: &RemoveConfig) -> Result<CommandOutpu
     let mut mgr = StateManager::open(project_root)?;
 
     // 1. Determine which IDs to act on
-    let (matched_ids, matched_groups) = if config.unplaced {
-        (collect_unplaced_ids(&mgr.state), vec![])
-    } else {
-        let matches = match_photos(&mgr.state, &config.patterns)?;
-        (matches.matched_ids, matches.matched_groups)
+    let (matched_ids, matched_groups) = match &config.target {
+        RemoveTarget::Patterns(patterns) => {
+            let matches = match_photos(&mgr.state, patterns)?;
+            (matches.matched_ids, matches.matched_groups)
+        }
+        RemoveTarget::Ids(ids) => {
+            let matched_ids: HashSet<String> = ids.iter().cloned().collect();
+            (matched_ids, vec![])
+        }
+        RemoveTarget::Unplaced => (collect_unplaced_ids(&mgr.state), vec![]),
     };
 
     if matched_ids.is_empty() {
@@ -247,7 +260,7 @@ pub fn remove(project_root: &Path, config: &RemoveConfig) -> Result<CommandOutpu
     };
 
     // 5. Speichern + Git commit
-    let commit_msg = if config.unplaced {
+    let commit_msg = if matches!(config.target, RemoveTarget::Unplaced) {
         format!("remove: {} unplaced photos", photos_removed)
     } else if config.keep_files {
         format!(
@@ -567,5 +580,73 @@ mod tests {
         assert_eq!(removed, 1);
         assert!(photos.is_empty());
         assert!(groups_removed.contains(&"Group1".to_string()));
+    }
+
+    fn make_state_with_photos_and_layout() -> ProjectState {
+        let photos = vec![
+            PhotoGroup {
+                group: "Group1".to_string(),
+                sort_key: "2024-01-01".to_string(),
+                files: vec![
+                    make_photo("id-aaa", "/path/a.jpg"),
+                    make_photo("id-bbb", "/path/b.jpg"),
+                ],
+            },
+            PhotoGroup {
+                group: "Group2".to_string(),
+                sort_key: "2024-01-02".to_string(),
+                files: vec![make_photo("id-ccc", "/path/c.jpg")],
+            },
+        ];
+        let layout = vec![LayoutPage {
+            page: 0,
+            photos: vec!["id-aaa".to_string(), "id-bbb".to_string()],
+            slots: vec![],
+            mode: PageMode::Auto,
+        }];
+        ProjectState {
+            config: Default::default(),
+            photos,
+            layout,
+        }
+    }
+
+    #[test]
+    fn remove_by_ids_removes_exact_matches_only() {
+        let state = make_state_with_photos_and_layout();
+        let matched = [
+            ("id-aaa".to_string(), "id-aaa".to_string()),
+            ("id-ccc".to_string(), "id-ccc".to_string()),
+        ]
+        .into_iter()
+        .map(|(k, _)| k)
+        .collect::<HashSet<_>>();
+        let mut layout = state.layout.clone();
+        let layout_result = remove_from_layout(&mut layout, &matched);
+        // id-aaa was placed, id-ccc was not
+        assert_eq!(layout_result.placements_removed, 1);
+        assert_eq!(layout[0].photos, vec!["id-bbb".to_string()]);
+    }
+
+    #[test]
+    fn remove_by_ids_does_not_match_source_or_group() {
+        // Using Ids target: only exact ID match, NOT source path or group name
+        let state = make_state_with_photos_and_layout();
+        // "id-aaa" is an exact photo ID; "/path/a.jpg" is its source (should NOT match)
+        let matched_source: HashSet<String> = ["/path/a.jpg".to_string()].into_iter().collect();
+        let mut layout = state.layout.clone();
+        let layout_result = remove_from_layout(&mut layout, &matched_source);
+        // source path is not an ID → nothing removed
+        assert_eq!(layout_result.placements_removed, 0);
+    }
+
+    #[test]
+    fn remove_unplaced_via_enum_keeps_placed_photos() {
+        let state = make_state_with_photos_and_layout();
+        // id-ccc is unplaced (only id-aaa, id-bbb are placed in layout)
+        let unplaced = collect_unplaced_ids(&state);
+        assert!(unplaced.contains("id-ccc"));
+        assert!(!unplaced.contains("id-aaa"));
+        assert!(!unplaced.contains("id-bbb"));
     }
 }

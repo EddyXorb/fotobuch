@@ -2,6 +2,7 @@
 
 use anyhow::Result;
 use fotobuch::commands::project::new::{NewConfig, project_new};
+use fotobuch::commands::remove::RemoveTarget;
 use fotobuch::commands::{AddConfig, add, build::*, remove::*};
 use fotobuch::dto_models::ProjectState;
 use std::path::PathBuf;
@@ -73,9 +74,8 @@ fn test_remove_no_matches_returns_zero() -> Result<()> {
     let project_root = create_test_project_with_layout(&temp_dir)?;
 
     let config = RemoveConfig {
-        patterns: vec!["nonexistent".to_string()],
+        target: RemoveTarget::Patterns(vec!["nonexistent".to_string()]),
         keep_files: false,
-        unplaced: false,
     };
     let result = remove(&project_root, &config)?;
 
@@ -111,9 +111,8 @@ fn test_remove_single_photo_by_pattern() -> Result<()> {
         .to_string();
 
     let config = RemoveConfig {
-        patterns: vec![pattern],
+        target: RemoveTarget::Patterns(vec![pattern]),
         keep_files: false,
-        unplaced: false,
     };
     let result = remove(&project_root, &config)?;
 
@@ -152,9 +151,8 @@ fn test_remove_entire_group() -> Result<()> {
         .expect("Should have at least one group");
 
     let config = RemoveConfig {
-        patterns: vec![group_name.clone()],
+        target: RemoveTarget::Patterns(vec![group_name.clone()]),
         keep_files: false,
-        unplaced: false,
     };
     let result = remove(&project_root, &config)?;
 
@@ -189,9 +187,8 @@ fn test_remove_with_keep_files() -> Result<()> {
     // Remove from layout but keep files
     let pattern = "test_photos".to_string();
     let config = RemoveConfig {
-        patterns: vec![pattern],
+        target: RemoveTarget::Patterns(vec![pattern]),
         keep_files: true,
-        unplaced: false,
     };
     let result = remove(&project_root, &config)?;
 
@@ -240,9 +237,8 @@ fn test_remove_multiple_patterns() -> Result<()> {
     let patterns = vec!["IMG_001".to_string(), "IMG_002".to_string()];
 
     let config = RemoveConfig {
-        patterns,
+        target: RemoveTarget::Patterns(patterns),
         keep_files: false,
-        unplaced: false,
     };
     let _result = remove(&project_root, &config)?;
 
@@ -258,9 +254,8 @@ fn test_remove_invalid_regex_pattern() -> Result<()> {
     let project_root = create_test_project_with_layout(&temp_dir)?;
 
     let config = RemoveConfig {
-        patterns: vec!["[invalid".to_string()],
+        target: RemoveTarget::Patterns(vec!["[invalid".to_string()]),
         keep_files: false,
-        unplaced: false,
     };
     let result = remove(&project_root, &config);
 
@@ -295,9 +290,8 @@ fn test_remove_empty_pages_are_deleted() -> Result<()> {
 
     if !last_page_photos.is_empty() {
         let config = RemoveConfig {
-            patterns: vec![last_page_photos[0].clone()],
+            target: RemoveTarget::Patterns(vec![last_page_photos[0].clone()]),
             keep_files: false,
-            unplaced: false,
         };
         let _result = remove(&project_root, &config)?;
 
@@ -324,9 +318,8 @@ fn test_remove_git_commit() -> Result<()> {
 
     let pattern = "test_photos".to_string();
     let config = RemoveConfig {
-        patterns: vec![pattern],
+        target: RemoveTarget::Patterns(vec![pattern]),
         keep_files: false,
-        unplaced: false,
     };
     let _result = remove(&project_root, &config)?;
 
