@@ -145,6 +145,18 @@ pub(super) fn handle_drag_complete(
                             mode: PagePosMode::Relative { dx_mm, dy_mm },
                             scale: None,
                         });
+                    } else if let Some(dst_page) = interaction
+                        .hovered
+                        .as_ref()
+                        .and_then(|h| h.central_page())
+                        .filter(|&dst| dst != page)
+                    {
+                        // Cursor is over a different page — cross-page move.
+                        cmds.push(BackgroundTask::Move {
+                            src_page: page,
+                            src_slots: vec![slot],
+                            dst_page,
+                        });
                     } else {
                         error = Some(
                             "Cannot move slot: it would be completely outside the page.".into(),
