@@ -63,10 +63,25 @@ pub(super) fn handle_drag_start(interaction: &mut InteractionState, ctx: &egui::
         None
     };
     if let Some(src) = drag_source {
-        interaction.drag.active = ActiveDrag::Dragging(src);
-        interaction.drag.press_instant = Some(std::time::Instant::now());
-        interaction.drag.press_pos = Some(cursor);
+        interaction.drag.active = ActiveDrag::Pending {
+            source: src,
+            press_pos: cursor,
+            press_instant: std::time::Instant::now(),
+        };
     }
+}
+
+/// Promote `Pending` → `Dragging` if the cursor has moved past the threshold.
+/// Call each frame while RMB is held, before `handle_drag_complete`.
+pub(super) fn promote_pending_drag(interaction: &mut InteractionState, ctx: &egui::Context) {
+    if !ctx.input(|i| i.pointer.secondary_down()) {
+        return;
+    }
+    let cursor = match ctx.pointer_hover_pos() {
+        Some(p) => p,
+        None => return,
+    };
+    interaction.drag.active.maybe_promote(cursor);
 }
 
 /// Handles RMB release for all drag sources. Returns `true` when a drag action was taken.
@@ -79,45 +94,39 @@ pub(super) fn handle_drag_complete(
     if !ctx.input(|i| i.pointer.secondary_released()) {
         return false;
     }
-    // Check for a short tap (< 150 ms, < 4 px movement) → context menu instead of drag.
-    let press_instant = interaction.drag.press_instant.take();
-    let press_pos = interaction.drag.press_pos.take();
-    if let (Some(instant), Some(pos)) = (press_instant, press_pos) {
-        let elapsed = instant.elapsed();
-        let cursor_now = ctx.pointer_hover_pos().unwrap_or(pos);
-        let moved = cursor_now.distance(pos);
-        if elapsed < std::time::Duration::from_millis(150) && moved < 4.0 {
-            interaction.drag.active = ActiveDrag::Idle;
-            interaction.context_menu = build_context_menu(&interaction.hovered, cursor_now);
-            return true;
-        }
-    }
 
-    let source = match std::mem::replace(&mut interaction.drag.active, ActiveDrag::Idle) {
-        ActiveDrag::Dragging(src) => src,
-        ActiveDrag::Idle => return false,
-    };
-    match source {
-        DragSource::Slot {
-            src_page,
-            src_slot,
-            src_slots,
-            ..
-        } => {
-            complete_slot_drag(data, interaction, cmds, src_page, src_slot, src_slots);
+    match std::mem::replace(&mut interaction.drag.active, ActiveDrag::Idle) {
+        // RMB released before moving past threshold → it was a tap → context menu.
+        ActiveDrag::Pending { .. } => {
+            let cursor = ctx.pointer_hover_pos().unwrap_or_default();
+            interaction.context_menu = build_context_menu(&interaction.hovered, cursor);
+            true
         }
-        DragSource::NavPage {
-            src_page,
-            src_pages: _,
-            ..
-        } => {
-            complete_nav_drag(data, interaction, cmds, src_page);
+        ActiveDrag::Dragging(source) => {
+            match source {
+                DragSource::Slot {
+                    src_page,
+                    src_slot,
+                    src_slots,
+                    ..
+                } => {
+                    complete_slot_drag(data, interaction, cmds, src_page, src_slot, src_slots);
+                }
+                DragSource::NavPage {
+                    src_page,
+                    src_pages: _,
+                    ..
+                } => {
+                    complete_nav_drag(data, interaction, cmds, src_page);
+                }
+                DragSource::Pool { photo_ids } => {
+                    complete_pool_drag(interaction, cmds, photo_ids);
+                }
+            }
+            true
         }
-        DragSource::Pool { photo_ids } => {
-            complete_pool_drag(interaction, cmds, photo_ids);
-        }
+        ActiveDrag::Idle => false,
     }
-    true
 }
 
 pub(super) fn complete_slot_drag(
@@ -323,8 +332,8 @@ mod tests {
 
     #[test]
     fn quick_rmb_tap_opens_context_menu() {
-        // A tap is recognised when elapsed < 150 ms AND moved < 4 px.
-        // Test the build_context_menu function directly.
+        // A tap is recognised when RMB is released while still in Pending state
+        // (cursor never moved past DRAG_THRESHOLD_PX). Test build_context_menu directly.
         let pos = egui::pos2(100.0, 200.0);
         let hovered = Some(HoveredTarget::Page {
             page: 0,

@@ -31,6 +31,7 @@ pub fn handle(
     hotkeys::handle_weight_hotkey(data, interaction, ctx);
 
     let drag_action = drag::handle_drag_complete(data, interaction, ctx, &mut cmds);
+    drag::promote_pending_drag(interaction, ctx);
     drag::handle_drag_start(interaction, ctx);
 
     if !drag_action {

@@ -15,7 +15,7 @@ pub(super) fn draw(
     let half = SIZE_PT / 2.0;
     let sq = egui::Rect::from_center_size(center, egui::vec2(SIZE_PT, SIZE_PT));
 
-    let drag_active = !matches!(interaction.drag.active, ActiveDrag::Idle);
+    let drag_active = matches!(interaction.drag.active, ActiveDrag::Dragging(_));
     let is_swap = interaction.drag.mode == DragMode::Swap;
     // Use raw pointer position: resp.hovered() is unreliable during RMB drag.
     // In Swap mode, new-page-slot is not a valid drop target.
