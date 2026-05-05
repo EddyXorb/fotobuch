@@ -209,14 +209,14 @@ neuer früher Schritt (vor `handle_drag_start`, weil Pointer-Drag weniger
 Priorität hat):
 
 ```rust
-fn handle_os_dropped_files(ctx: &egui::Context, cmds: &mut HashSet<PendingCommand>) {
+fn handle_os_dropped_files(ctx: &egui::Context, cmds: &mut Vec<BackgroundTask>) {
     let paths: Vec<PathBuf> = ctx.input(|i| {
         i.raw.dropped_files.iter().filter_map(|f| f.path.clone()).collect()
     });
     if paths.is_empty() { return; }
-    cmds.insert(PendingCommand::AddPhotos {
+    cmds.push(BackgroundTask::AddPhotos {
         paths,
-        recursive: true, // Ordner-Drop = rekursiv, Single-File-Drop verhält sich identisch
+        recursive: true, // folder drop = recursive; single-file drop behaves identically
         weight: 1.0,
         source_filter: String::new(),
     });
@@ -227,37 +227,37 @@ Gilt UI-weit: der Drop landet im Pool — unabhängig davon, wo der Cursor
 das File loslässt. Explizit nicht versucht: Drop in die Hauptansicht als
 „place direkt auf Seite N", weil OS-Drag und Pool-Drag semantisch
 überladen würden. (Wer direkt platzieren will: Add → dann Pool-Drag auf
-Seite, siehe Phase 4.2.12.)
+Seite.) Duplikate werden wie in 6.0.1 von der Lib gefiltert.
 
 ### 6.0.3 Remove via `Delete` im Pool
 
-`handle_delete` aus Phase 5.3.1 hat schon drei Pfade in fester
-Prioritätsreihenfolge:
+`handle_delete` (`gui/app/input_handler/hotkeys.rs`) hat heute zwei Pfade
+aus Phase 5:
 
 1. Slot-Selektion → Unplace
-2. Pool-Selektion (Phase-5-Hook ist leer)
-3. Hovered Page ohne Selektion → DeletePage
+2. Nav-Selektion → DeletePages
 
-Phase 6 füllt **nur den zweiten Pfad** — die Reihenfolge bleibt
-identisch, damit eine bewusste Slot-Selektion nicht durch eine
-versehentlich offene Pool-Selektion übertrumpft wird, und ein
-Pool-Selection-Delete nicht versehentlich eine ganze hovered Page kippt:
+Phase 6 fügt einen dritten Pfad **vor** der Nav-Selektion ein —
+Pool-Selektion. Reihenfolge: Slot > Pool > Nav. Pool kommt vor Nav, weil
+das Klicken im Pool die zuletzt explizit getätigte Auswahl ist und
+typischerweise bewusst auf Pool-Items abzielt.
 
 ```rust
 fn handle_delete(
     data: &DataState,
     interaction: &mut InteractionState,
     ctx: &egui::Context,
-    cmds: &mut HashSet<PendingCommand>,
+    cmds: &mut Vec<BackgroundTask>,
 ) {
     if !ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Delete)) { return; }
 
-    // 1) Slot-Selektion gewinnt (Phase 5.3.1).
-    if let SlotSelection::OnPage { page, slots, .. } = &interaction.selections.slots
-        && !slots.is_empty()
+    // 1) Slot-Selektion gewinnt (Phase 5).
+    if let Some(page) = interaction.selections.slots.page
+        && !interaction.selections.slots.is_empty()
     {
-        cmds.insert(PendingCommand::Unplace {
-            page: *page, slots: slots.iter().copied().collect(),
+        cmds.push(BackgroundTask::Unplace {
+            page,
+            slots: interaction.selections.slots.slots_on_active_page(),
         });
         return;
     }
@@ -265,63 +265,121 @@ fn handle_delete(
     // 2) Pool-Selektion (NEU in Phase 6).
     let pool_ids = interaction.selections.photos.ids();
     if !pool_ids.is_empty() {
-        cmds.insert(PendingCommand::RemovePhotos { photo_ids: pool_ids });
+        cmds.push(BackgroundTask::RemovePhotos { photo_ids: pool_ids });
         return;
     }
 
-    // 3) Hovered Page → DeletePage (Phase 5.3.1).
-    let target_page = interaction.hovered.as_ref().and_then(|h| match h {
-        HoveredTarget::Page { page, slot: None } | HoveredTarget::NavPage(page) => Some(*page),
-        _ => None,
-    });
-    if let Some(page) = target_page {
-        if data.project.has_cover() && page == 0 { return; }
-        cmds.insert(PendingCommand::DeletePage { page });
-    }
-}
-```
-
-Neu in `pending.rs` und `task.rs`:
-
-```rust
-PendingCommand::RemovePhotos { photo_ids: Vec<String> }
-BackgroundTask::RemovePhotos { photo_ids: Vec<String>, pixel_per_pt: f32 }
-```
-
-Worker:
-
-```rust
-pub(super) fn run_remove_photos(
-    photo_ids: Vec<String>,
-    rctx: &mut super::RenderCtx<'_>,
-) {
-    // `patterns` in RemoveConfig erwartet Gruppenname ODER Regex auf source.
-    // Wir übersetzen IDs → exakte `^id$`-Regexe. id == source hat im YAML
-    // keine Garantie (id ist relpath, source kann anders sein), daher
-    // brauchen wir den Photo-Index aus dem aktuellen State. Weil der Worker
-    // den State neu lädt (StateManager::open), laden wir ihn einmal und
-    // ziehen die source-Felder via DerivedState.rebuild — oder direkt aus
-    // state.photos. Simpler: eine neue Lib-Funktion `remove_by_ids(ids)`
-    // in src/commands/remove.rs, weil Regex-Indirektion hier fragil ist.
-    match fotobuch::commands::remove::remove_by_ids(rctx.project_root, &photo_ids) {
-        Err(e) => { let _ = rctx.result_tx.send(BackgroundResult::CommandFailed(e.to_string())); }
-        Ok(out) => {
-            let dirty = out.result.pages_affected;
-            super::render::send_command_done(out.changed_state, dirty, rctx);
+    // 3) Nav-Selektion (Phase 5) — Cover wird gefiltert.
+    let nav_sel = interaction.selections.nav_pages.items();
+    if !nav_sel.is_empty() {
+        let pages: Vec<usize> = if data.project.has_cover() {
+            nav_sel.into_iter().filter(|&p| p != 0).collect()
+        } else { nav_sel };
+        if !pages.is_empty() {
+            cmds.push(BackgroundTask::DeletePages { pages });
         }
     }
 }
 ```
 
-**Lib-Change** (minimal): `remove_by_ids(project_root: &Path, ids: &[String])
--> Result<CommandOutput<RemoveResult>>` als Thin-Wrapper um die bestehende
-Remove-Pipeline — überspringt die Pattern-Match-Phase und setzt
-`matched_ids = ids.iter().cloned().collect()` direkt. Implementiert in
-`src/commands/remove.rs`, keine API-Änderung an `remove()` selbst.
+Neu in `gui/task.rs`:
+
+```rust
+BackgroundTask::RemovePhotos { photo_ids: Vec<String> }
+```
+
+Worker (`gui/background/commands/photo.rs`):
+
+```rust
+pub fn run_remove_photos(
+    photo_ids: Vec<String>,
+    rctx: &mut crate::background::RenderCtx<'_>,
+) {
+    let cfg = fotobuch::commands::remove::RemoveConfig {
+        target: fotobuch::commands::remove::RemoveTarget::Ids(photo_ids),
+        keep_files: false,
+    };
+    match fotobuch::commands::remove::remove(rctx.project_root, &cfg) {
+        Err(e) => { let _ = rctx.result_tx.send(BackgroundResult::CommandFailed(e.to_string())); }
+        Ok(out) => {
+            let dirty = out.result.pages_affected;
+            super::page::build_after_command(out.changed_state, dirty, rctx);
+        }
+    }
+}
+```
+
+**Lib-Change** (siehe 6.0.3.1): das bestehende `remove`-Command bekommt
+einen ID-basierten Modus über ein Enum, statt eine zweite Funktion
+`remove_by_ids` neu einzuführen.
 
 `keep_files` bleibt `false` — Delete im Pool entfernt vollständig. Wer nur
 unplacen will, selektiert im Central-Panel. Die UX-Regel („Pool-Fotos
 Del → removed komplett") ist damit eingehalten.
+
+#### 6.0.3.1 Lib: `RemoveConfig` auf Enum-Target umstellen
+
+Heute hat `RemoveConfig` zwei orthogonale Felder, die sich gegenseitig
+ausschließen:
+
+```rust
+pub struct RemoveConfig {
+    pub patterns: Vec<String>,
+    pub keep_files: bool,
+    pub unplaced: bool,
+}
+```
+
+`unplaced = true` ignoriert `patterns`, `unplaced = false` mit leerem
+`patterns` ist no-op — beides Code-Smell (mehrere Wahrheiten für „was
+wird entfernt"). Phase 6 zieht die drei Modi in ein Enum zusammen und
+ergänzt direkt die ID-Variante, damit die GUI Pool-Delete ohne Regex-
+Indirektion fahren kann (id ≠ source ist im YAML möglich):
+
+```rust
+// src/commands/remove.rs
+pub enum RemoveTarget {
+    /// Match by group name (exact) or regex on photo.source.
+    Patterns(Vec<String>),
+    /// Match by exact photo IDs (GUI Pool-Delete).
+    Ids(Vec<String>),
+    /// All photos not placed in any layout page.
+    Unplaced,
+}
+
+pub struct RemoveConfig {
+    pub target: RemoveTarget,
+    pub keep_files: bool,
+}
+```
+
+`remove(project_root, &config)` matcht entlang `target`:
+
+| Variante | matched_ids |
+|---|---|
+| `Patterns(p)` | bisheriges `match_photos(state, &p)` |
+| `Ids(ids)` | `ids.iter().cloned().collect::<HashSet<_>>()` (kein Regex) |
+| `Unplaced` | bisheriges `collect_unplaced_ids(state)` |
+
+Die restliche Pipeline (Layout-Filter, Empty-Page-Cleanup, Photo-
+Filter) bleibt unverändert — Single Source of Truth für „eine
+Foto-Menge entfernen".
+
+**Aufrufer-Migration** (alle innerhalb der Lib + CLI):
+
+| Datei | Anpassung |
+|---|---|
+| `src/commands/remove.rs` (Tests) | `patterns: …` → `target: RemoveTarget::Patterns(…)`; `unplaced: true` → `target: RemoveTarget::Unplaced` |
+| `cli/cli/remove.rs` | Parser baut `RemoveTarget` aus Args |
+| `gui/background/commands/photo.rs` | nutzt `RemoveTarget::Ids` (siehe oben) |
+
+Eigener Commit `refactor(lib): RemoveConfig target enum (Patterns/Ids/Unplaced)`
+direkt vor dem GUI-Pool-Delete-Commit.
+
+Lib-Tests:
+- `remove_by_ids_removes_exact_matches_only`.
+- `remove_by_ids_does_not_match_source_or_group`.
+- `remove_unplaced_via_enum_keeps_placed_photos`.
 
 ### 6.0.4 Commits + Tests
 
