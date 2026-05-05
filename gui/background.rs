@@ -146,6 +146,14 @@ pub fn spawn(
                 BackgroundTask::SetPageMode { page, mode } => {
                     commands::run_set_page_mode(page, mode, &mut rctx);
                 }
+                BackgroundTask::PagePos {
+                    page,
+                    slot,
+                    mode,
+                    scale,
+                } => {
+                    commands::run_page_pos(page, slot, mode, scale, &mut rctx);
+                }
             }
         }
     });

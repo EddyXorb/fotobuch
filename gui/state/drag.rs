@@ -57,6 +57,27 @@ pub enum ActiveDrag {
 pub struct DragState {
     pub active: ActiveDrag,
     pub mode: DragMode,
+    pub manual: ManualDrag,
+}
+
+/// Free-position drag on a Manual-mode page (RMB drag).
+#[derive(Default, Debug, Clone)]
+pub enum ManualDrag {
+    #[default]
+    Idle,
+    Move {
+        page: usize,
+        slot: usize,
+        pointer_origin: egui::Pos2,
+        slot_origin_mm: (f64, f64),
+    },
+    Resize {
+        page: usize,
+        slot: usize,
+        pointer_origin: egui::Pos2,
+        /// x, y, w, h in mm at drag-start
+        slot_origin_mm: (f64, f64, f64, f64),
+    },
 }
 
 #[cfg(test)]

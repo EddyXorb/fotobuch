@@ -14,7 +14,7 @@ mod viewport;
 pub use add_dialog::AddDialogState;
 pub use config_panel::ConfigPanelState;
 pub use derived::DerivedState;
-pub use drag::{ActiveDrag, DragMode, DragSource, DragState};
+pub use drag::{ActiveDrag, DragMode, DragSource, DragState, ManualDrag};
 pub use hover::HoveredTarget;
 pub use multi_selection::MultiSelection;
 pub use page_cache::PageCache;

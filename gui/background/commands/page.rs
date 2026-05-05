@@ -221,3 +221,34 @@ pub fn run_set_page_mode(
         }
     }
 }
+
+pub fn run_page_pos(
+    page: usize,
+    slot: usize,
+    pos_mode: crate::task::PagePosMode,
+    scale: Option<f64>,
+    rctx: &mut crate::background::RenderCtx<'_>,
+) {
+    use crate::task::PagePosMode;
+    use fotobuch::commands::page::{PosConfig, PosMode, SlotExpr, execute_pos};
+    let cfg = PosConfig {
+        position: Some(match pos_mode {
+            PagePosMode::Relative { dx_mm, dy_mm } => PosMode::Relative { dx_mm, dy_mm },
+            PagePosMode::Absolute { x_mm, y_mm } => PosMode::Absolute { x_mm, y_mm },
+        }),
+        scale,
+    };
+    match execute_pos(
+        rctx.project_root,
+        page as u32,
+        SlotExpr::single(slot as u32),
+        &cfg,
+    ) {
+        Err(e) => {
+            let _ = rctx
+                .result_tx
+                .send(crate::task::BackgroundResult::CommandFailed(e.to_string()));
+        }
+        Ok(out) => crate::background::send_command_done(out.changed_state, vec![page], rctx),
+    }
+}

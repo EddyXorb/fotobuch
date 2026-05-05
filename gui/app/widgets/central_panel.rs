@@ -3,6 +3,7 @@ mod draw_new_page_slot;
 mod draw_page;
 mod draw_pages;
 mod helpers;
+pub(crate) mod manual_resize;
 
 use crate::state::{DataState, InteractionState};
 use crate::task::BackgroundTask;

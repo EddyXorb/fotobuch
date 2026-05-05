@@ -83,6 +83,18 @@ pub enum BackgroundTask {
         page: usize,
         mode: fotobuch::dto_models::PageMode,
     },
+    PagePos {
+        page: usize,
+        slot: usize,
+        mode: PagePosMode,
+        scale: Option<f64>,
+    },
+}
+
+#[derive(Debug)]
+pub enum PagePosMode {
+    Relative { dx_mm: f64, dy_mm: f64 },
+    Absolute { x_mm: f64, y_mm: f64 },
 }
 
 #[derive(Debug)]
