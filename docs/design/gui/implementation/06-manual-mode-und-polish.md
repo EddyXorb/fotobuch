@@ -892,7 +892,7 @@ Tests:
 - `input_handler::rmb_hold_or_drag_does_not_open_menu`.
 - `context_menu::navpage_delete_dispatches_delete_pages_for_full_page`.
 
-### 6.2.7 Toast-System (nur Error)
+### 6.2.4 Toast-System (nur Error)
 
 Jedes `BackgroundResult::CommandFailed(msg)` landet bislang nur im Log.
 Phase 6 zeigt **ausschließlich Error-Toasts** — `Info`/`Warning` sind
@@ -912,9 +912,123 @@ impl ToastQueue {
 `DataState::toasts: ToastQueue` (neues Feld). `drain_results` bei
 `CommandFailed(msg)` → `data.toasts.push(msg)`. Widget
 `gui/app/widgets/toasts.rs`: `egui::Area` bottom-right, rote Icon-Zeile
-pro Toast, Auto-Fade nach 6 s.
+pro Toast, Auto-Fade nach 6 s. Texte sind die Lib-Fehlermeldungen
+(englisch, kommen so aus `anyhow::Error::to_string()`).
 
 Commit: `feat(gui): error toasts for command failures`.
+
+### 6.2.5 Weight-UX
+
+Heute ist das Setzen von Foto-Gewichten nur über das Konfigurations-
+Fenster oder den CLI `page weight`-Befehl möglich. Phase 6 macht zwei
+Dinge sichtbar und steuerbar:
+
+**(a) Slot-Info-Anzeige als Toolbar-Checkbox.** Die Engine kennt heute
+schon ein Preview-Flag `data.config.preview.show_slot_info` (siehe
+`src/dto_models/config/preview_config.rs:14` und
+`src/templates/fotobuch.typ:21`). Ist es `true`, zeigt der Typst-Preview
+die Slot-Adresse + Weight als Overlay über jedem Slot. Phase 6 spiegelt
+diese Option **als Checkbox in der Toolbar** (`gui/app/widgets/toolbar.rs`,
+links neben `Place`):
+
+```rust
+let mut show = data.project.config.preview.show_slot_info;
+if ui.checkbox(&mut show, "Slot info").changed() {
+    cmds.push(BackgroundTask::ConfigSet {
+        key: "preview.show_slot_info".to_string(),
+        value: show.to_string(),
+    });
+}
+```
+
+`ConfigSet` triggert in der bestehenden Pipeline einen Rebuild aller
+sichtbaren Seiten — das Slot-Info-Overlay erscheint/verschwindet damit
+automatisch.
+
+**(b) Vertikaler Weight-Slider per Hotkey `W`.** Wenn auf einer Seite
+Slots selektiert sind und der Nutzer `W` drückt, blendet die UI an der
+Cursor-Position einen vertikalen Slider ein. Der Slider deckt
+`area_weight ∈ [0.1, 10.0]` in **0.1-Schritten** ab und zeigt den
+aktuellen Zielwert direkt daneben. Bei Multi-Selektion auf einer Seite
+gilt der Wert für alle ausgewählten Slots.
+
+Neuer State (`gui/state/weight_slider.rs`):
+
+```rust
+pub enum WeightSlider {
+    Closed,
+    Open { page: usize, slots: Vec<usize>, screen_pos: egui::Pos2, value: f64 },
+}
+impl Default for WeightSlider { fn default() -> Self { Self::Closed } }
+```
+
+`InteractionState::weight_slider: WeightSlider` (neues Feld).
+
+Hotkey-Handler:
+
+```rust
+fn handle_weight_hotkey(
+    data: &DataState,
+    interaction: &mut InteractionState,
+    ctx: &egui::Context,
+) {
+    if !ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::W)) { return; }
+    let Some(page) = interaction.selections.slots.page else { return; };
+    let slots = interaction.selections.slots.slots_on_active_page();
+    if slots.is_empty() { return; }
+    // Initialwert = Mittel der Gewichte der selektierten Slots, gerundet auf 0.1.
+    let initial = compute_initial_weight(data, page, &slots);
+    let pos = ctx.pointer_hover_pos().unwrap_or_else(|| egui::pos2(200.0, 200.0));
+    interaction.weight_slider = WeightSlider::Open { page, slots, screen_pos: pos, value: initial };
+}
+```
+
+Widget `gui/app/widgets/weight_slider.rs` zeichnet den Slider in einer
+`egui::Area` an `screen_pos`. Ein einzelnes `egui::Slider` mit
+`vertical()`, `step_by(0.1)`, `clamp_range(0.1..=10.0)` und einem
+`Label` rechts daneben (`format!("{:.1}", value)`).
+
+Commit (`Set`) wenn der Slider losgelassen wird (`drag_stopped`):
+
+```rust
+cmds.push(BackgroundTask::SetWeight { page, slots, weight: value });
+interaction.weight_slider = WeightSlider::Closed;
+```
+
+Escape oder Klick außerhalb schließt ohne Commit.
+
+Neu in `gui/task.rs`:
+
+```rust
+BackgroundTask::SetWeight { page: usize, slots: Vec<usize>, weight: f64 }
+```
+
+Worker (`gui/background/commands/page.rs`):
+
+```rust
+pub fn run_set_weight(
+    page: usize, slots: Vec<usize>, weight: f64,
+    rctx: &mut crate::background::RenderCtx<'_>,
+) {
+    use fotobuch::commands::page::{execute_weight, SlotExpr, WeightAddress};
+    let address = WeightAddress::Slots {
+        page: page as u32,
+        slots: SlotExpr::from_list(slots.iter().map(|&s| s as u32).collect()),
+    };
+    match execute_weight(rctx.project_root, address, weight) {
+        Err(e) => { let _ = rctx.result_tx.send(BackgroundResult::CommandFailed(e.to_string())); }
+        Ok(out) => super::page::build_after_command(out.changed_state, vec![page], rctx),
+    }
+}
+```
+
+Commit: `feat(gui): toolbar slot-info checkbox + W-hotkey weight slider`.
+
+Tests:
+- `weight_slider::w_hotkey_opens_with_selected_slots`.
+- `weight_slider::escape_closes_without_dispatch`.
+- `weight_slider::release_dispatches_set_weight`.
+- `toolbar::slot_info_checkbox_dispatches_config_set`.
 
 ---
 
