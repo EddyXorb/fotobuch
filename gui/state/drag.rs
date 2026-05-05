@@ -42,6 +42,24 @@ pub enum DragSource {
     },
     /// Right-mouse drag from a photo row in the pool panel.
     Pool { photo_ids: Vec<String> },
+    /// Free-position move of a slot on a Manual-mode page.
+    ManualMove {
+        page: usize,
+        slot: usize,
+        pointer_origin: egui::Pos2,
+        /// (x_mm, y_mm) of the slot at drag-start.
+        slot_origin_mm: (f64, f64),
+        pixel_per_mm: f64,
+    },
+    /// SE-corner resize of a slot on a Manual-mode page.
+    ManualResize {
+        page: usize,
+        slot: usize,
+        pointer_origin: egui::Pos2,
+        /// (x_mm, y_mm, w_mm, h_mm) of the slot at drag-start.
+        slot_origin_mm: (f64, f64, f64, f64),
+        pixel_per_mm: f64,
+    },
 }
 
 /// Active drag activity: idle, pending confirmation, or confirmed dragging.
@@ -103,27 +121,6 @@ impl ActiveDrag {
 pub struct DragState {
     pub active: ActiveDrag,
     pub mode: DragMode,
-    pub manual: ManualDrag,
-}
-
-/// Free-position drag on a Manual-mode page (RMB drag).
-#[derive(Default, Debug, Clone)]
-pub enum ManualDrag {
-    #[default]
-    Idle,
-    Move {
-        page: usize,
-        slot: usize,
-        pointer_origin: egui::Pos2,
-        slot_origin_mm: (f64, f64),
-    },
-    Resize {
-        page: usize,
-        slot: usize,
-        pointer_origin: egui::Pos2,
-        /// x, y, w, h in mm at drag-start
-        slot_origin_mm: (f64, f64, f64, f64),
-    },
 }
 
 #[cfg(test)]

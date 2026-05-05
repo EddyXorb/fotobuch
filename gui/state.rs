@@ -18,7 +18,7 @@ pub use add_dialog::AddDialogState;
 pub use config_panel::ConfigPanelState;
 pub use context_menu::ContextMenu;
 pub use derived::DerivedState;
-pub use drag::{ActiveDrag, DragMode, DragSource, DragState, ManualDrag};
+pub use drag::{ActiveDrag, DragMode, DragSource, DragState};
 pub use hover::HoveredTarget;
 pub use multi_selection::MultiSelection;
 pub use page_cache::PageCache;

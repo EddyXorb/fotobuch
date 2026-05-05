@@ -123,6 +123,44 @@ pub(super) fn handle_drag_complete(
                 DragSource::Pool { photo_ids } => {
                     complete_pool_drag(interaction, cmds, photo_ids);
                 }
+                DragSource::ManualMove {
+                    page,
+                    slot,
+                    pointer_origin,
+                    pixel_per_mm,
+                    ..
+                } => {
+                    let cursor = ctx.pointer_hover_pos().unwrap_or(pointer_origin);
+                    let delta_px = cursor - pointer_origin;
+                    let dx_mm = delta_px.x as f64 / pixel_per_mm;
+                    let dy_mm = delta_px.y as f64 / pixel_per_mm;
+                    cmds.push(BackgroundTask::PagePos {
+                        page,
+                        slot,
+                        mode: PagePosMode::Relative { dx_mm, dy_mm },
+                        scale: None,
+                    });
+                }
+                DragSource::ManualResize {
+                    page,
+                    slot,
+                    pointer_origin,
+                    slot_origin_mm,
+                    pixel_per_mm,
+                } => {
+                    let cursor = ctx.pointer_hover_pos().unwrap_or(pointer_origin);
+                    let delta_px = cursor - pointer_origin;
+                    let (x_mm, y_mm, new_w, _new_h) =
+                        compute_se_resize(slot_origin_mm, delta_px, pixel_per_mm);
+                    let orig_w = slot_origin_mm.2;
+                    let scale = if orig_w > 0.0 { new_w / orig_w } else { 1.0 };
+                    cmds.push(BackgroundTask::PagePos {
+                        page,
+                        slot,
+                        mode: PagePosMode::Absolute { x_mm, y_mm },
+                        scale: Some(scale),
+                    });
+                }
             }
             true
         }
@@ -379,4 +417,27 @@ fn build_context_menu(hovered: &Option<HoveredTarget>, pos: egui::Pos2) -> Optio
         }),
         _ => None,
     }
+}
+
+/// SE-corner proportional resize math (mirrors `widgets::central_panel::manual_resize::compute_se`).
+fn compute_se_resize(
+    origin: (f64, f64, f64, f64),
+    delta_px: egui::Vec2,
+    pixel_per_mm: f64,
+) -> (f64, f64, f64, f64) {
+    let (x, y, w, h) = origin;
+    let orig_diag = (w * w + h * h).sqrt();
+    if orig_diag < f64::EPSILON || pixel_per_mm < f64::EPSILON {
+        return origin;
+    }
+    let dx_mm = delta_px.x as f64 / pixel_per_mm;
+    let dy_mm = delta_px.y as f64 / pixel_per_mm;
+    let new_se_x = w + dx_mm;
+    let new_se_y = h + dy_mm;
+    let new_diag = (new_se_x * new_se_x + new_se_y * new_se_y).sqrt();
+    let scale = new_diag / orig_diag;
+    let min_dim = 1.0_f64;
+    let new_w = (w * scale).max(min_dim);
+    let new_h = (h * scale).max(min_dim);
+    (x, y, new_w, new_h)
 }

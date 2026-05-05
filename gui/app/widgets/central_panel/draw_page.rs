@@ -1,5 +1,5 @@
-use crate::state::{ActiveDrag, DataState, DragMode, DragSource, InteractionState, ManualDrag};
-use crate::task::{BackgroundTask, PagePosMode};
+use crate::state::{ActiveDrag, DataState, DragMode, DragSource, InteractionState};
+use crate::task::BackgroundTask;
 
 use super::super::geometry::{self, PageDimensions};
 use super::{draw_drag_ghosts, helpers};
@@ -35,18 +35,16 @@ pub(super) fn draw_page(
         draw_pool_drag_overlay(ui, interaction, page_idx, page_rect);
         draw_drag_ghosts::draw_drag_ghosts(ui, data, interaction, page_idx, page_rect, dims);
 
-        // Manual-mode drag handling (move + SE resize via RMB) — only in Move mode.
+        // Manual-mode: hit-test on RMB press to set Pending drag; draw handles + overlay.
         use fotobuch::dto_models::PageMode;
-        if layout_page.mode == PageMode::Manual && interaction.drag.mode == DragMode::Move {
-            // pixel_per_mm must use the full physical page width (including bleed),
-            // because that is what page_rect.width() represents and what slot_rect_on_screen uses.
+        if layout_page.mode == PageMode::Manual {
             let full_w_mm = dims.width_mm + 2.0 * dims.bleed_mm;
             let pixel_per_mm = if full_w_mm > 0.0 {
                 page_rect.width() as f64 / full_w_mm
             } else {
                 1.0
             };
-            handle_manual_drag(
+            draw_manual_handles_and_overlay(
                 ui,
                 data,
                 interaction,
@@ -54,7 +52,6 @@ pub(super) fn draw_page(
                 page_rect,
                 dims,
                 pixel_per_mm,
-                cmds,
             );
         }
 
@@ -277,8 +274,10 @@ fn se_corner_rect(slot_rect: egui::Rect) -> egui::Rect {
     egui::Rect::from_center_size(slot_rect.right_bottom(), egui::vec2(SZ, SZ))
 }
 
+/// Draw SE-corner handles and the active-drag overlay for a Manual-mode page.
+/// On RMB press (Move mode only) sets `ActiveDrag::Pending` for the hit slot.
 #[allow(clippy::too_many_arguments)]
-fn handle_manual_drag(
+fn draw_manual_handles_and_overlay(
     ui: &mut egui::Ui,
     data: &DataState,
     interaction: &mut InteractionState,
@@ -286,45 +285,60 @@ fn handle_manual_drag(
     page_rect: egui::Rect,
     dims: PageDimensions,
     pixel_per_mm: f64,
-    cmds: &mut Vec<BackgroundTask>,
 ) {
     let layout_page = match data.project.layout.get(page_idx) {
         Some(lp) => lp,
         None => return,
     };
 
-    let rmb_pressed = ui.input(|i| i.pointer.secondary_pressed());
-    let rmb_down = ui.input(|i| i.pointer.secondary_down());
-    let rmb_released = ui.input(|i| i.pointer.secondary_released());
     let cursor = ui.input(|i| i.pointer.hover_pos()).unwrap_or_default();
+    let rmb_pressed = ui.input(|i| i.pointer.secondary_pressed());
 
-    // On RMB press: pick the topmost (last-drawn = highest index) slot under the cursor.
-    if rmb_pressed && matches!(interaction.drag.manual, ManualDrag::Idle) {
+    // On RMB press in Move mode: pick topmost slot and start a Pending drag.
+    if rmb_pressed
+        && interaction.drag.mode == DragMode::Move
+        && matches!(interaction.drag.active, ActiveDrag::Idle)
+    {
         for (slot_idx, slot) in layout_page.slots.iter().enumerate().rev() {
             let slot_rect = geometry::slot_rect_on_screen(page_rect, dims, slot);
             let se = se_corner_rect(slot_rect);
-            if se.contains(cursor) {
-                interaction.drag.manual = ManualDrag::Resize {
+            let source = if se.contains(cursor) {
+                Some(DragSource::ManualResize {
                     page: page_idx,
                     slot: slot_idx,
                     pointer_origin: cursor,
                     slot_origin_mm: (slot.x_mm, slot.y_mm, slot.width_mm, slot.height_mm),
-                };
-                break;
+                    pixel_per_mm,
+                })
             } else if slot_rect.contains(cursor) {
-                interaction.drag.manual = ManualDrag::Move {
+                Some(DragSource::ManualMove {
                     page: page_idx,
                     slot: slot_idx,
                     pointer_origin: cursor,
                     slot_origin_mm: (slot.x_mm, slot.y_mm),
+                    pixel_per_mm,
+                })
+            } else {
+                None
+            };
+            if let Some(src) = source {
+                interaction.drag.active = ActiveDrag::Pending {
+                    source: src,
+                    press_pos: cursor,
+                    press_instant: std::time::Instant::now(),
                 };
                 break;
             }
         }
     }
 
-    // Draw SE-corner handles only when no manual drag is active (avoid visual clutter).
-    if matches!(interaction.drag.manual, ManualDrag::Idle) {
+    // Draw SE-corner handles only when not actively dragging a manual slot.
+    let manual_dragging = matches!(
+        &interaction.drag.active,
+        ActiveDrag::Dragging(DragSource::ManualMove { page, .. } | DragSource::ManualResize { page, .. })
+            if *page == page_idx
+    );
+    if !manual_dragging {
         for slot in &layout_page.slots {
             let slot_rect = geometry::slot_rect_on_screen(page_rect, dims, slot);
             let se = se_corner_rect(slot_rect);
@@ -336,25 +350,26 @@ fn handle_manual_drag(
         }
     }
 
-    // Draw optimistic overlay for active manual drag.
-    match &interaction.drag.manual {
-        ManualDrag::Move {
+    // Draw optimistic overlay (preview rect) for an active manual drag on this page.
+    match &interaction.drag.active {
+        ActiveDrag::Dragging(DragSource::ManualMove {
             page,
             slot,
             pointer_origin,
             slot_origin_mm,
-        } if *page == page_idx => {
+            pixel_per_mm: ppm,
+        }) if *page == page_idx => {
             let delta_px = cursor - *pointer_origin;
-            let dx_mm = delta_px.x as f64 / pixel_per_mm;
-            let dy_mm = delta_px.y as f64 / pixel_per_mm;
+            let dx_mm = delta_px.x as f64 / ppm;
+            let dy_mm = delta_px.y as f64 / ppm;
             if let Some(slot_data) = layout_page.slots.get(*slot) {
-                let preview_slot = fotobuch::dto_models::Slot {
+                let preview = fotobuch::dto_models::Slot {
                     x_mm: slot_origin_mm.0 + dx_mm,
                     y_mm: slot_origin_mm.1 + dy_mm,
                     width_mm: slot_data.width_mm,
                     height_mm: slot_data.height_mm,
                 };
-                let r = geometry::slot_rect_on_screen(page_rect, dims, &preview_slot);
+                let r = geometry::slot_rect_on_screen(page_rect, dims, &preview);
                 ui.painter().rect_stroke(
                     r,
                     0.0,
@@ -363,88 +378,34 @@ fn handle_manual_drag(
                 );
             }
         }
-        ManualDrag::Resize {
+        ActiveDrag::Dragging(DragSource::ManualResize {
             page,
             slot,
             pointer_origin,
             slot_origin_mm,
-        } if *page == page_idx => {
+            pixel_per_mm: ppm,
+        }) if *page == page_idx => {
             let delta_px = cursor - *pointer_origin;
             let (_, _, new_w, new_h) =
-                super::manual_resize::compute_se(*slot_origin_mm, delta_px, pixel_per_mm);
+                super::manual_resize::compute_se(*slot_origin_mm, delta_px, *ppm);
             if let Some(slot_data) = layout_page.slots.get(*slot) {
-                let preview_slot = fotobuch::dto_models::Slot {
+                let preview = fotobuch::dto_models::Slot {
                     x_mm: slot_origin_mm.0,
                     y_mm: slot_origin_mm.1,
                     width_mm: new_w,
                     height_mm: new_h,
                 };
-                let r = geometry::slot_rect_on_screen(page_rect, dims, &preview_slot);
+                let r = geometry::slot_rect_on_screen(page_rect, dims, &preview);
                 ui.painter().rect_stroke(
                     r,
                     0.0,
                     egui::Stroke::new(2.0, egui::Color32::from_rgb(0, 200, 255)),
                     egui::StrokeKind::Outside,
                 );
-                let _ = slot_data; // used above
+                let _ = slot_data;
             }
+            let _ = new_h;
         }
         _ => {}
-    }
-
-    // On RMB release: commit the command.
-    if rmb_released {
-        match std::mem::take(&mut interaction.drag.manual) {
-            ManualDrag::Move {
-                page,
-                slot,
-                pointer_origin,
-                ..
-            } if page == page_idx => {
-                let delta_px = cursor - pointer_origin;
-                let dx_mm = delta_px.x as f64 / pixel_per_mm;
-                let dy_mm = delta_px.y as f64 / pixel_per_mm;
-                cmds.push(BackgroundTask::PagePos {
-                    page,
-                    slot,
-                    mode: PagePosMode::Relative { dx_mm, dy_mm },
-                    scale: None,
-                });
-            }
-            ManualDrag::Resize {
-                page,
-                slot,
-                pointer_origin,
-                slot_origin_mm,
-            } if page == page_idx => {
-                let delta_px = cursor - pointer_origin;
-                let (x_mm, y_mm, new_w, new_h) =
-                    super::manual_resize::compute_se(slot_origin_mm, delta_px, pixel_per_mm);
-                let orig_w = slot_origin_mm.2;
-                let scale = if orig_w > 0.0 { new_w / orig_w } else { 1.0 };
-                cmds.push(BackgroundTask::PagePos {
-                    page,
-                    slot,
-                    mode: PagePosMode::Absolute { x_mm, y_mm },
-                    scale: Some(scale),
-                });
-                let _ = new_h;
-            }
-            other => {
-                // Different page or Idle — put it back.
-                interaction.drag.manual = other;
-            }
-        }
-    } else if !rmb_down {
-        // Cancel if RMB is no longer pressed and no release event (edge case).
-        if !matches!(interaction.drag.manual, ManualDrag::Idle) {
-            let page = match &interaction.drag.manual {
-                ManualDrag::Move { page, .. } | ManualDrag::Resize { page, .. } => *page,
-                ManualDrag::Idle => usize::MAX,
-            };
-            if page == page_idx {
-                interaction.drag.manual = ManualDrag::Idle;
-            }
-        }
     }
 }
