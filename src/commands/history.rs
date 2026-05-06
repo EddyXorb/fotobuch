@@ -8,7 +8,7 @@ use std::path::Path;
 use crate::commands::CommandOutput;
 
 /// Single history entry
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct HistoryEntry {
     pub timestamp: DateTime<FixedOffset>,
     pub message: String,

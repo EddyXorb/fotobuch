@@ -5,6 +5,7 @@ mod derived;
 mod drag;
 mod hover;
 mod multi_selection;
+mod new_project_dialog;
 mod page_cache;
 mod pool;
 mod selection;
@@ -21,6 +22,7 @@ pub use derived::DerivedState;
 pub use drag::{ActiveDrag, DragMode, DragSource, DragState};
 pub use hover::HoveredTarget;
 pub use multi_selection::MultiSelection;
+pub use new_project_dialog::NewProjectDialogState;
 pub use page_cache::PageCache;
 pub use pool::PhotoSelection;
 pub use selection::SlotSelection;
@@ -31,8 +33,11 @@ pub use viewport::Viewport;
 pub use weight_slider::WeightSlider;
 
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 use egui::{ColorImage, Context, TextureHandle, TextureOptions};
+use fotobuch::commands::history::HistoryEntry;
+use fotobuch::commands::project::ProjectInfo;
 use fotobuch::dto_models::ProjectState;
 use fotobuch::output::typst::RenderedPage;
 
@@ -41,6 +46,12 @@ pub struct DataState {
     pub derived: DerivedState,
     pub pages: PageCache,
     pub thumbs: HashMap<String, TextureHandle>,
+    /// Current vault root directory.
+    pub vault_path: PathBuf,
+    /// All `fotobuch/*` branches in the vault.
+    pub projects: Vec<ProjectInfo>,
+    /// Recent commit history for the current branch.
+    pub history: Vec<HistoryEntry>,
 }
 
 pub struct InteractionState {
@@ -52,10 +63,15 @@ pub struct InteractionState {
     pub goto_open: bool,
     pub rebuild_all_confirm: bool,
     pub add_dialog: AddDialogState,
+    pub new_project_dialog: NewProjectDialogState,
     pub context_menu: Option<ContextMenu>,
     pub weight_slider: WeightSlider,
     pub timings: Timings,
     pub toasts: ToastQueue,
+    /// Show the first-run welcome modal.
+    pub show_welcome: bool,
+    /// Show the commit history panel.
+    pub show_history: bool,
 }
 
 pub struct GuiState {
@@ -64,7 +80,12 @@ pub struct GuiState {
 }
 
 impl GuiState {
-    pub fn new(project: ProjectState) -> Self {
+    pub fn new(
+        project: ProjectState,
+        vault_path: PathBuf,
+        projects: Vec<ProjectInfo>,
+        show_welcome: bool,
+    ) -> Self {
         let num_pages = project.layout.len();
         let derived = DerivedState::rebuild(&project);
         Self {
@@ -73,6 +94,9 @@ impl GuiState {
                 derived,
                 pages: PageCache::new(num_pages),
                 thumbs: HashMap::new(),
+                vault_path,
+                projects,
+                history: Vec::new(),
             },
             interaction: InteractionState {
                 selections: Selections::default(),
@@ -83,10 +107,13 @@ impl GuiState {
                 goto_open: false,
                 rebuild_all_confirm: false,
                 add_dialog: AddDialogState::default(),
+                new_project_dialog: NewProjectDialogState::default(),
                 context_menu: None,
                 weight_slider: WeightSlider::default(),
                 timings: Timings::default(),
                 toasts: ToastQueue::default(),
+                show_welcome,
+                show_history: false,
             },
         }
     }
@@ -146,7 +173,7 @@ mod tests {
 
     #[test]
     fn new_derives_num_pages() {
-        let state = GuiState::new(minimal_project());
+        let state = GuiState::new(minimal_project(), PathBuf::new(), vec![], false);
         assert_eq!(state.data.pages.textures.len(), 0);
         assert_eq!(state.data.pages.dirty.len(), 0);
     }
@@ -161,7 +188,7 @@ mod tests {
             slots: vec![],
             mode: fotobuch::dto_models::PageMode::Auto,
         }];
-        let mut state = GuiState::new(project);
+        let mut state = GuiState::new(project, PathBuf::new(), vec![], false);
         state.data.pages.dirty[0] = true;
         let full = RenderedPage {
             page: 0,

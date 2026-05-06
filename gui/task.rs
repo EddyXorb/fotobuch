@@ -2,6 +2,8 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use fotobuch::commands::PlaceDst;
+use fotobuch::commands::history::HistoryEntry;
+use fotobuch::commands::project::{NewConfig, ProjectInfo};
 use fotobuch::dto_models::ProjectState;
 use fotobuch::output::typst::RenderedPage;
 
@@ -94,6 +96,22 @@ pub enum BackgroundTask {
         slots: Vec<usize>,
         weight: f64,
     },
+    /// Create a new project in the vault and switch to it.
+    ProjectNew {
+        config: NewConfig,
+    },
+    /// Switch to a different project branch.
+    ProjectSwitch {
+        name: String,
+    },
+    /// List all projects in the vault (returns ProjectList result).
+    ListProjects,
+    /// Switch the active vault to a new directory.
+    SwitchVault(PathBuf),
+    /// Load the last `count` history entries for the current branch.
+    LoadHistory {
+        count: usize,
+    },
 }
 
 #[derive(Debug)]
@@ -124,6 +142,19 @@ pub enum BackgroundResult {
     /// A command failed (user-visible error, not a render error).
     CommandFailed(String),
     Error(String),
+    /// Result of `ListProjects`.
+    ProjectList {
+        projects: Vec<ProjectInfo>,
+    },
+    /// The vault has been switched; contains updated path and project list.
+    VaultSwitched {
+        vault_path: std::path::PathBuf,
+        projects: Vec<ProjectInfo>,
+    },
+    /// Result of `LoadHistory`.
+    HistoryLoaded {
+        entries: Vec<HistoryEntry>,
+    },
     /// Total number of pages in the compiled Typst document (may exceed layout.len()
     /// when appendix or other extra pages are active).
     TotalPageCount(usize),

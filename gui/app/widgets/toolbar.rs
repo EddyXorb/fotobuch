@@ -21,12 +21,14 @@ fn show(
 ) -> Vec<BackgroundTask> {
     let mut cmds = Vec::new();
     ui.horizontal(|ui| {
+        project_dropdown(ui, data, interaction, &mut cmds);
+        ui.separator();
         add_button(ui, interaction);
         place_button(ui, interaction, &mut cmds);
         rebuild_button(ui, interaction, &mut cmds);
         release_button(ui, &mut cmds);
         ui.separator();
-        history_buttons(ui, &mut cmds);
+        history_buttons(ui, interaction, &mut cmds);
         ui.separator();
         config_button(ui, interaction);
         ui.separator();
@@ -35,6 +37,59 @@ fn show(
         drag_mode_buttons(ui, interaction);
     });
     cmds
+}
+
+fn project_dropdown(
+    ui: &mut egui::Ui,
+    data: &DataState,
+    interaction: &mut InteractionState,
+    cmds: &mut Vec<BackgroundTask>,
+) {
+    let current_name = data
+        .projects
+        .iter()
+        .find(|p| p.is_current)
+        .map(|p| p.name.as_str())
+        .unwrap_or("—");
+
+    egui::ComboBox::from_id_salt("project_switcher")
+        .selected_text(current_name)
+        .show_ui(ui, |ui| {
+            // Header: vault path
+            ui.label(
+                egui::RichText::new(data.vault_path.display().to_string())
+                    .small()
+                    .color(egui::Color32::GRAY),
+            );
+            ui.separator();
+
+            // One entry per project
+            for project in &data.projects {
+                let label = if project.is_current {
+                    format!("✓ {}", project.name)
+                } else {
+                    format!("  {}", project.name)
+                };
+                if ui.selectable_label(project.is_current, label).clicked() && !project.is_current {
+                    cmds.push(BackgroundTask::ProjectSwitch {
+                        name: project.name.clone(),
+                    });
+                    // Refresh project list after switch
+                    cmds.push(BackgroundTask::ListProjects);
+                }
+            }
+
+            ui.separator();
+            if ui.button("+ New project …").clicked() {
+                interaction.new_project_dialog.open = true;
+                interaction.new_project_dialog.reset();
+            }
+            if ui.button("⇄ Switch vault …").clicked()
+                && let Some(picked) = rfd::FileDialog::new().pick_folder()
+            {
+                cmds.push(BackgroundTask::SwitchVault(picked));
+            }
+        });
 }
 
 fn rebuild_button(
@@ -72,7 +127,11 @@ fn release_button(ui: &mut egui::Ui, cmds: &mut Vec<BackgroundTask>) {
     }
 }
 
-fn history_buttons(ui: &mut egui::Ui, cmds: &mut Vec<BackgroundTask>) {
+fn history_buttons(
+    ui: &mut egui::Ui,
+    interaction: &mut InteractionState,
+    cmds: &mut Vec<BackgroundTask>,
+) {
     if ui
         .add(egui::Button::new("↩"))
         .on_hover_text("Undo [Ctrl+Z]")
@@ -86,6 +145,24 @@ fn history_buttons(ui: &mut egui::Ui, cmds: &mut Vec<BackgroundTask>) {
         .clicked()
     {
         cmds.push(BackgroundTask::Redo);
+    }
+    let hist_label = if interaction.show_history {
+        "⏱ History ✓"
+    } else {
+        "⏱ History"
+    };
+    if ui
+        .add(egui::Button::selectable(
+            interaction.show_history,
+            hist_label,
+        ))
+        .on_hover_text("Toggle commit history panel")
+        .clicked()
+    {
+        interaction.show_history = !interaction.show_history;
+        if interaction.show_history {
+            cmds.push(BackgroundTask::LoadHistory { count: 100 });
+        }
     }
 }
 

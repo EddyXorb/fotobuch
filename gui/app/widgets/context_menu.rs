@@ -108,10 +108,35 @@ fn show_entries(
             }
         }
         ContextMenu::PoolItem { id, .. } => {
+            // If the right-clicked photo is part of the current selection, operate on all
+            // selected photos; otherwise fall back to just the clicked one.
+            let target_ids: Vec<String> = if interaction.selections.photos.is_selected(id) {
+                interaction.selections.photos.ids()
+            } else {
+                vec![id.clone()]
+            };
+
             if ui.button("Remove").clicked() {
                 cmds.push(BackgroundTask::RemovePhotos {
-                    photo_ids: vec![id.clone()],
+                    photo_ids: target_ids.clone(),
                 });
+                interaction.context_menu = None;
+            }
+
+            // Collect all placed (page, slot) pairs for the target photos, grouped by page.
+            let mut by_page: std::collections::BTreeMap<usize, Vec<usize>> =
+                std::collections::BTreeMap::new();
+            for tid in &target_ids {
+                if let Some(locs) = data.derived.placed_locations.get(tid.as_str()) {
+                    for &(page, slot) in locs {
+                        by_page.entry(page).or_default().push(slot);
+                    }
+                }
+            }
+            if !by_page.is_empty() && ui.button("Unplace").clicked() {
+                for (page, slots) in by_page {
+                    cmds.push(BackgroundTask::Unplace { page, slots });
+                }
                 interaction.context_menu = None;
             }
         }

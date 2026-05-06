@@ -86,6 +86,7 @@
 //! and photo transfers, with each candidate evaluated using the GA-based page solver.
 //!
 
+pub mod app_settings;
 pub mod cache;
 pub mod commands;
 pub mod dto_models;
@@ -95,6 +96,7 @@ pub mod output;
 pub mod solver;
 pub mod state_manager;
 pub mod undo_stack;
+pub mod vault;
 
 // Re-export core API types for convenience
 pub use dto_models::{FitnessWeights, GaConfig};

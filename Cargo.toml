@@ -65,6 +65,12 @@ good_lp = { version = "1", features = ["highs"], default-features = false }
 # Git integration
 git2 = { version = "0.20", default-features = false }
 
+# OS directories (config/pictures/home)
+dirs = "5"
+
+# TOML for app settings serialization
+toml = "0.8"
+
 [[bin]]
 name = "fotobuch-gui"
 path = "gui/main.rs"
