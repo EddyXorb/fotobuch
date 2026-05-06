@@ -7,6 +7,7 @@ mod hover;
 mod multi_selection;
 mod new_project_dialog;
 mod page_cache;
+mod page_hud;
 mod pool;
 mod selection;
 mod selections;
@@ -24,6 +25,7 @@ pub use hover::HoveredTarget;
 pub use multi_selection::MultiSelection;
 pub use new_project_dialog::NewProjectDialogState;
 pub use page_cache::PageCache;
+pub use page_hud::PageHudAnim;
 pub use pool::PhotoSelection;
 pub use selection::SlotSelection;
 pub use selections::Selections;
@@ -72,6 +74,7 @@ pub struct InteractionState {
     pub show_welcome: bool,
     /// Show the commit history panel.
     pub show_history: bool,
+    pub page_hud: HashMap<usize, PageHudAnim>,
 }
 
 pub struct GuiState {
@@ -114,6 +117,7 @@ impl GuiState {
                 toasts: ToastQueue::default(),
                 show_welcome,
                 show_history: false,
+                page_hud: HashMap::new(),
             },
         }
     }

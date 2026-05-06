@@ -11,8 +11,6 @@ pub(super) fn draw_pages(
     interaction: &mut InteractionState,
     cmds: &mut Vec<BackgroundTask>,
 ) -> Option<HoveredTarget> {
-    // Use page_textures.len() rather than layout.len() so that extra pages
-    // produced by Typst (e.g. appendix) are also rendered and displayed.
     let num_pages = data.pages.textures.len();
     let mut hovered: Option<HoveredTarget> = None;
 
@@ -45,9 +43,11 @@ pub(super) fn draw_pages(
     }
     let output = sa.show(ui, |ui| {
         ui.vertical_centered(|ui| {
-            // [+] before page 0 — omitted when a cover is active (cover is always page 0).
+            ui.add_space(36.0);
+
+            // Drop zone before page 0 — omitted when a cover is active.
             if !data.project.has_cover() {
-                let (_, slot_hovered) = draw_new_page_slot::draw(ui, 0, interaction);
+                let (_, slot_hovered) = draw_new_page_slot::draw(ui, 0, interaction, cmds);
                 if hovered.is_none() && slot_hovered {
                     hovered = Some(HoveredTarget::NewPageSlot { at_position: 0 });
                 }
@@ -75,12 +75,14 @@ pub(super) fn draw_pages(
                 }
                 page_nav::apply_scroll_if_needed(ui, interaction, i, page_rect);
 
-                // [+] after each page (including after the last page).
-                let (_, slot_hovered) = draw_new_page_slot::draw(ui, i + 1, interaction);
+                // Drop zone after each page (including after the last page).
+                let (_, slot_hovered) = draw_new_page_slot::draw(ui, i + 1, interaction, cmds);
                 if hovered.is_none() && slot_hovered {
                     hovered = Some(HoveredTarget::NewPageSlot { at_position: i + 1 });
                 }
             }
+
+            ui.add_space(60.0);
         });
     });
     interaction.viewport.scroll.scroll_y = output.state.offset.y;

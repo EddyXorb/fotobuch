@@ -1,11 +1,14 @@
-use crate::state::{ActiveDrag, DataState, DragMode, DragSource, InteractionState};
+use crate::state::{ActiveDrag, DataState, DragMode, DragSource, InteractionState, PageHudAnim};
 use crate::task::BackgroundTask;
 
 use super::super::geometry::{self, PageDimensions};
+use super::theme::FbTheme;
 use super::{draw_drag_ghosts, helpers};
 
+const HUD_HEIGHT: f32 = 24.0;
+const HUD_GAP: f32 = 10.0;
+
 /// Returns `(hovered_slot, over_page, page_rect, cursor_mm)`.
-/// `cursor_mm` is the cursor in page-content mm coordinates (offset by bleed+margin).
 pub(super) fn draw_page(
     ui: &mut egui::Ui,
     data: &DataState,
@@ -13,8 +16,6 @@ pub(super) fn draw_page(
     page_idx: usize,
     cmds: &mut Vec<BackgroundTask>,
 ) -> (Option<usize>, bool, egui::Rect, (f32, f32)) {
-    ui.label(format!("Page {page_idx}"));
-
     let (width_mm, height_mm) = data.project.page_dimensions_mm(page_idx);
     let (bleed_mm, margin_mm) = data.project.page_bleed_margin_mm(page_idx);
     let dims = PageDimensions {
@@ -23,8 +24,32 @@ pub(super) fn draw_page(
         bleed_mm,
         margin_mm,
     };
-    let size = helpers::page_display_size(interaction.viewport.zoom, dims);
-    let page_rect = render_page_image(ui, data, page_idx, size);
+    let page_size = helpers::page_display_size(interaction.viewport.zoom, dims);
+
+    // Allocate the whole block (page + gap + HUD) to detect hover over the row.
+    let block_size = egui::vec2(page_size.x, page_size.y + HUD_GAP + HUD_HEIGHT);
+    let (block_rect, _) = ui.allocate_exact_size(block_size, egui::Sense::hover());
+    // Use raw pointer for hover — same pattern as elsewhere in this panel.
+    let hovered = ui
+        .ctx()
+        .input(|i| i.pointer.latest_pos().map(|p| block_rect.contains(p)))
+        .unwrap_or(false);
+
+    // Advance animation.
+    let dt = ui.ctx().input(|i| i.unstable_dt).min(0.05);
+    let anim = interaction
+        .page_hud
+        .entry(page_idx)
+        .or_insert_with(PageHudAnim::default);
+    let still_moving = anim.advance(hovered, dt);
+    if still_moving {
+        ui.ctx().request_repaint();
+    }
+
+    // Draw page image inside the block rect (top portion).
+    let page_rect = egui::Rect::from_min_size(block_rect.min, page_size);
+    let child_ui_rect = page_rect;
+    let page_rect = render_page_image(ui, data, page_idx, child_ui_rect);
 
     if let Some(layout_page) = data.project.layout.get(page_idx) {
         draw_slot_overlays(ui, page_rect, data, interaction, page_idx, dims);
@@ -35,7 +60,6 @@ pub(super) fn draw_page(
         draw_pool_drag_overlay(ui, interaction, page_idx, page_rect);
         draw_drag_ghosts::draw_drag_ghosts(ui, data, interaction, page_idx, page_rect, dims);
 
-        // Manual-mode: hit-test on RMB press to set Pending drag; draw handles + overlay.
         use fotobuch::dto_models::PageMode;
         if layout_page.mode == PageMode::Manual {
             let full_w_mm = dims.width_mm + 2.0 * dims.bleed_mm;
@@ -55,17 +79,29 @@ pub(super) fn draw_page(
             );
         }
 
-        // Mode toggle badge — outside the page overlay to avoid capturing drop targets.
-        let (label, new_mode) = match layout_page.mode {
-            PageMode::Auto => ("[A]", PageMode::Manual),
-            PageMode::Manual => ("[M]", PageMode::Auto),
+        // Snapshot anim values (borrow ends after this block).
+        let (opacity, pill_w, actions_alpha, actions_offset) = {
+            let a = &interaction.page_hud[&page_idx];
+            (a.opacity, a.pill_width, a.actions_alpha, a.actions_offset)
         };
-        if ui.small_button(label).clicked() {
-            cmds.push(BackgroundTask::SetPageMode {
-                page: page_idx,
-                mode: new_mode,
-            });
-        }
+
+        // HUD strip: placed in the bottom 24px of the block.
+        let hud_top = block_rect.min.y + page_size.y + HUD_GAP;
+        let hud_rect = egui::Rect::from_min_size(
+            egui::pos2(block_rect.min.x, hud_top),
+            egui::vec2(block_rect.width(), HUD_HEIGHT),
+        );
+        draw_hud(
+            ui,
+            hud_rect,
+            page_idx,
+            layout_page.mode,
+            opacity,
+            pill_w,
+            actions_alpha,
+            actions_offset,
+            cmds,
+        );
 
         (hovered_slot, over_page, page_rect, cursor_mm)
     } else {
@@ -73,20 +109,191 @@ pub(super) fn draw_page(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
+fn draw_hud(
+    ui: &mut egui::Ui,
+    hud_rect: egui::Rect,
+    page_idx: usize,
+    mode: fotobuch::dto_models::PageMode,
+    opacity: f32,
+    pill_width: f32,
+    actions_alpha: f32,
+    actions_offset: f32,
+    cmds: &mut Vec<BackgroundTask>,
+) {
+    use fotobuch::dto_models::PageMode;
+
+    let painter = ui.painter();
+    let center_y = hud_rect.center().y;
+
+    // Layout: elements are centered horizontally, spaced 10px apart.
+    // Measure widths: label (~28px), pill (pill_width), buttons (2×22px + 10px gap).
+    let label_w: f32 = 28.0;
+    let btn_size: f32 = 22.0;
+    let gap: f32 = 10.0;
+    let actions_w = if actions_alpha > 0.001 {
+        btn_size + gap + btn_size
+    } else {
+        0.0
+    };
+    let total_w = label_w
+        + gap
+        + pill_width
+        + if actions_w > 0.0 {
+            gap + actions_w
+        } else {
+            0.0
+        };
+    let start_x = hud_rect.center().x - total_w / 2.0;
+
+    let alpha_u8 = (opacity * 255.0).clamp(0.0, 255.0) as u8;
+
+    // P{idx:02} label
+    let label_str = format!("P{page_idx:02}");
+    let label_center = egui::pos2(start_x + label_w / 2.0, center_y);
+    painter.text(
+        label_center,
+        egui::Align2::CENTER_CENTER,
+        &label_str,
+        egui::FontId::monospace(10.5),
+        FbTheme::with_alpha(FbTheme::TEXT_MUTE, alpha_u8),
+    );
+
+    // Mode dot / pill
+    let mode_color = match mode {
+        PageMode::Auto => FbTheme::AUTO,
+        PageMode::Manual => FbTheme::MANUAL,
+    };
+    let pill_x = start_x + label_w + gap;
+    let pill_rect = egui::Rect::from_center_size(
+        egui::pos2(pill_x + pill_width / 2.0, center_y),
+        egui::vec2(pill_width, 18.0),
+    );
+
+    // Pill or dot, depending on animated width.
+    if pill_width <= 12.0 {
+        // Dot
+        let radius = pill_width / 2.0;
+        painter.circle_filled(
+            pill_rect.center(),
+            radius,
+            FbTheme::with_alpha(mode_color, alpha_u8),
+        );
+    } else {
+        // Expanded pill
+        let pill_fill = FbTheme::with_alpha(mode_color, (alpha_u8 as f32 * 0.13) as u8);
+        let pill_stroke_color = FbTheme::with_alpha(mode_color, (alpha_u8 as f32 * 0.40) as u8);
+        painter.rect(
+            pill_rect,
+            9.0,
+            pill_fill,
+            egui::Stroke::new(1.0, pill_stroke_color),
+            egui::StrokeKind::Inside,
+        );
+        let pill_label = match mode {
+            PageMode::Auto => "✦ AUTO",
+            PageMode::Manual => "✋ MANUAL",
+        };
+        // Fade text in proportionally to pill expansion.
+        let text_alpha = ((pill_width - 12.0) / (80.0 - 12.0)).clamp(0.0, 1.0);
+        painter.text(
+            pill_rect.center(),
+            egui::Align2::CENTER_CENTER,
+            pill_label,
+            egui::FontId::monospace(10.0),
+            FbTheme::with_alpha(mode_color, (text_alpha * alpha_u8 as f32) as u8),
+        );
+    }
+
+    // Pill click → mode toggle (allocate interaction area over pill_rect)
+    let pill_resp = ui.allocate_rect(pill_rect, egui::Sense::click());
+    if pill_resp.clicked() {
+        let new_mode = match mode {
+            PageMode::Auto => PageMode::Manual,
+            PageMode::Manual => PageMode::Auto,
+        };
+        cmds.push(BackgroundTask::SetPageMode {
+            page: page_idx,
+            mode: new_mode,
+        });
+    }
+
+    // Action buttons (fade in with actions_alpha)
+    if actions_alpha > 0.001 {
+        let act_alpha = (actions_alpha * alpha_u8 as f32) as u8;
+        let btn_x = pill_x + pill_width + gap + actions_offset;
+
+        // ↻ Rebuild button
+        let rebuild_rect = egui::Rect::from_min_size(
+            egui::pos2(btn_x, center_y - btn_size / 2.0),
+            egui::vec2(btn_size, btn_size),
+        );
+        painter.rect(
+            rebuild_rect,
+            4.0,
+            egui::Color32::TRANSPARENT,
+            egui::Stroke::new(1.0, FbTheme::with_alpha(FbTheme::STROKE, act_alpha)),
+            egui::StrokeKind::Inside,
+        );
+        painter.text(
+            rebuild_rect.center(),
+            egui::Align2::CENTER_CENTER,
+            "↻",
+            egui::FontId::proportional(14.0),
+            FbTheme::with_alpha(FbTheme::TEXT_DIM, act_alpha),
+        );
+        let rebuild_resp = ui.allocate_rect(rebuild_rect, egui::Sense::click());
+        if rebuild_resp.clicked() {
+            cmds.push(BackgroundTask::RebuildPages {
+                pages: vec![page_idx],
+            });
+        }
+
+        // ✕ Delete button
+        let delete_rect = egui::Rect::from_min_size(
+            egui::pos2(btn_x + btn_size + gap, center_y - btn_size / 2.0),
+            egui::vec2(btn_size, btn_size),
+        );
+        painter.rect(
+            delete_rect,
+            4.0,
+            egui::Color32::TRANSPARENT,
+            egui::Stroke::new(1.0, FbTheme::with_alpha(FbTheme::STROKE, act_alpha)),
+            egui::StrokeKind::Inside,
+        );
+        painter.text(
+            delete_rect.center(),
+            egui::Align2::CENTER_CENTER,
+            "✕",
+            egui::FontId::proportional(12.0),
+            FbTheme::with_alpha(FbTheme::DANGER, act_alpha),
+        );
+        let delete_resp = ui.allocate_rect(delete_rect, egui::Sense::click());
+        if delete_resp.clicked() {
+            cmds.push(BackgroundTask::DeletePages {
+                pages: vec![page_idx],
+            });
+        }
+    }
+}
+
 fn render_page_image(
     ui: &mut egui::Ui,
     data: &DataState,
     page_idx: usize,
-    size: egui::Vec2,
+    page_rect: egui::Rect,
 ) -> egui::Rect {
+    let size = page_rect.size();
     let rect = if let Some(tex) = &data.pages.textures[page_idx] {
-        ui.add(egui::Image::from_texture(tex).fit_to_exact_size(size))
-            .rect
+        ui.put(
+            page_rect,
+            egui::Image::from_texture(tex).fit_to_exact_size(size),
+        )
+        .rect
     } else {
-        let (r, _) = ui.allocate_exact_size(size, egui::Sense::hover());
         ui.painter()
-            .rect_filled(r, 0.0, egui::Color32::from_gray(200));
-        r
+            .rect_filled(page_rect, 0.0, egui::Color32::from_gray(200));
+        page_rect
     };
 
     if data.pages.dirty.get(page_idx).copied().unwrap_or(false) {
@@ -126,7 +333,6 @@ fn draw_slot_overlays(
     );
     let is_swap_drag = is_slot_drag && interaction.drag.mode == DragMode::Swap;
 
-    // Suppress swap overlays when this page or the drag source page is Manual.
     use fotobuch::dto_models::PageMode;
     let src_is_manual =
         if let ActiveDrag::Dragging(DragSource::Slot { src_page, .. }) = &interaction.drag.active {
@@ -268,14 +474,11 @@ fn draw_pool_drag_overlay(
     }
 }
 
-/// Returns the 8×8 px rect at the SE corner of a slot rect.
 fn se_corner_rect(slot_rect: egui::Rect) -> egui::Rect {
     const SZ: f32 = 8.0;
     egui::Rect::from_center_size(slot_rect.right_bottom(), egui::vec2(SZ, SZ))
 }
 
-/// Draw SE-corner handles and the active-drag overlay for a Manual-mode page.
-/// On RMB press (Move mode only) sets `ActiveDrag::Pending` for the hit slot.
 #[allow(clippy::too_many_arguments)]
 fn draw_manual_handles_and_overlay(
     ui: &mut egui::Ui,
@@ -294,7 +497,6 @@ fn draw_manual_handles_and_overlay(
     let cursor = ui.input(|i| i.pointer.hover_pos()).unwrap_or_default();
     let rmb_pressed = ui.input(|i| i.pointer.secondary_pressed());
 
-    // On RMB press in Move mode: pick topmost slot and start a Pending drag.
     if rmb_pressed
         && interaction.drag.mode == DragMode::Move
         && matches!(interaction.drag.active, ActiveDrag::Idle)
@@ -332,7 +534,6 @@ fn draw_manual_handles_and_overlay(
         }
     }
 
-    // Draw SE-corner handles only when not actively dragging a manual slot.
     let manual_dragging = matches!(
         &interaction.drag.active,
         ActiveDrag::Dragging(DragSource::ManualMove { page, .. } | DragSource::ManualResize { page, .. })
@@ -350,7 +551,6 @@ fn draw_manual_handles_and_overlay(
         }
     }
 
-    // Draw optimistic overlay (preview rect) for an active manual drag on this page.
     match &interaction.drag.active {
         ActiveDrag::Dragging(DragSource::ManualMove {
             page,
