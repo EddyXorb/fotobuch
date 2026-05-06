@@ -88,8 +88,20 @@ impl StateManager {
             .to_owned();
 
         let yaml_path = project_root.join(format!("{project_name}.yaml"));
-        let state = ProjectState::load(&yaml_path)
+        let mut state = ProjectState::load(&yaml_path)
             .with_context(|| format!("Failed to load {}", yaml_path.display()))?;
+
+        // Resolve any relative photo source paths stored by older CLI invocations.
+        for group in &mut state.photos {
+            for file in &mut group.files {
+                let p = Path::new(&file.source);
+                if p.is_relative()
+                    && let Some(s) = project_root.join(p).to_str()
+                {
+                    file.source = s.to_owned();
+                }
+            }
+        }
 
         if let Err(e) = state.check_validity() {
             warn!("State is invalid after open! Reason(s): {e}");
