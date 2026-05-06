@@ -102,6 +102,26 @@ impl FotobuchApp {
                 BackgroundResult::ProjectList { projects } => {
                     self.state.data.projects = projects;
                 }
+                BackgroundResult::VaultSwitched {
+                    vault_path,
+                    projects,
+                } => {
+                    self.state.data.vault_path = vault_path.clone();
+                    if let Ok(mut settings) = fotobuch::app_settings::AppSettings::load() {
+                        settings.add_recent_vault(&vault_path);
+                        let _ = settings.save();
+                    }
+                    if projects.is_empty() {
+                        self.state.data.projects = projects;
+                        self.state.interaction.show_welcome = true;
+                    } else {
+                        let first_name = projects[0].name.clone();
+                        self.state.data.projects = projects;
+                        let _ = self
+                            .task_tx
+                            .send(BackgroundTask::ProjectSwitch { name: first_name });
+                    }
+                }
                 BackgroundResult::HistoryLoaded { entries } => {
                     self.state.data.history = entries;
                 }
@@ -332,6 +352,7 @@ fn mark_dirty(dirty: &mut [bool], task: &BackgroundTask) {
         | BackgroundTask::SetPixelPerPt(..)
         | BackgroundTask::LoadPhotoThumbnails { .. }
         | BackgroundTask::ListProjects
+        | BackgroundTask::SwitchVault(..)
         | BackgroundTask::LoadHistory { .. } => {}
     }
 }

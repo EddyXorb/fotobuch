@@ -33,6 +33,7 @@ pub fn spawn(
 
     std::thread::spawn(move || {
         let pool = build_pool();
+        let mut vault_path = vault_path;
 
         // World is optional — None when no project is loaded yet (first-run).
         let mut world_opt: Option<TypstWorld> = if initial_project_name.is_empty() {
@@ -63,6 +64,19 @@ pub fn spawn(
                         .map(|o| o.result)
                         .unwrap_or_default();
                     let _ = result_tx.send(BackgroundResult::ProjectList { projects });
+                    repaint_ctx.request_repaint();
+                }
+                BackgroundTask::SwitchVault(new_path) => {
+                    vault_path = new_path;
+                    world_opt = None;
+                    fotobuch::vault::ensure_vault(&vault_path).ok();
+                    let projects = fotobuch::commands::project::project_list(&vault_path)
+                        .map(|o| o.result)
+                        .unwrap_or_default();
+                    let _ = result_tx.send(BackgroundResult::VaultSwitched {
+                        vault_path: vault_path.clone(),
+                        projects,
+                    });
                     repaint_ctx.request_repaint();
                 }
                 BackgroundTask::LoadHistory { count } => {
@@ -293,6 +307,7 @@ fn dispatch_world_task(task: BackgroundTask, rctx: &mut RenderCtx<'_>) {
         BackgroundTask::SetPixelPerPt(_)
         | BackgroundTask::LoadPhotoThumbnails { .. }
         | BackgroundTask::ListProjects
+        | BackgroundTask::SwitchVault(..)
         | BackgroundTask::LoadHistory { .. }
         | BackgroundTask::ProjectSwitch { .. }
         | BackgroundTask::ProjectNew { .. } => {}

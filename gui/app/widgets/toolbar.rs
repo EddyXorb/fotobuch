@@ -85,11 +85,9 @@ fn project_dropdown(
                 interaction.new_project_dialog.reset();
             }
             if ui.button("⇄ Switch vault …").clicked()
-                && rfd::FileDialog::new().pick_folder().is_some()
+                && let Some(picked) = rfd::FileDialog::new().pick_folder()
             {
-                interaction.toasts.push(
-                    "Vault switch: restart with --vault <path> to open another vault.".to_string(),
-                );
+                cmds.push(BackgroundTask::SwitchVault(picked));
             }
         });
 }

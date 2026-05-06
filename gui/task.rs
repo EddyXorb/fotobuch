@@ -106,6 +106,8 @@ pub enum BackgroundTask {
     },
     /// List all projects in the vault (returns ProjectList result).
     ListProjects,
+    /// Switch the active vault to a new directory.
+    SwitchVault(PathBuf),
     /// Load the last `count` history entries for the current branch.
     LoadHistory {
         count: usize,
@@ -142,6 +144,11 @@ pub enum BackgroundResult {
     Error(String),
     /// Result of `ListProjects`.
     ProjectList {
+        projects: Vec<ProjectInfo>,
+    },
+    /// The vault has been switched; contains updated path and project list.
+    VaultSwitched {
+        vault_path: std::path::PathBuf,
         projects: Vec<ProjectInfo>,
     },
     /// Result of `LoadHistory`.

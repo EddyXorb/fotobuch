@@ -39,11 +39,9 @@ pub fn show(
                     .button("  Open an existing folder  ")
                     .on_hover_text("Open a folder that already contains a fotobuch vault")
                     .clicked()
+                    && let Some(picked) = rfd::FileDialog::new().pick_folder()
                 {
-                    interaction.toasts.push(
-                        "To open an existing vault, restart with: fotobuch-gui --vault <path>"
-                            .to_string(),
-                    );
+                    cmds.push(crate::task::BackgroundTask::SwitchVault(picked));
                 }
 
                 ui.add_space(12.0);
@@ -60,7 +58,4 @@ pub fn show(
                 });
             });
         });
-
-    // Suppress unused `cmds` warning — future: vault switch could push tasks
-    let _ = cmds;
 }
