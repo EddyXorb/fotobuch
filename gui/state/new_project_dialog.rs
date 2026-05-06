@@ -21,6 +21,7 @@ impl NewProjectDialogState {
             height_mm: "297".to_string(),
             bleed_mm: "3".to_string(),
             margin_mm: "10".to_string(),
+            spine_value: "2".to_string(),
             ..Default::default()
         };
     }
@@ -39,5 +40,6 @@ mod tests {
         assert!(s.open);
         assert!(s.name.is_empty());
         assert_eq!(s.width_mm, "210");
+        assert_eq!(s.spine_value, "2");
     }
 }
