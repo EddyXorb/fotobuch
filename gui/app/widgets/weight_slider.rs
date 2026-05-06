@@ -28,7 +28,6 @@ pub fn show(
                         .step_by(0.1)
                         .vertical();
                     let resp = ui.add(slider);
-                    ui.label(format!("{:.1}", current_value));
 
                     if resp.drag_stopped() {
                         cmds.push(BackgroundTask::SetWeight {

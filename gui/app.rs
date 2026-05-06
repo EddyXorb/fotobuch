@@ -329,6 +329,11 @@ fn mark_dirty(dirty: &mut [bool], task: &BackgroundTask) {
                 }
             }
         }
+        BackgroundTask::SetWeight { page, .. } => {
+            if let Some(d) = dirty.get_mut(*page) {
+                *d = true;
+            }
+        }
         BackgroundTask::Undo
         | BackgroundTask::Redo
         | BackgroundTask::ConfigSet { .. }
@@ -343,7 +348,6 @@ fn mark_dirty(dirty: &mut [bool], task: &BackgroundTask) {
         | BackgroundTask::RemovePhotos { .. }
         | BackgroundTask::SetPageMode { .. }
         | BackgroundTask::PagePos { .. }
-        | BackgroundTask::SetWeight { .. }
         | BackgroundTask::ProjectNew { .. }
         | BackgroundTask::ProjectSwitch { .. } => {
             dirty.fill(true);
