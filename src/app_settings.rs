@@ -90,11 +90,6 @@ mod tests {
     use super::*;
     use tempfile::TempDir;
 
-    fn with_tmp_settings<F: FnOnce(&Path) -> AppSettings>(f: F) {
-        let tmp = TempDir::new().unwrap();
-        let _ = f(tmp.path());
-    }
-
     #[test]
     fn app_settings_round_trip_preserves_recent_list_order() {
         let tmp = TempDir::new().unwrap();
@@ -153,5 +148,72 @@ mod tests {
         s.purge_vault(&v2); // v2 was last_vault
         assert!(!s.recent_vaults.contains(&v2));
         assert_eq!(s.last_vault, Some(v1));
+    }
+
+    #[test]
+    fn purge_vault_sets_last_to_none_when_list_becomes_empty() {
+        let mut s = AppSettings::default();
+        let v = PathBuf::from("/only");
+        s.add_recent_vault(&v);
+        s.purge_vault(&v);
+        assert!(s.recent_vaults.is_empty());
+        assert_eq!(s.last_vault, None);
+    }
+
+    #[test]
+    fn purge_vault_does_not_change_last_when_vault_is_not_last() {
+        let mut s = AppSettings::default();
+        let v1 = PathBuf::from("/a");
+        let v2 = PathBuf::from("/b");
+        s.add_recent_vault(&v1);
+        s.add_recent_vault(&v2); // v2 is last_vault now
+        s.purge_vault(&v1); // purge a non-last entry
+        assert!(!s.recent_vaults.contains(&v1));
+        assert_eq!(s.last_vault, Some(v2)); // unchanged
+    }
+
+    #[test]
+    fn purge_vault_noop_when_vault_not_present() {
+        let mut s = AppSettings::default();
+        let v = PathBuf::from("/present");
+        let absent = PathBuf::from("/absent");
+        s.add_recent_vault(&v);
+        s.purge_vault(&absent);
+        assert_eq!(s.recent_vaults, vec![v.clone()]);
+        assert_eq!(s.last_vault, Some(v));
+    }
+
+    #[test]
+    fn add_recent_vault_sets_last_vault() {
+        let mut s = AppSettings::default();
+        let v = PathBuf::from("/x");
+        s.add_recent_vault(&v);
+        assert_eq!(s.last_vault, Some(v));
+    }
+
+    #[test]
+    fn default_state_is_empty() {
+        let s = AppSettings::default();
+        assert_eq!(s.version, SCHEMA_VERSION);
+        assert!(s.last_vault.is_none());
+        assert!(s.recent_vaults.is_empty());
+    }
+
+    #[test]
+    fn save_and_load_round_trip() {
+        let tmp = TempDir::new().unwrap();
+        // Override the settings path by serializing/deserializing directly to a known path.
+        let mut s = AppSettings::default();
+        s.add_recent_vault(&PathBuf::from("/vault/a"));
+        s.add_recent_vault(&PathBuf::from("/vault/b"));
+
+        let path = tmp.path().join("settings.toml");
+        let content = toml::to_string_pretty(&s).unwrap();
+        std::fs::write(&path, &content).unwrap();
+        let loaded: AppSettings = toml::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+
+        assert_eq!(loaded.last_vault, s.last_vault);
+        assert_eq!(loaded.recent_vaults, s.recent_vaults);
+        assert_eq!(loaded.version, SCHEMA_VERSION);
     }
 }
