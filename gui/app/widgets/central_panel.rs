@@ -17,11 +17,20 @@ pub fn draw(
     interaction: &mut InteractionState,
     cmds: &mut Vec<BackgroundTask>,
 ) {
-    egui::CentralPanel::default()
+    let resp = egui::CentralPanel::default()
         .frame(egui::Frame::new().fill(FbTheme::BG))
         .show_inside(ui, |ui| {
             if let Some(h) = draw_pages::draw_pages(ui, data, interaction, cmds) {
                 interaction.hovered = Some(h);
             }
+            ui.max_rect()
         });
+    let panel_rect = resp.inner;
+    if ui.rect_contains_pointer(panel_rect) {
+        interaction.help.hovered_widget = Some(("central-page", panel_rect));
+    }
+    if interaction.help.highlighted == Some("central-page") {
+        let time = ui.ctx().input(|i| i.time);
+        crate::app::help::draw_glow(ui.painter(), panel_rect, time);
+    }
 }

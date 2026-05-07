@@ -1,30 +1,33 @@
 # GUI Overview
 
-The fotobuch GUI is an immediate-mode desktop application built with egui/eframe.
+fotobuch is a photo book layout tool. You bring in your photos, the program arranges them across pages automatically, and you export a print-ready PDF — all without any manual design work. The GUI is the main way to work with fotobuch interactively.
 
-## Layout
+## Window layout
 
-```
-┌──────────────────────────────────────────────────────────┐
-│  Toolbar                                                  │
-├───────────────┬──────────────────────────┬───────────────┤
-│               │                          │               │
-│  Pool panel   │    Central panel         │  Nav strip    │
-│  (left)       │    (canvas)              │  (right)      │
-│               │                          │               │
-└───────────────┴──────────────────────────┴───────────────┘
-│  Status bar                                               │
-└──────────────────────────────────────────────────────────┘
-```
+![App window divided into toolbar at top, photo pool on the left, central canvas in the middle, nav strip on the right, and status bar at the bottom](../assets/gui-layout.svg)
 
-## Workflow
+The window has five areas:
 
-1. **Add photos** — `Ctrl+O` or the **Add** button opens a folder picker. Selected photos land in the Pool panel.
-2. **Place photos** — drag from the Pool onto a page, or select pool photos and press **P** to auto-distribute.
-3. **Rebuild layout** — select pages and press **R**, or use the **Rebuild** button. The planner re-fits photos to slots.
-4. **Adjust manually** — switch a page to Manual mode (click the mode pill or press **A**) to drag and resize slots with the right mouse button.
-5. **Export** — press **Ctrl+Shift+B** or click **Release** to generate the final PDF.
+| Area | Position | Purpose |
+|------|----------|---------|
+| **Toolbar** | Top | Quick access to all main actions |
+| **Photo Pool** | Left | Your imported photos |
+| **Central Panel** | Centre | The page canvas — what your book will look like |
+| **Nav Strip** | Right | Miniature page overview for jumping around |
+| **Status bar** | Bottom | Current state and progress messages |
 
-## Projects and Vaults
+## How to create a photo book
 
-A *vault* is a git-managed folder that holds one or more *projects* (branches named `fotobuch/<name>`). Use the project dropdown in the toolbar to switch or create projects, or switch to a different vault entirely.
+fotobuch works in four steps:
+
+**1. Start a project** — When you first open the app, choose *New project* from the welcome screen and give it a name. Projects are saved automatically as you work.
+
+**2. Add your photos** — Click **Add** (or press `Ctrl+O`) and pick a folder. fotobuch imports all photos from that folder into the Photo Pool on the left. You can add more folders at any time.
+
+**3. Place photos on pages** — Drag photos from the Photo Pool onto a page in the canvas, or press **P** to let fotobuch distribute them automatically across new pages. The program figures out the best arrangement for each page.
+
+**4. Fine-tune and export** — Browse the pages in the Central Panel and the Nav Strip. If a page does not look right, select it and press **R** to rebuild just that page. When you are happy, click **Release** (or press `Ctrl+Shift+B`) to build the final PDF. The PDF is saved in your project folder.
+
+## Multiple projects
+
+You can keep several photo books — for example one per year or one per event. Use the project dropdown at the top-left of the toolbar to switch between projects or create new ones. All projects in the same folder are kept together, so opening that folder next time shows all of them.

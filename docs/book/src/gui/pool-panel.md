@@ -1,23 +1,31 @@
-# Pool Panel
+# Photo Pool
 
-The Pool panel (left side) shows all photos that have been added to the current project but not yet placed, plus photos that are already placed on a page.
+The Photo Pool is the panel on the left side of the window. It shows all the photos you have imported into the current project. Think of it as your working collection — photos wait here until you put them on a page, and you can add more at any time.
 
-## Interaction
+## Working with photos
 
 | Action | Result |
 |--------|--------|
 | Click a photo | Select it (deselects others) |
-| Ctrl+click | Toggle selection |
-| Shift+click | Extend selection to clicked item |
-| Ctrl+A (cursor in Pool) | Select all pool photos |
-| Drag selected photos | Start a pool drag — drop on a page or a drop zone |
-| Delete (with pool photos selected) | Remove photos from the project |
+| `Ctrl`+click | Add or remove a photo from the selection |
+| `Shift`+click | Select a range of photos at once |
+| `Ctrl+A` (cursor in Pool) | Select all photos |
+| Drag one or more photos | Carry them over to a page or a new-page drop area |
+| `Delete` (with photos selected) | Remove selected photos from the project |
+
+## Dragging photos onto pages
+
+To place a photo on a specific page, click it to select it (or select several), then drag it over to that page in the Central Panel. When you release the mouse, fotobuch places the photo in the next available slot.
+
+You can also drag photos to the dashed area between pages. Dropping there creates a brand new page and puts your photos on it.
+
+If you do not want to drag, select the photos and press **P** — fotobuch will distribute them automatically across the book.
 
 ## Photo states
 
-- **Unplaced** — not assigned to any slot; shown normally.
-- **Placed** — assigned to one or more slots; shown with a faint badge.
+- **Unplaced** — the photo has not been put on any page yet; shown normally.
+- **Placed** — the photo is already on one or more pages; shown with a small badge.
 
 ## Adding more photos
 
-Use **Add** (`Ctrl+O`) to open a folder picker and import additional photos. Duplicate files (same hash) are skipped automatically.
+Click **Add** in the toolbar (or press `Ctrl+O`) to open a folder picker and import additional photos. Photos you have already imported are recognised automatically and skipped, even if you pick the same folder again.

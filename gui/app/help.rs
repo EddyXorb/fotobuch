@@ -71,26 +71,11 @@ pub fn chips_for_chapter(chapter_slug: &str) -> impl Iterator<Item = (&'static s
         .map(|&(phrase, slug)| (phrase, slug))
 }
 
-/// Draw a pulsing golden glow ring around `rect` when a widget is highlighted.
+/// Draw a pulsing golden filled overlay on `rect` when a widget is highlighted.
 pub fn draw_glow(painter: &egui::Painter, rect: egui::Rect, time: f64) {
     const ACCENT: egui::Color32 = egui::Color32::from_rgb(0xe0, 0x88, 0x40);
-    let t = (time * 5.0).sin() as f32;
-    let outer_alpha = ((0.25 + 0.15 * t) * 255.0) as u8;
-    let inner_alpha = ((0.45 + 0.20 * t) * 255.0) as u8;
-    let outer_color =
-        egui::Color32::from_rgba_unmultiplied(ACCENT.r(), ACCENT.g(), ACCENT.b(), outer_alpha);
-    let inner_color =
-        egui::Color32::from_rgba_unmultiplied(ACCENT.r(), ACCENT.g(), ACCENT.b(), inner_alpha);
-    painter.rect_stroke(
-        rect.expand(4.0),
-        4.0,
-        egui::Stroke::new(2.0, outer_color),
-        egui::StrokeKind::Outside,
-    );
-    painter.rect_stroke(
-        rect.expand(1.5),
-        2.0,
-        egui::Stroke::new(1.5, inner_color),
-        egui::StrokeKind::Outside,
-    );
+    let t = (time * 3.0).sin() as f32;
+    let alpha = ((0.12 + 0.08 * t) * 255.0) as u8;
+    let overlay = egui::Color32::from_rgba_unmultiplied(ACCENT.r(), ACCENT.g(), ACCENT.b(), alpha);
+    painter.rect_filled(rect, 0.0, overlay);
 }

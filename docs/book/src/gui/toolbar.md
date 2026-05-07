@@ -1,19 +1,19 @@
 # Toolbar
 
-The toolbar runs along the top of the window.
+The toolbar gives you quick access to everything you need: importing photos, laying them out, undoing mistakes, and exporting the finished book. It runs along the very top of the window and is always visible.
 
-## Controls (left to right)
+## Buttons at a glance
 
-| Control | Description |
-|---------|-------------|
-| Project dropdown | Shows the active project name; opens a list to switch/create projects or vaults |
-| **Add** | Import photos from a folder (`Ctrl+O`) |
-| **Place** | Place selected pool photos onto the hovered page, or auto-distribute (`P`) |
-| **Rebuild** | Replan selected pages (shows count), or all pages if none selected (`R`) |
-| **Release** | Build the final release PDF (`Ctrl+Shift+B`) |
-| ↩ / ↪ | Undo (`Ctrl+Z`) / Redo (`Ctrl+Y` or `Ctrl+Shift+Z`) |
-| **⏱ History** | Toggle the commit history panel |
-| **⚙ Config** | Toggle the project configuration panel (`Ctrl+,`) |
-| **Slot info** checkbox | Overlay slot addresses and weights on the page preview |
-| **⇄ Swap** / **→ Move** | Drag mode toggle (also `M`) |
-| **?** | Open in-app help (`F1`) |
+| Button | Shortcut | What it does |
+|--------|----------|-------------|
+| Project dropdown | — | Switch between projects or create a new one → [details](toolbar/project.md) |
+| **Add** | `Ctrl+O` | Import photos from a folder → [details](toolbar/add.md) |
+| **Place** | `P` | Put selected photos onto a page → [details](toolbar/place.md) |
+| **Rebuild** | `R` | Re-calculate the layout for selected pages → [details](toolbar/rebuild.md) |
+| **Release** | `Ctrl+Shift+B` | Build and save the final PDF → [details](toolbar/release.md) |
+| ↩ Undo / ↪ Redo | `Ctrl+Z` / `Ctrl+Y` | Step backwards or forwards through your changes → [details](toolbar/history.md) |
+| **⏱ History** | — | Show a list of recent changes → [details](toolbar/history.md) |
+| **⚙ Config** | `Ctrl+,` | Open project settings → [details](toolbar/config.md) |
+| **Slot info** | — | Show technical slot information on page previews |
+| **⇄ Swap / → Move** | `M` | Choose how dragging rearranges slots → [details](toolbar/drag-mode.md) |
+| **?** | `F1` | Open in-app help |

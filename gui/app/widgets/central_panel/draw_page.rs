@@ -98,18 +98,12 @@ pub(super) fn draw_page(
         cmds,
     );
 
-    // Register for help lens mode.
-    if ui.rect_contains_pointer(page_rect) {
-        interaction.help.hovered_widget = Some(("central-page", page_rect));
-    } else if ui.rect_contains_pointer(hud_rect) {
+    // Register HUD for help lens mode.
+    if ui.rect_contains_pointer(hud_rect) {
         interaction.help.hovered_widget = Some(("central-hud", hud_rect));
     }
-
-    // Golden glow highlight for keyword chips.
-    let time = ui.ctx().input(|i| i.time);
-    if interaction.help.highlighted == Some("central-page") {
-        crate::app::help::draw_glow(ui.painter(), page_rect, time);
-    } else if interaction.help.highlighted == Some("central-hud") {
+    if interaction.help.highlighted == Some("central-hud") {
+        let time = ui.ctx().input(|i| i.time);
         crate::app::help::draw_glow(ui.painter(), hud_rect, time);
     }
 
