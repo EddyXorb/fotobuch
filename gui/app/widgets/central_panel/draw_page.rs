@@ -154,17 +154,15 @@ fn draw_hud(
         PageMode::Manual => FbTheme::MANUAL,
     };
 
-    // How expanded is the pill: 0.0 = collapsed dot, 1.0 = fully open.
-    let expand_frac = ((pill_width - 10.0) / (80.0 - 10.0)).clamp(0.0, 1.0);
-
-    // Height tracks pill_width up to 18 px so the shape stays a circle while
-    // collapsing and never jumps size at the dot/pill boundary.
-    let pill_height = pill_width.min(18.0);
-    let corner_radius = pill_height / 2.0;
+    // Idle = 18 px circle, hover = 80 px pill; height is always 18 px so the
+    // layout space claimed by allocate_rect never changes between frames.
+    const PILL_H: f32 = 18.0;
     let pill_rect = egui::Rect::from_center_size(
         egui::pos2(dot_center_x, center_y),
-        egui::vec2(pill_width, pill_height),
+        egui::vec2(pill_width, PILL_H),
     );
+    // 0.0 = idle circle, 1.0 = fully open pill.
+    let expand_frac = ((pill_width - 18.0) / (80.0 - 18.0)).clamp(0.0, 1.0);
 
     let lerp_u8 = |a: u8, b: u8, t: f32| (a as f32 + (b as f32 - a as f32) * t) as u8;
 
@@ -186,7 +184,7 @@ fn draw_hud(
 
     ui.painter().rect(
         pill_rect,
-        corner_radius,
+        PILL_H / 2.0,
         fill_color,
         egui::Stroke::new(1.0, stroke_color),
         egui::StrokeKind::Inside,
