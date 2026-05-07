@@ -153,39 +153,47 @@ fn draw_hud(
         PageMode::Auto => FbTheme::AUTO,
         PageMode::Manual => FbTheme::MANUAL,
     };
-    let pill_rect = egui::Rect::from_center_size(
-        egui::pos2(dot_center_x, center_y),
-        egui::vec2(pill_width, 18.0),
-    );
 
     // How expanded is the pill: 0.0 = collapsed dot, 1.0 = fully open.
     let expand_frac = ((pill_width - 10.0) / (80.0 - 10.0)).clamp(0.0, 1.0);
 
-    // Dot color lerps TEXT_MUTE → mode_color as the pill expands, so the dot
-    // stays gray at rest and picks up its hue only as it opens.
-    let lerp_u8 = |a: u8, b: u8, t: f32| (a as f32 + (b as f32 - a as f32) * t) as u8;
-    let dot_color = egui::Color32::from_rgba_unmultiplied(
-        lerp_u8(FbTheme::TEXT_MUTE.r(), mode_color.r(), expand_frac),
-        lerp_u8(FbTheme::TEXT_MUTE.g(), mode_color.g(), expand_frac),
-        lerp_u8(FbTheme::TEXT_MUTE.b(), mode_color.b(), expand_frac),
-        alpha_u8,
+    // Height tracks pill_width up to 18 px so the shape stays a circle while
+    // collapsing and never jumps size at the dot/pill boundary.
+    let pill_height = pill_width.min(18.0);
+    let corner_radius = pill_height / 2.0;
+    let pill_rect = egui::Rect::from_center_size(
+        egui::pos2(dot_center_x, center_y),
+        egui::vec2(pill_width, pill_height),
     );
 
-    if pill_width <= 12.0 {
-        let radius = pill_width / 2.0;
-        ui.painter()
-            .circle_filled(pill_rect.center(), radius, dot_color);
-    } else {
-        // Expanded pill
-        let pill_fill = FbTheme::with_alpha(mode_color, (alpha_u8 as f32 * 0.13) as u8);
-        let pill_stroke_color = FbTheme::with_alpha(mode_color, (alpha_u8 as f32 * 0.40) as u8);
-        ui.painter().rect(
-            pill_rect,
-            9.0,
-            pill_fill,
-            egui::Stroke::new(1.0, pill_stroke_color),
-            egui::StrokeKind::Inside,
-        );
+    let lerp_u8 = |a: u8, b: u8, t: f32| (a as f32 + (b as f32 - a as f32) * t) as u8;
+
+    // Fill: solid gray dot → translucent mode-colored pill.
+    let fill_r = lerp_u8(FbTheme::TEXT_MUTE.r(), mode_color.r(), expand_frac);
+    let fill_g = lerp_u8(FbTheme::TEXT_MUTE.g(), mode_color.g(), expand_frac);
+    let fill_b = lerp_u8(FbTheme::TEXT_MUTE.b(), mode_color.b(), expand_frac);
+    let fill_a = lerp_u8(alpha_u8, (alpha_u8 as f32 * 0.13) as u8, expand_frac);
+    let fill_color = egui::Color32::from_rgba_unmultiplied(fill_r, fill_g, fill_b, fill_a);
+
+    // Border: invisible at dot, mode-colored at pill.
+    let stroke_a = (alpha_u8 as f32 * 0.40 * expand_frac) as u8;
+    let stroke_color = egui::Color32::from_rgba_unmultiplied(
+        mode_color.r(),
+        mode_color.g(),
+        mode_color.b(),
+        stroke_a,
+    );
+
+    ui.painter().rect(
+        pill_rect,
+        corner_radius,
+        fill_color,
+        egui::Stroke::new(1.0, stroke_color),
+        egui::StrokeKind::Inside,
+    );
+
+    // Text fades in after the pill is wide enough to show it.
+    if expand_frac > 0.01 {
         let pill_label = match mode {
             PageMode::Auto => "✦ AUTO",
             PageMode::Manual => "✋ MANUAL",
