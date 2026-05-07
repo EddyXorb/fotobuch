@@ -1,11 +1,16 @@
-use crate::state::{ActiveDrag, DataState, DragMode, DragSource, InteractionState};
+mod hud;
+mod manual;
+mod overlays;
+
+use crate::state::{DataState, InteractionState, PageHudAnim};
 use crate::task::BackgroundTask;
 
-use super::super::geometry::{self, PageDimensions};
+use super::super::geometry::PageDimensions;
 use super::{draw_drag_ghosts, helpers};
 
+use hud::{HUD_GAP, HUD_HEIGHT};
+
 /// Returns `(hovered_slot, over_page, page_rect, cursor_mm)`.
-/// `cursor_mm` is the cursor in page-content mm coordinates (offset by bleed+margin).
 pub(super) fn draw_page(
     ui: &mut egui::Ui,
     data: &DataState,
@@ -13,8 +18,6 @@ pub(super) fn draw_page(
     page_idx: usize,
     cmds: &mut Vec<BackgroundTask>,
 ) -> (Option<usize>, bool, egui::Rect, (f32, f32)) {
-    ui.label(format!("Page {page_idx}"));
-
     let (width_mm, height_mm) = data.project.page_dimensions_mm(page_idx);
     let (bleed_mm, margin_mm) = data.project.page_bleed_margin_mm(page_idx);
     let dims = PageDimensions {
@@ -23,54 +26,82 @@ pub(super) fn draw_page(
         bleed_mm,
         margin_mm,
     };
-    let size = helpers::page_display_size(interaction.viewport.zoom, dims);
-    let page_rect = render_page_image(ui, data, page_idx, size);
+    let page_size = helpers::page_display_size(interaction.viewport.zoom, dims);
 
-    if let Some(layout_page) = data.project.layout.get(page_idx) {
-        draw_slot_overlays(ui, page_rect, data, interaction, page_idx, dims);
-        let (hovered_slot, over_page, cursor_mm) =
-            hit_test_pointer(ui, page_rect, layout_page, dims);
-        super::super::page_nav::draw_nav_selection_overlay(ui, interaction, page_idx, page_rect);
-        draw_page_move_highlight(ui, interaction, page_idx, page_rect, over_page);
-        draw_pool_drag_overlay(ui, interaction, page_idx, page_rect);
-        draw_drag_ghosts::draw_drag_ghosts(ui, data, interaction, page_idx, page_rect, dims);
+    let page_rect = render_page_image(ui, data, page_idx, page_size);
+    ui.add_space(HUD_GAP + HUD_HEIGHT);
 
-        // Manual-mode: hit-test on RMB press to set Pending drag; draw handles + overlay.
-        use fotobuch::dto_models::PageMode;
-        if layout_page.mode == PageMode::Manual {
-            let full_w_mm = dims.width_mm + 2.0 * dims.bleed_mm;
-            let pixel_per_mm = if full_w_mm > 0.0 {
-                page_rect.width() as f64 / full_w_mm
-            } else {
-                1.0
-            };
-            draw_manual_handles_and_overlay(
-                ui,
-                data,
-                interaction,
-                page_idx,
-                page_rect,
-                dims,
-                pixel_per_mm,
-            );
-        }
+    let block_bottom = page_rect.max.y + HUD_GAP + HUD_HEIGHT;
+    let block_rect =
+        egui::Rect::from_min_max(page_rect.min, egui::pos2(page_rect.max.x, block_bottom));
+    let hovered = ui
+        .ctx()
+        .input(|i| i.pointer.latest_pos().map(|p| block_rect.contains(p)))
+        .unwrap_or(false);
 
-        // Mode toggle badge — outside the page overlay to avoid capturing drop targets.
-        let (label, new_mode) = match layout_page.mode {
-            PageMode::Auto => ("[A]", PageMode::Manual),
-            PageMode::Manual => ("[M]", PageMode::Auto),
-        };
-        if ui.small_button(label).clicked() {
-            cmds.push(BackgroundTask::SetPageMode {
-                page: page_idx,
-                mode: new_mode,
-            });
-        }
-
-        (hovered_slot, over_page, page_rect, cursor_mm)
-    } else {
-        (None, false, page_rect, (0.0, 0.0))
+    let dt = ui.ctx().input(|i| i.unstable_dt).min(0.05);
+    let anim = interaction
+        .page_hud
+        .entry(page_idx)
+        .or_insert_with(PageHudAnim::default);
+    if anim.advance(hovered, dt) {
+        ui.ctx().request_repaint();
     }
+
+    let Some(layout_page) = data.project.layout.get(page_idx) else {
+        return (None, false, page_rect, (0.0, 0.0));
+    };
+
+    overlays::draw_slot_overlays(ui, page_rect, data, interaction, page_idx, dims);
+
+    let (hovered_slot, over_page, cursor_mm) = hit_test_pointer(ui, page_rect, layout_page, dims);
+
+    super::super::page_nav::draw_nav_selection_overlay(ui, interaction, page_idx, page_rect);
+    overlays::draw_page_move_highlight(ui, interaction, page_idx, page_rect, over_page);
+    overlays::draw_pool_drag_overlay(ui, interaction, page_idx, page_rect);
+    draw_drag_ghosts::draw_drag_ghosts(ui, data, interaction, page_idx, page_rect, dims);
+
+    use fotobuch::dto_models::PageMode;
+    if layout_page.mode == PageMode::Manual {
+        let full_w_mm = dims.width_mm + 2.0 * dims.bleed_mm;
+        let pixel_per_mm = if full_w_mm > 0.0 {
+            page_rect.width() as f64 / full_w_mm
+        } else {
+            1.0
+        };
+        manual::draw_manual_handles_and_overlay(
+            ui,
+            data,
+            interaction,
+            page_idx,
+            page_rect,
+            dims,
+            pixel_per_mm,
+        );
+    }
+
+    let (opacity, pill_w, actions_alpha, actions_offset) = {
+        let a = &interaction.page_hud[&page_idx];
+        (a.opacity, a.pill_width, a.actions_alpha, a.actions_offset)
+    };
+
+    let hud_rect = egui::Rect::from_min_size(
+        egui::pos2(page_rect.min.x, page_rect.max.y + HUD_GAP),
+        egui::vec2(page_rect.width(), HUD_HEIGHT),
+    );
+    hud::draw_hud(
+        ui,
+        hud_rect,
+        page_idx,
+        layout_page.mode,
+        opacity,
+        pill_w,
+        actions_alpha,
+        actions_offset,
+        cmds,
+    );
+
+    (hovered_slot, over_page, page_rect, cursor_mm)
 }
 
 fn render_page_image(
@@ -107,101 +138,13 @@ fn render_page_image(
     rect
 }
 
-fn draw_slot_overlays(
-    ui: &mut egui::Ui,
-    page_rect: egui::Rect,
-    data: &DataState,
-    interaction: &InteractionState,
-    page_idx: usize,
-    dims: PageDimensions,
-) {
-    let layout_page = match data.project.layout.get(page_idx) {
-        Some(lp) => lp,
-        None => return,
-    };
-
-    let is_slot_drag = matches!(
-        interaction.drag.active,
-        ActiveDrag::Dragging(DragSource::Slot { .. })
-    );
-    let is_swap_drag = is_slot_drag && interaction.drag.mode == DragMode::Swap;
-
-    // Suppress swap overlays when this page or the drag source page is Manual.
-    use fotobuch::dto_models::PageMode;
-    let src_is_manual =
-        if let ActiveDrag::Dragging(DragSource::Slot { src_page, .. }) = &interaction.drag.active {
-            data.project
-                .layout
-                .get(*src_page)
-                .map(|p| p.mode == PageMode::Manual)
-                .unwrap_or(false)
-        } else {
-            false
-        };
-    let this_is_manual = data
-        .project
-        .layout
-        .get(page_idx)
-        .map(|p| p.mode == PageMode::Manual)
-        .unwrap_or(false);
-    let is_swap_drag = is_swap_drag && !src_is_manual && !this_is_manual;
-
-    let drag_src_ratio: Option<f64> =
-        if let ActiveDrag::Dragging(DragSource::Slot {
-            src_page, src_slot, ..
-        }) = &interaction.drag.active
-        {
-            data.project
-                .layout
-                .get(*src_page)
-                .and_then(|p| p.slots.get(*src_slot))
-                .map(|s| s.width_mm / s.height_mm)
-        } else {
-            None
-        };
-
-    let painter = ui.painter();
-    let pointer_pos = ui.input(|i| i.pointer.latest_pos());
-    for (slot_idx, slot) in layout_page.slots.iter().enumerate() {
-        let slot_rect = geometry::slot_rect_on_screen(page_rect, dims, slot);
-        let is_hovered = pointer_pos.map(|p| slot_rect.contains(p)).unwrap_or(false);
-
-        if is_swap_drag {
-            let target_ratio = slot.width_mm / slot.height_mm;
-            let same_ratio =
-                drag_src_ratio.is_some_and(|r| geometry::slot_ratio_similar(r, target_ratio));
-            let alpha = if is_hovered { 220 } else { 140 };
-            let color = if same_ratio {
-                egui::Color32::from_rgba_unmultiplied(0, 200, 80, alpha)
-            } else {
-                egui::Color32::from_rgba_unmultiplied(220, 50, 50, alpha)
-            };
-            painter.rect_filled(slot_rect, 0.0, color);
-        } else if is_hovered && !is_slot_drag {
-            painter.rect_filled(
-                slot_rect,
-                0.0,
-                egui::Color32::from_rgba_unmultiplied(0, 120, 255, 38),
-            );
-        }
-
-        if interaction.selections.slots.is_selected(page_idx, slot_idx) {
-            painter.rect_stroke(
-                slot_rect,
-                0.0,
-                egui::Stroke::new(2.0, egui::Color32::from_rgb(50, 200, 80)),
-                egui::StrokeKind::Middle,
-            );
-        }
-    }
-}
-
 fn hit_test_pointer(
     ui: &mut egui::Ui,
     page_rect: egui::Rect,
     layout_page: &fotobuch::dto_models::LayoutPage,
     dims: PageDimensions,
 ) -> (Option<usize>, bool, (f32, f32)) {
+    use super::super::geometry;
     match ui.input(|i| i.pointer.latest_pos()) {
         None => (None, false, (0.0, 0.0)),
         Some(pos) => {
@@ -217,195 +160,5 @@ fn hit_test_pointer(
             };
             (slot, over, cursor_mm)
         }
-    }
-}
-
-fn draw_page_move_highlight(
-    ui: &mut egui::Ui,
-    interaction: &InteractionState,
-    page_idx: usize,
-    page_rect: egui::Rect,
-    over_page: bool,
-) {
-    let is_move_drag = matches!(
-        interaction.drag.active,
-        ActiveDrag::Dragging(DragSource::Slot { .. })
-    ) && interaction.drag.mode == DragMode::Move;
-    if !is_move_drag || !over_page {
-        return;
-    }
-    let is_src_page = matches!(
-        interaction.drag.active,
-        ActiveDrag::Dragging(DragSource::Slot { src_page, .. }) if src_page == page_idx
-    );
-    if is_src_page {
-        return;
-    }
-    ui.painter().rect_stroke(
-        page_rect,
-        0.0,
-        egui::Stroke::new(3.0, egui::Color32::from_rgba_unmultiplied(0, 200, 80, 180)),
-        egui::StrokeKind::Inside,
-    );
-}
-
-fn draw_pool_drag_overlay(
-    ui: &mut egui::Ui,
-    interaction: &InteractionState,
-    page_idx: usize,
-    page_rect: egui::Rect,
-) {
-    if matches!(
-        interaction.drag.active,
-        ActiveDrag::Dragging(DragSource::Pool { .. })
-    ) && interaction.hovered.as_ref().and_then(|h| h.central_page()) == Some(page_idx)
-    {
-        ui.painter().rect_filled(
-            page_rect,
-            0.0,
-            egui::Color32::from_rgba_unmultiplied(64, 128, 255, 48),
-        );
-    }
-}
-
-/// Returns the 8×8 px rect at the SE corner of a slot rect.
-fn se_corner_rect(slot_rect: egui::Rect) -> egui::Rect {
-    const SZ: f32 = 8.0;
-    egui::Rect::from_center_size(slot_rect.right_bottom(), egui::vec2(SZ, SZ))
-}
-
-/// Draw SE-corner handles and the active-drag overlay for a Manual-mode page.
-/// On RMB press (Move mode only) sets `ActiveDrag::Pending` for the hit slot.
-#[allow(clippy::too_many_arguments)]
-fn draw_manual_handles_and_overlay(
-    ui: &mut egui::Ui,
-    data: &DataState,
-    interaction: &mut InteractionState,
-    page_idx: usize,
-    page_rect: egui::Rect,
-    dims: PageDimensions,
-    pixel_per_mm: f64,
-) {
-    let layout_page = match data.project.layout.get(page_idx) {
-        Some(lp) => lp,
-        None => return,
-    };
-
-    let cursor = ui.input(|i| i.pointer.hover_pos()).unwrap_or_default();
-    let rmb_pressed = ui.input(|i| i.pointer.secondary_pressed());
-
-    // On RMB press in Move mode: pick topmost slot and start a Pending drag.
-    if rmb_pressed
-        && interaction.drag.mode == DragMode::Move
-        && matches!(interaction.drag.active, ActiveDrag::Idle)
-    {
-        for (slot_idx, slot) in layout_page.slots.iter().enumerate().rev() {
-            let slot_rect = geometry::slot_rect_on_screen(page_rect, dims, slot);
-            let se = se_corner_rect(slot_rect);
-            let source = if se.contains(cursor) {
-                Some(DragSource::ManualResize {
-                    page: page_idx,
-                    slot: slot_idx,
-                    pointer_origin: cursor,
-                    slot_origin_mm: (slot.x_mm, slot.y_mm, slot.width_mm, slot.height_mm),
-                    pixel_per_mm,
-                })
-            } else if slot_rect.contains(cursor) {
-                Some(DragSource::ManualMove {
-                    page: page_idx,
-                    slot: slot_idx,
-                    pointer_origin: cursor,
-                    slot_origin_mm: (slot.x_mm, slot.y_mm),
-                    pixel_per_mm,
-                })
-            } else {
-                None
-            };
-            if let Some(src) = source {
-                interaction.drag.active = ActiveDrag::Pending {
-                    source: src,
-                    press_pos: cursor,
-                    press_instant: std::time::Instant::now(),
-                };
-                break;
-            }
-        }
-    }
-
-    // Draw SE-corner handles only when not actively dragging a manual slot.
-    let manual_dragging = matches!(
-        &interaction.drag.active,
-        ActiveDrag::Dragging(DragSource::ManualMove { page, .. } | DragSource::ManualResize { page, .. })
-            if *page == page_idx
-    );
-    if !manual_dragging {
-        for slot in &layout_page.slots {
-            let slot_rect = geometry::slot_rect_on_screen(page_rect, dims, slot);
-            let se = se_corner_rect(slot_rect);
-            ui.painter().rect_filled(
-                se,
-                0.0,
-                egui::Color32::from_rgba_unmultiplied(255, 200, 0, 200),
-            );
-        }
-    }
-
-    // Draw optimistic overlay (preview rect) for an active manual drag on this page.
-    match &interaction.drag.active {
-        ActiveDrag::Dragging(DragSource::ManualMove {
-            page,
-            slot,
-            pointer_origin,
-            slot_origin_mm,
-            pixel_per_mm: ppm,
-        }) if *page == page_idx => {
-            let delta_px = cursor - *pointer_origin;
-            let dx_mm = delta_px.x as f64 / ppm;
-            let dy_mm = delta_px.y as f64 / ppm;
-            if let Some(slot_data) = layout_page.slots.get(*slot) {
-                let preview = fotobuch::dto_models::Slot {
-                    x_mm: slot_origin_mm.0 + dx_mm,
-                    y_mm: slot_origin_mm.1 + dy_mm,
-                    width_mm: slot_data.width_mm,
-                    height_mm: slot_data.height_mm,
-                };
-                let r = geometry::slot_rect_on_screen(page_rect, dims, &preview);
-                ui.painter().rect_stroke(
-                    r,
-                    0.0,
-                    egui::Stroke::new(2.0, egui::Color32::from_rgb(255, 128, 0)),
-                    egui::StrokeKind::Outside,
-                );
-            }
-        }
-        ActiveDrag::Dragging(DragSource::ManualResize {
-            page,
-            slot,
-            pointer_origin,
-            slot_origin_mm,
-            pixel_per_mm: ppm,
-        }) if *page == page_idx => {
-            let delta_px = cursor - *pointer_origin;
-            let (_, _, new_w, new_h) =
-                super::manual_resize::compute_se(*slot_origin_mm, delta_px, *ppm);
-            if let Some(slot_data) = layout_page.slots.get(*slot) {
-                let preview = fotobuch::dto_models::Slot {
-                    x_mm: slot_origin_mm.0,
-                    y_mm: slot_origin_mm.1,
-                    width_mm: new_w,
-                    height_mm: new_h,
-                };
-                let r = geometry::slot_rect_on_screen(page_rect, dims, &preview);
-                ui.painter().rect_stroke(
-                    r,
-                    0.0,
-                    egui::Stroke::new(2.0, egui::Color32::from_rgb(0, 200, 255)),
-                    egui::StrokeKind::Outside,
-                );
-                let _ = slot_data;
-            }
-            let _ = new_h;
-        }
-        _ => {}
     }
 }
