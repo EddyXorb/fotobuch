@@ -26,10 +26,17 @@ pub(super) fn draw_page(
     };
     let page_size = helpers::page_display_size(interaction.viewport.zoom, dims);
 
-    // Allocate the whole block (page + gap + HUD) to detect hover over the row.
-    let block_size = egui::vec2(page_size.x, page_size.y + HUD_GAP + HUD_HEIGHT);
-    let (block_rect, _) = ui.allocate_exact_size(block_size, egui::Sense::hover());
-    // Use raw pointer for hover — same pattern as elsewhere in this panel.
+    // Render the page image through the normal egui layout so cursor advances
+    // exactly by page_size — no pre-allocation block that interferes later.
+    let page_rect = render_page_image(ui, data, page_idx, page_size);
+
+    // Reserve space for the gap + HUD strip below the page.
+    ui.add_space(HUD_GAP + HUD_HEIGHT);
+
+    // Hover over the combined block: page rect + HUD area below it.
+    let block_bottom = page_rect.max.y + HUD_GAP + HUD_HEIGHT;
+    let block_rect =
+        egui::Rect::from_min_max(page_rect.min, egui::pos2(page_rect.max.x, block_bottom));
     let hovered = ui
         .ctx()
         .input(|i| i.pointer.latest_pos().map(|p| block_rect.contains(p)))
@@ -45,11 +52,6 @@ pub(super) fn draw_page(
     if still_moving {
         ui.ctx().request_repaint();
     }
-
-    // Draw page image inside the block rect (top portion).
-    let page_rect = egui::Rect::from_min_size(block_rect.min, page_size);
-    let child_ui_rect = page_rect;
-    let page_rect = render_page_image(ui, data, page_idx, child_ui_rect);
 
     if let Some(layout_page) = data.project.layout.get(page_idx) {
         draw_slot_overlays(ui, page_rect, data, interaction, page_idx, dims);
@@ -85,11 +87,9 @@ pub(super) fn draw_page(
             (a.opacity, a.pill_width, a.actions_alpha, a.actions_offset)
         };
 
-        // HUD strip: placed in the bottom 24px of the block.
-        let hud_top = block_rect.min.y + page_size.y + HUD_GAP;
         let hud_rect = egui::Rect::from_min_size(
-            egui::pos2(block_rect.min.x, hud_top),
-            egui::vec2(block_rect.width(), HUD_HEIGHT),
+            egui::pos2(page_rect.min.x, page_rect.max.y + HUD_GAP),
+            egui::vec2(page_rect.width(), HUD_HEIGHT),
         );
         draw_hud(
             ui,
@@ -284,19 +284,16 @@ fn render_page_image(
     ui: &mut egui::Ui,
     data: &DataState,
     page_idx: usize,
-    page_rect: egui::Rect,
+    size: egui::Vec2,
 ) -> egui::Rect {
-    let size = page_rect.size();
     let rect = if let Some(tex) = &data.pages.textures[page_idx] {
-        ui.put(
-            page_rect,
-            egui::Image::from_texture(tex).fit_to_exact_size(size),
-        )
-        .rect
+        ui.add(egui::Image::from_texture(tex).fit_to_exact_size(size))
+            .rect
     } else {
+        let (r, _) = ui.allocate_exact_size(size, egui::Sense::hover());
         ui.painter()
-            .rect_filled(page_rect, 0.0, egui::Color32::from_gray(200));
-        page_rect
+            .rect_filled(r, 0.0, egui::Color32::from_gray(200));
+        r
     };
 
     if data.pages.dirty.get(page_idx).copied().unwrap_or(false) {
