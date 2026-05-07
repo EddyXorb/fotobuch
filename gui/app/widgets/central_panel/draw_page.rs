@@ -123,7 +123,6 @@ fn draw_hud(
 ) {
     use fotobuch::dto_models::PageMode;
 
-    // let painter = ui.painter();
     let center_y = hud_rect.center().y;
 
     // The dot/pill is anchored at the horizontal center of the HUD (below page center).
@@ -135,8 +134,8 @@ fn draw_hud(
 
     let alpha_u8 = (opacity * 255.0).clamp(0.0, 255.0) as u8;
 
-    // P{idx:02} label — always gap+half-pill to the left of dot center.
-    let label_str = format!("P{page_idx:02}");
+    // Page number label — always gap+half-pill to the left of dot center.
+    let label_str = format!("{}", page_idx + 1);
     let label_center = egui::pos2(
         dot_center_x - pill_width / 2.0 - gap - label_w / 2.0,
         center_y,
@@ -159,15 +158,23 @@ fn draw_hud(
         egui::vec2(pill_width, 18.0),
     );
 
-    // Pill or dot, depending on animated width.
+    // How expanded is the pill: 0.0 = collapsed dot, 1.0 = fully open.
+    let expand_frac = ((pill_width - 10.0) / (80.0 - 10.0)).clamp(0.0, 1.0);
+
+    // Dot color lerps TEXT_MUTE → mode_color as the pill expands, so the dot
+    // stays gray at rest and picks up its hue only as it opens.
+    let lerp_u8 = |a: u8, b: u8, t: f32| (a as f32 + (b as f32 - a as f32) * t) as u8;
+    let dot_color = egui::Color32::from_rgba_unmultiplied(
+        lerp_u8(FbTheme::TEXT_MUTE.r(), mode_color.r(), expand_frac),
+        lerp_u8(FbTheme::TEXT_MUTE.g(), mode_color.g(), expand_frac),
+        lerp_u8(FbTheme::TEXT_MUTE.b(), mode_color.b(), expand_frac),
+        alpha_u8,
+    );
+
     if pill_width <= 12.0 {
-        // Dot
         let radius = pill_width / 2.0;
-        ui.painter().circle_filled(
-            pill_rect.center(),
-            radius,
-            FbTheme::with_alpha(mode_color, alpha_u8),
-        );
+        ui.painter()
+            .circle_filled(pill_rect.center(), radius, dot_color);
     } else {
         // Expanded pill
         let pill_fill = FbTheme::with_alpha(mode_color, (alpha_u8 as f32 * 0.13) as u8);
@@ -183,14 +190,12 @@ fn draw_hud(
             PageMode::Auto => "✦ AUTO",
             PageMode::Manual => "✋ MANUAL",
         };
-        // Fade text in proportionally to pill expansion.
-        let text_alpha = ((pill_width - 12.0) / (80.0 - 12.0)).clamp(0.0, 1.0);
         ui.painter().text(
             pill_rect.center(),
             egui::Align2::CENTER_CENTER,
             pill_label,
             egui::FontId::monospace(10.0),
-            FbTheme::with_alpha(mode_color, (text_alpha * alpha_u8 as f32) as u8),
+            FbTheme::with_alpha(mode_color, (expand_frac * alpha_u8 as f32) as u8),
         );
     }
 
