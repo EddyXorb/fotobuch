@@ -1,9 +1,11 @@
 use crate::state::{DataState, HoveredTarget, InteractionState};
 use crate::task::BackgroundTask;
 
+use super::super::geometry::PageDimensions;
 use super::super::page_nav;
-use super::draw_new_page_slot;
+use super::draw_new_page_area;
 use super::draw_page;
+use super::helpers;
 
 pub(super) fn draw_pages(
     ui: &mut egui::Ui,
@@ -18,7 +20,6 @@ pub(super) fn draw_pages(
         (i.pointer.secondary_down() || i.pointer.secondary_released()) && !i.pointer.primary_down()
     });
 
-    // Ease-scroll: interpolate toward ease_target each frame.
     if let Some(target_y) = interaction.viewport.scroll.ease_target {
         let current = interaction.viewport.scroll.scroll_y;
         let next = current + (target_y - current) * 0.25;
@@ -45,10 +46,10 @@ pub(super) fn draw_pages(
         ui.vertical_centered(|ui| {
             ui.add_space(36.0);
 
-            // Drop zone before page 0 — omitted when a cover is active.
             if !data.project.has_cover() {
-                let (_, slot_hovered) = draw_new_page_slot::draw(ui, 0, interaction);
-                if hovered.is_none() && slot_hovered {
+                let page0_width = page_display_width(data, interaction, 0);
+                let (_, area_hovered) = draw_new_page_area::draw(ui, 0, interaction, page0_width);
+                if hovered.is_none() && area_hovered {
                     hovered = Some(HoveredTarget::NewPageSlot { at_position: 0 });
                 }
             }
@@ -75,9 +76,9 @@ pub(super) fn draw_pages(
                 }
                 page_nav::apply_scroll_if_needed(ui, interaction, i, page_rect);
 
-                // Drop zone after each page (including after the last page).
-                let (_, slot_hovered) = draw_new_page_slot::draw(ui, i + 1, interaction);
-                if hovered.is_none() && slot_hovered {
+                let (_, area_hovered) =
+                    draw_new_page_area::draw(ui, i + 1, interaction, page_rect.width());
+                if hovered.is_none() && area_hovered {
                     hovered = Some(HoveredTarget::NewPageSlot { at_position: i + 1 });
                 }
             }
@@ -107,4 +108,19 @@ pub(super) fn draw_pages(
     }
 
     hovered
+}
+
+fn page_display_width(data: &DataState, interaction: &InteractionState, page_idx: usize) -> f32 {
+    if page_idx >= data.pages.textures.len() {
+        return 300.0;
+    }
+    let (width_mm, height_mm) = data.project.page_dimensions_mm(page_idx);
+    let (bleed_mm, margin_mm) = data.project.page_bleed_margin_mm(page_idx);
+    let dims = PageDimensions {
+        width_mm,
+        height_mm,
+        bleed_mm,
+        margin_mm,
+    };
+    helpers::page_display_size(interaction.viewport.zoom, dims).x
 }

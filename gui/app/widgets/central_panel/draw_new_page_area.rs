@@ -9,25 +9,15 @@ pub(super) fn draw(
     ui: &mut egui::Ui,
     at_position: usize,
     interaction: &InteractionState,
+    page_width: f32,
 ) -> (egui::Rect, bool) {
     let row_desired = egui::vec2(ui.available_width(), ZONE_HEIGHT + ZONE_MARGIN * 2.0);
     let (row_rect, _) = ui.allocate_exact_size(row_desired, egui::Sense::hover());
 
-    let zone_rect = egui::Rect::from_center_size(
-        row_rect.center(),
-        egui::vec2(row_rect.width().min(520.0), ZONE_HEIGHT),
-    );
+    let zone_rect =
+        egui::Rect::from_center_size(row_rect.center(), egui::vec2(page_width, ZONE_HEIGHT));
 
-    let is_pool_drag = matches!(
-        interaction.drag.active,
-        ActiveDrag::Dragging(DragSource::Pool { .. })
-    );
-    // Slot/NavPage drags in Move mode are also valid drop targets (→ MoveToNewPage / MovePage).
-    let is_move_drag = matches!(
-        interaction.drag.active,
-        ActiveDrag::Dragging(DragSource::Slot { .. } | DragSource::NavPage { .. })
-    ) && interaction.drag.mode == DragMode::Move;
-
+    let (is_pool_drag, is_move_drag) = classify_drag(interaction);
     let any_valid_drag = is_pool_drag || is_move_drag;
 
     let pointer_over = ui
@@ -36,12 +26,37 @@ pub(super) fn draw(
         .unwrap_or(false);
     let active_and_hovered = any_valid_drag && pointer_over;
 
-    // Animate transition toward accent when active+hovered.
     let anim_id = ui.id().with(("dropzone_anim", at_position));
     let t = ui
         .ctx()
         .animate_bool_with_time(anim_id, active_and_hovered, 0.15);
 
+    let painter = ui.painter();
+    draw_zone_background(painter, zone_rect, t);
+    draw_zone_label(
+        painter,
+        zone_rect,
+        active_and_hovered,
+        is_pool_drag,
+        any_valid_drag,
+    );
+
+    (zone_rect, pointer_over)
+}
+
+fn classify_drag(interaction: &InteractionState) -> (bool, bool) {
+    let is_pool_drag = matches!(
+        interaction.drag.active,
+        ActiveDrag::Dragging(DragSource::Pool { .. })
+    );
+    let is_move_drag = matches!(
+        interaction.drag.active,
+        ActiveDrag::Dragging(DragSource::Slot { .. } | DragSource::NavPage { .. })
+    ) && interaction.drag.mode == DragMode::Move;
+    (is_pool_drag, is_move_drag)
+}
+
+fn draw_zone_background(painter: &egui::Painter, zone_rect: egui::Rect, t: f32) {
     let lerp_color = |a: egui::Color32, b: egui::Color32, f: f32| {
         egui::Color32::from_rgba_unmultiplied(
             (a.r() as f32 + (b.r() as f32 - a.r() as f32) * f) as u8,
@@ -51,21 +66,24 @@ pub(super) fn draw(
         )
     };
 
-    let border_idle = FbTheme::STROKE;
-    let border_active = FbTheme::ACCENT;
-    let border_color = lerp_color(border_idle, border_active, t);
+    let border_color = lerp_color(FbTheme::STROKE, FbTheme::ACCENT, t);
+    let bg_color = lerp_color(
+        egui::Color32::TRANSPARENT,
+        FbTheme::with_alpha(FbTheme::ACCENT, 0x14),
+        t,
+    );
 
-    let bg_idle = egui::Color32::TRANSPARENT;
-    let bg_active = FbTheme::with_alpha(FbTheme::ACCENT, 0x14);
-    let bg_color = lerp_color(bg_idle, bg_active, t);
-
-    let painter = ui.painter();
-
-    // Dashed border + background.
     painter.rect_filled(zone_rect, 4.0, bg_color);
     draw_dashed_rect(painter, zone_rect, border_color, 1.5, 6.0, 4.0);
+}
 
-    // Label text — varies by drag type.
+fn draw_zone_label(
+    painter: &egui::Painter,
+    zone_rect: egui::Rect,
+    active_and_hovered: bool,
+    is_pool_drag: bool,
+    any_valid_drag: bool,
+) {
     let (label, text_color) = if active_and_hovered && is_pool_drag {
         ("Release to add new page", FbTheme::ACCENT)
     } else if active_and_hovered {
@@ -81,8 +99,6 @@ pub(super) fn draw(
         egui::FontId::proportional(10.5),
         FbTheme::with_alpha(text_color, text_alpha),
     );
-
-    (zone_rect, pointer_over)
 }
 
 fn draw_dashed_rect(

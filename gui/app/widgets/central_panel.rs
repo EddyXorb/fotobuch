@@ -1,5 +1,5 @@
 pub(crate) mod draw_drag_ghosts;
-mod draw_new_page_slot;
+mod draw_new_page_area;
 mod draw_page;
 mod draw_pages;
 mod helpers;
