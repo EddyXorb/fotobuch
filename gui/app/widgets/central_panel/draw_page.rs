@@ -123,7 +123,7 @@ fn draw_hud(
 ) {
     use fotobuch::dto_models::PageMode;
 
-    let painter = ui.painter();
+   // let painter = ui.painter();
     let center_y = hud_rect.center().y;
 
     // Layout: elements are centered horizontally, spaced 10px apart.
@@ -151,7 +151,7 @@ fn draw_hud(
     // P{idx:02} label
     let label_str = format!("P{page_idx:02}");
     let label_center = egui::pos2(start_x + label_w / 2.0, center_y);
-    painter.text(
+    ui.painter().text(
         label_center,
         egui::Align2::CENTER_CENTER,
         &label_str,
@@ -174,7 +174,7 @@ fn draw_hud(
     if pill_width <= 12.0 {
         // Dot
         let radius = pill_width / 2.0;
-        painter.circle_filled(
+        ui.painter().circle_filled(
             pill_rect.center(),
             radius,
             FbTheme::with_alpha(mode_color, alpha_u8),
@@ -183,7 +183,7 @@ fn draw_hud(
         // Expanded pill
         let pill_fill = FbTheme::with_alpha(mode_color, (alpha_u8 as f32 * 0.13) as u8);
         let pill_stroke_color = FbTheme::with_alpha(mode_color, (alpha_u8 as f32 * 0.40) as u8);
-        painter.rect(
+        ui.painter().rect(
             pill_rect,
             9.0,
             pill_fill,
@@ -196,7 +196,7 @@ fn draw_hud(
         };
         // Fade text in proportionally to pill expansion.
         let text_alpha = ((pill_width - 12.0) / (80.0 - 12.0)).clamp(0.0, 1.0);
-        painter.text(
+        ui.painter().text(
             pill_rect.center(),
             egui::Align2::CENTER_CENTER,
             pill_label,
@@ -228,20 +228,21 @@ fn draw_hud(
             egui::pos2(btn_x, center_y - btn_size / 2.0),
             egui::vec2(btn_size, btn_size),
         );
-        painter.rect(
+        ui.painter().rect(
             rebuild_rect,
             4.0,
             egui::Color32::TRANSPARENT,
             egui::Stroke::new(1.0, FbTheme::with_alpha(FbTheme::STROKE, act_alpha)),
             egui::StrokeKind::Inside,
         );
-        painter.text(
+        ui.painter().text(
             rebuild_rect.center(),
             egui::Align2::CENTER_CENTER,
             "↻",
             egui::FontId::proportional(14.0),
             FbTheme::with_alpha(FbTheme::TEXT_DIM, act_alpha),
         );
+        
         let rebuild_resp = ui.allocate_rect(rebuild_rect, egui::Sense::click());
         if rebuild_resp.clicked() {
             cmds.push(BackgroundTask::RebuildPages {
@@ -254,14 +255,14 @@ fn draw_hud(
             egui::pos2(btn_x + btn_size + gap, center_y - btn_size / 2.0),
             egui::vec2(btn_size, btn_size),
         );
-        painter.rect(
+        ui.painter().rect(
             delete_rect,
             4.0,
             egui::Color32::TRANSPARENT,
             egui::Stroke::new(1.0, FbTheme::with_alpha(FbTheme::STROKE, act_alpha)),
             egui::StrokeKind::Inside,
         );
-        painter.text(
+        ui.painter().text(
             delete_rect.center(),
             egui::Align2::CENTER_CENTER,
             "✕",
