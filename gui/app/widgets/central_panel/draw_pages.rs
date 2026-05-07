@@ -47,7 +47,7 @@ pub(super) fn draw_pages(
 
             // Drop zone before page 0 — omitted when a cover is active.
             if !data.project.has_cover() {
-                let (_, slot_hovered) = draw_new_page_slot::draw(ui, 0, interaction, cmds);
+                let (_, slot_hovered) = draw_new_page_slot::draw(ui, 0, interaction);
                 if hovered.is_none() && slot_hovered {
                     hovered = Some(HoveredTarget::NewPageSlot { at_position: 0 });
                 }
@@ -76,7 +76,7 @@ pub(super) fn draw_pages(
                 page_nav::apply_scroll_if_needed(ui, interaction, i, page_rect);
 
                 // Drop zone after each page (including after the last page).
-                let (_, slot_hovered) = draw_new_page_slot::draw(ui, i + 1, interaction, cmds);
+                let (_, slot_hovered) = draw_new_page_slot::draw(ui, i + 1, interaction);
                 if hovered.is_none() && slot_hovered {
                     hovered = Some(HoveredTarget::NewPageSlot { at_position: i + 1 });
                 }

@@ -1,7 +1,4 @@
-use fotobuch::commands::PlaceDst;
-
-use crate::state::{ActiveDrag, DragSource, InteractionState};
-use crate::task::BackgroundTask;
+use crate::state::{ActiveDrag, DragMode, DragSource, InteractionState};
 
 use super::theme::FbTheme;
 
@@ -12,7 +9,6 @@ pub(super) fn draw(
     ui: &mut egui::Ui,
     at_position: usize,
     interaction: &InteractionState,
-    cmds: &mut Vec<BackgroundTask>,
 ) -> (egui::Rect, bool) {
     let row_desired = egui::vec2(ui.available_width(), ZONE_HEIGHT + ZONE_MARGIN * 2.0);
     let (row_rect, _) = ui.allocate_exact_size(row_desired, egui::Sense::hover());
@@ -26,11 +22,19 @@ pub(super) fn draw(
         interaction.drag.active,
         ActiveDrag::Dragging(DragSource::Pool { .. })
     );
+    // Slot/NavPage drags in Move mode are also valid drop targets (→ MoveToNewPage / MovePage).
+    let is_move_drag = matches!(
+        interaction.drag.active,
+        ActiveDrag::Dragging(DragSource::Slot { .. } | DragSource::NavPage { .. })
+    ) && interaction.drag.mode == DragMode::Move;
+
+    let any_valid_drag = is_pool_drag || is_move_drag;
+
     let pointer_over = ui
         .ctx()
         .input(|i| i.pointer.latest_pos().map(|p| zone_rect.contains(p)))
         .unwrap_or(false);
-    let active_and_hovered = is_pool_drag && pointer_over;
+    let active_and_hovered = any_valid_drag && pointer_over;
 
     // Animate transition toward accent when active+hovered.
     let anim_id = ui.id().with(("dropzone_anim", at_position));
@@ -57,17 +61,19 @@ pub(super) fn draw(
 
     let painter = ui.painter();
 
-    // Dashed border
+    // Dashed border + background.
     painter.rect_filled(zone_rect, 4.0, bg_color);
     draw_dashed_rect(painter, zone_rect, border_color, 1.5, 6.0, 4.0);
 
-    // Label text
-    let (label, text_color) = if active_and_hovered {
+    // Label text — varies by drag type.
+    let (label, text_color) = if active_and_hovered && is_pool_drag {
         ("Release to add new page", FbTheme::ACCENT)
+    } else if active_and_hovered {
+        ("Release to move here", FbTheme::ACCENT)
     } else {
         ("Drop a photo here to add a new page", FbTheme::TEXT_MUTE)
     };
-    let text_alpha = if is_pool_drag { 255 } else { 100 };
+    let text_alpha = if any_valid_drag { 255 } else { 100 };
     painter.text(
         zone_rect.center(),
         egui::Align2::CENTER_CENTER,
@@ -75,16 +81,6 @@ pub(super) fn draw(
         egui::FontId::proportional(10.5),
         FbTheme::with_alpha(text_color, text_alpha),
     );
-
-    // Emit Place task on pointer release while drag-over.
-    if active_and_hovered && ui.ctx().input(|i| i.pointer.any_released()) {
-        if let ActiveDrag::Dragging(DragSource::Pool { photo_ids }) = &interaction.drag.active {
-            cmds.push(BackgroundTask::Place {
-                photo_ids: photo_ids.clone(),
-                dst: PlaceDst::NewPageAt(at_position),
-            });
-        }
-    }
 
     (zone_rect, pointer_over)
 }

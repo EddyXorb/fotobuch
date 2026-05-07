@@ -123,34 +123,24 @@ fn draw_hud(
 ) {
     use fotobuch::dto_models::PageMode;
 
-   // let painter = ui.painter();
+    // let painter = ui.painter();
     let center_y = hud_rect.center().y;
 
-    // Layout: elements are centered horizontally, spaced 10px apart.
-    // Measure widths: label (~28px), pill (pill_width), buttons (2×22px + 10px gap).
+    // The dot/pill is anchored at the horizontal center of the HUD (below page center).
+    // The label grows leftward from it; actions grow rightward — so the dot never jumps.
     let label_w: f32 = 28.0;
     let btn_size: f32 = 22.0;
     let gap: f32 = 10.0;
-    let actions_w = if actions_alpha > 0.001 {
-        btn_size + gap + btn_size
-    } else {
-        0.0
-    };
-    let total_w = label_w
-        + gap
-        + pill_width
-        + if actions_w > 0.0 {
-            gap + actions_w
-        } else {
-            0.0
-        };
-    let start_x = hud_rect.center().x - total_w / 2.0;
+    let dot_center_x = hud_rect.center().x;
 
     let alpha_u8 = (opacity * 255.0).clamp(0.0, 255.0) as u8;
 
-    // P{idx:02} label
+    // P{idx:02} label — always gap+half-pill to the left of dot center.
     let label_str = format!("P{page_idx:02}");
-    let label_center = egui::pos2(start_x + label_w / 2.0, center_y);
+    let label_center = egui::pos2(
+        dot_center_x - pill_width / 2.0 - gap - label_w / 2.0,
+        center_y,
+    );
     ui.painter().text(
         label_center,
         egui::Align2::CENTER_CENTER,
@@ -159,14 +149,13 @@ fn draw_hud(
         FbTheme::with_alpha(FbTheme::TEXT_MUTE, alpha_u8),
     );
 
-    // Mode dot / pill
+    // Mode dot / pill — centered on dot_center_x at all animation stages.
     let mode_color = match mode {
         PageMode::Auto => FbTheme::AUTO,
         PageMode::Manual => FbTheme::MANUAL,
     };
-    let pill_x = start_x + label_w + gap;
     let pill_rect = egui::Rect::from_center_size(
-        egui::pos2(pill_x + pill_width / 2.0, center_y),
+        egui::pos2(dot_center_x, center_y),
         egui::vec2(pill_width, 18.0),
     );
 
@@ -221,7 +210,7 @@ fn draw_hud(
     // Action buttons (fade in with actions_alpha)
     if actions_alpha > 0.001 {
         let act_alpha = (actions_alpha * alpha_u8 as f32) as u8;
-        let btn_x = pill_x + pill_width + gap + actions_offset;
+        let btn_x = dot_center_x + pill_width / 2.0 + gap + actions_offset;
 
         // ↻ Rebuild button
         let rebuild_rect = egui::Rect::from_min_size(
@@ -242,7 +231,7 @@ fn draw_hud(
             egui::FontId::proportional(14.0),
             FbTheme::with_alpha(FbTheme::TEXT_DIM, act_alpha),
         );
-        
+
         let rebuild_resp = ui.allocate_rect(rebuild_rect, egui::Sense::click());
         if rebuild_resp.clicked() {
             cmds.push(BackgroundTask::RebuildPages {
