@@ -1,3 +1,4 @@
+pub(crate) mod help;
 mod input_handler;
 pub(super) mod rebuild;
 mod widgets;

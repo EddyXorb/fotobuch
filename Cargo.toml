@@ -82,7 +82,7 @@ path = "cli/generate_cli_docs.rs"
 required-features = ["cli-docs"]
 
 [features]
-gui = ["dep:eframe", "dep:egui", "dep:rfd"]
+gui = ["dep:eframe", "dep:egui", "dep:rfd", "dep:egui_commonmark"]
 cli-docs = ["dep:clap-markdown"]
 slow-tests = []
 
@@ -98,6 +98,10 @@ optional = true
 
 [dependencies.rfd]
 version = "0.14"
+optional = true
+
+[dependencies.egui_commonmark]
+version = "0.23"
 optional = true
 
 [dependencies.clap-markdown]

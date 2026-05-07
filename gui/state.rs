@@ -3,6 +3,7 @@ mod config_panel;
 mod context_menu;
 mod derived;
 mod drag;
+mod help;
 mod hover;
 mod multi_selection;
 mod new_project_dialog;
@@ -20,6 +21,7 @@ pub use config_panel::ConfigPanelState;
 pub use context_menu::ContextMenu;
 pub use derived::DerivedState;
 pub use drag::{ActiveDrag, DragMode, DragSource, DragState};
+pub use help::HelpState;
 pub use hover::HoveredTarget;
 pub use multi_selection::MultiSelection;
 pub use new_project_dialog::NewProjectDialogState;
@@ -114,6 +116,7 @@ pub struct InteractionState {
     /// Show the commit history panel.
     pub show_history: bool,
     pub page_hud: HashMap<usize, PageHudAnim>,
+    pub help: HelpState,
 }
 
 pub struct GuiState {
@@ -157,6 +160,7 @@ impl GuiState {
                 show_welcome,
                 show_history: false,
                 page_hud: HashMap::new(),
+                help: HelpState::default(),
             },
         }
     }

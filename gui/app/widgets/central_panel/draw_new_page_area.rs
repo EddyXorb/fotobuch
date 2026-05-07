@@ -8,7 +8,7 @@ const ZONE_MARGIN: f32 = 14.0;
 pub(super) fn draw(
     ui: &mut egui::Ui,
     at_position: usize,
-    interaction: &InteractionState,
+    interaction: &mut InteractionState,
     page_width: f32,
 ) -> (egui::Rect, bool) {
     let row_desired = egui::vec2(ui.available_width(), ZONE_HEIGHT + ZONE_MARGIN * 2.0);
@@ -40,6 +40,14 @@ pub(super) fn draw(
         is_pool_drag,
         any_valid_drag,
     );
+
+    if pointer_over {
+        interaction.help.hovered_widget = Some(("central-dropzone", zone_rect));
+    }
+    if interaction.help.highlighted == Some("central-dropzone") {
+        let time = ui.ctx().input(|i| i.time);
+        crate::app::help::draw_glow(ui.painter(), zone_rect, time);
+    }
 
     (zone_rect, pointer_over)
 }

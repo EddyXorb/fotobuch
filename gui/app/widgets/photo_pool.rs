@@ -102,4 +102,13 @@ fn show(ui: &mut egui::Ui, data: &DataState, interaction: &mut InteractionState)
         });
 
     draw_pool_drag_ghost(ui.ctx(), data, interaction);
+
+    let panel_rect = ui.max_rect();
+    if ui.rect_contains_pointer(panel_rect) {
+        interaction.help.hovered_widget = Some(("panel-pool", panel_rect));
+    }
+    if interaction.help.highlighted == Some("panel-pool") {
+        let time = ui.ctx().input(|i| i.time);
+        crate::app::help::draw_glow(ui.painter(), panel_rect, time);
+    }
 }

@@ -18,6 +18,17 @@
 
 ---
 
+# GUI
+
+- [Overview](gui/overview.md)
+- [Central Panel](gui/central-panel.md)
+- [Pool Panel](gui/pool-panel.md)
+- [Toolbar](gui/toolbar.md)
+- [Nav Strip](gui/nav-panel.md)
+- [Keyboard Shortcuts](gui/keyboard.md)
+
+---
+
 # Reference
 
 - [Full Flag Reference](cli/reference-generated.md)

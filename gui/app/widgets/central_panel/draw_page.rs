@@ -2,7 +2,7 @@ mod hud;
 mod manual;
 mod overlays;
 
-use crate::state::{DataState, InteractionState, PageHudAnim};
+use crate::state::{DataState, InteractionState};
 use crate::task::BackgroundTask;
 
 use super::super::geometry::PageDimensions;
@@ -40,10 +40,7 @@ pub(super) fn draw_page(
         .unwrap_or(false);
 
     let dt = ui.ctx().input(|i| i.unstable_dt).min(0.05);
-    let anim = interaction
-        .page_hud
-        .entry(page_idx)
-        .or_insert_with(PageHudAnim::default);
+    let anim = interaction.page_hud.entry(page_idx).or_default();
     if anim.advance(hovered, dt) {
         ui.ctx().request_repaint();
     }
@@ -100,6 +97,21 @@ pub(super) fn draw_page(
         actions_offset,
         cmds,
     );
+
+    // Register for help lens mode.
+    if ui.rect_contains_pointer(page_rect) {
+        interaction.help.hovered_widget = Some(("central-page", page_rect));
+    } else if ui.rect_contains_pointer(hud_rect) {
+        interaction.help.hovered_widget = Some(("central-hud", hud_rect));
+    }
+
+    // Golden glow highlight for keyword chips.
+    let time = ui.ctx().input(|i| i.time);
+    if interaction.help.highlighted == Some("central-page") {
+        crate::app::help::draw_glow(ui.painter(), page_rect, time);
+    } else if interaction.help.highlighted == Some("central-hud") {
+        crate::app::help::draw_glow(ui.painter(), hud_rect, time);
+    }
 
     (hovered_slot, over_page, page_rect, cursor_mm)
 }
