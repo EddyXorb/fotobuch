@@ -154,26 +154,28 @@ fn draw_hud(
         PageMode::Manual => FbTheme::MANUAL,
     };
 
-    // Idle = 18 px circle, hover = 80 px pill; height is always 18 px so the
-    // layout space claimed by allocate_rect never changes between frames.
-    const PILL_H: f32 = 18.0;
+    // Height tracks width up to 18 px so the shape is always a circle at rest.
+    // corner_radius is clamped to half the smaller dimension so egui never clips
+    // the corners into an oval/diamond artefact when width < 2*radius.
+    let pill_height = pill_width.min(18.0);
+    let corner_radius = (pill_width / 2.0).min(pill_height / 2.0);
     let pill_rect = egui::Rect::from_center_size(
         egui::pos2(dot_center_x, center_y),
-        egui::vec2(pill_width, PILL_H),
+        egui::vec2(pill_width, pill_height),
     );
-    // 0.0 = idle circle, 1.0 = fully open pill.
-    let expand_frac = ((pill_width - 18.0) / (80.0 - 18.0)).clamp(0.0, 1.0);
+    // 0.0 = idle circle (10 px), 1.0 = fully open pill (80 px).
+    let expand_frac = ((pill_width - 10.0) / (80.0 - 10.0)).clamp(0.0, 1.0);
 
     let lerp_u8 = |a: u8, b: u8, t: f32| (a as f32 + (b as f32 - a as f32) * t) as u8;
 
-    // Fill: solid gray dot → translucent mode-colored pill.
+    // Fill: solid gray circle → translucent mode-colored pill.
     let fill_r = lerp_u8(FbTheme::TEXT_MUTE.r(), mode_color.r(), expand_frac);
     let fill_g = lerp_u8(FbTheme::TEXT_MUTE.g(), mode_color.g(), expand_frac);
     let fill_b = lerp_u8(FbTheme::TEXT_MUTE.b(), mode_color.b(), expand_frac);
     let fill_a = lerp_u8(alpha_u8, (alpha_u8 as f32 * 0.13) as u8, expand_frac);
     let fill_color = egui::Color32::from_rgba_unmultiplied(fill_r, fill_g, fill_b, fill_a);
 
-    // Border: invisible at dot, mode-colored at pill.
+    // Border: invisible at circle, mode-colored at pill.
     let stroke_a = (alpha_u8 as f32 * 0.40 * expand_frac) as u8;
     let stroke_color = egui::Color32::from_rgba_unmultiplied(
         mode_color.r(),
@@ -184,13 +186,13 @@ fn draw_hud(
 
     ui.painter().rect(
         pill_rect,
-        PILL_H / 2.0,
+        corner_radius,
         fill_color,
         egui::Stroke::new(1.0, stroke_color),
         egui::StrokeKind::Inside,
     );
 
-    // Text fades in after the pill is wide enough to show it.
+    // Text fades in as pill expands.
     if expand_frac > 0.01 {
         let pill_label = match mode {
             PageMode::Auto => "✦ AUTO",
@@ -205,9 +207,12 @@ fn draw_hud(
         );
     }
 
-    // Pill click → mode toggle (allocate interaction area over pill_rect)
-    let pill_resp = ui.allocate_rect(pill_rect, egui::Sense::click());
-    if pill_resp.clicked() {
+    // Click detection via raw input — avoids ui.allocate_rect which expands
+    // min_rect and causes layout shifts when the pill changes size.
+    let pointer = ui
+        .ctx()
+        .input(|i| i.pointer.interact_pos().filter(|_| i.pointer.any_click()));
+    if pointer.is_some_and(|p| pill_rect.contains(p)) {
         let new_mode = match mode {
             PageMode::Auto => PageMode::Manual,
             PageMode::Manual => PageMode::Auto,
@@ -242,9 +247,7 @@ fn draw_hud(
             egui::FontId::proportional(14.0),
             FbTheme::with_alpha(FbTheme::TEXT_DIM, act_alpha),
         );
-
-        let rebuild_resp = ui.allocate_rect(rebuild_rect, egui::Sense::click());
-        if rebuild_resp.clicked() {
+        if pointer.is_some_and(|p| rebuild_rect.contains(p)) {
             cmds.push(BackgroundTask::RebuildPages {
                 pages: vec![page_idx],
             });
@@ -269,8 +272,7 @@ fn draw_hud(
             egui::FontId::proportional(12.0),
             FbTheme::with_alpha(FbTheme::DANGER, act_alpha),
         );
-        let delete_resp = ui.allocate_rect(delete_rect, egui::Sense::click());
-        if delete_resp.clicked() {
+        if pointer.is_some_and(|p| delete_rect.contains(p)) {
             cmds.push(BackgroundTask::DeletePages {
                 pages: vec![page_idx],
             });
