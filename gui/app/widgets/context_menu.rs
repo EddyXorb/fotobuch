@@ -1,4 +1,4 @@
-use crate::state::{ContextMenu, DataState, InteractionState};
+use crate::state::{ContextMenu, DataState, InteractionState, WeightSlider};
 use crate::task::BackgroundTask;
 
 pub fn show(
@@ -49,7 +49,12 @@ fn show_entries(
     cmds: &mut Vec<BackgroundTask>,
 ) {
     match menu {
-        ContextMenu::Slot { page, slot, .. } => {
+        ContextMenu::Slot {
+            page,
+            slot,
+            screen_pos,
+            ..
+        } => {
             if ui.button("Unplace").clicked() {
                 cmds.push(BackgroundTask::Unplace {
                     page: *page,
@@ -59,6 +64,16 @@ fn show_entries(
             }
             if ui.button("Rebuild page").clicked() {
                 cmds.push(BackgroundTask::RebuildPages { pages: vec![*page] });
+                interaction.context_menu = None;
+            }
+            if ui.button("Set weight…").clicked() {
+                let initial = compute_slot_weight(data, *page, *slot);
+                interaction.weight_slider = WeightSlider::Open {
+                    page: *page,
+                    slots: vec![*slot],
+                    screen_pos: *screen_pos,
+                    value: initial,
+                };
                 interaction.context_menu = None;
             }
         }
@@ -141,4 +156,22 @@ fn show_entries(
             }
         }
     }
+}
+
+fn compute_slot_weight(data: &DataState, page: usize, slot: usize) -> f64 {
+    let photo_id = data
+        .project
+        .layout
+        .get(page)
+        .and_then(|lp| lp.photos.get(slot));
+    let Some(photo_id) = photo_id else {
+        return 1.0;
+    };
+    data.project
+        .photos
+        .iter()
+        .flat_map(|g| g.files.iter())
+        .find(|f| &f.id == photo_id)
+        .map(|f| f.area_weight)
+        .unwrap_or(1.0)
 }
