@@ -8,7 +8,7 @@ use super::*;
 use crate::state::{GuiState, HoveredTarget, SlotSelection};
 
 fn state_with_selection(sel_page: usize, sel_slots: Vec<usize>) -> GuiState {
-    let mut state = GuiState::new(ProjectState::default());
+    let mut state = GuiState::new(ProjectState::default(), Default::default(), vec![], false);
     for (i, &slot) in sel_slots.iter().enumerate() {
         if i == 0 {
             state.interaction.selections.slots = SlotSelection::single(sel_page, slot);
@@ -62,7 +62,7 @@ fn dispatch_swap_ignores_same_slot() {
 }
 
 fn state_with_pool_selection(ids: Vec<&str>) -> GuiState {
-    let mut state = GuiState::new(ProjectState::default());
+    let mut state = GuiState::new(ProjectState::default(), Default::default(), vec![], false);
     for id in &ids {
         state.interaction.selections.photos.toggle(id.to_string());
     }
@@ -121,14 +121,14 @@ fn place_hotkey_emits_place_without_target_when_no_hover() {
 
 #[test]
 fn place_hotkey_no_op_when_selection_empty() {
-    let state = GuiState::new(ProjectState::default());
+    let state = GuiState::new(ProjectState::default(), Default::default(), vec![], false);
     let ids = state.interaction.selections.photos.ids();
     assert!(ids.is_empty());
 }
 
 #[test]
 fn pool_drag_complete_emits_place_on_hovered_page() {
-    let mut state = GuiState::new(ProjectState::default());
+    let mut state = GuiState::new(ProjectState::default(), Default::default(), vec![], false);
     state.interaction.hovered = Some(HoveredTarget::Page {
         page: 1,
         slot: None,
@@ -145,7 +145,7 @@ fn pool_drag_complete_emits_place_on_hovered_page() {
 
 #[test]
 fn pool_drag_complete_cancels_without_hovered_page() {
-    let mut state = GuiState::new(ProjectState::default());
+    let mut state = GuiState::new(ProjectState::default(), Default::default(), vec![], false);
     state.interaction.hovered = None;
     let mut cmds = Vec::new();
     complete_pool_drag(&mut state.interaction, &mut cmds, vec!["a.jpg".into()]);
@@ -158,13 +158,15 @@ fn default_data() -> crate::state::DataState {
         derived: crate::state::DerivedState::rebuild(&ProjectState::default()),
         pages: crate::state::PageCache::new(0),
         thumbs: Default::default(),
-        timings: Default::default(),
+        vault_path: Default::default(),
+        projects: vec![],
+        history: vec![],
     }
 }
 
 #[test]
 fn nav_drag_complete_emits_page_swap() {
-    let mut state = GuiState::new(ProjectState::default());
+    let mut state = GuiState::new(ProjectState::default(), Default::default(), vec![], false);
     state.interaction.hovered = Some(HoveredTarget::NavPage(2));
     let mut cmds = Vec::new();
     complete_nav_drag(&default_data(), &mut state.interaction, &mut cmds, 0);
@@ -178,7 +180,7 @@ fn nav_drag_complete_emits_page_swap() {
 
 #[test]
 fn nav_drag_complete_noop_when_same_page() {
-    let mut state = GuiState::new(ProjectState::default());
+    let mut state = GuiState::new(ProjectState::default(), Default::default(), vec![], false);
     state.interaction.hovered = Some(HoveredTarget::NavPage(1));
     let mut cmds = Vec::new();
     complete_nav_drag(&default_data(), &mut state.interaction, &mut cmds, 1);
@@ -231,7 +233,7 @@ fn drop_on_new_page_slot_emits_move_to_new_page() {
 
 #[test]
 fn drop_on_new_page_slot_at_zero_inserts_before_first_page() {
-    let mut state = GuiState::new(ProjectState::default());
+    let mut state = GuiState::new(ProjectState::default(), Default::default(), vec![], false);
     state.interaction.hovered = Some(HoveredTarget::NewPageSlot { at_position: 0 });
     let mut cmds = Vec::new();
     complete_slot_drag(
@@ -275,7 +277,9 @@ fn data_with_layout(layout: Vec<fotobuch::dto_models::LayoutPage>) -> crate::sta
         pages: crate::state::PageCache::new(project.layout.len()),
         project,
         thumbs: Default::default(),
-        timings: Default::default(),
+        vault_path: Default::default(),
+        projects: vec![],
+        history: vec![],
     }
 }
 
@@ -401,7 +405,7 @@ fn handle_delete_emits_unplace_with_selection_slots() {
 
 #[test]
 fn handle_delete_emits_delete_page_when_only_page_hovered() {
-    let state = GuiState::new(ProjectState::default());
+    let state = GuiState::new(ProjectState::default(), Default::default(), vec![], false);
     let target = HoveredTarget::Page {
         page: 4,
         slot: None,
@@ -449,7 +453,8 @@ fn handle_delete_noop_on_cover_when_active() {
 #[test]
 fn rebuild_selection_matches_selected_page() {
     use crate::app::rebuild::{PagesForRebuild, selected_pages_for_rebuild};
-    let mut interaction = GuiState::new(ProjectState::default()).interaction;
+    let mut interaction =
+        GuiState::new(ProjectState::default(), Default::default(), vec![], false).interaction;
     interaction.selections.slots = SlotSelection::single(5, 0);
     assert!(
         matches!(selected_pages_for_rebuild(&interaction), PagesForRebuild::Selected(p) if p == vec![5])
@@ -459,7 +464,8 @@ fn rebuild_selection_matches_selected_page() {
 #[test]
 fn rebuild_without_selection_opens_confirm_path() {
     use crate::app::rebuild::{PagesForRebuild, selected_pages_for_rebuild};
-    let interaction = GuiState::new(ProjectState::default()).interaction;
+    let interaction =
+        GuiState::new(ProjectState::default(), Default::default(), vec![], false).interaction;
     assert!(matches!(
         selected_pages_for_rebuild(&interaction),
         PagesForRebuild::None

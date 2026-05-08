@@ -257,7 +257,7 @@ mod tests {
 
     #[test]
     fn resize_page_vecs_also_resizes_thumb_vec() {
-        let mut state = GuiState::new(minimal_project());
+        let mut state = GuiState::new(minimal_project(), Default::default(), vec![], false);
         resize_page_vecs(&mut state, 4);
         assert_eq!(state.data.pages.thumb_textures.len(), 4);
         resize_page_vecs(&mut state, 2);
@@ -275,7 +275,7 @@ mod tests {
 
     #[test]
     fn resize_page_vecs_grows_and_shrinks() {
-        let mut state = GuiState::new(minimal_project());
+        let mut state = GuiState::new(minimal_project(), Default::default(), vec![], false);
         resize_page_vecs(&mut state, 3);
         assert_eq!(state.data.pages.textures.len(), 3);
         assert_eq!(state.data.pages.dirty.len(), 3);
