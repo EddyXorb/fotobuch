@@ -15,7 +15,7 @@
 | Key | Action |
 |-----|--------|
 | `P` | Place selected pool photos (auto-distribute if no page hovered) |
-| `R` | Rebuild selected pages (or all if none selected) |
+| `R` | Rebuild selected pages (requires at least one page selected; use toolbar button for full rebuild) |
 | `A` | Toggle Auto/Manual mode for hovered or selected page |
 | `Delete` | Unplace selected slots / remove selected pool photos / delete selected pages |
 | `W` | Open weight slider for selected slots |

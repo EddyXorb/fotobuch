@@ -19,7 +19,7 @@ To place a photo on a specific page, click it to select it (or select several), 
 
 You can also drag photos to the dashed area between pages. Dropping there creates a brand new page and puts your photos on it.
 
-If you do not want to drag, select the photos and press **P** — fotobuch will distribute them automatically across the book.
+If pages already exist, select the photos and press **P** — fotobuch will distribute them across the existing pages by timestamp. To create the initial layout, click **Rebuild** in the toolbar (with nothing selected) and confirm.
 
 ## Photo states
 

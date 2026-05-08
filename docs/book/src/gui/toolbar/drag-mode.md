@@ -17,7 +17,7 @@ Dragging an image and dropping it on another **exchanges** the two photos.
 Dragging an image and dropping it on another position **relocates** the dragged photo to that slot. The target slot's geometry is applied to the moved photo.
 
 - Drop on a slot on a **different page** to move the photo there.
-- Drop on the **Nav Strip** to move the photo to that page.
+- Drop on the **Nav Bar** to move the photo to that page.
 - Moving within the **same page** is only possible in Manual mode. In Auto mode, use Swap instead (if ratios match), or switch to Manual mode first.
 
 ## Which mode to use

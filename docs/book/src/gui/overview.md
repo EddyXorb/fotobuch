@@ -11,7 +11,7 @@ The window has five areas:
 | **Toolbar** | Top | Quick access to all main actions |
 | **Photo Pool** | Left | Your imported photos |
 | **Central Panel** | Centre | The page canvas — what your book will look like |
-| **Nav Strip** | Right | Miniature page overview for jumping around |
+| **Nav Bar** | Right | Miniature page overview for jumping around |
 | **Status bar** | Bottom | Current state and progress messages |
 
 ## How to create a photo book
@@ -22,9 +22,9 @@ fotobuch works in four steps:
 
 **2. Add your photos** — Click **Add** (or press `Ctrl+O`) and pick a folder. fotobuch imports all photos from that folder into the Photo Pool on the left. You can add more folders at any time.
 
-**3. Place photos on pages** — Drag photos from the Photo Pool onto a page in the canvas, or press **P** to let fotobuch distribute them automatically across new pages. The program figures out the best arrangement for each page.
+**3. Place photos on pages** — Drag photos from the Photo Pool onto a page in the canvas, or click **Rebuild** in the toolbar (then confirm) to let fotobuch create all pages and place all photos automatically.
 
-**4. Fine-tune and export** — Browse the pages in the Central Panel and the Nav Strip. If a page does not look right, select it and press **R** to rebuild just that page. When you are happy, click **Release** (or press `Ctrl+Shift+B`) to build the final PDF. The PDF is saved in your project folder.
+**4. Fine-tune and export** — Browse the pages in the Central Panel and the Nav Bar. If a page does not look right, select it and press **R** to rebuild just that page. When you are happy, click **Release** (or press `Ctrl+Shift+B`) to build the final PDF. The PDF is saved in your project folder.
 
 ## Multiple projects
 

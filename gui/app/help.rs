@@ -14,6 +14,7 @@ pub static WIDGET_KEYWORDS: &[(&str, &str)] = &[
     ("Pool panel", "pool-panel"),
     ("page HUD", "central-panel"),
     ("drop zone", "central-panel"),
+    ("nav bar", "nav-panel"),
     ("nav strip", "nav-panel"),
     ("zoom slider", "toolbar"),
     ("toolbar", "toolbar"),
