@@ -40,4 +40,4 @@
 # Reference
 
 - [Full Flag Reference](cli/reference-generated.md)
-- [Glossary](../../glossary.md)
+- [Glossary](glossary.md)

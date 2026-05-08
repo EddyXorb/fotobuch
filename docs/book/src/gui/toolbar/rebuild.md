@@ -1,17 +1,17 @@
 # Rebuild Layout
 
-The **Rebuild** button (keyboard shortcut `R`) asks fotobuch to re-run the layout solver for the selected pages.
+The **Rebuild** button (keyboard shortcut `R`) tells fotobuch to recalculate the layout for the selected pages. Each page in the Central Panel also has a small **↻** button in its HUD — clicking it rebuilds that single page directly without selecting it first.
 
 ## Targeted rebuild — pages selected
 
-Select one or more pages in the Nav Strip or Central Panel, then press `R`. The page layout solver (genetic algorithm) runs again for each selected page, trying to find a better arrangement of the photos already assigned to those pages. Photo assignments between pages are **not** changed.
+Select one or more pages in the Nav Strip or Central Panel, then press `R`. fotobuch recalculates the arrangement of photos already on those pages. Photo assignments between pages are **not** changed.
 
 The button label shows how many pages will be rebuilt.
 
 ## Full rebuild — nothing selected
 
-Press `R` with no pages selected and confirm when prompted. fotobuch first runs the book layout solver (MIP) to redistribute **all** photos across pages from scratch, then re-runs the page layout solver for every page. Use this when you want to start over entirely or when you have added or removed a significant number of photos.
+Press `R` with no pages selected and confirm when prompted. fotobuch redistributes **all** photos across pages from scratch, then recalculates the arrangement for every page. Use this when you want to start fresh or after adding or removing a significant number of photos.
 
-## Note on optimality
+## Note on results
 
-The solvers are not exhaustive. A rebuild may produce the same layout as before if the current arrangement is already optimal or near-optimal given the current settings.
+Rebuild may produce the same layout as before if the current arrangement is already a good fit for the given photos and settings.

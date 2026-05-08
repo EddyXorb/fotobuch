@@ -26,11 +26,24 @@ pub struct Chapter {
     pub text: &'static str,
 }
 
-/// All help chapters, auto-discovered from `docs/book/src/gui/*.md`.
+fn collect_md_files(
+    dir: &'static include_dir::Dir<'static>,
+    out: &mut Vec<&'static include_dir::File<'static>>,
+) {
+    out.extend(dir.files());
+    for sub in dir.dirs() {
+        collect_md_files(sub, out);
+    }
+}
+
+/// All help chapters, auto-discovered recursively from `docs/book/src/gui/`.
 /// Title comes from the first `# ` heading; slug from the filename stem.
 pub static CHAPTERS: LazyLock<Vec<Chapter>> = LazyLock::new(|| {
-    let mut chapters: Vec<Chapter> = GUI_DOCS_DIR
-        .files()
+    let mut all_files: Vec<&'static include_dir::File<'static>> = Vec::new();
+    collect_md_files(&GUI_DOCS_DIR, &mut all_files);
+
+    let mut chapters: Vec<Chapter> = all_files
+        .into_iter()
         .filter_map(|f| {
             let path = f.path();
             if path.extension().is_none_or(|e| e != "md") {

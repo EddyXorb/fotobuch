@@ -4,8 +4,6 @@ fotobuch is a photo book layout tool. You bring in your photos, the program arra
 
 ## Window layout
 
-![App window divided into toolbar at top, photo pool on the left, central canvas in the middle, nav strip on the right, and status bar at the bottom](../assets/gui-layout.svg)
-
 The window has five areas:
 
 | Area | Position | Purpose |
@@ -34,10 +32,6 @@ You can keep several photo books — for example one per year or one per event. 
 
 ## CLI and GUI interoperability
 
-The GUI and the `fotobuch` command-line tool operate on exactly the same project data. You can:
+The GUI and the `fotobuch` command-line tool operate on exactly the same project data. You can open a project in the GUI that was created and populated entirely from the CLI, or use the CLI and GUI on the same project in sequence — for example, run CLI commands for scripting or batch operations, then open the GUI for visual review and fine-tuning.
 
-- Run CLI commands on a project that is currently open in the GUI; the GUI will pick up the changes on the next frame.
-- Open a project in the GUI that was created and populated entirely from the CLI.
-- Use the CLI for scripting or batch operations and the GUI for visual review and fine-tuning — both at the same time.
-
-The shared format is a folder of YAML files tracked by git, so every tool that understands git can inspect the full change history.
+The shared format is a YAML file and a Typst template tracked by git inside the vault, so every tool that understands git can inspect the full change history.

@@ -19,4 +19,4 @@ All your photo books live inside a single folder on your computer. You choose th
 - No `..` sequence allowed.
 - Maximum 50 characters.
 - Must be unique within the folder.
-- The name `fotobuch` is reserved.
+- The exact name `fotobuch` is reserved (names like `fotobuch-2025` are allowed).
