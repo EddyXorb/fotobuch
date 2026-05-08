@@ -1,16 +1,11 @@
 # Configuration
 
 Every project has a `{project-name}.yaml` file that controls the entire book.
-You don't need to write this file from scratch — `fotobuch project new` creates
-it with sensible defaults. You only edit the parts you want to change.
-
-Run `fotobuch config show` at any time to see the full resolved configuration
-(including all defaults). Use `fotobuch config set <key> <value>` to change a
-value without editing the YAML directly — see the [Full Flag Reference](cli/reference-generated.md)
-for exact syntax.
+You don't need to write this file from scratch — creating a new project generates
+it with sensible defaults. Edit only the parts you want to change.
 
 For a quick overview of the most important settings to check before your first
-build, see [Step 2 in Your First Book](quickstart.md#step-2--review-the-configuration).
+build, see [Step 2 in the CLI Quickstart](../cli/quickstart.md#step-2--review-the-configuration).
 
 > **Tip:** If the solver produces poor results, the most common fixes are:
 > increase `search_timeout` (more time), or disable `enable_local_search`.
@@ -50,7 +45,7 @@ automatically for any field you don't set.
 | **`margin_mm`**      | `0.0`        | **Minimum inset from the page edge.** `0` = edge-to-edge (photos may bleed). `> 0` = white border (bleed extension is disabled).                                                                                                   |
 | **`gap_mm`**         | `5.0`        | **Space in mm between photos** on the same page.                                                                                                                                                                                   |
 | `bleed_threshold_mm` | `3.0`        | Only active when `margin_mm` is `0`. If a photo's edge is closer to the page edge than this value, the layout is scaled so the photo extends fully into the bleed area. Prevents thin white strips at the page edge after cutting. |
-| `dpi`                | `300.0`      | DPI for the final release PDF. Controls the resolution of cached images used in `fotobuch build release`.                                                                                                                          |
+| `dpi`                | `300.0`      | DPI for the final release PDF. Controls the resolution of cached images used in the release build.                                                                                                                                 |
 
 ---
 
@@ -78,7 +73,7 @@ setting `active: true` and providing dimensions.
 #### Cover modes
 
 When `mode` is not `free`, the GA solver is bypassed and slot positions are
-calculated deterministically from the cover geometry.  A warning is printed if
+calculated deterministically from the cover geometry. A warning is printed if
 the number of photos on the cover does not match what the mode expects.
 
 See [Cover Modes — Visual Guide](cover-modes.md) for visual examples of each mode.
@@ -95,21 +90,15 @@ See [Cover Modes — Visual Guide](cover-modes.md) for visual examples of each m
 | `split`       | 2      | Slot 0 → front, slot 1 → back, aspect ratio preserved and centred            |
 | `split-full`  | 2      | Slot 0 → front, slot 1 → back, each half fully filled (may crop)             |
 
-**Workflow example — single photo on the front:**
+**Workflow example — single photo on the front (CLI):**
 
 ```bash
-# 1. Place the photo onto the cover
 fotobuch place cover.jpg --into 0
-
-# 2. Set the mode in the YAML
-#    cover:
-#      mode: front
-
-# 3. Rebuild only the cover
+# cover: { mode: front }
 fotobuch rebuild --page 0
 ```
 
-**Workflow example — panorama across full spread:**
+**Workflow example — panorama across full spread (CLI):**
 
 ```bash
 fotobuch place panorama.jpg --into 0
@@ -194,7 +183,7 @@ three cost components, each multiplied by its weight. Lower cost = better layout
 
 ### `config.preview` — Preview rendering
 
-All preview overlay settings are automatically suppressed in `build release`.
+All preview overlay settings are automatically suppressed in the release build.
 
 | Field            | Default | Description                                                                                                           |
 | ---------------- | ------- | --------------------------------------------------------------------------------------------------------------------- |

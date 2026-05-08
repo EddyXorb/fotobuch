@@ -4,22 +4,20 @@
 
 ---
 
-# User Guide
+# General
 
-- [Installation](installation.md)
-- [Core Concepts](concepts.md)
-- [Quickstart](quickstart.md)
-- [Configuration](configuration.md)
-- [Cover Modes](cover-modes.md)
-- [Command Overview](commands.md)
-- [Customizing the Template](template.md)
-- [Printing & Export](printing.md)
-- [Known Limitations](known_limitations.md)
+- [Core Concepts](general/concepts.md)
+- [Configuration](general/configuration.md)
+- [Cover Modes](general/cover-modes.md)
+- [Customizing the Template](general/template.md)
+- [Printing & Export](general/printing.md)
+- [Known Limitations](general/known_limitations.md)
 
 ---
 
 # GUI
 
+- [Quickstart](gui/quickstart.md)
 - [Overview](gui/overview.md)
 - [Central Panel](gui/central-panel.md)
 - [Pool Panel](gui/pool-panel.md)
@@ -34,6 +32,15 @@
   - [Drag Mode](gui/toolbar/drag-mode.md)
 - [Nav Strip](gui/nav-panel.md)
 - [Keyboard Shortcuts](gui/keyboard.md)
+
+---
+
+# CLI
+
+- [Installation](cli/installation.md)
+- [Quickstart](cli/quickstart.md)
+- [Commands](cli/commands.md)
+- [CLI Concepts](cli/concepts.md)
 
 ---
 

@@ -4,9 +4,12 @@
 
 Before uploading your PDF, verify these things:
 
-- Run `fotobuch build release` — only the release PDF has full 300 DPI, do **NOT UPLOAD THE PREVIEW PDF** to be printed, it will be ugly!
-- Check the terminal output for **DPI warnings** (photos that are too small for
-  their slot will be listed)
+- Trigger a **release build** — only the release PDF has full 300 DPI.
+  **Do NOT upload the preview PDF** to a print service; it will look blurry.
+  - GUI: click **Release** in the toolbar (or press `Ctrl+Shift+B`)
+  - CLI: `fotobuch build release`
+- Check the output for **DPI warnings** (photos that are too small for their
+  slot will be listed)
 - Open the final PDF (`{name}_final.pdf`) and spot-check a few pages
 
 ## Saal Digital
@@ -19,7 +22,7 @@ the box:
   YAML)
 - **PDF boxes:** MediaBox, TrimBox, and BleedBox are set correctly — matching
   what InDesign would produce
-- **Resolution:** 300 DPI for `build release` (configurable via
+- **Resolution:** 300 DPI for the release build (configurable via
   `config.book.dpi`)
 
 ## Other print services
