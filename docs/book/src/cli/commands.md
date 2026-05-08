@@ -2,7 +2,7 @@
 
 All commands follow the pattern `fotobuch <command> [options]`.
 Run `fotobuch --help` or `fotobuch <command> --help` for details,
-or see the [Full Flag Reference](cli/reference-generated.md).
+or see the [Full Flag Reference](reference-generated.md).
 
 > **Your original photos are never modified.** fotobuch only reads your source
 > files to create cached copies at the configured DPI. Commands like `remove`
@@ -37,8 +37,8 @@ or see the [Full Flag Reference](cli/reference-generated.md).
 | `undo`           | Undo the last N changes                                        |
 | `redo`           | Redo N undone changes                                          |
 
-For all flags and exact syntax see the [Full Flag Reference](cli/reference-generated.md).
-For available config keys see [Configuration](configuration.md).
+For all flags and exact syntax see the [Full Flag Reference](reference-generated.md).
+For available config keys see [Configuration](../general/configuration.md).
 
 ### `remove` vs. `unplace`
 
@@ -56,4 +56,3 @@ unplace-like behaviour (photos stay, just lose their page assignment).
 - **`rebuild --page N`** forces the solver to re-optimize page N from scratch,
   even if nothing changed. Useful when you're not happy with a layout.
 - **`rebuild --all`** re-solves every page.
-

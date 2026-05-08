@@ -8,7 +8,7 @@ Each cover mode determines how photos are positioned and sized on the cover. The
 
 A single photo on the front panel, with its aspect ratio preserved and centred.
 
-![front mode example](assets/cover-modes/front.svg)
+![front mode example](../assets/cover-modes/front.svg)
 
 
 
@@ -18,7 +18,7 @@ A single photo on the front panel, with its aspect ratio preserved and centred.
 
 A single photo fills the entire front panel (may crop to fit).
 
-![front-full mode example](assets/cover-modes/front-full.svg)
+![front-full mode example](../assets/cover-modes/front-full.svg)
 
 
 
@@ -28,7 +28,7 @@ A single photo fills the entire front panel (may crop to fit).
 
 A single photo on the back panel, with its aspect ratio preserved and centred.
 
-![back mode example](assets/cover-modes/back.svg)
+![back mode example](../assets/cover-modes/back.svg)
 
 
 
@@ -38,7 +38,7 @@ A single photo on the back panel, with its aspect ratio preserved and centred.
 
 A single photo fills the entire back panel (may crop to fit).
 
-![back-full mode example](assets/cover-modes/back-full.svg)
+![back-full mode example](../assets/cover-modes/back-full.svg)
 
 
 
@@ -48,7 +48,7 @@ A single photo fills the entire back panel (may crop to fit).
 
 A single photo spans the full spread (front, spine, and back), with its aspect ratio preserved and centred.
 
-![spread mode example](assets/cover-modes/spread.svg)
+![spread mode example](../assets/cover-modes/spread.svg)
 
 
 
@@ -58,7 +58,7 @@ A single photo spans the full spread (front, spine, and back), with its aspect r
 
 A single photo fills the full spread without cropping space for the spine (may crop the photo).
 
-![spread-full mode example](assets/cover-modes/spread-full.svg)
+![spread-full mode example](../assets/cover-modes/spread-full.svg)
 
 
 
@@ -68,7 +68,7 @@ A single photo fills the full spread without cropping space for the spine (may c
 
 Two photos: slot 0 goes on the front panel, slot 1 on the back panel. Both have their aspect ratios preserved and are centred.
 
-![split mode example](assets/cover-modes/split.svg)
+![split mode example](../assets/cover-modes/split.svg)
 
 
 
@@ -78,7 +78,7 @@ Two photos: slot 0 goes on the front panel, slot 1 on the back panel. Both have 
 
 Two photos: slot 0 fills the front panel, slot 1 fills the back panel (each may crop independently).
 
-![split-full mode example](assets/cover-modes/split-full.svg)
+![split-full mode example](../assets/cover-modes/split-full.svg)
 
 
 
@@ -88,4 +88,4 @@ Two photos: slot 0 fills the front panel, slot 1 fills the back panel (each may 
 
 The genetic algorithm solver optimises photo placement freely without constraints. Use any number of photos.
 
-![free mode example](assets/cover-modes/free.svg)
+![free mode example](../assets/cover-modes/free.svg)

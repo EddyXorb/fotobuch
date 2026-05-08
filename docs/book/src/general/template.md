@@ -1,9 +1,12 @@
 # Customizing the Template
 
 Every project has a `{name}.typ` file — a [Typst](https://typst.app/) template
-that controls how the PDF looks. ^*fotobuch* generates this file for you, but you
-are free (and encouraged) to edit it, if you are proficient with typst.
-Tweak it to your needs, use it as a starting point. fotobuch will not overwrite your template once you created it, so your changes stay safe within the project folder and can also be reused in other fotobuch projects.
+that controls how the PDF looks. fotobuch generates this file for you when you
+create a new project (via the GUI *New project* dialog or the CLI
+`fotobuch project new` command), but you are free to edit it. fotobuch will not
+overwrite your template once created, so your changes stay safe and can be
+reused across projects.
+
 Make sure that during your edits you do not change the lines
 
 ```typst
@@ -16,7 +19,7 @@ Make sure that during your edits you do not change the lines
 otherwise it won't compile.
 
 > **Important:** Always edit `{name}.typ`, never `final.typ`. The final
-> template is auto-generated from yours during `build release` (with
+> template is auto-generated from yours during a release build (with
 > `is_final = true`). Your changes in `final.typ` would be overwritten.
 
 ---
@@ -92,5 +95,5 @@ A few things to keep in mind:
   Preview images live in `.fotobuch/cache/{name}/preview/`, final images in
   `.fotobuch/cache/{name}/final/`.
 
-If you want to start over with the default template, create a fresh project with
-`fotobuch project new` and copy the generated `{name}.typ` back.
+If you want to start over with the default template, create a fresh project and
+copy the generated `{name}.typ` back.
