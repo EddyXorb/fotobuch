@@ -98,27 +98,51 @@ fn show_entries(
             }
         }
         ContextMenu::NavPage { page, .. } => {
-            if let Some(lp) = data.project.layout.get(*page) {
-                use fotobuch::dto_models::PageMode;
-                let (label, new_mode) = match lp.mode {
-                    PageMode::Auto => ("Set Manual", PageMode::Manual),
-                    PageMode::Manual => ("Set Auto", PageMode::Auto),
-                };
-                if ui.button(label).clicked() {
-                    cmds.push(BackgroundTask::SetPageMode {
-                        page: *page,
-                        mode: new_mode,
+            // If the right-clicked page is part of the current nav selection, operate on
+            // all selected pages; otherwise fall back to just the right-clicked one.
+            let target_pages: Vec<usize> = if interaction.selections.nav_pages.is_selected(page) {
+                interaction.selections.nav_pages.items()
+            } else {
+                vec![*page]
+            };
+
+            if target_pages.len() == 1 {
+                if let Some(lp) = data.project.layout.get(*page) {
+                    use fotobuch::dto_models::PageMode;
+                    let (label, new_mode) = match lp.mode {
+                        PageMode::Auto => ("Set Manual", PageMode::Manual),
+                        PageMode::Manual => ("Set Auto", PageMode::Auto),
+                    };
+                    if ui.button(label).clicked() {
+                        cmds.push(BackgroundTask::SetPageMode {
+                            page: *page,
+                            mode: new_mode,
+                        });
+                        interaction.context_menu = None;
+                    }
+                }
+                if ui.button("Rebuild").clicked() {
+                    cmds.push(BackgroundTask::RebuildPages { pages: vec![*page] });
+                    interaction.context_menu = None;
+                }
+            } else {
+                if ui.button("Rebuild selected").clicked() {
+                    cmds.push(BackgroundTask::RebuildPages {
+                        pages: target_pages.clone(),
                     });
                     interaction.context_menu = None;
                 }
             }
-            if ui.button("Rebuild").clicked() {
-                cmds.push(BackgroundTask::RebuildPages { pages: vec![*page] });
-                interaction.context_menu = None;
-            }
-            let is_cover = data.project.has_cover() && *page == 0;
-            if !is_cover && ui.button("Delete page").clicked() {
-                cmds.push(BackgroundTask::DeletePages { pages: vec![*page] });
+
+            let pages_to_delete: Vec<usize> = if data.project.has_cover() {
+                target_pages.into_iter().filter(|&p| p != 0).collect()
+            } else {
+                target_pages
+            };
+            if !pages_to_delete.is_empty() && ui.button("Delete page").clicked() {
+                cmds.push(BackgroundTask::DeletePages {
+                    pages: pages_to_delete,
+                });
                 interaction.context_menu = None;
             }
         }
