@@ -30,7 +30,7 @@
 
 ## Glossary / Ubiquitous Language
 
-- `docs/glossary.md` is the **authoritative DDD definition source** for all domain terms (vault, project, slot, photo, page mode, etc.). When writing code, docs, or commit messages, use the terms exactly as defined there.
+- `docs/book/src/glossary.md` is the **authoritative DDD definition source** for all domain terms (vault, project, slot, photo, page mode, etc.). When writing code, docs, or commit messages, use the terms exactly as defined there.
 
 ## General Workflow
 
