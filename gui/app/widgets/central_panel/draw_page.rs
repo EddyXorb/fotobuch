@@ -102,7 +102,7 @@ pub(super) fn draw_page(
     if ui.rect_contains_pointer(hud_rect) {
         interaction.help.hovered_widget = Some(("central-hud", hud_rect));
     }
-    if interaction.help.highlighted == Some("central-hud") {
+    if interaction.help.highlighted == Some("central-panel") {
         let time = ui.ctx().input(|i| i.time);
         crate::app::help::draw_glow(ui.painter(), hud_rect, time);
     }

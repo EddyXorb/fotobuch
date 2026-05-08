@@ -49,49 +49,47 @@ fn draw_contents(ui: &mut egui::Ui, interaction: &mut InteractionState) {
     });
     ui.separator();
 
-    ui.columns(2, |cols| {
-        // Left column: sidebar chapter list
-        egui::ScrollArea::vertical()
-            .id_salt("help_sidebar")
-            .show(&mut cols[0], |ui| {
-                for (i, chapter) in CHAPTERS.iter().enumerate() {
-                    let selected = interaction.help.chapter == i;
-                    if ui.selectable_label(selected, chapter.title).clicked() {
-                        interaction.help.chapter = i;
-                        interaction.help.lens_active = false;
+    egui::Panel::left("help_sidebar")
+        .resizable(true)
+        .default_size(140.0)
+        .show_inside(ui, |ui| {
+            egui::ScrollArea::vertical()
+                .id_salt("help_sidebar_scroll")
+                .show(ui, |ui| {
+                    for (i, chapter) in CHAPTERS.iter().enumerate() {
+                        let selected = interaction.help.chapter == i;
+                        if ui.selectable_label(selected, &chapter.title).clicked() {
+                            interaction.help.chapter = i;
+                            interaction.help.lens_active = false;
+                        }
                     }
-                }
-            });
+                });
+        });
 
-        // Right column: content + keyword chips
-        egui::ScrollArea::vertical()
-            .id_salt("help_content")
-            .show(&mut cols[1], |ui| {
-                let chapter_idx = interaction.help.chapter;
-                if let Some(chapter) = CHAPTERS.get(chapter_idx) {
-                    // Render markdown — borrow fields separately to avoid simultaneous borrows
-                    let text = chapter.text;
-                    let slug = chapter.slug;
-                    CommonMarkViewer::new().show(ui, &mut interaction.help.cache, text);
+    egui::ScrollArea::vertical()
+        .id_salt("help_content")
+        .show(ui, |ui| {
+            let chapter_idx = interaction.help.chapter;
+            if let Some(chapter) = CHAPTERS.get(chapter_idx) {
+                let text = chapter.text;
+                let slug = chapter.slug.as_str();
+                CommonMarkViewer::new().show(ui, &mut interaction.help.cache, text);
 
-                    // Related widget chips
-                    let chips: Vec<(&'static str, &'static str)> =
-                        chips_for_chapter(slug).collect();
-                    if !chips.is_empty() {
-                        ui.separator();
-                        ui.label(egui::RichText::new("Related widgets:").small().weak());
-                        ui.horizontal_wrapped(|ui| {
-                            for (phrase, chip_slug) in chips {
-                                let active = interaction.help.highlighted == Some(chip_slug);
-                                let btn = egui::Button::selectable(active, phrase);
-                                if ui.add(btn).clicked() {
-                                    interaction.help.highlighted =
-                                        if active { None } else { Some(chip_slug) };
-                                }
+                let chips: Vec<(&'static str, &'static str)> = chips_for_chapter(slug).collect();
+                if !chips.is_empty() {
+                    ui.separator();
+                    ui.label(egui::RichText::new("Related widgets:").small().weak());
+                    ui.horizontal_wrapped(|ui| {
+                        for (phrase, chip_slug) in chips {
+                            let active = interaction.help.highlighted == Some(chip_slug);
+                            let btn = egui::Button::selectable(active, phrase);
+                            if ui.add(btn).clicked() {
+                                interaction.help.highlighted =
+                                    if active { None } else { Some(chip_slug) };
                             }
-                        });
-                    }
+                        }
+                    });
                 }
-            });
-    });
+            }
+        });
 }

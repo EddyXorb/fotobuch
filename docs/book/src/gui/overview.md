@@ -31,3 +31,13 @@ fotobuch works in four steps:
 ## Multiple projects
 
 You can keep several photo books — for example one per year or one per event. Use the project dropdown at the top-left of the toolbar to switch between projects or create new ones. All projects in the same folder are kept together, so opening that folder next time shows all of them.
+
+## CLI and GUI interoperability
+
+The GUI and the `fotobuch` command-line tool operate on exactly the same project data. You can:
+
+- Run CLI commands on a project that is currently open in the GUI; the GUI will pick up the changes on the next frame.
+- Open a project in the GUI that was created and populated entirely from the CLI.
+- Use the CLI for scripting or batch operations and the GUI for visual review and fine-tuning — both at the same time.
+
+The shared format is a folder of YAML files tracked by git, so every tool that understands git can inspect the full change history.

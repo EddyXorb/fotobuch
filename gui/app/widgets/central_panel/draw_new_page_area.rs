@@ -44,7 +44,7 @@ pub(super) fn draw(
     if pointer_over {
         interaction.help.hovered_widget = Some(("central-dropzone", zone_rect));
     }
-    if interaction.help.highlighted == Some("central-dropzone") {
+    if interaction.help.highlighted == Some("central-panel") {
         let time = ui.ctx().input(|i| i.time);
         crate::app::help::draw_glow(ui.painter(), zone_rect, time);
     }

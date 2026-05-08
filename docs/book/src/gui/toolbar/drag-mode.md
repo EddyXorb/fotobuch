@@ -1,16 +1,20 @@
 # Drag Mode (Swap and Move)
 
-The **⇄ Swap** and **→ Move** buttons control what happens when you drag a photo slot with the right mouse button in the Central Panel. Toggle between them with the `M` key.
+The **⇄ Swap** and **→ Move** buttons control what happens when you drag an image with the right mouse button in the Central Panel. Toggle between them with the `M` key.
 
 ## Swap mode (⇄)
 
-Dragging a slot and dropping it on another slot **exchanges** the two photos. The positions stay the same but the photos switch places. This is useful when you want to reorder photos within a page or between pages without changing the layout structure.
+Dragging an image and dropping it on another **exchanges** the two photos. Both positions stay the same; only the photos switch places. Useful for reordering within a page or between pages without changing the layout structure.
 
 ## Move mode (→)
 
-Dragging a slot and dropping it on another slot **relocates** the dragged slot to the new position. The slot — including its size and shape — moves to where you drop it. If you drop it on an empty area of a page, it lands there. If you drop it on the Nav Strip, it moves to that page entirely.
+Dragging an image and dropping it on another position **relocates** the dragged photo to that slot, preserving only the photo and its aspect ratio. The target slot's layout geometry is applied to the moved photo.
+
+- Drop on a slot on a **different page** to move the photo there.
+- Drop on the **Nav Strip** to move the photo to that page.
+- Moving within the **same page** is only possible in Manual mode. In Auto mode, the page layout is recalculated automatically, so within-page moves have no persistent effect — use Swap instead, or switch to Manual mode first.
 
 ## Which mode to use
 
-- Use **Swap** for quick reordering — the page layouts stay intact.
-- Use **Move** when you want a photo to appear at a completely different position or on a different page.
+- **Swap** for quick reordering — page layouts stay intact.
+- **Move** to shift a photo to a completely different page.

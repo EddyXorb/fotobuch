@@ -105,9 +105,9 @@ fn show(ui: &mut egui::Ui, data: &DataState, interaction: &mut InteractionState)
 
     let panel_rect = ui.max_rect();
     if ui.rect_contains_pointer(panel_rect) {
-        interaction.help.hovered_widget = Some(("panel-pool", panel_rect));
+        interaction.help.hovered_widget = Some(("pool-panel", panel_rect));
     }
-    if interaction.help.highlighted == Some("panel-pool") {
+    if interaction.help.highlighted == Some("pool-panel") {
         let time = ui.ctx().input(|i| i.time);
         crate::app::help::draw_glow(ui.painter(), panel_rect, time);
     }

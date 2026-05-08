@@ -11,3 +11,12 @@ The project dropdown at the left of the toolbar shows the name of the currently 
 ## Projects and folders
 
 All your photo books live inside a single folder on your computer. You choose that folder once and fotobuch remembers it. Each project is a separate photo book — you can have as many as you like in the same folder.
+
+## Project naming rules
+
+- Must start with a letter.
+- May contain letters, digits, `.`, `_`, and `-`.
+- No `..` sequence allowed.
+- Maximum 50 characters.
+- Must be unique within the folder.
+- The name `fotobuch` is reserved.

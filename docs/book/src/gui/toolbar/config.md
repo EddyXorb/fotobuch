@@ -14,3 +14,5 @@ The configuration panel lets you adjust the settings for the current project:
 ## Applying changes
 
 Changes take effect when you rebuild the affected pages. After changing a setting, press `R` (or click **Rebuild**) to update the layout.
+
+For a full list of all available configuration keys and their accepted values, see the [Configuration reference](../../configuration.md).

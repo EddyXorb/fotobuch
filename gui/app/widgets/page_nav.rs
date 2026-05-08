@@ -56,9 +56,9 @@ fn show(
 
     let panel_rect = ui.max_rect();
     if ui.rect_contains_pointer(panel_rect) {
-        interaction.help.hovered_widget = Some(("panel-nav", panel_rect));
+        interaction.help.hovered_widget = Some(("nav-panel", panel_rect));
     }
-    if interaction.help.highlighted == Some("panel-nav") {
+    if interaction.help.highlighted == Some("nav-panel") {
         let time = ui.ctx().input(|i| i.time);
         crate::app::help::draw_glow(ui.painter(), panel_rect, time);
     }

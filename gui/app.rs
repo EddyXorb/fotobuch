@@ -126,6 +126,9 @@ impl FotobuchApp {
                 BackgroundResult::HistoryLoaded { entries } => {
                     self.state.data.history = entries;
                 }
+                BackgroundResult::ReleaseDone { pdf_path } => {
+                    let _ = open::that_detached(&pdf_path);
+                }
             }
         }
     }

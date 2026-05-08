@@ -1,65 +1,82 @@
-#[allow(dead_code)]
-pub const HELP_SLUGS: &[&str] = &[
-    "panel-pool",
-    "panel-nav",
-    "toolbar",
-    "central-hud",
-    "central-dropzone",
-    "central-page",
+use include_dir::{Dir, include_dir};
+use std::sync::LazyLock;
+
+static GUI_DOCS_DIR: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/docs/book/src/gui");
+
+/// Widget slugs that have no dedicated chapter file → mapped to a real chapter slug.
+const SLUG_ALIASES: &[(&str, &str)] = &[
+    ("central-hud", "central-panel"),
+    ("central-dropzone", "central-panel"),
 ];
 
-/// (keyword phrase, slug) — used to build the "Related widgets" chip list.
+/// (keyword phrase, chapter-slug) — used to build the "Related widgets" chip list.
 pub static WIDGET_KEYWORDS: &[(&str, &str)] = &[
-    ("Pool panel", "panel-pool"),
-    ("page HUD", "central-hud"),
-    ("drop zone", "central-dropzone"),
-    ("nav strip", "panel-nav"),
+    ("Pool panel", "pool-panel"),
+    ("page HUD", "central-panel"),
+    ("drop zone", "central-panel"),
+    ("nav strip", "nav-panel"),
     ("zoom slider", "toolbar"),
     ("toolbar", "toolbar"),
-    ("central panel", "central-page"),
+    ("central panel", "central-panel"),
 ];
 
 pub struct Chapter {
-    pub title: &'static str,
-    pub slug: &'static str,
+    pub title: String,
+    pub slug: String,
     pub text: &'static str,
 }
 
-pub static CHAPTERS: &[Chapter] = &[
-    Chapter {
-        title: "Overview",
-        slug: "overview",
-        text: include_str!("../../docs/book/src/gui/overview.md"),
-    },
-    Chapter {
-        title: "Central panel",
-        slug: "central-page",
-        text: include_str!("../../docs/book/src/gui/central-panel.md"),
-    },
-    Chapter {
-        title: "Pool panel",
-        slug: "panel-pool",
-        text: include_str!("../../docs/book/src/gui/pool-panel.md"),
-    },
-    Chapter {
-        title: "Toolbar",
-        slug: "toolbar",
-        text: include_str!("../../docs/book/src/gui/toolbar.md"),
-    },
-    Chapter {
-        title: "Nav strip",
-        slug: "panel-nav",
-        text: include_str!("../../docs/book/src/gui/nav-panel.md"),
-    },
-    Chapter {
-        title: "Keyboard",
-        slug: "keyboard",
-        text: include_str!("../../docs/book/src/gui/keyboard.md"),
-    },
-];
+/// All help chapters, auto-discovered from `docs/book/src/gui/*.md`.
+/// Title comes from the first `# ` heading; slug from the filename stem.
+pub static CHAPTERS: LazyLock<Vec<Chapter>> = LazyLock::new(|| {
+    let mut chapters: Vec<Chapter> = GUI_DOCS_DIR
+        .files()
+        .filter_map(|f| {
+            let path = f.path();
+            if path.extension().is_none_or(|e| e != "md") {
+                return None;
+            }
+            let stem = path.file_stem()?.to_str()?;
+            let text = f.contents_utf8()?;
+            let title = parse_h1_title(text).unwrap_or_else(|| stem_to_title(stem));
+            Some(Chapter {
+                title,
+                slug: stem.to_owned(),
+                text,
+            })
+        })
+        .collect();
+    chapters.sort_by(|a, b| a.title.cmp(&b.title));
+    chapters
+});
+
+fn parse_h1_title(text: &str) -> Option<String> {
+    text.lines()
+        .find(|l| l.starts_with("# "))
+        .map(|l| l[2..].trim().to_owned())
+}
+
+fn stem_to_title(stem: &str) -> String {
+    stem.replace('-', " ")
+        .split_whitespace()
+        .map(|w| {
+            let mut chars = w.chars();
+            match chars.next() {
+                None => String::new(),
+                Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
 
 /// Returns the index of the first chapter whose slug matches `slug`, or `None`.
+/// Applies `SLUG_ALIASES` for widget slugs that have no dedicated chapter file.
 pub fn chapter_for_slug(slug: &str) -> Option<usize> {
+    let slug = SLUG_ALIASES
+        .iter()
+        .find(|(from, _)| *from == slug)
+        .map_or(slug, |(_, to)| to);
     CHAPTERS.iter().position(|c| c.slug == slug)
 }
 

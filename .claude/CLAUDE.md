@@ -28,6 +28,10 @@
 - **do not use mod.rs files for subfolders**, instead use the same name for the module in root and include every module in the same named subfolder in the root-file
 
 
+## Glossary / Ubiquitous Language
+
+- `docs/glossary.md` is the **authoritative DDD definition source** for all domain terms (vault, project, slot, photo, page mode, etc.). When writing code, docs, or commit messages, use the terms exactly as defined there.
+
 ## General Workflow
 
 - read the file rust.instructions.md in the same folder as this one for general workflow instructions and respect these. When contradicting instructions are given in this file, the instructions in this current CLAUDE-file take precedence, NOT the rust.instructions.md file.

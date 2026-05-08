@@ -27,9 +27,9 @@ pub fn draw(
         });
     let panel_rect = resp.inner;
     if ui.rect_contains_pointer(panel_rect) {
-        interaction.help.hovered_widget = Some(("central-page", panel_rect));
+        interaction.help.hovered_widget = Some(("central-panel", panel_rect));
     }
-    if interaction.help.highlighted == Some("central-page") {
+    if interaction.help.highlighted == Some("central-panel") {
         let time = ui.ctx().input(|i| i.time);
         crate::app::help::draw_glow(ui.painter(), panel_rect, time);
     }

@@ -98,6 +98,12 @@ pub fn run_release_build(rctx: &mut crate::background::RenderCtx<'_>) {
                 .result_tx
                 .send(BackgroundResult::CommandFailed(e.to_string()));
         }
-        Ok(out) => send_command_done(out.changed_state, out.result.pages_rebuilt, rctx),
+        Ok(out) => {
+            let pdf_path = out.result.pdf_path.clone();
+            send_command_done(out.changed_state, out.result.pages_rebuilt, rctx);
+            let _ = rctx
+                .result_tx
+                .send(BackgroundResult::ReleaseDone { pdf_path });
+        }
     }
 }
