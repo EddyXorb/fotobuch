@@ -59,7 +59,7 @@ If you plan to use a cover:
       front_back_width_mm: 594.0   # total width of front + back panel
       height_mm: 297.0
       spine_text: "Italy 2024"
-      spine_mm: 15.0               # spine width (does not add to front_back_width_mm when spine_mode = fixed)
+      spine_width_mm: 15.0         # spine width (does not add to front_back_width_mm when spine_mode = fixed)
       spine_mode: fixed
 ```
 
