@@ -30,7 +30,7 @@
   - [Undo, Redo & History](gui/toolbar/history.md)
   - [Config](gui/toolbar/config.md)
   - [Drag Mode](gui/toolbar/drag-mode.md)
-- [Nav Strip](gui/nav-panel.md)
+- [Nav Bar](gui/nav-panel.md)
 - [Keyboard Shortcuts](gui/keyboard.md)
 
 ---
@@ -41,10 +41,10 @@
 - [Quickstart](cli/quickstart.md)
 - [Commands](cli/commands.md)
 - [CLI Concepts](cli/concepts.md)
+- [Full Flag Reference](cli/reference-generated.md)
 
 ---
 
 # Reference
 
-- [Full Flag Reference](cli/reference-generated.md)
 - [Glossary](glossary.md)

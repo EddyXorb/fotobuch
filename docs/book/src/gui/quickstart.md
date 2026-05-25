@@ -26,20 +26,20 @@ for placement; the count is shown at the top.
 
 ---
 
-## Step 3 — Place photos on pages
+## Step 3 — Create pages and place photos
 
-Press **P** (or click **Place** in the toolbar) to let fotobuch distribute all
-unplaced photos across pages automatically. fotobuch chooses page counts and
-arrangements to produce the best layout.
+Click **Rebuild** in the toolbar (or press `R`) with no pages selected, then
+confirm **Rebuild all** in the dialog. fotobuch creates all necessary pages and
+distributes your photos across them automatically.
 
-Alternatively, drag individual photos from the Photo Pool onto a page in the
-Central Panel to place them manually.
+Alternatively, drag photos from the Photo Pool onto the dashed drop zones between
+pages in the Central Panel to create pages and place photos manually one by one.
 
 ---
 
 ## Step 4 — Browse and adjust
 
-Use the **Nav Strip** on the right to scroll through all pages and jump to any
+Use the **Nav Bar** on the right to scroll through all pages and jump to any
 page with a click.
 
 If a page doesn't look right, hover over it in the Central Panel and click
@@ -69,7 +69,7 @@ Click **Config** in the toolbar to open the project configuration. Key settings:
 - **search_timeout** — how long the solver runs (increase for large books)
 - **gap_mm** — space between photos on a page
 
-After changing settings, press **P** or rebuild pages to apply the new layout.
+After changing settings, rebuild the affected pages (`R`) to apply the new layout.
 
 ---
 

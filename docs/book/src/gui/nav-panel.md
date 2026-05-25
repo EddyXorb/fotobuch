@@ -1,6 +1,6 @@
-# Nav Strip
+# Nav Bar
 
-The Nav strip (right side) shows thumbnail previews of all pages. It is useful for an overview when zoomed in on the canvas.
+The Nav Bar (right side) shows thumbnail previews of all pages. It is useful for an overview when zoomed in on the canvas.
 
 ## Interaction
 
@@ -14,4 +14,4 @@ The Nav strip (right side) shows thumbnail previews of all pages. It is useful f
 
 ## Scroll sync
 
-Clicking a thumbnail scrolls the central canvas to that page. The canvas scroll position does not feed back into the nav strip (the strip is always fully visible).
+Clicking a thumbnail scrolls the central canvas to that page. The canvas scroll position does not feed back into the Nav Bar (the bar is always fully visible).
