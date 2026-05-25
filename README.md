@@ -100,7 +100,7 @@
 
   ## Quick Start
 
-  **GUI (recommended):** Open the app, create a new project, add photos, press **Place**, browse the result in the central canvas, then click **Release** to export the final PDF.
+  **GUI (recommended for non-technical users):** Open the app, create a new project, add photos, press **Place**, browse the result in the central canvas, then click **Release** to export the final PDF.
   → [GUI Quickstart](https://eddyxorb.github.io/fotobuch/gui/quickstart.html)
 
   **CLI:**
