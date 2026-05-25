@@ -1,6 +1,6 @@
 # Full Flag Reference
 
-> This page is auto-generated from the CLI source. Run `cargo run --example generate-cli-docs` to regenerate.
+> This page is auto-generated from the CLI source. Run `cargo run --bin generate-cli-docs --features cli-docs` to regenerate.
 
 <!-- AUTO-GENERATED: do not edit by hand -->
 
@@ -24,9 +24,13 @@ This document contains the help content for the `fotobuch` command-line program.
 * [`fotobuch page swap`↴](#fotobuch-page-swap)
 * [`fotobuch page info`↴](#fotobuch-page-info)
 * [`fotobuch page weight`↴](#fotobuch-page-weight)
+* [`fotobuch page mode`↴](#fotobuch-page-mode)
+* [`fotobuch page pos`↴](#fotobuch-page-pos)
 * [`fotobuch remove`↴](#fotobuch-remove)
 * [`fotobuch status`↴](#fotobuch-status)
 * [`fotobuch config`↴](#fotobuch-config)
+* [`fotobuch config show`↴](#fotobuch-config-show)
+* [`fotobuch config set`↴](#fotobuch-config-set)
 * [`fotobuch history`↴](#fotobuch-history)
 * [`fotobuch undo`↴](#fotobuch-undo)
 * [`fotobuch redo`↴](#fotobuch-redo)
@@ -53,7 +57,7 @@ Photobook layout solver and project manager
 * `page` — Page manipulation commands (move, split, combine, swap)
 * `remove` — Remove photos or groups from the book
 * `status` — Show project status
-* `config` — Show resolved configuration with defaults
+* `config` — Configuration commands (show or mutate)
 * `history` — Show project change history
 * `undo` — Undo the last N commits (default: 1)
 * `redo` — Redo N previously undone commits (default: 1)
@@ -143,6 +147,7 @@ Place unplaced photos into the book
 
 * `--filter <REGEX>` — Only place photos matching this regex pattern (can be repeated, all must match)
 * `--into <INTO>` — Place all matching photos onto this specific page (0-based index)
+* `--into-new-page-at <POS>` — Create a new page at this position and place photos there (0-based index)
 
 
 
@@ -174,6 +179,8 @@ Page manipulation commands (move, split, combine, swap)
 * `swap` — Swap photos between two addresses (only single numbers or ranges, no comma lists)
 * `info` — Show photo metadata for slots on a page
 * `weight` — Set area_weight for one or more slots
+* `mode` — Toggle page mode between auto (solver) and manual (user-placed)
+* `pos` — Reposition or rescale slots on a Manual-mode page
 
 
 
@@ -283,6 +290,47 @@ Examples: `3:2 2.0` (single slot), `3:1..3,7 2.0` (multiple slots), `3 2.0` (who
 
 
 
+## `fotobuch page mode`
+
+Toggle page mode between auto (solver) and manual (user-placed)
+
+Syntax: `fotobuch page mode <pages> <a|m|auto|manual>`
+
+Examples: `3 m` (page 3 to manual), `3..5 a` (pages 3-5 to auto).
+
+**Usage:** `fotobuch page mode <PAGES> <MODE>`
+
+###### **Arguments:**
+
+* `<PAGES>` — Pages to change: "3", "3..5", "3,5"
+* `<MODE>` — Mode: 'a' or 'auto' for auto-solver, 'm' or 'manual' for manual placement
+
+
+
+## `fotobuch page pos`
+
+Reposition or rescale slots on a Manual-mode page.
+
+Syntax: `fotobuch page pos <address> [--by dx,dy] [--at x,y] [--scale s]`
+
+Examples: `4:2 --by -20,30`          — move slot 2 on page 4 relatively `4:2 --at 100,50`          — set slot 2 origin to (100mm, 50mm) `4:2 --scale 1.5`          — scale slot 2 by 1.5× `4:2..5 --by -20,30`       — move slots 2–5 together `4:2 --at 100,50 --scale 2` — absolute position + scale
+
+At least one of --by, --at, --scale is required. --by and --at are mutually exclusive. The page must be in manual mode.
+
+**Usage:** `fotobuch page pos <--by <BY>|--at <AT>|--scale <SCALE>> <ADDRESS>`
+
+###### **Arguments:**
+
+* `<ADDRESS>` — Address: "4:2", "4:2..5", "4:1,3"
+
+###### **Options:**
+
+* `--by <BY>` — Relative move in mm: "dx,dy" (e.g. "-20,30")
+* `--at <AT>` — Absolute position in mm: "x,y" (e.g. "100,50")
+* `--scale <SCALE>` — Scale factor applied to width and height (origin stays fixed)
+
+
+
 ## `fotobuch remove`
 
 Remove photos or groups from the book
@@ -314,9 +362,37 @@ Show project status
 
 ## `fotobuch config`
 
+Configuration commands (show or mutate)
+
+**Usage:** `fotobuch config <COMMAND>`
+
+###### **Subcommands:**
+
+* `show` — Show resolved configuration with defaults
+* `set` — Set a config value using dot-notation (e.g. `book.dpi 300`)
+
+
+
+## `fotobuch config show`
+
 Show resolved configuration with defaults
 
-**Usage:** `fotobuch config`
+**Usage:** `fotobuch config show`
+
+
+
+## `fotobuch config set`
+
+Set a config value using dot-notation (e.g. `book.dpi 300`)
+
+Supported keys mirror the YAML config hierarchy. Types are auto-detected: true/false → bool, integers → int, decimals → float, else string.
+
+**Usage:** `fotobuch config set <KEY> <VALUE>`
+
+###### **Arguments:**
+
+* `<KEY>` — Dot-notation key, e.g. "book.dpi" or "book.cover.active"
+* `<VALUE>` — New value, e.g. "300", "true", "3.5", "spread"
 
 
 
