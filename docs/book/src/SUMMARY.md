@@ -7,7 +7,9 @@
 # General
 
 - [Core Concepts](general/concepts.md)
+- [Vaults and Multiple Projects](general/vault.md)
 - [Configuration](general/configuration.md)
+- [Solver Tuning](general/solver-tuning.md)
 - [Cover Modes](general/cover-modes.md)
 - [Customizing the Template](general/template.md)
 - [Printing & Export](general/printing.md)
@@ -41,6 +43,8 @@
 - [Quickstart](cli/quickstart.md)
 - [Commands](cli/commands.md)
 - [CLI Concepts](cli/concepts.md)
+- [Manual Mode](cli/manual-mode.md)
+- [Headless / CI](cli/headless.md)
 - [Full Flag Reference](cli/reference-generated.md)
 
 ---
