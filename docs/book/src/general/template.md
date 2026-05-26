@@ -81,6 +81,22 @@ config:
 badge with the number appears in the bottom-right corner of each photo in the
 PDF.
 
+### Typical setup for a German photo book
+
+```yaml
+config:
+  book:
+    appendix:
+      active: true
+      columns: 6
+      ref_mode: "counter"
+      label_title: "Fotoindex"
+      label_page: "Seite"
+      date_format: "{day}. {month} {year}"
+      date_months: ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun",
+                    "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"]
+```
+
 ---
 
 ## Going further
