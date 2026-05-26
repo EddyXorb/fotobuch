@@ -40,3 +40,28 @@ fresh project.
 Every command that changes the layout creates a **Git commit** automatically.
 Use `fotobuch undo` / `fotobuch redo` to navigate history, and
 `fotobuch history` to see the log.
+
+## XMP metadata filtering
+
+`fotobuch add` supports `--filter-xmp <REGEX>` to import only photos whose XMP
+metadata matches a pattern. The regex is matched against the **raw XMP XML**
+embedded in the image file.
+
+Common use cases:
+
+```bash
+# Only photos with 3–5 star rating
+fotobuch add /photos --filter-xmp "xmp:Rating>[3-5]<"
+
+# Only photos tagged with a specific label
+fotobuch add /photos --filter-xmp "xmp:Label>Vacation<"
+
+# Multiple filters (all must match — AND logic)
+fotobuch add /photos --filter-xmp "xmp:Rating>[4-5]<" --filter-xmp "dc:subject>Italy<"
+```
+
+Photos without any XMP data are **excluded** when `--filter-xmp` is used.
+Use `--filter` instead if you want to match by filename or source path.
+
+> **Tip:** Use `exiftool -xmp -b <file.jpg>` to inspect the raw XMP of a photo
+> and find the exact tag names and value format your camera writes.
