@@ -40,7 +40,7 @@ For books with 300+ photos the problem is automatically split into sub-problems.
 | Much white space | Raise `page_layout_solver.weights.w_coverage` (default `1.0`) |
 | Photo sizes don't match weights | Raise `page_layout_solver.weights.w_size` (default `0.2`) |
 | Chronological order wrong | Set `page_layout_solver.enforce_order: true` (default) |
-| Same bad layout every rebuild | `fotobuch rebuild --page N` changes the seed automatically |
+| Same bad layout every rebuild | Change `page_layout_solver.seed` in the YAML (or `fotobuch config set page_layout_solver.seed <N>`) |
 
 ---
 
@@ -49,4 +49,4 @@ For books with 300+ photos the problem is automatically split into sub-problems.
 1. Set `page_target` to the desired page count.
 2. Groups splitting? → raise `weight_split`.
 3. Build too slow? → raise `search_timeout`, or set `enable_local_search: false`.
-4. One bad page? → `fotobuch rebuild --page N` (picks a new random seed).
+4. One bad page? → change `page_layout_solver.seed` and run `fotobuch rebuild --page N`.

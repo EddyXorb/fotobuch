@@ -44,24 +44,26 @@ Use `fotobuch undo` / `fotobuch redo` to navigate history, and
 ## XMP metadata filtering
 
 `fotobuch add` supports `--filter-xmp <REGEX>` to import only photos whose XMP
-metadata matches a pattern. The regex is matched against the **raw XMP XML**
-embedded in the image file.
+metadata matches a pattern. The regex is applied to the **raw XMP XML** string
+embedded in the image file — not to parsed fields.
+
+Because XMP is XML, a tag like `xmp:Rating` appears in the raw text as e.g.
+`<xmp:Rating>4</xmp:Rating>`. A regex therefore needs to match against that
+XML text. Use `exiftool -xmp -b <file.jpg>` to inspect the exact XMP of a
+specific photo and build your pattern from it.
 
 Common use cases:
 
 ```bash
-# Only photos with 3–5 star rating
+# Only photos with a star rating element present (any value)
+fotobuch add /photos --filter-xmp "xmp:Rating"
+
+# Only photos rated 3, 4, or 5 stars
 fotobuch add /photos --filter-xmp "xmp:Rating>[3-5]<"
 
-# Only photos tagged with a specific label
-fotobuch add /photos --filter-xmp "xmp:Label>Vacation<"
-
 # Multiple filters (all must match — AND logic)
-fotobuch add /photos --filter-xmp "xmp:Rating>[4-5]<" --filter-xmp "dc:subject>Italy<"
+fotobuch add /photos --filter-xmp "xmp:Rating>[4-5]" --filter-xmp "dc:subject"
 ```
 
 Photos without any XMP data are **excluded** when `--filter-xmp` is used.
 Use `--filter` instead if you want to match by filename or source path.
-
-> **Tip:** Use `exiftool -xmp -b <file.jpg>` to inspect the raw XMP of a photo
-> and find the exact tag names and value format your camera writes.

@@ -38,3 +38,17 @@ fotobuch project switch Hiking-2025
 ## First project vs. vault
 
 When you run `fotobuch project new` from a directory that is **not** yet a git repository, fotobuch creates a new subdirectory with its own repository — the standard single-project setup. Come back to that directory later and run `project new` again to add a second project to the same vault.
+
+## Default vault and how fotobuch finds it
+
+When you open fotobuch (GUI or CLI) without specifying a vault, it resolves the vault using this priority chain:
+
+| Priority | Source | Description |
+| -------- | ------ | ----------- |
+| 1 | `--vault <path>` CLI flag | Explicit path, overrides everything |
+| 2 | `FOTOBUCH_VAULT` env variable | Set in shell or CI environment |
+| 3 | Current working directory | Used if the directory already contains `fotobuch/*` branches |
+| 4 | Last-used vault | Remembered from the previous session |
+| 5 | Default: `~/Pictures/Fotobuch` | Created automatically on first use |
+
+The default vault path is `~/Pictures/Fotobuch` (or the platform equivalent of the Pictures directory).

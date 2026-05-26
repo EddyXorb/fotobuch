@@ -40,7 +40,7 @@ fotobuch build release
 
 - Typst (PDF renderer) is bundled — no separate install.
 - A writable filesystem for `.fotobuch/` cache.
-- Git must be available (libgit2 handles most operations internally, but the `git` binary may be needed by some git hooks).
+- No `git` binary required — fotobuch uses libgit2 directly for all git operations.
 
 ---
 
@@ -49,12 +49,12 @@ fotobuch build release
 ```dockerfile
 FROM debian:bookworm-slim
 COPY fotobuch /usr/local/bin/fotobuch
+WORKDIR /vault
 ENTRYPOINT ["fotobuch"]
 ```
 
-Mount the vault as a volume and run commands against it:
+Mount the vault as a volume:
 
 ```bash
-docker run --rm -v /data/vault:/vault fotobuch \
-  -C /vault build release
+docker run --rm -v /data/vault:/vault fotobuch build release
 ```
