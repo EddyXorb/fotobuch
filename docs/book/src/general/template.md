@@ -81,7 +81,9 @@ config:
 badge with the number appears in the bottom-right corner of each photo in the
 PDF.
 
-### Typical setup for a German photo book
+### Localization example
+
+To produce an appendix in a different language, override the label fields and month abbreviations:
 
 ```yaml
 config:
@@ -90,11 +92,11 @@ config:
       active: true
       columns: 6
       ref_mode: "counter"
-      label_title: "Fotoindex"
-      label_page: "Seite"
-      date_format: "{day}. {month} {year}"
-      date_months: ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun",
-                    "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"]
+      label_title: "Photo Index"
+      label_page: "Page"
+      date_format: "{day} {month} {year}"
+      date_months: ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 ```
 
 ---
