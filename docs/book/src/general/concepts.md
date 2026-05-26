@@ -60,9 +60,24 @@ page.
 - Weight 2.0 → roughly twice the area of a weight-1.0 photo
 - Weight 0.5 → roughly half
 
-Weights can be set when importing or adjusted per-slot afterward — both in the
-GUI (W key, or right-click a slot → Set weight…) and in the CLI
-(`fotobuch page weight`).
+**Set weights at import time** when you already know some photos should dominate:
+
+```bash
+fotobuch add /photos/2024-Italy --weight 2.0   # all photos in this folder get weight 2
+```
+
+**Adjust weights per slot after placement:**
+
+```bash
+fotobuch page weight 3:2 2.0   # slot 2 on page 3 gets weight 2
+```
+
+In the GUI: select a slot and press `W`, or right-click → *Set weight…*
+
+Weights only affect photos on the **same page**. A photo with weight 3.0 gets
+more space than its page-neighbours, but it has no influence on other pages.
+After changing weights, run `fotobuch rebuild --page N` (or press `R` in the
+GUI) to let the solver recalculate the layout for that page.
 
 ## Cover
 
