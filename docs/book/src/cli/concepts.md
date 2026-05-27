@@ -67,3 +67,10 @@ fotobuch add /photos --filter-xmp "xmp:Rating>[4-5]" --filter-xmp "dc:subject"
 
 Photos without any XMP data are **excluded** when `--filter-xmp` is used.
 Use `--filter` instead if you want to match by filename or source path.
+
+Use `--dry` (or `-d`) to preview which photos would be imported without making
+any changes — essential for iterating on XMP regexes before committing:
+
+```bash
+fotobuch add /photos --filter-xmp "xmp:Rating>[4-5]" --dry
+```
