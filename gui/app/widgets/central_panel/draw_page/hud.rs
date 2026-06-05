@@ -3,7 +3,7 @@ use fotobuch::dto_models::PageMode;
 
 use super::super::theme::FbTheme;
 
-pub(super) const HUD_HEIGHT: f32 = 24.0;
+pub(super) const HUD_HEIGHT: f32 = 20.0;
 pub(super) const HUD_GAP: f32 = 10.0;
 
 /// `t` is the hover animation progress in `[0, 1]` (0 = idle, 1 = hovered).
