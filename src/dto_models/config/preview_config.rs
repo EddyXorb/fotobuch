@@ -13,6 +13,8 @@ pub struct PreviewConfig {
     /// Show slot address and area weight on each photo
     #[serde(default = "default_show_slot_info")]
     pub show_slot_info: bool,
+    #[serde(default = "default_show_preview_watermark")]
+    pub show_preview_watermark: bool,
 }
 
 impl Default for PreviewConfig {
@@ -22,6 +24,7 @@ impl Default for PreviewConfig {
             max_preview_px: default_max_preview_px(),
             show_borders: default_show_borders(),
             show_slot_info: default_show_slot_info(),
+            show_preview_watermark: default_show_preview_watermark(),
         }
     }
 }
@@ -39,5 +42,9 @@ fn default_show_borders() -> bool {
 }
 
 fn default_show_slot_info() -> bool {
+    true
+}
+
+fn default_show_preview_watermark() -> bool {
     true
 }
