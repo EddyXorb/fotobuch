@@ -203,6 +203,7 @@ All preview overlay settings are automatically suppressed in `build release`.
 | `show_borders`           | `true`  | Show red bleed border and blue margin border overlays on each page.                                                   |
 | `show_slot_info`         | `true`  | Show slot address and area weight on each photo (e.g. `3:2 (1.5)`).                                                   |
 | `show_preview_watermark` | `true`  | Show a watermark on the preview images. Useful to easily distinguish preview images from final output.                |
+| `write_pdf`              | `true`  | Whether `build`/`rebuild` (re)write the preview PDF. Set to `false` to skip PDF generation (e.g. in the GUI, which renders pages directly) for faster builds. |
 
 ---
 
