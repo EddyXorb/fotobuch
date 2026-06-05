@@ -34,33 +34,36 @@ jobs:
       - name: Cache
         uses: Swatinem/rust-cache@v2
 
-      - name: Install cmake (Linux)
+      - name: Install build dependencies (Linux)
         if: runner.os == 'Linux'
-        run: sudo apt-get install -y cmake
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake \
+            libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev \
+            libxkbcommon-dev libgl1-mesa-dev
 
-      - name: Build
-        env:
-          CARGO_PROFILE_RELEASE_STRIP: symbols
-          CARGO_PROFILE_RELEASE_DEBUG: "false"
-        run: cargo build --release --target ${{ matrix.target }}
+      - name: Build (CLI + GUI)
+        run: cargo build --profile dist --features gui --target ${{ matrix.target }}
 
-      - name: Smoke test
+      - name: Smoke test (CLI)
         shell: bash
-        run: ./target/${{ matrix.target }}/release/${{ matrix.binary }} --version
+        run: ./target/${{ matrix.target }}/dist/${{ matrix.binary }} --version
 
       - name: Package (Linux)
         if: runner.os == 'Linux'
         run: |
-          cp target/${{ matrix.target }}/release/fotobuch fotobuch
-          tar -czf ${{ matrix.artifact }}.tar.gz fotobuch
+          cp target/${{ matrix.target }}/dist/fotobuch fotobuch
+          cp target/${{ matrix.target }}/dist/fotobuch-gui fotobuch-gui
+          tar -czf ${{ matrix.artifact }}.tar.gz fotobuch fotobuch-gui
           sha256sum ${{ matrix.artifact }}.tar.gz > ${{ matrix.artifact }}.tar.gz.sha256
 
       - name: Package (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          Copy-Item "target\${{ matrix.target }}\release\fotobuch.exe" "fotobuch.exe"
-          Compress-Archive -Path fotobuch.exe -DestinationPath "${{ matrix.artifact }}.zip"
+          Copy-Item "target\${{ matrix.target }}\dist\fotobuch.exe" "fotobuch.exe"
+          Copy-Item "target\${{ matrix.target }}\dist\fotobuch-gui.exe" "fotobuch-gui.exe"
+          Compress-Archive -Path fotobuch.exe, fotobuch-gui.exe -DestinationPath "${{ matrix.artifact }}.zip"
           $hash = (Get-FileHash "${{ matrix.artifact }}.zip" -Algorithm SHA256).Hash
           "$hash  ${{ matrix.artifact }}.zip" | Out-File "${{ matrix.artifact }}.zip.sha256" -Encoding ascii
 

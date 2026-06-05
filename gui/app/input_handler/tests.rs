@@ -28,7 +28,7 @@ fn dispatch_move_emits_command_with_given_slots() {
         src_page,
         src_slots,
         dst_page,
-    } = cmds.iter().next().unwrap()
+    } = cmds.first().unwrap()
     else {
         panic!("expected Move");
     };
@@ -41,7 +41,7 @@ fn dispatch_move_emits_command_with_given_slots() {
 fn dispatch_move_single_slot() {
     let mut cmds = Vec::new();
     dispatch_move(&mut cmds, 0, vec![3], 1);
-    let BackgroundTask::Move { src_slots, .. } = cmds.iter().next().unwrap() else {
+    let BackgroundTask::Move { src_slots, .. } = cmds.first().unwrap() else {
         panic!()
     };
     assert_eq!(*src_slots, vec![3]);
@@ -90,7 +90,7 @@ fn place_hotkey_emits_place_with_hovered_page() {
             None => PlaceDst::Auto,
         },
     });
-    let BackgroundTask::Place { dst, .. } = cmds.iter().next().unwrap() else {
+    let BackgroundTask::Place { dst, .. } = cmds.first().unwrap() else {
         panic!()
     };
     assert_eq!(*dst, PlaceDst::Page(2));
@@ -113,7 +113,7 @@ fn place_hotkey_emits_place_without_target_when_no_hover() {
             None => PlaceDst::Auto,
         },
     });
-    let BackgroundTask::Place { dst, .. } = cmds.iter().next().unwrap() else {
+    let BackgroundTask::Place { dst, .. } = cmds.first().unwrap() else {
         panic!()
     };
     assert_eq!(*dst, PlaceDst::Auto);
@@ -137,7 +137,7 @@ fn pool_drag_complete_emits_place_on_hovered_page() {
     let mut cmds = Vec::new();
     complete_pool_drag(&mut state.interaction, &mut cmds, vec!["a.jpg".into()]);
     assert_eq!(cmds.len(), 1);
-    let BackgroundTask::Place { dst, .. } = cmds.iter().next().unwrap() else {
+    let BackgroundTask::Place { dst, .. } = cmds.first().unwrap() else {
         panic!()
     };
     assert_eq!(*dst, PlaceDst::Page(1));
@@ -171,7 +171,7 @@ fn nav_drag_complete_emits_page_swap() {
     let mut cmds = Vec::new();
     complete_nav_drag(&default_data(), &mut state.interaction, &mut cmds, 0);
     assert_eq!(cmds.len(), 1);
-    let BackgroundTask::PageSwap { left, right } = cmds.iter().next().unwrap() else {
+    let BackgroundTask::PageSwap { left, right } = cmds.first().unwrap() else {
         panic!()
     };
     assert_eq!(*left, 0);
@@ -223,7 +223,7 @@ fn drop_on_new_page_slot_emits_move_to_new_page() {
         src_page,
         src_slots,
         at_position,
-    } = cmds.iter().next().unwrap()
+    } = cmds.first().unwrap()
     else {
         panic!("expected MoveToNewPage");
     };
@@ -247,7 +247,7 @@ fn drop_on_new_page_slot_at_zero_inserts_before_first_page() {
         (0.0, 0.0),
     );
     assert_eq!(cmds.len(), 1);
-    let BackgroundTask::MoveToNewPage { at_position, .. } = cmds.iter().next().unwrap() else {
+    let BackgroundTask::MoveToNewPage { at_position, .. } = cmds.first().unwrap() else {
         panic!()
     };
     assert_eq!(*at_position, 0);
@@ -262,7 +262,7 @@ fn cross_page_move_with_selection_moves_all_selected_slots() {
         src_page,
         src_slots,
         dst_page,
-    } = cmds.iter().next().unwrap()
+    } = cmds.first().unwrap()
     else {
         panic!()
     };
@@ -313,7 +313,7 @@ fn swap_range_uses_full_selection_when_dragged_slot_selected() {
         src_slots,
         dst_slots,
         ..
-    } = cmds.iter().next().unwrap()
+    } = cmds.first().unwrap()
     else {
         panic!("expected SwapRange");
     };
@@ -398,7 +398,7 @@ fn swap_falls_back_to_single_when_selection_is_one() {
     );
     assert_eq!(cmds.len(), 1);
     assert!(
-        matches!(cmds.iter().next().unwrap(), BackgroundTask::Swap { .. }),
+        matches!(cmds.first().unwrap(), BackgroundTask::Swap { .. }),
         "single-slot selection should use Swap, not SwapRange"
     );
 }
@@ -416,7 +416,7 @@ fn handle_delete_emits_unplace_with_selection_slots() {
         });
     }
     assert_eq!(cmds.len(), 1);
-    let BackgroundTask::Unplace { page, slots } = cmds.iter().next().unwrap() else {
+    let BackgroundTask::Unplace { page, slots } = cmds.first().unwrap() else {
         panic!()
     };
     assert_eq!(*page, 2);

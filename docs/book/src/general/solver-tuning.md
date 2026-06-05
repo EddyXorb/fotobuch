@@ -2,6 +2,8 @@
 
 fotobuch has two solvers: the **book layout solver** (MIP + local search) distributes photos across pages; the **page layout solver** (genetic algorithm) arranges photos within each page. Most problems can be fixed by changing a few values in the YAML.
 
+Curious *how* these solvers work under the hood? See [How the Layout Engine Works](layout-engine.md).
+
 
 ## Quick checklist
 

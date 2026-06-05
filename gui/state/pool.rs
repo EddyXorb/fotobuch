@@ -51,6 +51,7 @@ mod tests {
     #[test]
     fn single_replaces_previous() {
         let mut sel = PhotoSelection::single("a".into());
+        assert!(sel.is_selected("a"));
         sel = PhotoSelection::single("b".into());
         assert!(sel.is_selected("b"));
         assert!(!sel.is_selected("a"));

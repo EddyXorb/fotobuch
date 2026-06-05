@@ -2,8 +2,10 @@ use crate::state::{ActiveDrag, DragMode, DragSource, InteractionState};
 
 use super::theme::FbTheme;
 
-const ZONE_HEIGHT: f32 = 44.0;
-const ZONE_MARGIN: f32 = 14.0;
+const ZONE_HEIGHT: f32 = 26.0;
+const ZONE_MARGIN: f32 = 8.0;
+/// Min width to fit "Drop a photo here to add a new page" at 10.5px font
+const MIN_ZONE_WIDTH: f32 = 220.0;
 
 pub(super) fn draw(
     ui: &mut egui::Ui,
@@ -14,8 +16,9 @@ pub(super) fn draw(
     let row_desired = egui::vec2(ui.available_width(), ZONE_HEIGHT + ZONE_MARGIN * 2.0);
     let (row_rect, _) = ui.allocate_exact_size(row_desired, egui::Sense::hover());
 
+    let effective_width = page_width.max(MIN_ZONE_WIDTH);
     let zone_rect =
-        egui::Rect::from_center_size(row_rect.center(), egui::vec2(page_width, ZONE_HEIGHT));
+        egui::Rect::from_center_size(row_rect.center(), egui::vec2(effective_width, ZONE_HEIGHT));
 
     let (is_pool_drag, is_move_drag) = classify_drag(interaction);
     let any_valid_drag = is_pool_drag || is_move_drag;

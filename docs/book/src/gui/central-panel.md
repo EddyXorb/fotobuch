@@ -10,7 +10,7 @@ The central panel is the main editing canvas. It shows all pages in a vertical s
 
 ## Page image
 
-Each page displays a live preview rendered by the Typst compiler. While a re-render is pending the page shows a grey overlay with a spinner icon.
+Each page displays a preview rendered by the Typst compiler. While a re-render is pending the page shows a grey overlay with a spinner icon.
 
 ## Page HUD
 

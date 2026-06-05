@@ -88,10 +88,6 @@ mod tests {
     use super::*;
     use tempfile::TempDir;
 
-    fn empty_settings() -> AppSettings {
-        AppSettings::default()
-    }
-
     // ── resolve_vault priority tests ──────────────────────────────────────────
 
     #[test]

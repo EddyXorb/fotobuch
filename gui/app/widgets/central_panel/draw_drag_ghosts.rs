@@ -121,41 +121,6 @@ pub(super) fn draw_drag_ghosts(
     );
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn stack_step_is_ne_10px_per_layer() {
-        // Each deeper layer steps +10 East, -10 North from the layer above.
-        assert_eq!(STACK_STEP, egui::vec2(10.0, -10.0));
-    }
-
-    #[test]
-    fn source_slot_is_topmost_layer() {
-        // The source slot index is always the last element in render_order before render.
-        // We verify the conceptual ordering: top_idx == render_order.len() - 1,
-        // and depth for source = top_idx - top_idx = 0, so offset = ZERO.
-        let render_order = vec![2usize, 3, 0]; // 0 is source
-        let top_idx = render_order.len() - 1;
-        let source = *render_order.last().unwrap();
-        let source_layer = render_order.iter().position(|&s| s == source).unwrap();
-        let depth = top_idx - source_layer;
-        assert_eq!(depth, 0, "source must be at depth 0 (no offset)");
-    }
-
-    #[test]
-    fn single_selection_render_order_has_only_source() {
-        // Without secondary slots, render_order is just [src_slot_idx].
-        let src = 1usize;
-        let secondary: Vec<usize> = vec![];
-        let mut order: Vec<usize> = secondary;
-        order.push(src);
-        assert_eq!(order.len(), 1);
-        assert_eq!(order[0], src);
-    }
-}
-
 fn calc_primary_ghost_rect(
     page_rect: egui::Rect,
     scale: &PageScale,
@@ -179,4 +144,39 @@ fn paint_ghost_rect(painter: &egui::Painter, rect: egui::Rect, alpha: u8) {
         4.0,
         egui::Color32::from_rgba_unmultiplied(100, 149, 237, alpha),
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn stack_step_is_ne_10px_per_layer() {
+        // Each deeper layer steps +10 East, -10 North from the layer above.
+        assert_eq!(STACK_STEP, egui::vec2(10.0, -10.0));
+    }
+
+    #[test]
+    fn source_slot_is_topmost_layer() {
+        // The source slot index is always the last element in render_order before render.
+        // We verify the conceptual ordering: top_idx == render_order.len() - 1,
+        // and depth for source = top_idx - top_idx = 0, so offset = ZERO.
+        let render_order = [2usize, 3, 0]; // 0 is source
+        let top_idx = render_order.len() - 1;
+        let source = *render_order.last().unwrap();
+        let source_layer = render_order.iter().position(|&s| s == source).unwrap();
+        let depth = top_idx - source_layer;
+        assert_eq!(depth, 0, "source must be at depth 0 (no offset)");
+    }
+
+    #[test]
+    fn single_selection_render_order_has_only_source() {
+        // Without secondary slots, render_order is just [src_slot_idx].
+        let src = 1usize;
+        let secondary: Vec<usize> = vec![];
+        let mut order: Vec<usize> = secondary;
+        order.push(src);
+        assert_eq!(order.len(), 1);
+        assert_eq!(order[0], src);
+    }
 }
