@@ -196,16 +196,17 @@ three cost components, each multiplied by its weight. Lower cost = better layout
 
 All preview overlay settings are automatically suppressed in `build release`.
 
-| Field            | Default | Description                                                                                                           |
-| ---------------- | ------- | --------------------------------------------------------------------------------------------------------------------- |
-| `show_filenames` | `false` | Show the photo filename as a caption on each photo. Useful for identifying photos when adjusting the layout.          |
-| `max_preview_px` | `800`   | Maximum pixel size (longest edge) of cached preview images. Lower = faster builds, less disk space, blurrier preview. |
-| `show_borders`   | `true`  | Show red bleed border and blue margin border overlays on each page.                                                   |
-| `show_slot_info` | `true`  | Show slot address and area weight on each photo (e.g. `3:2 (1.5)`).                                                   |
+| Field                    | Default | Description                                                                                                           |
+| ------------------------ | ------- | --------------------------------------------------------------------------------------------------------------------- |
+| `show_filenames`         | `false` | Show the photo filename as a caption on each photo. Useful for identifying photos when adjusting the layout.          |
+| `max_preview_px`         | `800`   | Maximum pixel size (longest edge) of cached preview images. Lower = faster builds, less disk space, blurrier preview. |
+| `show_borders`           | `true`  | Show red bleed border and blue margin border overlays on each page.                                                   |
+| `show_slot_info`         | `true`  | Show slot address and area weight on each photo (e.g. `3:2 (1.5)`).                                                   |
+| `show_preview_watermark` | `true`  | Show a watermark on the preview images. Useful to easily distinguish preview images from final output.                |
 
 ---
 
-### `config.book.appendix` — Photo index
+### `config.book.appendix` — Photo indexu
 
 The appendix is a compact photo index appended at the end of both the preview
 and release PDFs, listing every photo with its group, timestamp, and a
