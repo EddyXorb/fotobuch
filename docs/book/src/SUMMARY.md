@@ -13,6 +13,7 @@
 - [Cover Modes](general/cover-modes.md)
 - [Customizing the Template](general/template.md)
 - [Printing & Export](general/printing.md)
+- [How the Layout Engine Works (Advanced)](general/layout-engine.md)
 - [Known Limitations](general/known_limitations.md)
 
 ---
