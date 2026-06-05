@@ -117,12 +117,15 @@ fn parse_config(s: &NewProjectDialogState) -> Option<NewConfig> {
     };
 
     // Preview overlays look cluttered in the GUI, so disable them by default.
+    // The GUI renders pages directly, so writing the preview PDF on every build
+    // only slows page rendering down — disable it by default.
     let base_config = ProjectConfig {
         preview: PreviewConfig {
             show_slot_info: false,
             show_preview_watermark: false,
             show_borders: false,
             show_filenames: false,
+            write_pdf: false,
             ..Default::default()
         },
         ..Default::default()
