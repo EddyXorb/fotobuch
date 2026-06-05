@@ -174,4 +174,8 @@ pub enum BackgroundResult {
         /// Straight-alpha RGBA.
         pixels: Vec<u8>,
     },
+    /// Release build completed; open the PDF with the OS default viewer.
+    ReleaseDone {
+        pdf_path: PathBuf,
+    },
 }

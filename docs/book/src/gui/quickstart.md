@@ -1,0 +1,95 @@
+# GUI Quickstart
+
+This walkthrough takes you from zero to a print-ready PDF using the GUI.
+
+---
+
+## Step 1 — Create a project
+
+When you open fotobuch for the first time, a welcome screen appears. Click
+**New project**, give it a name (e.g. `Italy-2024`), choose a folder to save
+it in, and set the page dimensions in millimetres (e.g. 297 × 210 mm = A4
+landscape).
+
+fotobuch creates the project and opens it automatically.
+
+---
+
+## Step 2 — Add photos
+
+Click **Add** in the toolbar (or press `Ctrl+O`). Select a folder — all photos
+in that folder are imported into the Photo Pool on the left. You can add more
+folders at any time; each folder becomes a separate group.
+
+The Photo Pool shows all your imported photos. Unplaced photos are available
+for placement; the count is shown at the top.
+
+---
+
+## Step 3 — Fine-tune the configuration
+
+Click **Config** in the toolbar to open the project configuration. Key settings:
+
+- **page_target** — how many pages you want
+- **search_timeout** — how long the solver runs (increase for large books)
+- **gap_mm** — space between photos on a page
+- **book.margin_mm** — inner margin around the page content (default `0.0`)
+- **book.bleed_mm** — bleed zone added at the page edges, trimmed in the final PDF (default `3.0`); set to `0` if your print service does not require bleed
+
+Most settings preview instantly. The page and per-page targets only change how the
+layout is built, so rebuild the affected pages (`R`) to apply them to existing pages.
+
+---
+
+## Step 4 — Create pages and place photos
+
+Click **Rebuild** in the toolbar (or press `R`) with no pages selected, then
+confirm **Rebuild all** in the dialog. fotobuch creates all necessary pages and
+distributes your photos across them automatically.
+
+Alternatively, drag photos from the Photo Pool onto the dashed drop zones between
+pages in the Central Panel to create pages and place photos manually one by one.
+
+---
+
+## Step 5 — Browse and adjust
+
+Use the **Nav Bar** on the right to scroll through all pages and jump to any
+page with a click.
+
+If a page doesn't look right, hover over it in the Central Panel and click
+the **↻** button in the HUD to rebuild just that page. fotobuch re-runs the
+layout solver for that page and shows the updated result.
+
+**Moving and swapping photos between pages:**
+- Right-drag a slot in the Central Panel to start a drag.
+- The toolbar mode switch (or press `M`) controls the drag behaviour:
+  - **Swap** — the dragged slot and the drop target exchange positions.
+  - **Move** — the dragged slot is inserted at the drop target; other slots shift.
+
+**Adjusting photo weight:**
+- Select a slot and press `W` to open the weight slider.
+- Or right-click a slot and choose **Set weight…**
+- Higher weight = more space for that photo on the page.
+
+**Undoing changes:**
+- Press `Ctrl+Z` to undo, `Ctrl+Y` to redo.
+- Click **History** in the toolbar to browse and jump to any earlier state.
+
+
+---
+
+## Step 6 — Export for print
+
+When you're happy with the layout, click **Release** in the toolbar
+(or press `Ctrl+Shift+B`).
+
+fotobuch re-renders all images at full 300 DPI and writes
+`{project-name}_final.pdf` in your project folder. The file opens automatically
+when the build is done; you can also find it in the project folder as `{project-name}_final.pdf`.
+
+**Do not upload the regular preview PDF** (`{project-name}.pdf`) to a print
+service — it renders at screen resolution only.
+
+See [Printing & Export](../general/printing.md) for print-service requirements
+such as bleed and colour profiles.

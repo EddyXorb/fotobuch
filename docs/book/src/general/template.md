@@ -1,9 +1,14 @@
 # Customizing the Template
 
+**This is a quick introduction to customizing the Typst template for advanced users. You can skip this section if you are happy with the default layout.**
+
 Every project has a `{name}.typ` file — a [Typst](https://typst.app/) template
-that controls how the PDF looks. ^*fotobuch* generates this file for you, but you
-are free (and encouraged) to edit it, if you are proficient with typst.
-Tweak it to your needs, use it as a starting point. fotobuch will not overwrite your template once you created it, so your changes stay safe within the project folder and can also be reused in other fotobuch projects.
+that controls how the PDF looks. fotobuch generates this file for you when you
+create a new project (via the GUI *New project* dialog or the CLI
+`fotobuch project new` command), but you are free to edit it. fotobuch will not
+overwrite your template once created, so your changes stay safe and can be
+reused across projects.
+
 Make sure that during your edits you do not change the lines
 
 ```typst
@@ -16,7 +21,7 @@ Make sure that during your edits you do not change the lines
 otherwise it won't compile.
 
 > **Important:** Always edit `{name}.typ`, never `final.typ`. The final
-> template is auto-generated from yours during `build release` (with
+> template is auto-generated from yours during a release build (with
 > `is_final = true`). Your changes in `final.typ` would be overwritten.
 
 ---
@@ -78,6 +83,24 @@ config:
 badge with the number appears in the bottom-right corner of each photo in the
 PDF.
 
+### Localization example
+
+To produce an appendix in a different language, override the label fields and month abbreviations:
+
+```yaml
+config:
+  book:
+    appendix:
+      active: true
+      columns: 6
+      ref_mode: "counter"
+      label_title: "Photo Index"
+      label_page: "Page"
+      date_format: "{day} {month} {year}"
+      date_months: ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+```
+
 ---
 
 ## Going further
@@ -92,5 +115,5 @@ A few things to keep in mind:
   Preview images live in `.fotobuch/cache/{name}/preview/`, final images in
   `.fotobuch/cache/{name}/final/`.
 
-If you want to start over with the default template, create a fresh project with
-`fotobuch project new` and copy the generated `{name}.typ` back.
+If you want to start over with the default template, create a fresh project and
+copy the generated `{name}.typ` back.

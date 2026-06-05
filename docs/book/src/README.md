@@ -1,22 +1,33 @@
 # fotobuch
 
-**fotobuch** turns a folder of photos into a print-ready PDF photobook —
-no cropping, no distortion, no manual drag-and-drop.
+**fotobuch** turns one (or more) folder of photos into a print-ready PDF photo book, in a highly automated way.
 
-You point it at your photos, it figures out the layout: aspect ratios stay intact,
-reading order flows naturally from top-left to bottom-right, and photos from the
-same event stay together. Fully automatic, or tweak any page by hand.
+Point it at your photos and fotobuch figures out the layout automatically:
 
-## Quick links
+- aspect ratios stay intact
+- reading order flows naturally from top-left to bottom-right
+- photos from the same event stay together on the same page
+- more important photos get more space (you decide)
+- optionally add titles and an appendix with metadata for each photo, automatically generated from your images' EXIF data
 
-| Where to go                                       | What you'll find                             |
-| ------------------------------------------------- | -------------------------------------------- |
-| [Installation](installation.md)                   | Binaries, building from source, editor setup |
-| [Core Concepts](concepts.md)                      | How projects, groups, and layouts work       |
-| [Your First Book](quickstart.md)                  | Zero to PDF in 10 minutes                    |
-| [Commands](commands.md)                           | Every command at a glance                    |
-| [Printing](printing.md)                           | Exporting for Saal Digital & friends         |
-| [Full Flag Reference](cli/reference-generated.md) | Every flag, auto-generated from source       |
+Start fully automatic, then fine-tune individual pages by hand as needed.
+
+## How fotobuch works
+
+fotobuch has a very simple data model. It stores each photo book as a pair of two files: a YAML file (.yaml) and a Typst
+template (.typ) tracked by Git inside a *vault* folder.
+The photo book can be read and modified through:
+
+- **the GUI** — a visual, interactive interface for browsing and adjusting pages
+- **the CLI** — scriptable commands for batch operations and automation
+
+Both tools operate on exactly the same project data. You can mix and match:
+import photos with the CLI, review and tweak in the GUI, then kick off the
+release build from either side.
+
+> **Your original photos are never modified.** fotobuch only reads your source
+> files to create cached copies at the configured DPI. Commands like `remove`
+> delete photos from the project YAML — your originals on disk are untouched.
 
 ## Example project
 

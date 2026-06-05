@@ -84,6 +84,15 @@ pub(super) fn draw_page(
     );
     hud::draw_hud(ui, hud_rect, page_idx, layout_page.mode, hud_anim, cmds);
 
+    // Register HUD for help lens mode.
+    if ui.rect_contains_pointer(hud_rect) {
+        interaction.help.hovered_widget = Some(("central-hud", hud_rect));
+    }
+    if interaction.help.highlighted == Some("central-panel") {
+        let time = ui.ctx().input(|i| i.time);
+        crate::app::help::draw_glow(ui.painter(), hud_rect, time);
+    }
+
     (hovered_slot, over_page, page_rect, cursor_mm)
 }
 

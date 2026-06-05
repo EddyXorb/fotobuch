@@ -24,9 +24,20 @@
 
   ## What is fotobuch?
 
-  `fotobuch` (= *photobook* in german) automatically creates a layout from your images ready to be sent to a professional printing services.
-  
-  It is especially meant for books that contain many images per page and where it is tedious to manually create a layout for them. Many-image-photobooks should be made a certain way. `fotobuch` is an opinionated tool that supports exactly one philosophy of what such a photobook should look like.
+  `fotobuch` (= *photobook* in german) automatically creates a layout from your images ready to be sent to a professional printing service. Open the GUI, add your photos, press **Rebuild** — and fotobuch builds the pages, distributes your photos across them, picks the best arrangement for each page, and keeps photos from the same event together. Then export a print-ready PDF with one click.
+
+  It is especially meant for books that contain many images per page and where it is tedious to manually create a layout for them. `fotobuch` is an opinionated tool that supports exactly one philosophy of what such a photobook should look like.
+
+  **→ [Full documentation](https://eddyxorb.github.io/fotobuch)**
+
+  ### How it works
+
+  fotobuch stores photo books as a lightweight **data model** — a YAML file describing the layout, a Typst template for rendering, and a Git history of every change. This data model can be read and modified through:
+
+  - **the GUI** — a visual, interactive interface for browsing, tweaking, and exporting pages
+  - **the CLI** — scriptable commands for batch operations, automation, and scripting
+
+  Both tools work on the same project data interchangeably.
 
   **Why opinionated?** Every design decision in the layout algorithm reflects a deliberate
   aesthetic stance: photos are not cropped, not distorted, not squeezed to fill a gap.
@@ -89,9 +100,10 @@
 
   ## Quick Start
 
-  **Recommended:** use [VS Code](https://code.visualstudio.com/) with the
-  [Typst Preview](https://marketplace.visualstudio.com/items?itemName=mgt19937.typst-preview)
-  extension so you see the layout update live. Alternatively, just keep a PDF viewer open.
+  **GUI (recommended for non-technical users):** Open the app, create a new project, add photos, press **Rebuild** to build the layout, browse the result in the central canvas, then click **Release** to export the final PDF.
+  → [GUI Quickstart](https://eddyxorb.github.io/fotobuch/gui/quickstart.html)
+
+  **CLI:**
 
   ```bash
   # 1. Create a new project (page size in mm, e.g. A4 landscape)
@@ -114,7 +126,7 @@
   fotobuch build release
   ```
 
-  Full workflow and all commands: **[see the documentation](https://eddyxorb.github.io/fotobuch)**
+  → [CLI Quickstart](https://eddyxorb.github.io/fotobuch/cli/quickstart.html) · [Full documentation](https://eddyxorb.github.io/fotobuch)
 
   ---
 

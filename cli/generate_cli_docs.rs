@@ -18,7 +18,7 @@ fn main() {
     let content = format!(
         "# Full Flag Reference\n\n\
         > This page is auto-generated from the CLI source. \
-        Run `cargo run --example generate-cli-docs` to regenerate.\n\n\
+        Run `cargo run --bin generate-cli-docs --features cli-docs` to regenerate.\n\n\
         <!-- AUTO-GENERATED: do not edit by hand -->\n\n\
         {markdown}"
     );

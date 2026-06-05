@@ -78,7 +78,7 @@ Your new photobook project has been created! Here's what you need to know:
    1. fotobuch add <photos>    - Add photos to your project
    2. fotobuch build           - Generate preview PDF
    3. fotobuch place <photo>   - Manually adjust photo placement
-   4. fotobuch build --release - Generate final PDF for printing
+   4. fotobuch build release   - Generate final PDF for printing
 
 🔧 Configuration:
    You can edit <name>.yaml and <name>.typ to customize your photobook.

@@ -8,6 +8,7 @@ target*
 *.log
 
 *.svg
+!docs/book/src/assets/*.svg
 profile.json.gz
 .VSCode*
 fb_test*
