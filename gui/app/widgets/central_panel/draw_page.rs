@@ -42,7 +42,7 @@ pub(super) fn draw_page(
     let hud_anim = ui.ctx().animate_bool_with_time_and_easing(
         ui.id().with(("page_hud", page_idx)),
         hovered,
-        0.15,
+        0.4,
         egui::emath::easing::cubic_out,
     );
 
