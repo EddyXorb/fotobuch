@@ -5,8 +5,6 @@ pub struct FbTheme;
 impl FbTheme {
     pub const BG: Color32 = Color32::from_rgb(0x1f, 0x20, 0x24);
     pub const STROKE: Color32 = Color32::from_rgb(0x3a, 0x3d, 0x44);
-    pub const STROKE_HI: Color32 = Color32::from_rgb(0x52, 0x56, 0x5f);
-    pub const TEXT: Color32 = Color32::from_rgb(0xe7, 0xe6, 0xe2);
     pub const TEXT_DIM: Color32 = Color32::from_rgb(0x9e, 0xa2, 0xab);
     pub const TEXT_MUTE: Color32 = Color32::from_rgb(0x6b, 0x6f, 0x78);
     pub const ACCENT: Color32 = Color32::from_rgb(0xe0, 0x88, 0x40);
