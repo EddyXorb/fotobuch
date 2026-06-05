@@ -212,7 +212,7 @@ mod tests {
         // Different value → command
         let cmds = simulate_leaf_commit("150", "300", false);
         assert_eq!(cmds.len(), 1);
-        let BackgroundTask::ConfigSet { key, value } = cmds.iter().next().unwrap() else {
+        let BackgroundTask::ConfigSet { key, value } = cmds.first().unwrap() else {
             panic!()
         };
         assert_eq!(key, "book.dpi");
