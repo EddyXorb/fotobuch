@@ -1,6 +1,7 @@
 use crate::state::{InteractionState, NewProjectDialogState};
 use crate::task::BackgroundTask;
 use fotobuch::commands::project::new::{NewConfig, validate_project_name};
+use fotobuch::dto_models::{PreviewConfig, ProjectConfig};
 
 pub fn show(
     ctx: &egui::Context,
@@ -115,6 +116,18 @@ fn parse_config(s: &NewProjectDialogState) -> Option<NewConfig> {
         (None, None)
     };
 
+    // Preview overlays look cluttered in the GUI, so disable them by default.
+    let base_config = ProjectConfig {
+        preview: PreviewConfig {
+            show_slot_info: false,
+            show_preview_watermark: false,
+            show_borders: false,
+            show_filenames: false,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+
     Some(NewConfig {
         name: s.name.clone(),
         width_mm,
@@ -127,5 +140,6 @@ fn parse_config(s: &NewProjectDialogState) -> Option<NewConfig> {
         spine_grow_per_10_pages_mm,
         spine_mm,
         margin_mm,
+        base_config: Some(base_config),
     })
 }
