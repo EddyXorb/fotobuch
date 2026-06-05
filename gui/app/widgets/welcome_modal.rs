@@ -30,6 +30,7 @@ pub fn show(
                     .clicked()
                 {
                     interaction.new_project_dialog.open = true;
+                    interaction.show_welcome = false;
                     interaction.new_project_dialog.reset();
                 }
 
@@ -41,6 +42,7 @@ pub fn show(
                     .clicked()
                     && let Some(picked) = rfd::FileDialog::new().pick_folder()
                 {
+                    interaction.show_welcome = false;
                     cmds.push(crate::task::BackgroundTask::SwitchVault(picked));
                 }
 

@@ -19,6 +19,7 @@ pub fn show(
         .show(ctx, |ui| {
             body(ui, &mut interaction.new_project_dialog, cmds);
         });
+
     interaction.new_project_dialog.open = open && interaction.new_project_dialog.open;
 }
 
@@ -88,6 +89,7 @@ fn body(ui: &mut egui::Ui, s: &mut NewProjectDialogState, cmds: &mut Vec<Backgro
         {
             cmds.push(BackgroundTask::ProjectNew { config: cfg });
             cmds.push(BackgroundTask::ListProjects);
+            s.open = false;
         }
         if !name_valid && !s.name.is_empty() {
             ui.label(
@@ -95,7 +97,7 @@ fn body(ui: &mut egui::Ui, s: &mut NewProjectDialogState, cmds: &mut Vec<Backgro
                     .color(egui::Color32::from_rgb(220, 50, 50))
                     .small(),
             );
-        }
+        };
     });
 }
 
