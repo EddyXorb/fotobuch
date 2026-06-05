@@ -1,7 +1,7 @@
 use super::super::BuildResult;
+use super::super::helpers::update_preview_cache;
 use super::super::helpers::{build_photo_index, update_preview_pdf};
 use super::rebuild_single_page::rebuild_single_page;
-use crate::cache::preview;
 use crate::commands::CommandOutput;
 use crate::dto_models::{
     BookLayoutSolverConfig, CoverConfig, LayoutPage, PageMode, PhotoFile, PhotoGroup,
@@ -48,16 +48,7 @@ pub fn multipage_build(
     params: MultiPageParams,
 ) -> Result<CommandOutput<BuildResult>> {
     // 1. Preview-Cache
-    let cache_result = if params.skip_pdf {
-        preview::PreviewCacheResult {
-            total: 0,
-            created: 0,
-            skipped: 0,
-        }
-    } else {
-        let preview_cache_dir = mgr.preview_cache_dir();
-        preview::ensure_previews(&mut mgr.state, &preview_cache_dir)?
-    };
+    let cache_result = update_preview_cache(&mut mgr)?;
 
     // 2. Determine solver config
     let config = if let Some(ref custom) = params.custom_config {

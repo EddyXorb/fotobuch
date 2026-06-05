@@ -1,7 +1,7 @@
 use super::super::BuildResult;
 use super::core::rebuild_single_page::rebuild_single_page;
+use super::helpers::update_preview_cache;
 use super::helpers::{build_photo_index, update_preview_pdf};
-use crate::cache::preview;
 use crate::commands::CommandOutput;
 use crate::state_manager::StateManager;
 use anyhow::Result;
@@ -18,23 +18,7 @@ pub fn incremental_build(
     info!("Incremental build: checking for changes...");
 
     // 1. Generate/update preview cache
-    let cache_result = if skip_pdf {
-        preview::PreviewCacheResult {
-            total: 0,
-            created: 0,
-            skipped: 0,
-        }
-    } else {
-        let preview_cache_dir = mgr.preview_cache_dir();
-        let result = preview::ensure_previews(&mut mgr.state, &preview_cache_dir)?;
-        if result.created > 0 {
-            info!(
-                "Preview cache: {} created, {} skipped",
-                result.created, result.skipped
-            );
-        }
-        result
-    };
+    let cache_result = update_preview_cache(&mut mgr)?;
 
     // 2. Detect which pages need rebuilding
     let page_indices_needing_rebuild = mgr.outdated_pages_indices();

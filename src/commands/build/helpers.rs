@@ -1,8 +1,24 @@
 use tracing::info;
 
+use crate::cache::preview;
 use crate::dto_models::{PhotoFile, PhotoGroup, ProjectState};
 use crate::output::typst;
+use crate::state_manager::StateManager;
 use std::{collections::HashMap, path::Path};
+
+pub fn update_preview_cache(
+    mgr: &mut StateManager,
+) -> Result<preview::PreviewCacheResult, anyhow::Error> {
+    let preview_cache_dir = mgr.preview_cache_dir();
+    let cache_result = preview::ensure_previews(&mut mgr.state, &preview_cache_dir)?;
+    if cache_result.created > 0 {
+        info!(
+            "Preview cache: {} created, {} skipped",
+            cache_result.created, cache_result.skipped
+        );
+    };
+    Ok(cache_result)
+}
 
 pub fn update_preview_pdf(
     project_root: &Path,
