@@ -115,11 +115,14 @@ pub fn build(
         return release_build(mgr, project_root, config.force);
     }
 
+    // Honor the project's `preview.write_pdf` setting in addition to the explicit flag.
+    let skip_pdf = config.skip_pdf || !mgr.state.config.preview.write_pdf;
+
     // First build vs incremental build
     if mgr.state.layout.is_empty() {
-        first_build(mgr, project_root, config.skip_pdf)
+        first_build(mgr, project_root, skip_pdf)
     } else {
-        incremental_build(mgr, project_root, config.pages.as_deref(), config.skip_pdf)
+        incremental_build(mgr, project_root, config.pages.as_deref(), skip_pdf)
     }
 }
 

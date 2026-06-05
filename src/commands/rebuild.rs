@@ -67,6 +67,9 @@ pub fn rebuild(
 
     validate_scope(&scope, &mgr)?;
 
+    // Honor the project's `preview.write_pdf` setting in addition to the explicit flag.
+    let skip_pdf = skip_pdf || !mgr.state.config.preview.write_pdf;
+
     match scope {
         RebuildScope::SinglePage(idx) => rebuild_single(mgr, project_root, idx, skip_pdf),
         RebuildScope::Range { start, end, flex } => {
