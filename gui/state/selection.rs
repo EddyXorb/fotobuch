@@ -84,6 +84,7 @@ mod tests {
     #[test]
     fn single_replaces_previous() {
         let mut sel = SlotSelection::single(0, 2);
+        assert!(sel.is_selected(0, 2));
         sel = SlotSelection::single(1, 5);
         assert!(sel.is_selected(1, 5));
         assert!(!sel.is_selected(0, 2));
