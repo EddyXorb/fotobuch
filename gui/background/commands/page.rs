@@ -131,6 +131,28 @@ pub fn run_move_to_new_page(
     run_page_command(cmd, rctx);
 }
 
+pub fn run_move_to_manual(
+    src_page: usize,
+    src_slots: Vec<usize>,
+    dst_page: usize,
+    x_mm: f64,
+    y_mm: f64,
+    rctx: &mut crate::background::RenderCtx<'_>,
+) {
+    let cmd = PageMoveCmd::Move {
+        src: Src::Slots {
+            page: src_page as u32,
+            slots: SlotExpr::from_list(src_slots.iter().map(|&s| s as u32).collect()),
+        },
+        dst: DstMove::ManualAt {
+            page: dst_page as u32,
+            x_mm,
+            y_mm,
+        },
+    };
+    run_page_command(cmd, rctx);
+}
+
 pub fn run_swap_range(
     src_page: usize,
     src_slots: Vec<usize>,

@@ -26,6 +26,7 @@ fn create_test_project_with_photos(temp_dir: &TempDir) -> Result<PathBuf> {
         spine_grow_per_10_pages_mm: None,
         spine_mm: None,
         margin_mm: 0.0,
+        base_config: None,
     };
     let result = project_new(temp_dir.path(), &config)?;
     let project_root = result.result.project_root;
@@ -78,6 +79,7 @@ fn create_test_project_with_artificial_photos_3(temp_dir: &TempDir) -> Result<Pa
         spine_grow_per_10_pages_mm: None,
         spine_mm: None,
         margin_mm: 0.0,
+        base_config: None,
     };
     let result = project_new(temp_dir.path(), &config)?;
     let project_root = result.result.project_root;
@@ -465,6 +467,7 @@ fn test_build_handles_empty_photo_list() -> Result<()> {
         spine_grow_per_10_pages_mm: None,
         spine_mm: None,
         margin_mm: 0.0,
+        base_config: None,
     };
     let result = project_new(temp_dir.path(), &config)?;
     let project_root = result.result.project_root;
@@ -908,6 +911,39 @@ fn incremental_build_skips_manual_page() -> Result<()> {
     assert!(
         !result.result.pages_rebuilt.contains(&0),
         "Manual page must not be in pages_rebuilt"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn build_does_not_write_pdf_when_write_pdf_disabled() -> Result<()> {
+    let temp_dir = TempDir::new()?;
+    let project_root = create_test_project_with_photos(&temp_dir)?;
+
+    // Disable PDF writing via the project config.
+    let mut mgr = StateManager::open(&project_root)?;
+    mgr.state.config.preview.write_pdf = false;
+    mgr.finish("test: disable write_pdf")?;
+
+    // Build with skip_pdf=false — the config must still suppress the PDF.
+    let result = build(
+        &project_root,
+        &BuildConfig {
+            release: false,
+            force: false,
+            pages: None,
+            skip_pdf: false,
+        },
+    )?;
+
+    assert!(
+        !result.result.pages_rebuilt.is_empty(),
+        "layout should still be built"
+    );
+    assert!(
+        !result.result.pdf_path.exists(),
+        "PDF must not be written when preview.write_pdf is false"
     );
 
     Ok(())

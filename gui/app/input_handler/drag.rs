@@ -22,10 +22,11 @@ pub(super) fn handle_drag_start(interaction: &mut InteractionState, ctx: &egui::
     let drag_source = if let Some(HoveredTarget::Page {
         page,
         slot: Some(slot),
-        ..
+        cursor_mm,
     }) = &interaction.hovered
     {
         let (src_page, src_slot) = (*page, *slot);
+        let cursor_mm_at_drag_start = *cursor_mm;
         let mut src_slots = if interaction.selections.slots.is_selected(src_page, src_slot)
             && interaction.selections.slots.page == Some(src_page)
         {
@@ -39,6 +40,7 @@ pub(super) fn handle_drag_start(interaction: &mut InteractionState, ctx: &egui::
             src_slot,
             src_slots,
             cursor_at_drag_start: cursor,
+            cursor_mm_at_drag_start,
         })
     } else if let Some(HoveredTarget::NavPage(nav_page)) = &interaction.hovered {
         let nav_page = *nav_page;
@@ -111,9 +113,18 @@ pub(super) fn handle_drag_complete(
                     src_page,
                     src_slot,
                     src_slots,
+                    cursor_mm_at_drag_start,
                     ..
                 } => {
-                    complete_slot_drag(data, interaction, cmds, src_page, src_slot, src_slots);
+                    error = complete_slot_drag(
+                        data,
+                        interaction,
+                        cmds,
+                        src_page,
+                        src_slot,
+                        src_slots,
+                        cursor_mm_at_drag_start,
+                    );
                 }
                 DragSource::NavPage {
                     src_page,
@@ -200,6 +211,7 @@ pub(super) fn handle_drag_complete(
     }
 }
 
+/// Returns an error message when the drag is rejected, otherwise `None`.
 pub(super) fn complete_slot_drag(
     data: &DataState,
     interaction: &mut InteractionState,
@@ -207,7 +219,8 @@ pub(super) fn complete_slot_drag(
     src_page: usize,
     src_slot: usize,
     src_slots: Vec<usize>,
-) {
+    cursor_mm_at_drag_start: (f32, f32),
+) -> Option<String> {
     if let Some(at_position) = interaction
         .hovered
         .as_ref()
@@ -218,7 +231,7 @@ pub(super) fn complete_slot_drag(
             src_slots,
             at_position,
         });
-        return;
+        return None;
     }
 
     let src_is_manual = data
@@ -247,12 +260,24 @@ pub(super) fn complete_slot_drag(
         .map(|p| p.mode == PageMode::Manual)
         .unwrap_or(false);
 
-    // Swap is not allowed when either the source or destination page is Manual.
-    if interaction.drag.mode == DragMode::Swap && (src_is_manual || dst_is_manual) {
-        return;
-    }
-
     match (hovered_slot, interaction.drag.mode) {
+        (_, DragMode::Move) if dst_is_manual => {
+            // Drop onto a Manual page: keep each moved slot's size and put the
+            // dragged photo's upper-left where its drag ghost sits.
+            let dst_page = effective_page?;
+            if dst_page == src_page {
+                return None;
+            }
+            let (x_mm, y_mm) =
+                manual_drop_top_left(data, src_page, src_slot, cursor_mm_at_drag_start, cursor_mm);
+            cmds.push(BackgroundTask::MoveToManual {
+                src_page,
+                src_slots,
+                dst_page,
+                x_mm,
+                y_mm,
+            });
+        }
         (Some((dst_page, dst_slot)), DragMode::Swap) => {
             if src_slots.len() == 1 {
                 // Same-page swap with mismatched aspect ratios is a no-op: auto-mode
@@ -279,30 +304,6 @@ pub(super) fn complete_slot_drag(
                 });
             }
         }
-        (_, DragMode::Move) if dst_is_manual => {
-            // Drop onto a Manual page: move the first slot and place it at cursor position.
-            if let Some(dst_page) = effective_page
-                && let Some((x_mm, y_mm)) = cursor_mm
-                && src_slots.len() == 1
-            {
-                let slot = src_slots[0];
-                dispatch_move(cmds, src_page, vec![slot], dst_page);
-                // The moved slot lands at index 0 on the dst page (it is the only one, or first).
-                // Use PagePos::Absolute to position it at the drop point.
-                cmds.push(BackgroundTask::PagePos {
-                    page: dst_page,
-                    slot: 0,
-                    mode: PagePosMode::Absolute {
-                        x_mm: x_mm as f64,
-                        y_mm: y_mm as f64,
-                    },
-                    scale: None,
-                });
-            } else if let Some(dst_page) = effective_page {
-                // Multi-slot: just move without repositioning.
-                dispatch_move(cmds, src_page, src_slots, dst_page);
-            }
-        }
         (Some((dst_page, _)), DragMode::Move) => {
             dispatch_move(cmds, src_page, src_slots, dst_page);
         }
@@ -313,6 +314,30 @@ pub(super) fn complete_slot_drag(
         }
         (None, DragMode::Swap) => {}
     }
+    None
+}
+
+/// Upper-left position (in dst-page mm) for the dragged slot when dropping onto a
+/// Manual page: the cursor's drop point minus the grab offset within the slot, so
+/// the slot lands exactly where its drag ghost was shown.
+fn manual_drop_top_left(
+    data: &DataState,
+    src_page: usize,
+    src_slot: usize,
+    cursor_mm_at_drag_start: (f32, f32),
+    drop_cursor_mm: Option<(f32, f32)>,
+) -> (f64, f64) {
+    let (sx, sy) = data
+        .project
+        .layout
+        .get(src_page)
+        .and_then(|p| p.slots.get(src_slot))
+        .map(|s| (s.x_mm, s.y_mm))
+        .unwrap_or((0.0, 0.0));
+    let grab_x = cursor_mm_at_drag_start.0 as f64 - sx;
+    let grab_y = cursor_mm_at_drag_start.1 as f64 - sy;
+    let (cx, cy) = drop_cursor_mm.unwrap_or(cursor_mm_at_drag_start);
+    (cx as f64 - grab_x, cy as f64 - grab_y)
 }
 
 pub(super) fn complete_nav_drag(

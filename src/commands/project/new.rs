@@ -43,6 +43,10 @@ pub struct NewConfig {
     pub spine_mm: Option<f64>,
     /// Inner margin in millimeters
     pub margin_mm: f64,
+    /// Optional base config used as starting point. The dimension, cover and
+    /// title fields below are overwritten on top of it. If `None`, defaults
+    /// are used.
+    pub base_config: Option<crate::dto_models::ProjectConfig>,
 }
 
 /// Result of project creation
@@ -309,6 +313,7 @@ mod tests {
             spine_grow_per_10_pages_mm: None,
             spine_mm: None,
             margin_mm: 0.0,
+            base_config: None,
         };
 
         let result = project_new(temp_dir.path(), &config).unwrap();
@@ -348,6 +353,7 @@ mod tests {
             spine_grow_per_10_pages_mm: None,
             spine_mm: None,
             margin_mm: 0.0,
+            base_config: None,
         };
 
         let result = project_new(temp_dir.path(), &config).unwrap();
@@ -373,6 +379,7 @@ mod tests {
             spine_grow_per_10_pages_mm: None,
             spine_mm: None,
             margin_mm: 0.0,
+            base_config: None,
         };
 
         let result = project_new(temp_dir.path(), &config).unwrap();
@@ -397,6 +404,7 @@ mod tests {
             spine_grow_per_10_pages_mm: None,
             spine_mm: None,
             margin_mm: 0.0,
+            base_config: None,
         };
 
         let result = project_new(temp_dir.path(), &config);
@@ -418,6 +426,7 @@ mod tests {
             spine_grow_per_10_pages_mm: None,
             spine_mm: None,
             margin_mm: 0.0,
+            base_config: None,
         };
 
         // Create first project

@@ -32,6 +32,9 @@ pub enum DragSource {
         /// Full slot selection captured at drag-start (may be multi-slot).
         src_slots: Vec<usize>,
         cursor_at_drag_start: egui::Pos2,
+        /// Cursor position in source-page mm at drag-start, used to keep the
+        /// grab offset when dropping onto a Manual page.
+        cursor_mm_at_drag_start: (f32, f32),
     },
     /// Right-mouse drag from a page thumbnail in the nav panel.
     NavPage {

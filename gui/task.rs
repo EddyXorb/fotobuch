@@ -50,6 +50,15 @@ pub enum BackgroundTask {
         src_slots: Vec<usize>,
         at_position: usize,
     },
+    /// Move slots onto a Manual page, placing the dragged photo's upper-left at
+    /// `(x_mm, y_mm)` while keeping each moved slot's size.
+    MoveToManual {
+        src_page: usize,
+        src_slots: Vec<usize>,
+        dst_page: usize,
+        x_mm: f64,
+        y_mm: f64,
+    },
     SwapRange {
         src_page: usize,
         src_slots: Vec<usize>,

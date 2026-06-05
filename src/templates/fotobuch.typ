@@ -16,6 +16,7 @@
 // ── Read settings from YAML config (with defaults for backward compat) ──
 
 // Preview overlay flags (all suppressed in final mode)
+#let show_preview_watermark = data.config.preview.at("show_preview_watermark", default: true) and not is_final
 #let show_image_captions_on_preview = data.config.preview.at("show_filenames", default: false) and not is_final
 #let show_borders_on_preview = data.config.preview.at("show_borders", default: true) and not is_final
 #let show_slot_info_on_preview = data.config.preview.at("show_slot_info", default: true) and not is_final
@@ -359,7 +360,7 @@
         )),
       ))),
     ))
-    #if not is_final [#render_preview_watermark("Cover")]
+    #if not is_final and show_preview_watermark [#render_preview_watermark("Cover")]
     #pagebreak()
   ]
 ]
@@ -382,7 +383,7 @@
   ]
 
   #let display_nr = page_index - layout_start + 1
-  #if not is_final [#render_preview_watermark(display_nr)]
+  #if not is_final and show_preview_watermark [#render_preview_watermark(display_nr)]
 
   #if page_index < data.layout.len() - 1 or appendix_show [#pagebreak()]
 ]

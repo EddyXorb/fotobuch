@@ -3,12 +3,13 @@
 use std::path::Path;
 
 use crate::commands::CommandOutput;
-use crate::dto_models::{LayoutPage, PageMode};
+use crate::dto_models::{LayoutPage, PageMode, Slot};
 use crate::state_manager::StateManager;
 
 use super::helpers::{
     collect_dst_swap_photos_with_indices, collect_src_photos, collect_src_photos_with_indices,
-    delete_empty_pages, format_pages_list, format_src_desc, page_idx, remove_slots, resolve_slots,
+    delete_empty_pages, format_pages_list, format_src_desc, page_idx, photos_at_slots,
+    remove_slots, resolve_slots,
 };
 use super::types::{
     DstMove, DstSwap, PageMoveCmd, PageMoveError, PageMoveResult, Src, ValidationError,
@@ -25,11 +26,19 @@ pub fn execute_move(
     }
 }
 
+/// Cascade offset between consecutive slots when several photos are dropped onto
+/// a Manual page in one gesture, so they don't perfectly overlap.
+const MANUAL_DROP_CASCADE_MM: f64 = 10.0;
+
 fn execute_move_to(
     project_root: &Path,
     src: Src,
     dst: DstMove,
 ) -> Result<CommandOutput<PageMoveResult>, PageMoveError> {
+    if let DstMove::ManualAt { page, x_mm, y_mm } = dst {
+        return execute_move_to_manual(project_root, src, page, x_mm, y_mm);
+    }
+
     if let Src::Slots { page, slots: _ } = &src
         && let DstMove::Page(dst_page) = &dst
         && *page == *dst_page
@@ -148,6 +157,7 @@ fn execute_move_to(
             (new_idx, Some(new_page_num as u32))
         }
         DstMove::Unplace => unreachable!("Unplace handled above"),
+        DstMove::ManualAt { .. } => unreachable!("ManualAt handled above"),
     };
 
     // For Slots variant: remove photos from src and add to dst.
@@ -238,6 +248,150 @@ fn execute_move_to(
     })
 }
 
+/// Move the source slots onto a Manual-mode page, creating a positioned slot for
+/// each moved photo. New slots keep the size of their source slot; the first is
+/// placed with its top-left at `(x_mm, y_mm)`, further ones cascade.
+fn execute_move_to_manual(
+    project_root: &Path,
+    src: Src,
+    dst_page: u32,
+    x_mm: f64,
+    y_mm: f64,
+) -> Result<CommandOutput<PageMoveResult>, PageMoveError> {
+    let Src::Slots {
+        page: src_page,
+        slots,
+    } = &src
+    else {
+        // Whole-page moves onto a manual page are not supported via this path.
+        return Err(ValidationError::PageNotManual(dst_page).into());
+    };
+    let src_page = *src_page;
+
+    let mut mgr = StateManager::open(project_root)?;
+
+    let dst_idx = page_idx(dst_page, &mgr.state.layout)?;
+    if mgr.state.layout[dst_idx].mode != PageMode::Manual {
+        return Err(ValidationError::PageNotManual(dst_page).into());
+    }
+    if src_page == dst_page {
+        // Same page → a free reposition, handled by `page pos`, not here.
+        let changed_state = mgr.finish("")?;
+        return Ok(CommandOutput {
+            result: PageMoveResult {
+                pages_modified: vec![],
+                pages_inserted: vec![],
+                pages_deleted: vec![],
+            },
+            changed_state,
+        });
+    }
+
+    let src_idx = page_idx(src_page, &mgr.state.layout)?;
+    let mut slot_indices = resolve_slots(src_page, slots, &mgr.state.layout)?;
+    slot_indices.sort_unstable();
+
+    // Snapshot each moved photo together with the size of its source slot.
+    let mut moved: Vec<(String, f64, f64)> = Vec::with_capacity(slot_indices.len());
+    for &i in &slot_indices {
+        let photo = photos_at_slots(&mgr.state.layout, src_idx, &[i])?.remove(0);
+        let slot = mgr.state.layout[src_idx].slots.get(i);
+        let (w, h) = match slot {
+            Some(s) => (s.width_mm, s.height_mm),
+            None => default_manual_slot_size(&mgr.state, dst_idx),
+        };
+        moved.push((photo, w, h));
+    }
+
+    // Remove from src (descending so indices stay valid). Drop the slot only on a
+    // manual source; Auto pages recompute their slots on the next build.
+    let src_is_manual = mgr.state.layout[src_idx].mode == PageMode::Manual;
+    let mut desc = slot_indices.clone();
+    desc.sort_unstable_by(|a, b| b.cmp(a));
+    for &i in &desc {
+        mgr.state.layout[src_idx].photos.remove(i);
+        if src_is_manual && i < mgr.state.layout[src_idx].slots.len() {
+            mgr.state.layout[src_idx].slots.remove(i);
+        }
+    }
+
+    // Append photos and matching positioned slots to the manual destination.
+    for (n, (photo, w, h)) in moved.into_iter().enumerate() {
+        let offset = MANUAL_DROP_CASCADE_MM * n as f64;
+        mgr.state.layout[dst_idx].photos.push(photo);
+        mgr.state.layout[dst_idx].slots.push(Slot {
+            x_mm: x_mm + offset,
+            y_mm: y_mm + offset,
+            width_mm: w,
+            height_mm: h,
+        });
+    }
+
+    let dst_page_num = mgr.state.layout[dst_idx].page as u32;
+    let deleted = delete_empty_pages(&mut mgr.state.layout);
+    let mut modified = vec![src_page, dst_page_num];
+    modified.retain(|p| !deleted.contains(p));
+    modified.sort_unstable();
+    modified.dedup();
+
+    let changed_state = mgr.finish(&format!(
+        "page move: slots from page {src_page} -> manual page {dst_page_num}"
+    ))?;
+    Ok(CommandOutput {
+        result: PageMoveResult {
+            pages_modified: modified,
+            pages_inserted: vec![],
+            pages_deleted: deleted,
+        },
+        changed_state,
+    })
+}
+
+/// Fallback slot size when a source slot has no computed geometry yet
+/// (e.g. an Auto page that was never built): 30 % of the destination page.
+fn default_manual_slot_size(state: &crate::dto_models::ProjectState, dst_idx: usize) -> (f64, f64) {
+    let (pw, ph) = state.page_dimensions_mm(dst_idx);
+    (pw * 0.3, ph * 0.3)
+}
+
+/// Pixel dimensions of a photo by id, looked up across all photo groups.
+fn photo_pixel_size(state: &crate::dto_models::ProjectState, id: &str) -> Option<(u32, u32)> {
+    state
+        .photos
+        .iter()
+        .flat_map(|g| g.files.iter())
+        .find(|f| f.id == id)
+        .map(|f| (f.width_px, f.height_px))
+}
+
+/// On a Manual `page_idx`, set the height of each receiving slot in
+/// `[start, start + count)` to `width * photo_height / photo_width`, keeping the
+/// slot's top-left and width. No-op on Auto pages (their slots are recomputed).
+fn adapt_manual_slot_ratios(
+    state: &mut crate::dto_models::ProjectState,
+    page_idx: usize,
+    start: usize,
+    count: usize,
+) {
+    if state.layout[page_idx].mode != PageMode::Manual {
+        return;
+    }
+    for i in start..start + count {
+        let Some(photo_id) = state.layout[page_idx].photos.get(i).cloned() else {
+            continue;
+        };
+        if state.layout[page_idx].slots.get(i).is_none() {
+            continue;
+        }
+        if let Some((w_px, h_px)) = photo_pixel_size(state, &photo_id)
+            && w_px > 0
+        {
+            let slot = &mut state.layout[page_idx].slots[i];
+            slot.height_mm = slot.width_mm * (h_px as f64 / w_px as f64);
+        }
+    }
+}
+
 fn execute_swap(
     project_root: &Path,
     left: Src,
@@ -310,6 +464,18 @@ fn execute_swap(
             photos: &right_photos,
         },
     );
+
+    // On a Manual page the receiving slots keep their position and width, but their
+    // height adapts to the incoming photo's aspect ratio (cross-page swaps only;
+    // same-page swaps cannot target a Manual page from the GUI).
+    if left_page_idx != right_page_idx {
+        let left_recv = right_photos.len();
+        let right_recv = left_photos.len();
+        let left_start = left_slot_indices.iter().min().copied().unwrap_or(0);
+        let right_start = right_slot_indices.iter().min().copied().unwrap_or(0);
+        adapt_manual_slot_ratios(&mut mgr.state, left_page_idx, left_start, left_recv);
+        adapt_manual_slot_ratios(&mut mgr.state, right_page_idx, right_start, right_recv);
+    }
 
     let mut modified_pages = vec![
         mgr.state.layout[left_page_idx].page as u32,
@@ -782,6 +948,101 @@ mod tests {
         let mgr = StateManager::open(tmp.path()).unwrap();
         assert_eq!(mgr.state.layout.len(), 2);
         assert!(mgr.state.layout[1].photos.contains(&"a.jpg".to_owned()));
+        mgr.finish("test: noop").unwrap();
+    }
+
+    #[test]
+    fn move_slot_into_manual_page_creates_positioned_slot() {
+        use super::super::mode::execute_mode;
+        use crate::dto_models::PageMode;
+
+        let state = make_state_with_layout(vec![vec!["p0.jpg", "p1.jpg"], vec!["p2.jpg"]]);
+        let tmp = TempDir::new().unwrap();
+        setup_repo(&tmp, &state);
+        // Page 1 becomes Manual.
+        execute_mode(tmp.path(), PagesExpr::single(1), PageMode::Manual).unwrap();
+
+        let cmd = PageMoveCmd::Move {
+            src: Src::Slots {
+                page: 0,
+                slots: SlotExpr::single(0),
+            },
+            dst: DstMove::ManualAt {
+                page: 1,
+                x_mm: 50.0,
+                y_mm: 60.0,
+            },
+        };
+        execute_move(tmp.path(), cmd).unwrap();
+
+        let mgr = StateManager::open(tmp.path()).unwrap();
+        let dst = &mgr.state.layout[1];
+        // Manual page now holds both photos with matching slot counts.
+        assert_eq!(dst.photos, vec!["p2.jpg", "p0.jpg"]);
+        assert_eq!(dst.slots.len(), dst.photos.len());
+        // New slot keeps the source slot size (fixture: 100 x 80) at the drop point.
+        let new = dst.slots.last().unwrap();
+        assert_eq!((new.x_mm, new.y_mm), (50.0, 60.0));
+        assert_eq!((new.width_mm, new.height_mm), (100.0, 80.0));
+        // Source page lost the moved photo.
+        assert_eq!(mgr.state.layout[0].photos, vec!["p1.jpg"]);
+        mgr.finish("test: noop").unwrap();
+    }
+
+    #[test]
+    fn move_into_non_manual_page_is_rejected() {
+        let state = make_state_with_layout(vec![vec!["p0.jpg", "p1.jpg"], vec!["p2.jpg"]]);
+        let tmp = TempDir::new().unwrap();
+        setup_repo(&tmp, &state);
+
+        let cmd = PageMoveCmd::Move {
+            src: Src::Slots {
+                page: 0,
+                slots: SlotExpr::single(0),
+            },
+            dst: DstMove::ManualAt {
+                page: 1,
+                x_mm: 0.0,
+                y_mm: 0.0,
+            },
+        };
+        let err = execute_move(tmp.path(), cmd).unwrap_err();
+        assert!(matches!(
+            err,
+            PageMoveError::Validation(ValidationError::PageNotManual(1))
+        ));
+    }
+
+    #[test]
+    fn swap_into_manual_page_adapts_slot_height_to_photo_ratio() {
+        use super::super::mode::execute_mode;
+        use super::super::types::DstSwap;
+        use crate::dto_models::PageMode;
+
+        // Fixture photos are 4000 x 3000 (4:3).
+        let state = make_state_with_layout(vec![vec!["p0.jpg"], vec!["p1.jpg"]]);
+        let tmp = TempDir::new().unwrap();
+        setup_repo(&tmp, &state);
+        execute_mode(tmp.path(), PagesExpr::single(1), PageMode::Manual).unwrap();
+
+        let cmd = PageMoveCmd::Swap {
+            left: Src::Slots {
+                page: 0,
+                slots: SlotExpr::single(0),
+            },
+            right: DstSwap::Slots {
+                page: 1,
+                slots: SlotExpr::single(0),
+            },
+        };
+        execute_move(tmp.path(), cmd).unwrap();
+
+        let mgr = StateManager::open(tmp.path()).unwrap();
+        let manual_slot = &mgr.state.layout[1].slots[0];
+        // Width kept (100), height now matches the incoming photo's ratio: 100 * 3/4 = 75.
+        assert_eq!(manual_slot.width_mm, 100.0);
+        assert!((manual_slot.height_mm - 75.0).abs() < 1e-9);
+        assert_eq!(mgr.state.layout[1].photos, vec!["p0.jpg"]);
         mgr.finish("test: noop").unwrap();
     }
 

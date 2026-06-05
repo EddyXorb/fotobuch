@@ -1,4 +1,4 @@
-use crate::state::{ActiveDrag, DataState, DragMode, DragSource, InteractionState};
+use crate::state::{ActiveDrag, DataState, DragSource, InteractionState};
 
 use super::super::super::geometry::{self, PageDimensions};
 use super::super::manual_resize;
@@ -20,10 +20,9 @@ pub(super) fn draw_manual_handles_and_overlay(
     let cursor = ui.input(|i| i.pointer.hover_pos()).unwrap_or_default();
     let rmb_pressed = ui.input(|i| i.pointer.secondary_pressed());
 
-    if rmb_pressed
-        && interaction.drag.mode == DragMode::Move
-        && matches!(interaction.drag.active, ActiveDrag::Idle)
-    {
+    // Free-position move/resize on a manual page works in any drag mode: the
+    // Swap/Move toggle only governs slot drags that start on Auto pages.
+    if rmb_pressed && matches!(interaction.drag.active, ActiveDrag::Idle) {
         try_start_manual_drag(
             interaction,
             layout_page,

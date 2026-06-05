@@ -6,18 +6,21 @@ use super::super::theme::FbTheme;
 pub(super) const HUD_HEIGHT: f32 = 24.0;
 pub(super) const HUD_GAP: f32 = 10.0;
 
-#[allow(clippy::too_many_arguments)]
+/// `t` is the hover animation progress in `[0, 1]` (0 = idle, 1 = hovered).
 pub(super) fn draw_hud(
     ui: &mut egui::Ui,
     hud_rect: egui::Rect,
     page_idx: usize,
     mode: PageMode,
-    opacity: f32,
-    pill_width: f32,
-    actions_alpha: f32,
-    actions_offset: f32,
+    t: f32,
     cmds: &mut Vec<BackgroundTask>,
 ) {
+    let lerp = |from: f32, to: f32| from + (to - from) * t;
+    let opacity = lerp(0.55, 1.0);
+    let pill_width = lerp(10.0, 80.0);
+    let actions_alpha = t;
+    let actions_offset = lerp(-4.0, 0.0);
+
     let center_y = hud_rect.center().y;
     let dot_center_x = hud_rect.center().x;
     let alpha_u8 = (opacity * 255.0).clamp(0.0, 255.0) as u8;

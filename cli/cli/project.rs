@@ -59,6 +59,7 @@ pub fn handle(command: ProjectSubcommand) -> Result<()> {
                 spine_grow_per_10_pages_mm,
                 spine_mm,
                 margin_mm,
+                base_config: None,
             };
 
             let output = commands::project_new(parent, &config)?;
