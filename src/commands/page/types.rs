@@ -106,6 +106,10 @@ pub enum DstMove {
     /// `index = layout.len()` is allowed (append). `index = 0` inserts
     /// before the first existing page.
     NewPageAt(u32),
+    /// Move the source slots onto a Manual-mode page, creating a positioned slot
+    /// for each moved photo. Each new slot keeps the size of its source slot; the
+    /// first lands with its top-left at `(x_mm, y_mm)`, further ones cascade.
+    ManualAt { page: u32, x_mm: f64, y_mm: f64 },
     /// Unplace the source photos (and delete the page if the source is whole pages).
     Unplace,
 }

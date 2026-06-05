@@ -302,6 +302,9 @@ fn mark_dirty(dirty: &mut [bool], task: &BackgroundTask) {
             left: src_page,
             right: dst_page,
             ..
+        }
+        | BackgroundTask::MoveToManual {
+            src_page, dst_page, ..
         } => {
             for &p in &[*src_page, *dst_page] {
                 if let Some(d) = dirty.get_mut(p) {

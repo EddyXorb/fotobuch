@@ -8,7 +8,7 @@ use super::*;
 use crate::state::{GuiState, HoveredTarget, SlotSelection};
 
 fn state_with_selection(sel_page: usize, sel_slots: Vec<usize>) -> GuiState {
-    let mut state = GuiState::new(ProjectState::default());
+    let mut state = GuiState::new_for_test(ProjectState::default());
     for (i, &slot) in sel_slots.iter().enumerate() {
         if i == 0 {
             state.interaction.selections.slots = SlotSelection::single(sel_page, slot);
@@ -62,7 +62,7 @@ fn dispatch_swap_ignores_same_slot() {
 }
 
 fn state_with_pool_selection(ids: Vec<&str>) -> GuiState {
-    let mut state = GuiState::new(ProjectState::default());
+    let mut state = GuiState::new_for_test(ProjectState::default());
     for id in &ids {
         state.interaction.selections.photos.toggle(id.to_string());
     }
@@ -121,14 +121,14 @@ fn place_hotkey_emits_place_without_target_when_no_hover() {
 
 #[test]
 fn place_hotkey_no_op_when_selection_empty() {
-    let state = GuiState::new(ProjectState::default());
+    let state = GuiState::new_for_test(ProjectState::default());
     let ids = state.interaction.selections.photos.ids();
     assert!(ids.is_empty());
 }
 
 #[test]
 fn pool_drag_complete_emits_place_on_hovered_page() {
-    let mut state = GuiState::new(ProjectState::default());
+    let mut state = GuiState::new_for_test(ProjectState::default());
     state.interaction.hovered = Some(HoveredTarget::Page {
         page: 1,
         slot: None,
@@ -145,7 +145,7 @@ fn pool_drag_complete_emits_place_on_hovered_page() {
 
 #[test]
 fn pool_drag_complete_cancels_without_hovered_page() {
-    let mut state = GuiState::new(ProjectState::default());
+    let mut state = GuiState::new_for_test(ProjectState::default());
     state.interaction.hovered = None;
     let mut cmds = Vec::new();
     complete_pool_drag(&mut state.interaction, &mut cmds, vec!["a.jpg".into()]);
@@ -158,13 +158,15 @@ fn default_data() -> crate::state::DataState {
         derived: crate::state::DerivedState::rebuild(&ProjectState::default()),
         pages: crate::state::PageCache::new(0),
         thumbs: Default::default(),
-        timings: Default::default(),
+        vault_path: std::path::PathBuf::new(),
+        projects: Vec::new(),
+        history: Vec::new(),
     }
 }
 
 #[test]
 fn nav_drag_complete_emits_page_swap() {
-    let mut state = GuiState::new(ProjectState::default());
+    let mut state = GuiState::new_for_test(ProjectState::default());
     state.interaction.hovered = Some(HoveredTarget::NavPage(2));
     let mut cmds = Vec::new();
     complete_nav_drag(&default_data(), &mut state.interaction, &mut cmds, 0);
@@ -178,7 +180,7 @@ fn nav_drag_complete_emits_page_swap() {
 
 #[test]
 fn nav_drag_complete_noop_when_same_page() {
-    let mut state = GuiState::new(ProjectState::default());
+    let mut state = GuiState::new_for_test(ProjectState::default());
     state.interaction.hovered = Some(HoveredTarget::NavPage(1));
     let mut cmds = Vec::new();
     complete_nav_drag(&default_data(), &mut state.interaction, &mut cmds, 1);
@@ -214,6 +216,7 @@ fn drop_on_new_page_slot_emits_move_to_new_page() {
         1,
         1,
         vec![1, 2],
+        (0.0, 0.0),
     );
     assert_eq!(cmds.len(), 1);
     let BackgroundTask::MoveToNewPage {
@@ -231,7 +234,7 @@ fn drop_on_new_page_slot_emits_move_to_new_page() {
 
 #[test]
 fn drop_on_new_page_slot_at_zero_inserts_before_first_page() {
-    let mut state = GuiState::new(ProjectState::default());
+    let mut state = GuiState::new_for_test(ProjectState::default());
     state.interaction.hovered = Some(HoveredTarget::NewPageSlot { at_position: 0 });
     let mut cmds = Vec::new();
     complete_slot_drag(
@@ -241,6 +244,7 @@ fn drop_on_new_page_slot_at_zero_inserts_before_first_page() {
         0,
         0,
         vec![0],
+        (0.0, 0.0),
     );
     assert_eq!(cmds.len(), 1);
     let BackgroundTask::MoveToNewPage { at_position, .. } = cmds.iter().next().unwrap() else {
@@ -275,7 +279,9 @@ fn data_with_layout(layout: Vec<fotobuch::dto_models::LayoutPage>) -> crate::sta
         pages: crate::state::PageCache::new(project.layout.len()),
         project,
         thumbs: Default::default(),
-        timings: Default::default(),
+        vault_path: std::path::PathBuf::new(),
+        projects: Vec::new(),
+        history: Vec::new(),
     }
 }
 
@@ -300,6 +306,7 @@ fn swap_range_uses_full_selection_when_dragged_slot_selected() {
         0,
         1,
         vec![1, 2, 3],
+        (0.0, 0.0),
     );
     assert_eq!(cmds.len(), 1);
     let BackgroundTask::SwapRange {
@@ -335,6 +342,7 @@ fn swap_range_noop_when_target_too_narrow() {
         0,
         0,
         vec![0, 1, 2],
+        (0.0, 0.0),
     );
     assert!(cmds.is_empty(), "overrun → no command emitted");
 }
@@ -353,7 +361,15 @@ fn swap_range_noop_when_selection_not_contiguous() {
         cursor_mm: (0.0, 0.0),
     });
     let mut cmds = Vec::new();
-    complete_slot_drag(&data, &mut state.interaction, &mut cmds, 0, 0, vec![0, 2]);
+    complete_slot_drag(
+        &data,
+        &mut state.interaction,
+        &mut cmds,
+        0,
+        0,
+        vec![0, 2],
+        (0.0, 0.0),
+    );
     assert!(cmds.is_empty(), "non-contiguous selection → no command");
 }
 
@@ -371,7 +387,15 @@ fn swap_falls_back_to_single_when_selection_is_one() {
         cursor_mm: (0.0, 0.0),
     });
     let mut cmds = Vec::new();
-    complete_slot_drag(&data, &mut state.interaction, &mut cmds, 0, 1, vec![1]);
+    complete_slot_drag(
+        &data,
+        &mut state.interaction,
+        &mut cmds,
+        0,
+        1,
+        vec![1],
+        (0.0, 0.0),
+    );
     assert_eq!(cmds.len(), 1);
     assert!(
         matches!(cmds.iter().next().unwrap(), BackgroundTask::Swap { .. }),
@@ -401,7 +425,7 @@ fn handle_delete_emits_unplace_with_selection_slots() {
 
 #[test]
 fn handle_delete_emits_delete_page_when_only_page_hovered() {
-    let state = GuiState::new(ProjectState::default());
+    let state = GuiState::new_for_test(ProjectState::default());
     let target = HoveredTarget::Page {
         page: 4,
         slot: None,
@@ -449,7 +473,7 @@ fn handle_delete_noop_on_cover_when_active() {
 #[test]
 fn rebuild_selection_matches_selected_page() {
     use crate::app::rebuild::{PagesForRebuild, selected_pages_for_rebuild};
-    let mut interaction = GuiState::new(ProjectState::default()).interaction;
+    let mut interaction = GuiState::new_for_test(ProjectState::default()).interaction;
     interaction.selections.slots = SlotSelection::single(5, 0);
     assert!(
         matches!(selected_pages_for_rebuild(&interaction), PagesForRebuild::Selected(p) if p == vec![5])
@@ -459,9 +483,83 @@ fn rebuild_selection_matches_selected_page() {
 #[test]
 fn rebuild_without_selection_opens_confirm_path() {
     use crate::app::rebuild::{PagesForRebuild, selected_pages_for_rebuild};
-    let interaction = GuiState::new(ProjectState::default()).interaction;
+    let interaction = GuiState::new_for_test(ProjectState::default()).interaction;
     assert!(matches!(
         selected_pages_for_rebuild(&interaction),
         PagesForRebuild::None
     ));
+}
+
+fn manual_layout_page(page: usize, n_slots: usize) -> fotobuch::dto_models::LayoutPage {
+    let mut p = layout_page_with_slots(page, n_slots);
+    p.mode = fotobuch::dto_models::PageMode::Manual;
+    p
+}
+
+#[test]
+fn move_onto_manual_page_emits_move_to_manual_at_ghost_position() {
+    // Slot 0 of the source sits at (0,0); the user grabbed it 10mm/20mm inside.
+    // Dropping with the cursor at (60,70) on the manual page must land the
+    // slot's upper-left at (60-10, 70-20) = (50, 50).
+    let mut state = state_with_selection(0, vec![0]);
+    state.interaction.drag.mode = crate::state::DragMode::Move;
+    let data = data_with_layout(vec![layout_page_with_slots(0, 1), manual_layout_page(1, 1)]);
+    state.interaction.hovered = Some(HoveredTarget::Page {
+        page: 1,
+        slot: Some(0),
+        cursor_mm: (60.0, 70.0),
+    });
+    let mut cmds = Vec::new();
+    complete_slot_drag(
+        &data,
+        &mut state.interaction,
+        &mut cmds,
+        0,
+        0,
+        vec![0],
+        (10.0, 20.0),
+    );
+    assert_eq!(cmds.len(), 1);
+    let BackgroundTask::MoveToManual {
+        src_page,
+        dst_page,
+        x_mm,
+        y_mm,
+        ..
+    } = cmds.first().unwrap()
+    else {
+        panic!("expected MoveToManual");
+    };
+    assert_eq!(*src_page, 0);
+    assert_eq!(*dst_page, 1);
+    assert!((*x_mm - 50.0).abs() < 1e-6);
+    assert!((*y_mm - 50.0).abs() < 1e-6);
+}
+
+#[test]
+fn swap_onto_manual_page_is_allowed() {
+    let mut state = state_with_selection(0, vec![0]);
+    state.interaction.drag.mode = crate::state::DragMode::Swap;
+    let data = data_with_layout(vec![layout_page_with_slots(0, 1), manual_layout_page(1, 2)]);
+    state.interaction.hovered = Some(HoveredTarget::Page {
+        page: 1,
+        slot: Some(1),
+        cursor_mm: (0.0, 0.0),
+    });
+    let mut cmds = Vec::new();
+    complete_slot_drag(
+        &data,
+        &mut state.interaction,
+        &mut cmds,
+        0,
+        0,
+        vec![0],
+        (0.0, 0.0),
+    );
+    assert_eq!(
+        cmds.len(),
+        1,
+        "swap into a manual page should now be allowed"
+    );
+    assert!(matches!(cmds.first().unwrap(), BackgroundTask::Swap { .. }));
 }

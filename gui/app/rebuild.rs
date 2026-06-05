@@ -24,7 +24,7 @@ mod tests {
     use crate::state::{GuiState, SlotSelection};
 
     fn make_interaction() -> crate::state::InteractionState {
-        GuiState::new(ProjectState::default()).interaction
+        GuiState::new_for_test(ProjectState::default()).interaction
     }
 
     #[test]
