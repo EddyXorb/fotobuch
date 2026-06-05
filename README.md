@@ -24,7 +24,7 @@
 
   ## What is fotobuch?
 
-  `fotobuch` (= *photobook* in german) automatically creates a layout from your images ready to be sent to a professional printing service. Open the GUI, add your photos, press **Place** — and fotobuch distributes them across pages, picks the best arrangement for each page, and keeps photos from the same event together. Then export a print-ready PDF with one click.
+  `fotobuch` (= *photobook* in german) automatically creates a layout from your images ready to be sent to a professional printing service. Open the GUI, add your photos, press **Rebuild** — and fotobuch builds the pages, distributes your photos across them, picks the best arrangement for each page, and keeps photos from the same event together. Then export a print-ready PDF with one click.
 
   It is especially meant for books that contain many images per page and where it is tedious to manually create a layout for them. `fotobuch` is an opinionated tool that supports exactly one philosophy of what such a photobook should look like.
 
@@ -100,7 +100,7 @@
 
   ## Quick Start
 
-  **GUI (recommended for non-technical users):** Open the app, create a new project, add photos, press **Place**, browse the result in the central canvas, then click **Release** to export the final PDF.
+  **GUI (recommended for non-technical users):** Open the app, create a new project, add photos, press **Rebuild** to build the layout, browse the result in the central canvas, then click **Release** to export the final PDF.
   → [GUI Quickstart](https://eddyxorb.github.io/fotobuch/gui/quickstart.html)
 
   **CLI:**
