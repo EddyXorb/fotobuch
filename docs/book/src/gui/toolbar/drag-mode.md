@@ -14,7 +14,7 @@ Dragging an image and dropping it on another **exchanges** the two photos.
 
 ## Move mode (→)
 
-Dragging an image and dropping it on another position **relocates** the dragged photo to that slot. The target slot's geometry is applied to the moved photo.
+Dragging an image and dropping it elsewhere **relocates** it there. Only the photo itself and its aspect ratio travel with it — on an automatic page the exact size and position are recalculated to fit the destination, so the result won't necessarily match the spot where you dropped it.
 
 - Drop on a slot on a **different page** to move the photo there.
 - Drop on the **Nav Bar** to move the photo to that page.
