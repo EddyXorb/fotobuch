@@ -2,7 +2,7 @@ mod hud;
 mod manual;
 mod overlays;
 
-use crate::state::{DataState, InteractionState, PageHudAnim};
+use crate::state::{DataState, InteractionState};
 use crate::task::BackgroundTask;
 
 use super::super::geometry::PageDimensions;
@@ -39,14 +39,12 @@ pub(super) fn draw_page(
         .input(|i| i.pointer.latest_pos().map(|p| block_rect.contains(p)))
         .unwrap_or(false);
 
-    let dt = ui.ctx().input(|i| i.unstable_dt).min(0.05);
-    let anim = interaction
-        .page_hud
-        .entry(page_idx)
-        .or_insert_with(PageHudAnim::default);
-    if anim.advance(hovered, dt) {
-        ui.ctx().request_repaint();
-    }
+    let hud_anim = ui.ctx().animate_bool_with_time_and_easing(
+        ui.id().with(("page_hud", page_idx)),
+        hovered,
+        0.15,
+        egui::emath::easing::cubic_out,
+    );
 
     let Some(layout_page) = data.project.layout.get(page_idx) else {
         return (None, false, page_rect, (0.0, 0.0));
@@ -80,26 +78,11 @@ pub(super) fn draw_page(
         );
     }
 
-    let (opacity, pill_w, actions_alpha, actions_offset) = {
-        let a = &interaction.page_hud[&page_idx];
-        (a.opacity, a.pill_width, a.actions_alpha, a.actions_offset)
-    };
-
     let hud_rect = egui::Rect::from_min_size(
         egui::pos2(page_rect.min.x, page_rect.max.y + HUD_GAP),
         egui::vec2(page_rect.width(), HUD_HEIGHT),
     );
-    hud::draw_hud(
-        ui,
-        hud_rect,
-        page_idx,
-        layout_page.mode,
-        opacity,
-        pill_w,
-        actions_alpha,
-        actions_offset,
-        cmds,
-    );
+    hud::draw_hud(ui, hud_rect, page_idx, layout_page.mode, hud_anim, cmds);
 
     (hovered_slot, over_page, page_rect, cursor_mm)
 }
