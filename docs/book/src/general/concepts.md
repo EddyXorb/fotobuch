@@ -2,8 +2,8 @@
 
 ## Projects and vaults
 
-A fotobuch **project** is a set of files tracked by Git — a YAML config, a Typst
-template, and cached images. Multiple projects can live in the same Git
+A fotobuch **project** is a pair of files tracked by Git — a YAML config, a Typst
+template. Multiple projects can live in the same Git
 repository (called a **vault**), each on its own branch. Switching projects
 is a Git checkout under the hood.
 
@@ -55,14 +55,29 @@ Slots are ordered left-to-right, top-to-bottom (reading order).
 
 Every photo has an **area weight** (default: 1.0). fotobuch uses weights to
 decide how much space each photo gets relative to its neighbours on the same
-page.
+page. But beware: **the actual chosen layout can considerably deviate from the ideal weight ratios, because the solver also has to respect aspect ratios and other constraints.** 
 
 - Weight 2.0 → roughly twice the area of a weight-1.0 photo
 - Weight 0.5 → roughly half
 
-Weights can be set when importing or adjusted per-slot afterward — both in the
-GUI (W key, or right-click a slot → Set weight…) and in the CLI
-(`fotobuch page weight`).
+**Set weights at import time** when you already know some photos should dominate:
+
+```bash
+fotobuch add /photos/2024-Italy --weight 2.0   # all photos in this folder get weight 2
+```
+
+**Adjust weights per slot after placement:**
+
+```bash
+fotobuch page weight 3:2 2.0   # slot 2 on page 3 gets weight 2
+```
+
+In the GUI: select a slot and press `W`, or right-click → *Set weight…*
+
+Weights only affect photos on the **same page**. A photo with weight 3.0 gets
+more space than its page-neighbours, but it has no influence on other pages.
+After changing weights, run `fotobuch rebuild --page N` (or press `R` in the
+GUI) to let the solver recalculate the layout for that page.
 
 ## Cover
 
@@ -72,6 +87,9 @@ margin settings. See [Cover Modes](cover-modes.md) for the layout options.
 
 ## The `.fotobuch` cache
 
-fotobuch stores resized preview and final images in a `.fotobuch/` directory
-inside your project. This is purely a cache — delete it at any time without
-losing data. The next build regenerates whatever it needs.
+fotobuch stores resized preview and final images in a `.fotobuch/cache/` directory
+inside your project folder.
+**This is purely a cache — delete it at any time without
+losing data.**
+The next build regenerates whatever it needs.
+

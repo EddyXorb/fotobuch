@@ -22,7 +22,7 @@ The YAML has this structure:
 ```yaml
 config:
   book:                  # page dimensions, margins, bleed, cover
-    cover:               # cover-specific settings (nested inside book)
+    cover:               # cover-specific settings
   book_layout_solver:    # photo-to-page distribution
   page_layout_solver:    # single-page layout (genetic algorithm)
     weights:             # fitness function weights (nested)
@@ -39,9 +39,9 @@ automatically for any field you don't set.
 | Field                | Default      | Description                                                                                                                                                                                                                        |
 | -------------------- | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `title`              | `"Untitled"` | Book title. Used as the default spine text on the cover.                                                                                                                                                                           |
-| **`page_width_mm`**  | `210.0`      | **Page width in mm.** Set at project creation with `--width`. For double-page spreads, use the combined width (e.g. `420`).                                                                                                        |
+| **`page_width_mm`**  | `210.0`      | **Page width in mm.** Set at project creation with `--width`. The resulting PDF's width will have exactly this width plus any bleed. If you want double-page spreads, use the combined width (e.g. `420`).                         |
 | **`page_height_mm`** | `297.0`      | **Page height in mm.** Set at project creation with `--height`.                                                                                                                                                                    |
-| **`bleed_mm`**       | `3.0`        | **Bleed area in mm** added around each page. Cut off by the printer. Most services require 3 mm.                                                                                                                                   |
+| **`bleed_mm`**       | `3.0`        | **Bleed area in mm** added around each page. Only active when `margin_mm` is `0`. Cut off by the printer. Most services require 3 mm.                                                                                              |
 | **`margin_mm`**      | `0.0`        | **Minimum inset from the page edge.** `0` = edge-to-edge (photos may bleed). `> 0` = white border (bleed extension is disabled).                                                                                                   |
 | **`gap_mm`**         | `5.0`        | **Space in mm between photos** on the same page.                                                                                                                                                                                   |
 | `bleed_threshold_mm` | `3.0`        | Only active when `margin_mm` is `0`. If a photo's edge is closer to the page edge than this value, the layout is scaled so the photo extends fully into the bleed area. Prevents thin white strips at the page edge after cutting. |
@@ -59,16 +59,16 @@ setting `active: true` and providing dimensions.
 | **`active`**              | `false`    | **Enable the cover.** When `true`, the first layout entry (page 0) becomes the cover page.                                                                                                                  |
 | **`front_back_width_mm`** | `0.0`      | **Total width of front + back panel combined, without the spine.** Required when `active: true`.                                                                                                            |
 | **`height_mm`**           | `0.0`      | **Cover height in mm.** Required when `active: true`.                                                                                                                                                       |
-| `mode`                    | `split`    | **Cover layout mode.** Controls how page 0 is solved. `split` = deterministic solver optimises the cover (default). See [Cover modes](#cover-modes) below.                                                  |
+| `mode`                    | `free`     | **Cover layout mode.** Controls how page 0 is solved. `free` = GA solver optimises freely (default). See [Cover modes](#cover-modes) below.                                                                 |
 | `spine_clearance_mm`      | `5.0`      | Gap in mm between the photo edge and the spine for `front`, `back`, and `split` modes. Ignored for `spread` modes.                                                                                          |
 | **`spine_text`**          | book title | **Text on the spine.** Set to `~` (null) for no text. Font size is auto-calculated from the spine width (max 80% of spine width).                                                                           |
 | `spine_mode`              | `auto`     | Spine width mode — see below.                                                                                                                                                                               |
 | `spine_mm_per_10_pages`   | `1.4`      | **Auto mode only.** Spine thickness per 10 inner pages. Spine width = `(inner_pages / 10) * spine_mm_per_10_pages`. In auto mode the spine width affects the total cover canvas width that the solver uses. |
 | `spine_width_mm`          | —          | **Fixed mode only.** A fixed spine width in mm. In fixed mode the spine does **not** affect the cover canvas width in the solver — it is only used by the template for display and text sizing.             |
-| `bleed_mm`                | `3.0`      | Bleed for the cover page (independent from inner-page bleed).                                                                                                                                               |
-| `margin_mm`               | `0.0`      | Margin for the cover page. Same behaviour as the inner-page margin.                                                                                                                                         |
-| `gap_mm`                  | `5.0`      | Gap between photos on the cover.                                                                                                                                                                            |
-| `bleed_threshold_mm`      | `3.0`      | Bleed threshold for the cover. Same behaviour as inner pages.                                                                                                                                               |
+| `bleed_mm`                | `3.0`      | Same behavior as for inner pages                                                                                                                                                                            |
+| `margin_mm`               | `0.0`      | Same behavior as for inner pages                                                                                                                                                                            |
+| `gap_mm`                  | `5.0`      | Same behavior as for inner pages                                                                                                                                                                            |
+| `bleed_threshold_mm`      | `3.0`      | Same behavior as for inner pages                                                                                                                                                                            |
 
 #### Cover modes
 
@@ -111,13 +111,11 @@ fotobuch rebuild --page 0
 - **`auto`** (default): Spine width is calculated from the number of inner pages.
   The formula is `spine_width = (inner_pages / 10) * spine_mm_per_10_pages`.
   The spine width is **added to `front_back_width_mm`** to form the total cover
-  canvas — meaning the solver accounts for the spine. Use this when your print
-  service calculates spine from page count (most common).
+  canvas — meaning the solver accounts for the spine.
 
 - **`fixed`**: You provide `spine_width_mm` directly. The spine is **not added**
-  to the canvas width — the solver uses `front_back_width_mm` as-is. The fixed
-  spine width is only used by the template for positioning the spine text. Use
-  this when you already know the exact spine width from your print service.
+  to the canvas width — the solver uses `front_back_width_mm` as-is for the cover width. The fixed
+  spine width is only used by the template for positioning the spine text.
 
 ---
 
@@ -126,25 +124,26 @@ fotobuch rebuild --page 0
 The book layout solver distributes your photos across pages. It first runs a
 Mixed Integer Program (MIP) to find a globally optimal assignment, then refines
 it with a local search that evaluates actual layout quality per page.
+You can tweak the following parameters to control the solvers behavior in detail, but you usually only need to adjust `page_target`, `page_max`, and `search_timeout`.
 
-| Field                        | Default | Description                                                                                                                                                                   |
-| ---------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **`page_target`**            | `12`    | **Target number of pages.** The solver tries to hit this count. This is the most important solver setting.                                                                    |
-| `page_min`                   | `1`     | Hard minimum number of pages.                                                                                                                                                 |
-| **`page_max`**               | `26`    | **Hard maximum number of pages.** Setting this above `page_target` gives the solver room to add pages when that improves layout quality.                                      |
-| `photos_per_page_min`        | `1`     | Minimum number of photos on any single page.                                                                                                                                  |
-| `photos_per_page_max`        | `20`    | Maximum number of photos on any single page.                                                                                                                                  |
-| `group_max_per_page`         | `5`     | Maximum number of different groups that may share a single page. Lower values keep groups more separated.                                                                     |
-| `group_min_photos`           | `1`     | When a group is split across two pages, each part must have at least this many photos. Prevents a single "orphan" photo appearing alone on the next page.                     |
-| `weight_even`                | `1.0`   | MIP objective weight for even photo distribution across pages. Higher = more uniform page fill.                                                                               |
-| `weight_split`               | `10.0`  | MIP objective weight penalising group splits. Higher = groups are less likely to be split across pages.                                                                       |
-| `weight_pages`               | `5.0`   | MIP objective weight penalising deviation from `page_target`. Higher = result stays closer to the target.                                                                     |
-| **`search_timeout`**         | `30s`   | **Time budget for the entire solver** (MIP + local search). Increase for large books. YAML format: `{secs: 60, nanos: 0}`.                                                    |
-| `enable_local_search`        | `true`  | Whether to run the local search after the MIP. The local search shifts page boundaries to improve per-page layout quality.                                                    |
-| `mip_rel_gap`                | `0.01`  | Relative optimality gap for the MIP solver (0.0 = exact, 0.01 = accept solutions within 1% of optimal). Tightening this rarely helps and increases solve time.                |
-| `max_photos_for_split`       | `300`   | When the total photo count exceeds this, the problem is automatically decomposed into smaller sub-problems solved sequentially. This avoids MIP timeouts on very large books. |
-| `split_group_boundary_slack` | `5`     | When splitting into sub-problems, the split point may deviate by this many photos from the ideal boundary to prefer splitting at a group boundary.                            |
-| `max_coverage_cost`          | `0.95`  | **(Currently unused — will be removed in a future version.)** Was intended as a threshold for the local search to identify "bad" pages, but is not read by the solver.        |
+| Field                        | Default | Description                                                                                                                                                                                   |
+| ---------------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`page_target`**            | `12`    | **Target number of pages.** The solver tries to hit this count. This is the most important solver setting.                                                                                    |
+| `page_min`                   | `1`     | Hard minimum number of pages.                                                                                                                                                                 |
+| **`page_max`**               | `26`    | **Hard maximum number of pages.** Setting this above `page_target` gives the solver room to add pages when that improves layout quality significantly.                                        |
+| `photos_per_page_min`        | `1`     | Minimum number of photos on any single page.                                                                                                                                                  |
+| `photos_per_page_max`        | `20`    | Maximum number of photos on any single page. Very important: assure that your `page_max` multiplied by this value is greater or equal to the total number of photos.                          |
+| `group_max_per_page`         | `5`     | Maximum number of different groups that may share a single page. Lower values keep groups more separated.                                                                                     |
+| `group_min_photos`           | `1`     | When a group is split across two pages, each part must have at least this many photos. Prevents a single "orphan" photo appearing alone on the next page.                                     |
+| `weight_even`                | `1.0`   | Objective weight for even photo distribution across pages. Higher = more uniform page fill.                                                                                                   |
+| `weight_split`               | `10.0`  | Objective weight penalising group splits. Higher = groups are less likely to be split across pages.                                                                                           |
+| `weight_pages`               | `5.0`   | Objective weight penalising deviation from `page_target`. Higher = result stays closer to the target.                                                                                         |
+| **`search_timeout`**         | `30s`   | **Time budget for the entire solver** (MIP + local search). Increase for large books. YAML format: `{secs: 60, nanos: 0}`.                                                                    |
+| `enable_local_search`        | `true`  | Whether to run the local search after the MIP. The local search shifts page boundaries to improve per-page layout quality, but ignores group cohesion. Disable if group cohesion is critical. |
+| `mip_rel_gap`                | `0.01`  | Relative optimality gap for the MIP solver (0.0 = exact, 0.01 = accept solutions within 1% of optimal). Tightening this rarely helps and increases solve time.                                |
+| `max_photos_for_split`       | `300`   | When the total photo count exceeds this, the problem is automatically decomposed into smaller sub-problems solved sequentially. This avoids MIP timeouts on very large books.                 |
+| `split_group_boundary_slack` | `5`     | When splitting into sub-problems, the split point may deviate by this many photos from the ideal boundary to prefer splitting at a group boundary.                                            |
+| `max_coverage_cost`          | `0.95`  | **(Currently unused — will be removed in a future version.)** Was intended as a threshold for the local search to identify "bad" pages, but is not read by the solver.                        |
 
 ---
 
@@ -154,19 +153,19 @@ The page layout solver arranges photos within a single page using a genetic
 algorithm with island-model parallelism. These are advanced tuning parameters —
 the defaults work well for most cases.
 
-| Field                        | Default   | Description                                                                                                                                                                                                                                                                                                                                |
-| ---------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `seed`                       | `42`      | Random seed for the genetic algorithm. Change this to get a different layout for the same input. `fotobuch rebuild` changes the seed automatically.                                                                                                                                                                                        |
-| `population_size`            | `750`     | Number of individuals (candidate layouts) per island. Larger = better results but slower.                                                                                                                                                                                                                                                  |
-| `max_generations`            | `100`     | Maximum number of generations the algorithm runs.                                                                                                                                                                                                                                                                                          |
-| `mutation_rate`              | `0.3`     | Probability that an individual is mutated per generation.                                                                                                                                                                                                                                                                                  |
-| `crossover_rate`             | `0.7`     | Probability that two individuals are recombined per generation.                                                                                                                                                                                                                                                                            |
-| `elite_count`                | `20`      | Number of best individuals carried over unchanged to the next generation.                                                                                                                                                                                                                                                                  |
-| `no_improvement_limit`       | `15`      | Stop early if no improvement is found for this many generations. Set to `~` (null) to disable early stopping.                                                                                                                                                                                                                              |
-| `enforce_order`              | `true`    | Enforce chronological reading order (top-left to bottom-right) on each page. When `true`, photos are arranged so earlier photos appear before later ones in natural reading direction. Set to `false` if you don't care about photo order and want the solver to optimise purely for visual quality — this often produces tighter layouts. |
-| `islands_nr`                 | CPU cores | Number of independent populations evolved in parallel. Defaults to the number of available CPU cores.                                                                                                                                                                                                                                      |
-| `islands_migration_interval` | `5`       | Generations between migration events (best individuals are copied between islands).                                                                                                                                                                                                                                                        |
-| `islands_nr_migrants`        | `2`       | Number of individuals migrated per island per migration event.                                                                                                                                                                                                                                                                             |
+| Field                        | Default   | Description                                                                                                                                                                                                                                                                                                                                            |
+| ---------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `seed`                       | `42`      | Random seed for the genetic algorithm. Due to the parallelism has not a great influence on the layout as it is however not deterministic, except you are running on one core only.                                                                                                                                                                     |
+| `population_size`            | `750`     | Number of individuals (candidate layouts) per island. Larger = better results but slower.                                                                                                                                                                                                                                                              |
+| `max_generations`            | `100`     | Maximum number of generations the algorithm runs.                                                                                                                                                                                                                                                                                                      |
+| `mutation_rate`              | `0.3`     | Probability that an individual is mutated per generation.                                                                                                                                                                                                                                                                                              |
+| `crossover_rate`             | `0.7`     | Probability that two individuals are recombined per generation.                                                                                                                                                                                                                                                                                        |
+| `elite_count`                | `20`      | Number of best individuals carried over unchanged to the next generation.                                                                                                                                                                                                                                                                              |
+| `no_improvement_limit`       | `15`      | Stop early if no improvement is found for this many generations. Set to `~` (null) to disable early stopping.                                                                                                                                                                                                                                          |
+| `enforce_order`              | `true`    | Enforce chronological reading order (top-left to bottom-right) on each page. When `true`, photos are arranged so earlier photos appear before later ones in a somehow *natural* reading direction. Set to `false` if you don't care about photo order and want the solver to optimise purely for visual quality — this often produces tighter layouts. |
+| `islands_nr`                 | CPU cores | Number of independent populations evolved in parallel. Defaults to the number of available CPU cores.                                                                                                                                                                                                                                                  |
+| `islands_migration_interval` | `5`       | Generations between migration events (best individuals are copied between islands).                                                                                                                                                                                                                                                                    |
+| `islands_nr_migrants`        | `2`       | Number of individuals migrated per island per migration event.                                                                                                                                                                                                                                                                                         |
 
 #### `config.page_layout_solver.weights` — Fitness function
 
@@ -206,11 +205,11 @@ page-position reference.
 | `columns`          | `7`                                    | Number of columns in the listing.                                                                              |
 | `ref_mode`         | `"positions"`                          | Reference style: `"positions"` (page.slot, e.g. `2.3`) or `"counter"` (sequential number badge on each photo). |
 | `page_separator`   | `false`                                | Show a page-number header between pages in the listing.                                                        |
-| `strip_timestamps` | `true`                                 | Strip leading ISO timestamps from filenames in the listing.                                                    |
-| `label_title`      | `"Photo Index"`                        | Title text of the appendix.                                                                                    |
-| `label_page`       | `"Page"`                               | "Page" label used in the cross-reference legend and page separators.                                           |
-| `date_format`      | `"{day}. {month} {year} {hour}:{min}"` | Format string for timestamps. Placeholders: `{day}`, `{month}`, `{year}`, `{hour}`, `{min}`.                   |
-| `date_months`      | `["Jan", …, "Dec"]`                    | Month abbreviations (12 entries, January–December).                                                            |
+| `strip_timestamps` | `true`                                 | Tries to strip leading ISO timestamps from filenames in the listing.                                           |
+| `label_title`      | `"Photo Index"`                        | Localization: Title text of the appendix.                                                                      |
+| `label_page`       | `"Page"`                               | Localization: "Page" label used in the cross-reference legend and page separators.                             |
+| `date_format`      | `"{day}. {month} {year} {hour}:{min}"` | Localization: Format string for timestamps. Placeholders: `{day}`, `{month}`, `{year}`, `{hour}`, `{min}`.     |
+| `date_months`      | `["Jan", …, "Dec"]`                    | Localization: Month abbreviations (12 entries, January–December).                                              |
 
 ---
 

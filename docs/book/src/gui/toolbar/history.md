@@ -4,10 +4,10 @@ fotobuch keeps a full history of every change you make, so you can always go bac
 
 ## Undo and Redo
 
-| Button | Shortcut | Action |
-|--------|----------|--------|
-| ↩ | `Ctrl+Z` | Undo the last change |
-| ↪ | `Ctrl+Y` or `Ctrl+Shift+Z` | Redo (bring back an undone change) |
+| Button | Shortcut                   | Action                             |
+| ------ | -------------------------- | ---------------------------------- |
+| ↩      | `Ctrl+Z`                   | Undo the last change               |
+| ↪      | `Ctrl+Y` or `Ctrl+Shift+Z` | Redo (bring back an undone change) |
 
 You can undo and redo as many steps as you like.
 
@@ -21,6 +21,6 @@ The history is stored as a series of snapshots. Each change you make — placing
 
 fotobuch stores each project as a git repository. Every command that modifies the project creates a git commit. This means:
 
-- The full history is a plain git log — you can inspect it with any git client.
 - The CLI and the GUI share the same history. A change made from the command line appears in the GUI history panel, and vice versa.
-- Undo and redo are implemented as git revert and re-apply operations, so history is never lost.
+- Undo uses `git reset --hard` to move HEAD back. Undone commits are no longer visible in `git log` but are saved in `.fotobuch/redo-stack` so `redo` can restore them. Making a new change after an undo clears the redo stack permanently.
+- The full history up to the current HEAD is visible in any git client via `git log`.

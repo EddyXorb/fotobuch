@@ -1,5 +1,7 @@
 # Customizing the Template
 
+**This is a quick introduction to customizing the Typst template for advanced users. You can skip this section if you are happy with the default layout.**
+
 Every project has a `{name}.typ` file — a [Typst](https://typst.app/) template
 that controls how the PDF looks. fotobuch generates this file for you when you
 create a new project (via the GUI *New project* dialog or the CLI
@@ -80,6 +82,24 @@ config:
 **`"counter"`** — Photos are numbered sequentially (1, 2, 3, …) and a small
 badge with the number appears in the bottom-right corner of each photo in the
 PDF.
+
+### Localization example
+
+To produce an appendix in a different language, override the label fields and month abbreviations:
+
+```yaml
+config:
+  book:
+    appendix:
+      active: true
+      columns: 6
+      ref_mode: "counter"
+      label_title: "Photo Index"
+      label_page: "Page"
+      date_format: "{day} {month} {year}"
+      date_months: ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+```
 
 ---
 

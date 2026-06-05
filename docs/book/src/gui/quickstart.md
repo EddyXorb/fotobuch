@@ -26,7 +26,21 @@ for placement; the count is shown at the top.
 
 ---
 
-## Step 3 — Create pages and place photos
+## Step 3 — Fine-tune the configuration
+
+Click **Config** in the toolbar to open the project configuration. Key settings:
+
+- **page_target** — how many pages you want
+- **search_timeout** — how long the solver runs (increase for large books)
+- **gap_mm** — space between photos on a page
+- **book.margin_mm** — inner margin around the page content (default `0.0`)
+- **book.bleed_mm** — bleed zone added at the page edges, trimmed in the final PDF (default `3.0`); set to `0` if your print service does not require bleed
+
+After changing settings, rebuild the affected pages (`R`) to apply the new layout.
+
+---
+
+## Step 4 — Create pages and place photos
 
 Click **Rebuild** in the toolbar (or press `R`) with no pages selected, then
 confirm **Rebuild all** in the dialog. fotobuch creates all necessary pages and
@@ -37,7 +51,7 @@ pages in the Central Panel to create pages and place photos manually one by one.
 
 ---
 
-## Step 4 — Browse and adjust
+## Step 5 — Browse and adjust
 
 Use the **Nav Bar** on the right to scroll through all pages and jump to any
 page with a click.
@@ -46,9 +60,11 @@ If a page doesn't look right, hover over it in the Central Panel and click
 the **↻** button in the HUD to rebuild just that page. fotobuch re-runs the
 layout solver for that page and shows the updated result.
 
-**Moving photos between pages:**
+**Moving and swapping photos between pages:**
 - Right-drag a slot in the Central Panel to start a drag.
-- Drop onto another slot to swap, or drop onto a page's empty area to move.
+- The toolbar mode switch (or press `M`) controls the drag behaviour:
+  - **Swap** — the dragged slot and the drop target exchange positions.
+  - **Move** — the dragged slot is inserted at the drop target; other slots shift.
 
 **Adjusting photo weight:**
 - Select a slot and press `W` to open the weight slider.
@@ -59,17 +75,6 @@ layout solver for that page and shows the updated result.
 - Press `Ctrl+Z` to undo, `Ctrl+Y` to redo.
 - Click **History** in the toolbar to browse and jump to any earlier state.
 
----
-
-## Step 5 — Fine-tune the configuration
-
-Click **Config** in the toolbar to open the project configuration. Key settings:
-
-- **page_target** — how many pages you want
-- **search_timeout** — how long the solver runs (increase for large books)
-- **gap_mm** — space between photos on a page
-
-After changing settings, rebuild the affected pages (`R`) to apply the new layout.
 
 ---
 
@@ -80,9 +85,10 @@ When you're happy with the layout, click **Release** in the toolbar
 
 fotobuch re-renders all images at full 300 DPI and writes
 `{project-name}_final.pdf` in your project folder. The file opens automatically
-when the build is done.
+when the build is done; you can also find it in the project folder as `{project-name}_final.pdf`.
 
 **Do not upload the regular preview PDF** (`{project-name}.pdf`) to a print
 service — it renders at screen resolution only.
 
-See [Printing & Export](../general/printing.md) for Saal Digital-specific details.
+See [Printing & Export](../general/printing.md) for print-service requirements
+such as bleed and colour profiles.

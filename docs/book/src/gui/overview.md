@@ -1,30 +1,24 @@
 # GUI Overview
 
+![GUI screenshot](../assets/gui-example.png)
+
 fotobuch is a photo book layout tool. You bring in your photos, the program arranges them across pages automatically, and you export a print-ready PDF — all without any manual design work. The GUI is the main way to work with fotobuch interactively.
 
 ## Window layout
 
 The window has five areas:
 
-| Area | Position | Purpose |
-|------|----------|---------|
-| **Toolbar** | Top | Quick access to all main actions |
-| **Photo Pool** | Left | Your imported photos |
-| **Central Panel** | Centre | The page canvas — what your book will look like |
-| **Nav Bar** | Right | Miniature page overview for jumping around |
-| **Status bar** | Bottom | Current state and progress messages |
+| Area              | Position | Purpose                                         |
+| ----------------- | -------- | ----------------------------------------------- |
+| **Toolbar**       | Top      | Quick access to all main actions                |
+| **Photo Pool**    | Left     | Your imported photos                            |
+| **Central Panel** | Centre   | The page canvas — what your book will look like |
+| **Nav Bar**       | Right    | Miniature page overview for jumping around      |
+| **Status bar**    | Bottom   | Current state and progress messages             |
 
 ## How to create a photo book
 
-fotobuch works in four steps:
-
-**1. Start a project** — When you first open the app, choose *New project* from the welcome screen and give it a name. Projects are saved automatically as you work.
-
-**2. Add your photos** — Click **Add** (or press `Ctrl+O`) and pick a folder. fotobuch imports all photos from that folder into the Photo Pool on the left. You can add more folders at any time.
-
-**3. Place photos on pages** — Drag photos from the Photo Pool onto a page in the canvas, or click **Rebuild** in the toolbar (then confirm) to let fotobuch create all pages and place all photos automatically.
-
-**4. Fine-tune and export** — Browse the pages in the Central Panel and the Nav Bar. If a page does not look right, select it and press **R** to rebuild just that page. When you are happy, click **Release** (or press `Ctrl+Shift+B`) to build the final PDF. The PDF is saved in your project folder.
+See [quickstart](quickstart.md).
 
 ## Multiple projects
 

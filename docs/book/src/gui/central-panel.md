@@ -16,12 +16,12 @@ Each page displays a live preview rendered by the Typst compiler. While a re-ren
 
 A small heads-up display floats below each page. It appears faintly at rest and expands on hover.
 
-| Element | Action |
-|---------|--------|
-| Page number | Display only |
+| Element                        | Action                        |
+| -----------------------------  | ----------------------------- |
+| Page number                    | Display only                  |
 | Mode pill (✦ AUTO / ✋ MANUAL) | Click to toggle Auto ↔ Manual |
-| ↻ button | Rebuild this page |
-| ✕ button | Delete this page |
+| ↻ button                       | Rebuild this page             |
+| ✕ button                       | Delete this page              |
 
 ## Drop zones
 
