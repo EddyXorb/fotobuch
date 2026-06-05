@@ -245,6 +245,15 @@ fn dispatch_world_task(task: BackgroundTask, rctx: &mut RenderCtx<'_>) {
         } => {
             commands::run_move_to_new_page(src_page, src_slots, at_position, rctx);
         }
+        BackgroundTask::MoveToManual {
+            src_page,
+            src_slots,
+            dst_page,
+            x_mm,
+            y_mm,
+        } => {
+            commands::run_move_to_manual(src_page, src_slots, dst_page, x_mm, y_mm, rctx);
+        }
         BackgroundTask::SwapRange {
             src_page,
             src_slots,
