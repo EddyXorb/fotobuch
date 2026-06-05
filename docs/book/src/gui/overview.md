@@ -26,6 +26,6 @@ You can keep several photo books — for example one per year or one per event. 
 
 ## CLI and GUI interoperability
 
-The GUI and the `fotobuch` command-line tool operate on exactly the same project data. You can open a project in the GUI that was created and populated entirely from the CLI, or use the CLI and GUI on the same project in sequence — for example, run CLI commands for scripting or batch operations, then open the GUI for visual review and fine-tuning.
+The GUI and the `fotobuch` command-line tool operate on exactly the same project data. You can open a project in the GUI that was created and populated entirely from the CLI, or use the CLI and GUI on the same project in sequence — for example, run CLI commands for scripting or batch operations, then open the GUI for visual review and fine-tuning. The only rule is not to run both tools on the same project at the exact same time; alternating between them is completely fine.
 
 The shared format is a YAML file and a Typst template tracked by git inside the vault, so every tool that understands git can inspect the full change history.
