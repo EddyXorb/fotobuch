@@ -22,10 +22,10 @@ fotobuch build release
 
 ## Useful flags for scripts
 
-| Flag | Command | Effect |
-| ---- | ------- | ------ |
-| `--quiet` | `project new` | Suppress the welcome banner |
-| `--dry` / `-d` | `add` | Preview what would be added, no changes written |
+| Flag           | Command       | Effect                                          |
+| -------------- | ------------- | ----------------------------------------------- |
+| `--quiet`      | `project new` | Suppress the welcome banner                     |
+| `--dry` / `-d` | `add`         | Preview what would be added, no changes written |
 
 ---
 

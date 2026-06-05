@@ -2,8 +2,8 @@
 
 ## Projects and vaults
 
-A fotobuch **project** is a set of files tracked by Git — a YAML config, a Typst
-template, and cached images. Multiple projects can live in the same Git
+A fotobuch **project** is a pair of files tracked by Git — a YAML config, a Typst
+template. Multiple projects can live in the same Git
 repository (called a **vault**), each on its own branch. Switching projects
 is a Git checkout under the hood.
 

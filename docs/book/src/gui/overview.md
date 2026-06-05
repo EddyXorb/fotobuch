@@ -6,13 +6,13 @@ fotobuch is a photo book layout tool. You bring in your photos, the program arra
 
 The window has five areas:
 
-| Area | Position | Purpose |
-|------|----------|---------|
-| **Toolbar** | Top | Quick access to all main actions |
-| **Photo Pool** | Left | Your imported photos |
-| **Central Panel** | Centre | The page canvas — what your book will look like |
-| **Nav Bar** | Right | Miniature page overview for jumping around |
-| **Status bar** | Bottom | Current state and progress messages |
+| Area              | Position | Purpose                                         |
+| ----------------- | -------- | ----------------------------------------------- |
+| **Toolbar**       | Top      | Quick access to all main actions                |
+| **Photo Pool**    | Left     | Your imported photos                            |
+| **Central Panel** | Centre   | The page canvas — what your book will look like |
+| **Nav Bar**       | Right    | Miniature page overview for jumping around      |
+| **Status bar**    | Bottom   | Current state and progress messages             |
 
 ## How to create a photo book
 

@@ -16,10 +16,10 @@ Use `fotobuch status <page>` to see which slot numbers are on a given page.
 
 ## Two ways to address photos
 
-| Method           | Use case                                         | Examples                         |
-| ---------------- | ------------------------------------------------ | -------------------------------- |
-| **Filename / pattern** | Photos not yet placed, or matching by source path | `add`, `remove`, `place --filter` |
-| **Slot address** | Photos already placed on a page                  | `page move`, `page swap`, `page weight` |
+| Method                 | Use case                                          | Examples                                |
+| ---------------------- | ------------------------------------------------- | --------------------------------------- |
+| **Filename / pattern** | Photos not yet placed, or matching by source path | `add`, `remove`, `place --filter`       |
+| **Slot address**       | Photos already placed on a page                   | `page move`, `page swap`, `page weight` |
 
 **Rule of thumb:** use filename patterns for *unplaced* photos (`add`, `place`,
 `remove`); use slot addresses for *placed* photos (`page move`, `page swap`,

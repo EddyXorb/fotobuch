@@ -4,10 +4,10 @@ fotobuch keeps a full history of every change you make, so you can always go bac
 
 ## Undo and Redo
 
-| Button | Shortcut | Action |
-|--------|----------|--------|
-| ↩ | `Ctrl+Z` | Undo the last change |
-| ↪ | `Ctrl+Y` or `Ctrl+Shift+Z` | Redo (bring back an undone change) |
+| Button | Shortcut                   | Action                             |
+| ------ | -------------------------- | ---------------------------------- |
+| ↩      | `Ctrl+Z`                   | Undo the last change               |
+| ↪      | `Ctrl+Y` or `Ctrl+Shift+Z` | Redo (bring back an undone change) |
 
 You can undo and redo as many steps as you like.
 

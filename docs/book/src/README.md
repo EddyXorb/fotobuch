@@ -12,19 +12,6 @@ Point it at your photos and fotobuch figures out the layout automatically:
 
 Start fully automatic, then fine-tune individual pages by hand as needed.
 
-## Documentation
-
-| Where to go                                       | What you'll find                                |
-| ------------------------------------------------- | ----------------------------------------------- |
-| [GUI Quickstart](gui/quickstart.md)               | Open the GUI app and create your first book     |
-| [CLI Quickstart](cli/quickstart.md)               | Use the command line and create your first book |
-| [Core Concepts](general/concepts.md)              | Projects, photos, pages, weights                |
-| [Configuration](general/configuration.md)         | Full YAML reference                             |
-| [CLI Commands](cli/commands.md)                   | CLI commands overview                           |
-| [Full Flag Reference](cli/reference-generated.md) | All CLI flags in detail                         |
-| [Printing](general/printing.md)                   | Exporting your photo book                       |
-| [Glossary](glossary.md)                           | Domain terms used throughout fotobuch           |
-
 ## How fotobuch works
 
 fotobuch has a very simple data model. It stores each photo book as a pair of two files: a YAML file (.yaml) and a Typst

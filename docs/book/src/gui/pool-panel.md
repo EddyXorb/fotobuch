@@ -4,14 +4,14 @@ The Photo Pool is the panel on the left side of the window. It shows all the pho
 
 ## Working with photos
 
-| Action | Result |
-|--------|--------|
-| Click a photo | Select it (deselects others) |
-| `Ctrl`+click | Add or remove a photo from the selection |
-| `Shift`+click | Select a range of photos at once |
-| `Ctrl+A` (cursor in Pool) | Select all photos |
-| Drag one or more photos | Carry them over to a page or a new-page drop area |
-| `Delete` (with photos selected) | Remove selected photos from the project |
+| Action                          | Result                                            |
+| ------------------------------- | ------------------------------------------------- |
+| Click a photo                   | Select it (deselects others)                      |
+| `Ctrl`+click                    | Add or remove a photo from the selection          |
+| `Shift`+click                   | Select a range of photos at once                  |
+| `Ctrl+A` (cursor in Pool)       | Select all photos                                 |
+| Drag one or more photos         | Carry them over to a page or a new-page drop area |
+| `Delete` (with photos selected) | Remove selected photos from the project           |
 
 ## Dragging photos onto pages
 
