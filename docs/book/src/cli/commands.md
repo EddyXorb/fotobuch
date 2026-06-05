@@ -2,11 +2,7 @@
 
 All commands follow the pattern `fotobuch <command> [options]`.
 Run `fotobuch --help` or `fotobuch <command> --help` for details,
-or see the [Full Flag Reference](cli/reference-generated.md).
-
-> **Your original photos are never modified.** fotobuch only reads your source
-> files to create cached copies at the configured DPI. Commands like `remove`
-> delete photos from the project YAML — your originals on disk are untouched.
+or see the [Full Flag Reference](reference-generated.md).
 
 ## Commands at a glance
 
@@ -15,6 +11,7 @@ or see the [Full Flag Reference](cli/reference-generated.md).
 | `project new`    | Create a new photobook project                                 |
 | `project list`   | List all projects in the current repo                          |
 | `project switch` | Switch to another project (checks out its Git branch)          |
+| `init`           | Alias for `project new` (shorthand for first-time setup)       |
 | `add`            | Import photos or folders into the project                      |
 | `remove`         | Delete photos from the project entirely                        |
 | `place`          | Assign unplaced photos to pages                                |
@@ -37,8 +34,8 @@ or see the [Full Flag Reference](cli/reference-generated.md).
 | `undo`           | Undo the last N changes                                        |
 | `redo`           | Redo N undone changes                                          |
 
-For all flags and exact syntax see the [Full Flag Reference](cli/reference-generated.md).
-For available config keys see [Configuration](configuration.md).
+For all flags and exact syntax see the [Full Flag Reference](reference-generated.md).
+For available config keys see [Configuration](../general/configuration.md).
 
 ### `remove` vs. `unplace`
 
@@ -49,6 +46,13 @@ For available config keys see [Configuration](configuration.md).
 Use `remove --keep-files` if you want remove-like pattern matching but
 unplace-like behaviour (photos stay, just lose their page assignment).
 
+Use `remove --unplaced` to delete **all** photos that are not yet assigned to
+any page in one step (no pattern argument needed):
+
+```bash
+fotobuch remove --unplaced
+```
+
 ### `build` vs. `rebuild`
 
 - **`build`** renders the PDF and only re-solves pages that changed since the
@@ -56,4 +60,19 @@ unplace-like behaviour (photos stay, just lose their page assignment).
 - **`rebuild --page N`** forces the solver to re-optimize page N from scratch,
   even if nothing changed. Useful when you're not happy with a layout.
 - **`rebuild --all`** re-solves every page.
+- **`rebuild --range-start A --range-end B`** re-solves pages A through B
+  (0-based, inclusive). Add `--flex N` to let the solver vary the page count in
+  that range by ±N:
 
+  ```bash
+  fotobuch rebuild --range-start 3 --range-end 7 --flex 2
+  ```
+
+### `place --into-new-page-at`
+
+`place --into` places photos onto an existing page. `--into-new-page-at <POS>`
+creates a **new** page at position POS and places the selected photos there:
+
+```bash
+fotobuch place --filter "panorama.*" --into-new-page-at 4
+```

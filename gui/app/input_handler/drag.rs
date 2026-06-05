@@ -280,7 +280,18 @@ pub(super) fn complete_slot_drag(
         }
         (Some((dst_page, dst_slot)), DragMode::Swap) => {
             if src_slots.len() == 1 {
-                dispatch_swap(cmds, src_page, src_slots[0], dst_page, dst_slot);
+                // Same-page swap with mismatched aspect ratios is a no-op: auto-mode
+                // rebuilds re-sort photos by ratio and would immediately undo the swap.
+                let same_page_ratio_mismatch = src_page == dst_page
+                    && data.project.layout.get(src_page).is_some_and(|p| {
+                        let r = |slot: usize| {
+                            p.slots.get(slot).map(|s| s.width_mm / s.height_mm)
+                        };
+                        matches!((r(src_slots[0]), r(dst_slot)), (Some(a), Some(b)) if (a - b).abs() > 0.01)
+                    });
+                if !same_page_ratio_mismatch {
+                    dispatch_swap(cmds, src_page, src_slots[0], dst_page, dst_slot);
+                }
             } else if is_contiguous(&src_slots)
                 && let Some(layout_dst) = data.project.layout.get(dst_page)
                 && let Some(dst_slots) = compute_dst_range(dst_slot, src_slots.len(), layout_dst)

@@ -1,4 +1,4 @@
-use crate::state::{ContextMenu, DataState, InteractionState};
+use crate::state::{ContextMenu, DataState, InteractionState, WeightSlider};
 use crate::task::BackgroundTask;
 
 pub fn show(
@@ -49,7 +49,12 @@ fn show_entries(
     cmds: &mut Vec<BackgroundTask>,
 ) {
     match menu {
-        ContextMenu::Slot { page, slot, .. } => {
+        ContextMenu::Slot {
+            page,
+            slot,
+            screen_pos,
+            ..
+        } => {
             if ui.button("Unplace").clicked() {
                 cmds.push(BackgroundTask::Unplace {
                     page: *page,
@@ -59,6 +64,16 @@ fn show_entries(
             }
             if ui.button("Rebuild page").clicked() {
                 cmds.push(BackgroundTask::RebuildPages { pages: vec![*page] });
+                interaction.context_menu = None;
+            }
+            if ui.button("Set weight…").clicked() {
+                let initial = compute_slot_weight(data, *page, *slot);
+                interaction.weight_slider = WeightSlider::Open {
+                    page: *page,
+                    slots: vec![*slot],
+                    screen_pos: *screen_pos,
+                    value: initial,
+                };
                 interaction.context_menu = None;
             }
         }
@@ -83,27 +98,51 @@ fn show_entries(
             }
         }
         ContextMenu::NavPage { page, .. } => {
-            if let Some(lp) = data.project.layout.get(*page) {
-                use fotobuch::dto_models::PageMode;
-                let (label, new_mode) = match lp.mode {
-                    PageMode::Auto => ("Set Manual", PageMode::Manual),
-                    PageMode::Manual => ("Set Auto", PageMode::Auto),
-                };
-                if ui.button(label).clicked() {
-                    cmds.push(BackgroundTask::SetPageMode {
-                        page: *page,
-                        mode: new_mode,
+            // If the right-clicked page is part of the current nav selection, operate on
+            // all selected pages; otherwise fall back to just the right-clicked one.
+            let target_pages: Vec<usize> = if interaction.selections.nav_pages.is_selected(page) {
+                interaction.selections.nav_pages.items()
+            } else {
+                vec![*page]
+            };
+
+            if target_pages.len() == 1 {
+                if let Some(lp) = data.project.layout.get(*page) {
+                    use fotobuch::dto_models::PageMode;
+                    let (label, new_mode) = match lp.mode {
+                        PageMode::Auto => ("Set Manual", PageMode::Manual),
+                        PageMode::Manual => ("Set Auto", PageMode::Auto),
+                    };
+                    if ui.button(label).clicked() {
+                        cmds.push(BackgroundTask::SetPageMode {
+                            page: *page,
+                            mode: new_mode,
+                        });
+                        interaction.context_menu = None;
+                    }
+                }
+                if ui.button("Rebuild").clicked() {
+                    cmds.push(BackgroundTask::RebuildPages { pages: vec![*page] });
+                    interaction.context_menu = None;
+                }
+            } else {
+                if ui.button("Rebuild selected").clicked() {
+                    cmds.push(BackgroundTask::RebuildPages {
+                        pages: target_pages.clone(),
                     });
                     interaction.context_menu = None;
                 }
             }
-            if ui.button("Rebuild").clicked() {
-                cmds.push(BackgroundTask::RebuildPages { pages: vec![*page] });
-                interaction.context_menu = None;
-            }
-            let is_cover = data.project.has_cover() && *page == 0;
-            if !is_cover && ui.button("Delete page").clicked() {
-                cmds.push(BackgroundTask::DeletePages { pages: vec![*page] });
+
+            let pages_to_delete: Vec<usize> = if data.project.has_cover() {
+                target_pages.into_iter().filter(|&p| p != 0).collect()
+            } else {
+                target_pages
+            };
+            if !pages_to_delete.is_empty() && ui.button("Delete page").clicked() {
+                cmds.push(BackgroundTask::DeletePages {
+                    pages: pages_to_delete,
+                });
                 interaction.context_menu = None;
             }
         }
@@ -141,4 +180,22 @@ fn show_entries(
             }
         }
     }
+}
+
+fn compute_slot_weight(data: &DataState, page: usize, slot: usize) -> f64 {
+    let photo_id = data
+        .project
+        .layout
+        .get(page)
+        .and_then(|lp| lp.photos.get(slot));
+    let Some(photo_id) = photo_id else {
+        return 1.0;
+    };
+    data.project
+        .photos
+        .iter()
+        .flat_map(|g| g.files.iter())
+        .find(|f| &f.id == photo_id)
+        .map(|f| f.area_weight)
+        .unwrap_or(1.0)
 }

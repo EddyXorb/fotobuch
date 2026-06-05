@@ -137,7 +137,19 @@ pub fn run_unplace(page: usize, slots: Vec<usize>, rctx: &mut crate::background:
                 .iter()
                 .map(|&p| p as usize)
                 .collect();
-            super::page::build_after_command(out.changed_state, dirty, rctx);
+            // If all modified pages are now empty, skip the solver build.
+            // An empty page has nothing to lay out; running build would trigger
+            // an unwanted full rebuild instead of a cheap no-op.
+            let all_pages_empty = out.changed_state.as_ref().is_some_and(|s| {
+                dirty
+                    .iter()
+                    .all(|&p| s.layout.get(p).is_none_or(|lp| lp.photos.is_empty()))
+            });
+            if all_pages_empty {
+                crate::background::send_command_done(out.changed_state, dirty, rctx);
+            } else {
+                super::page::build_after_command(out.changed_state, dirty, rctx);
+            }
         }
     }
 }

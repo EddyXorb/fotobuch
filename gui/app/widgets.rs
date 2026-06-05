@@ -10,6 +10,7 @@ mod config_window;
 mod context_menu;
 mod geometry;
 mod goto_dialog;
+mod help_window;
 mod history_panel;
 mod new_project_dialog;
 mod page_nav;
@@ -29,6 +30,21 @@ pub fn draw_widgets(
 ) -> Vec<BackgroundTask> {
     // Clear per-frame hover state before widgets re-populate it.
     interaction.hovered = None;
+    interaction.help.hovered_widget = None;
+
+    // F1 toggles help window.
+    if ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::F1)) {
+        interaction.help.open = !interaction.help.open;
+        if !interaction.help.open {
+            interaction.help.highlighted = None;
+        }
+    }
+
+    // Request continuous repaint while a widget is highlighted (for glow animation).
+    if interaction.help.highlighted.is_some() {
+        ctx.request_repaint();
+    }
+
     let mut cmds = toolbar::draw(ui, data, interaction);
     statusbar::draw(ui, data, interaction);
     // Side panels must come before the central panel (egui ordering requirement).
@@ -50,6 +66,7 @@ pub fn draw_widgets(
     weight_slider::show(ctx, interaction, &mut cmds);
     welcome_modal::show(ctx, interaction, &mut cmds);
     history_panel::show(ctx, data, interaction);
+    help_window::show(ctx, interaction);
 
     cmds
 }

@@ -1,6 +1,6 @@
 # Full Flag Reference
 
-> This page is auto-generated from the CLI source. Run `cargo run --example generate-cli-docs` to regenerate.
+> This page is auto-generated from the CLI source. Run `cargo run --bin generate-cli-docs --features cli-docs` to regenerate.
 
 <!-- AUTO-GENERATED: do not edit by hand -->
 
@@ -10,32 +10,73 @@ This document contains the help content for the `fotobuch` command-line program.
 
 **Command Overview:**
 
-* [`fotobuch`↴](#fotobuch)
-* [`fotobuch add`↴](#fotobuch-add)
-* [`fotobuch build`↴](#fotobuch-build)
-* [`fotobuch build release`↴](#fotobuch-build-release)
-* [`fotobuch rebuild`↴](#fotobuch-rebuild)
-* [`fotobuch place`↴](#fotobuch-place)
-* [`fotobuch unplace`↴](#fotobuch-unplace)
-* [`fotobuch page`↴](#fotobuch-page)
-* [`fotobuch page move`↴](#fotobuch-page-move)
-* [`fotobuch page split`↴](#fotobuch-page-split)
-* [`fotobuch page combine`↴](#fotobuch-page-combine)
-* [`fotobuch page swap`↴](#fotobuch-page-swap)
-* [`fotobuch page info`↴](#fotobuch-page-info)
-* [`fotobuch page weight`↴](#fotobuch-page-weight)
-* [`fotobuch remove`↴](#fotobuch-remove)
-* [`fotobuch status`↴](#fotobuch-status)
-* [`fotobuch config`↴](#fotobuch-config)
-* [`fotobuch history`↴](#fotobuch-history)
-* [`fotobuch undo`↴](#fotobuch-undo)
-* [`fotobuch redo`↴](#fotobuch-redo)
-* [`fotobuch project`↴](#fotobuch-project)
-* [`fotobuch project new`↴](#fotobuch-project-new)
-* [`fotobuch project list`↴](#fotobuch-project-list)
-* [`fotobuch project switch`↴](#fotobuch-project-switch)
-* [`fotobuch init`↴](#fotobuch-init)
-* [`fotobuch completions`↴](#fotobuch-completions)
+- [Full Flag Reference](#full-flag-reference)
+- [Command-Line Help for `fotobuch`](#command-line-help-for-fotobuch)
+  - [`fotobuch`](#fotobuch)
+          - [**Subcommands:**](#subcommands)
+  - [`fotobuch add`](#fotobuch-add)
+          - [**Arguments:**](#arguments)
+          - [**Options:**](#options)
+  - [`fotobuch build`](#fotobuch-build)
+          - [**Subcommands:**](#subcommands-1)
+          - [**Options:**](#options-1)
+  - [`fotobuch build release`](#fotobuch-build-release)
+          - [**Options:**](#options-2)
+  - [`fotobuch rebuild`](#fotobuch-rebuild)
+          - [**Options:**](#options-3)
+  - [`fotobuch place`](#fotobuch-place)
+          - [**Options:**](#options-4)
+  - [`fotobuch unplace`](#fotobuch-unplace)
+          - [**Arguments:**](#arguments-1)
+  - [`fotobuch page`](#fotobuch-page)
+          - [**Subcommands:**](#subcommands-2)
+  - [`fotobuch page move`](#fotobuch-page-move)
+          - [**Arguments:**](#arguments-2)
+  - [`fotobuch page split`](#fotobuch-page-split)
+          - [**Arguments:**](#arguments-3)
+  - [`fotobuch page combine`](#fotobuch-page-combine)
+          - [**Arguments:**](#arguments-4)
+  - [`fotobuch page swap`](#fotobuch-page-swap)
+          - [**Arguments:**](#arguments-5)
+  - [`fotobuch page info`](#fotobuch-page-info)
+          - [**Arguments:**](#arguments-6)
+          - [**Options:**](#options-5)
+  - [`fotobuch page weight`](#fotobuch-page-weight)
+          - [**Arguments:**](#arguments-7)
+  - [`fotobuch page mode`](#fotobuch-page-mode)
+          - [**Arguments:**](#arguments-8)
+  - [`fotobuch page pos`](#fotobuch-page-pos)
+          - [**Arguments:**](#arguments-9)
+          - [**Options:**](#options-6)
+  - [`fotobuch remove`](#fotobuch-remove)
+          - [**Arguments:**](#arguments-10)
+          - [**Options:**](#options-7)
+  - [`fotobuch status`](#fotobuch-status)
+          - [**Arguments:**](#arguments-11)
+  - [`fotobuch config`](#fotobuch-config)
+          - [**Subcommands:**](#subcommands-3)
+  - [`fotobuch config show`](#fotobuch-config-show)
+  - [`fotobuch config set`](#fotobuch-config-set)
+          - [**Arguments:**](#arguments-12)
+  - [`fotobuch history`](#fotobuch-history)
+          - [**Options:**](#options-8)
+  - [`fotobuch undo`](#fotobuch-undo)
+          - [**Arguments:**](#arguments-13)
+  - [`fotobuch redo`](#fotobuch-redo)
+          - [**Arguments:**](#arguments-14)
+  - [`fotobuch project`](#fotobuch-project)
+          - [**Subcommands:**](#subcommands-4)
+  - [`fotobuch project new`](#fotobuch-project-new)
+          - [**Arguments:**](#arguments-15)
+          - [**Options:**](#options-9)
+  - [`fotobuch project list`](#fotobuch-project-list)
+  - [`fotobuch project switch`](#fotobuch-project-switch)
+          - [**Arguments:**](#arguments-16)
+  - [`fotobuch init`](#fotobuch-init)
+          - [**Arguments:**](#arguments-17)
+          - [**Options:**](#options-10)
+  - [`fotobuch completions`](#fotobuch-completions)
+          - [**Options:**](#options-11)
 
 ## `fotobuch`
 
@@ -53,7 +94,7 @@ Photobook layout solver and project manager
 * `page` — Page manipulation commands (move, split, combine, swap)
 * `remove` — Remove photos or groups from the book
 * `status` — Show project status
-* `config` — Show resolved configuration with defaults
+* `config` — Configuration commands (show or mutate)
 * `history` — Show project change history
 * `undo` — Undo the last N commits (default: 1)
 * `redo` — Redo N previously undone commits (default: 1)
@@ -143,6 +184,7 @@ Place unplaced photos into the book
 
 * `--filter <REGEX>` — Only place photos matching this regex pattern (can be repeated, all must match)
 * `--into <INTO>` — Place all matching photos onto this specific page (0-based index)
+* `--into-new-page-at <POS>` — Create a new page at this position and place photos there (0-based index)
 
 
 
@@ -174,6 +216,8 @@ Page manipulation commands (move, split, combine, swap)
 * `swap` — Swap photos between two addresses (only single numbers or ranges, no comma lists)
 * `info` — Show photo metadata for slots on a page
 * `weight` — Set area_weight for one or more slots
+* `mode` — Toggle page mode between auto (solver) and manual (user-placed)
+* `pos` — Reposition or rescale slots on a Manual-mode page
 
 
 
@@ -283,6 +327,47 @@ Examples: `3:2 2.0` (single slot), `3:1..3,7 2.0` (multiple slots), `3 2.0` (who
 
 
 
+## `fotobuch page mode`
+
+Toggle page mode between auto (solver) and manual (user-placed)
+
+Syntax: `fotobuch page mode <pages> <a|m|auto|manual>`
+
+Examples: `3 m` (page 3 to manual), `3..5 a` (pages 3-5 to auto).
+
+**Usage:** `fotobuch page mode <PAGES> <MODE>`
+
+###### **Arguments:**
+
+* `<PAGES>` — Pages to change: "3", "3..5", "3,5"
+* `<MODE>` — Mode: 'a' or 'auto' for auto-solver, 'm' or 'manual' for manual placement
+
+
+
+## `fotobuch page pos`
+
+Reposition or rescale slots on a Manual-mode page.
+
+Syntax: `fotobuch page pos <address> [--by dx,dy] [--at x,y] [--scale s]`
+
+Examples: `4:2 --by -20,30`          — move slot 2 on page 4 relatively `4:2 --at 100,50`          — set slot 2 origin to (100mm, 50mm) `4:2 --scale 1.5`          — scale slot 2 by 1.5× `4:2..5 --by -20,30`       — move slots 2–5 together `4:2 --at 100,50 --scale 2` — absolute position + scale
+
+At least one of --by, --at, --scale is required. --by and --at are mutually exclusive. The page must be in manual mode.
+
+**Usage:** `fotobuch page pos <--by <BY>|--at <AT>|--scale <SCALE>> <ADDRESS>`
+
+###### **Arguments:**
+
+* `<ADDRESS>` — Address: "4:2", "4:2..5", "4:1,3"
+
+###### **Options:**
+
+* `--by <BY>` — Relative move in mm: "dx,dy" (e.g. "-20,30")
+* `--at <AT>` — Absolute position in mm: "x,y" (e.g. "100,50")
+* `--scale <SCALE>` — Scale factor applied to width and height (origin stays fixed)
+
+
+
 ## `fotobuch remove`
 
 Remove photos or groups from the book
@@ -314,9 +399,37 @@ Show project status
 
 ## `fotobuch config`
 
+Configuration commands (show or mutate)
+
+**Usage:** `fotobuch config <COMMAND>`
+
+###### **Subcommands:**
+
+* `show` — Show resolved configuration with defaults
+* `set` — Set a config value using dot-notation (e.g. `book.dpi 300`)
+
+
+
+## `fotobuch config show`
+
 Show resolved configuration with defaults
 
-**Usage:** `fotobuch config`
+**Usage:** `fotobuch config show`
+
+
+
+## `fotobuch config set`
+
+Set a config value using dot-notation (e.g. `book.dpi 300`)
+
+Supported keys mirror the YAML config hierarchy. Types are auto-detected: true/false → bool, integers → int, decimals → float, else string.
+
+**Usage:** `fotobuch config set <KEY> <VALUE>`
+
+###### **Arguments:**
+
+* `<KEY>` — Dot-notation key, e.g. "book.dpi" or "book.cover.active"
+* `<VALUE>` — New value, e.g. "300", "true", "3.5", "spread"
 
 
 

@@ -35,7 +35,19 @@ fn show(
         slot_info_checkbox(ui, data, &mut cmds);
         ui.separator();
         drag_mode_buttons(ui, interaction);
+        ui.separator();
+        help_button(ui, interaction);
     });
+
+    let toolbar_rect = ui.min_rect();
+    if ui.rect_contains_pointer(toolbar_rect) {
+        interaction.help.hovered_widget = Some(("toolbar", toolbar_rect));
+    }
+    if interaction.help.highlighted == Some("toolbar") {
+        let time = ui.ctx().input(|i| i.time);
+        crate::app::help::draw_glow(ui.painter(), toolbar_rect, time);
+    }
+
     cmds
 }
 
@@ -234,6 +246,19 @@ fn drag_mode_buttons(ui: &mut egui::Ui, interaction: &mut InteractionState) {
         .clicked()
     {
         interaction.drag.mode = DragMode::Move;
+    }
+}
+
+fn help_button(ui: &mut egui::Ui, interaction: &mut InteractionState) {
+    if ui
+        .add(egui::Button::selectable(interaction.help.open, "?"))
+        .on_hover_text("Open in-app help [F1]")
+        .clicked()
+    {
+        interaction.help.open = !interaction.help.open;
+        if !interaction.help.open {
+            interaction.help.highlighted = None;
+        }
     }
 }
 

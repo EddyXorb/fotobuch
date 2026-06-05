@@ -53,6 +53,15 @@ fn show(
         });
 
     draw_nav_drag_ghost(ui.ctx(), data, interaction);
+
+    let panel_rect = ui.max_rect();
+    if ui.rect_contains_pointer(panel_rect) {
+        interaction.help.hovered_widget = Some(("nav-panel", panel_rect));
+    }
+    if interaction.help.highlighted == Some("nav-panel") {
+        let time = ui.ctx().input(|i| i.time);
+        crate::app::help::draw_glow(ui.painter(), panel_rect, time);
+    }
 }
 
 fn draw_thumb(data: &DataState, page_idx: usize, rect: egui::Rect, painter: &egui::Painter) {

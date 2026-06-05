@@ -1,3 +1,4 @@
+pub(crate) mod help;
 mod input_handler;
 pub(super) mod rebuild;
 mod widgets;
@@ -124,6 +125,9 @@ impl FotobuchApp {
                 }
                 BackgroundResult::HistoryLoaded { entries } => {
                     self.state.data.history = entries;
+                }
+                BackgroundResult::ReleaseDone { pdf_path } => {
+                    let _ = open::that_detached(&pdf_path);
                 }
             }
         }
