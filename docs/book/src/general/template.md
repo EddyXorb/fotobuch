@@ -1,5 +1,7 @@
 # Customizing the Template
 
+**This is a quick introduction to customizing the Typst template for advanced users. You can skip this section if you are happy with the default layout.**
+
 Every project has a `{name}.typ` file — a [Typst](https://typst.app/) template
 that controls how the PDF looks. fotobuch generates this file for you when you
 create a new project (via the GUI *New project* dialog or the CLI

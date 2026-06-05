@@ -4,7 +4,7 @@ In **Auto** mode (default) the solver controls every slot on a page. **Manual** 
 
 ---
 
-## Switching a page to Manual
+## Switching a page to manual mode
 
 ```bash
 fotobuch page mode 3 manual     # page 3 → Manual
@@ -36,17 +36,6 @@ fotobuch page pos 3:0 --at 10,10 --scale 2.0
 ```
 
 `--by` and `--at` are mutually exclusive. `--scale` can be combined with either.
-
----
-
-## In the GUI
-
-Manual-mode slots show a yellow **✦** handle in the bottom-right corner:
-
-- **Right-drag the slot body** → move the slot
-- **Right-drag the ✦ handle** → resize the slot
-
-Press `A` (or click the mode pill below the page) to toggle Auto ↔ Manual for the hovered page.
 
 ---
 

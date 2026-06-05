@@ -25,6 +25,10 @@ Both tools operate on exactly the same project data. You can mix and match:
 import photos with the CLI, review and tweak in the GUI, then kick off the
 release build from either side.
 
+> **Your original photos are never modified.** fotobuch only reads your source
+> files to create cached copies at the configured DPI. Commands like `remove`
+> delete photos from the project YAML — your originals on disk are untouched.
+
 ## Example project
 
 The repository ships with a complete example in `docs/examples/` — a ready-made

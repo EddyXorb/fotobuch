@@ -4,10 +4,6 @@ All commands follow the pattern `fotobuch <command> [options]`.
 Run `fotobuch --help` or `fotobuch <command> --help` for details,
 or see the [Full Flag Reference](reference-generated.md).
 
-> **Your original photos are never modified.** fotobuch only reads your source
-> files to create cached copies at the configured DPI. Commands like `remove`
-> delete photos from the project YAML — your originals on disk are untouched.
-
 ## Commands at a glance
 
 | Command          | What it does                                                   |

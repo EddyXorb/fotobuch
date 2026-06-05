@@ -55,7 +55,7 @@ Slots are ordered left-to-right, top-to-bottom (reading order).
 
 Every photo has an **area weight** (default: 1.0). fotobuch uses weights to
 decide how much space each photo gets relative to its neighbours on the same
-page.
+page. But beware: **the actual chosen layout can considerably deviate from the ideal weight ratios, because the solver also has to respect aspect ratios and other constraints.** 
 
 - Weight 2.0 → roughly twice the area of a weight-1.0 photo
 - Weight 0.5 → roughly half
@@ -87,6 +87,9 @@ margin settings. See [Cover Modes](cover-modes.md) for the layout options.
 
 ## The `.fotobuch` cache
 
-fotobuch stores resized preview and final images in a `.fotobuch/` directory
-inside your project. This is purely a cache — delete it at any time without
-losing data. The next build regenerates whatever it needs.
+fotobuch stores resized preview and final images in a `.fotobuch/cache/` directory
+inside your project folder.
+**This is purely a cache — delete it at any time without
+losing data.**
+The next build regenerates whatever it needs.
+

@@ -25,6 +25,9 @@ the box:
 - **Resolution:** 300 DPI for the release build (configurable via
   `config.book.dpi`)
 
+I tested the output with Saal Digital's online preview tool and it passed without any issues. You can upload the PDF directly to their website for printing. The only issue I had sometimes was that I did not know their spine widths exactly so I had to tweak the `config.book.spine_mm` setting a few times to get the preview to look right. If you know your spine width in advance, set it in the config before building and the preview should be correct on the first try.
+I printed 7 photo books using *fotobuch* and I am quite happy with the results.
+
 ## Other print services
 
 Most print-on-demand services accept standard PDF with bleed. Adjust
