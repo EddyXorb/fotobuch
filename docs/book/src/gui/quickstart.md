@@ -36,7 +36,8 @@ Click **Config** in the toolbar to open the project configuration. Key settings:
 - **book.margin_mm** — inner margin around the page content (default `0.0`)
 - **book.bleed_mm** — bleed zone added at the page edges, trimmed in the final PDF (default `3.0`); set to `0` if your print service does not require bleed
 
-After changing settings, rebuild the affected pages (`R`) to apply the new layout.
+Most settings preview instantly. The page and per-page targets only change how the
+layout is built, so rebuild the affected pages (`R`) to apply them to existing pages.
 
 ---
 

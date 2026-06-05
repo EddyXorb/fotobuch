@@ -13,6 +13,8 @@ The configuration panel lets you adjust the settings for the current project:
 
 ## Applying changes
 
-Changes take effect when you rebuild the affected pages. After changing a setting, press `R` (or click **Rebuild**) to update the layout.
+Changes you make in the configuration panel are applied right away — the page previews update on their own, with no separate save or apply step.
+
+The one exception is the **photos per page** target: it only influences how the automatic layout distributes photos across pages, so existing pages keep their current arrangement until you rebuild them (press `R` or click **Rebuild**).
 
 For a full list of all available configuration keys and their accepted values, see the [Configuration reference](../../general/configuration.md).
