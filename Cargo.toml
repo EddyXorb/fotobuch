@@ -106,12 +106,12 @@ optional = true
 
 [profile.release]
 incremental = true
-strip = "symbols"
-lto = "thin"
+lto = "off"
 
 [profile.dist]
 inherits = "release"
 incremental = false
+strip = "symbols"
 lto = "fat"
 codegen-units = 1
 
