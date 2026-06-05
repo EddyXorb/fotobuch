@@ -105,8 +105,14 @@ version = "0.1"
 optional = true
 
 [profile.release]
+incremental = true
 strip = "symbols"
 lto = "thin"
+
+[profile.dist]
+inherits = "release"
+incremental = false
+lto = "fat"
 codegen-units = 1
 
 [dev-dependencies]
