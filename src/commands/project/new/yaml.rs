@@ -4,15 +4,16 @@ use anyhow::{Context, Result};
 use std::fs;
 use std::path::Path;
 
-use crate::dto_models::{
-    BookConfig, BookLayoutSolverConfig, CoverConfig, GaConfig, PreviewConfig, ProjectConfig,
-    ProjectState, SpineConfig,
-};
+use crate::dto_models::{BookConfig, CoverConfig, ProjectConfig, ProjectState, SpineConfig};
 use tracing::warn;
 
 use super::NewConfig;
 
 /// Generate default project state from a `NewConfig`.
+///
+/// If `config.base_config` is set it is used as the starting point; the
+/// dimension, cover and title fields from `NewConfig` are then overwritten on
+/// top of it. Otherwise defaults are used.
 pub fn generate_default_state(config: &NewConfig) -> ProjectState {
     let NewConfig {
         name,
@@ -25,8 +26,11 @@ pub fn generate_default_state(config: &NewConfig) -> ProjectState {
         spine_grow_per_10_pages_mm,
         spine_mm,
         margin_mm,
+        base_config,
         ..
     } = config;
+
+    let base = base_config.clone().unwrap_or_default();
 
     let cover = if *with_cover {
         let cw = cover_width_mm.unwrap_or_else(|| {
@@ -71,15 +75,10 @@ pub fn generate_default_state(config: &NewConfig) -> ProjectState {
                 page_height_mm: *height_mm,
                 bleed_mm: *bleed_mm,
                 margin_mm: *margin_mm,
-                gap_mm: 5.0,
-                bleed_threshold_mm: 3.0,
-                dpi: 300.0,
                 cover,
-                appendix: Default::default(),
+                ..base.book
             },
-            page_layout_solver: GaConfig::default(),
-            preview: PreviewConfig::default(),
-            book_layout_solver: BookLayoutSolverConfig::default(),
+            ..base
         },
         photos: Vec::new(),
         layout: Vec::new(),
@@ -115,6 +114,7 @@ mod tests {
             spine_grow_per_10_pages_mm: None,
             spine_mm: None,
             margin_mm: 0.0,
+            base_config: None,
         }
     }
 
@@ -128,6 +128,52 @@ mod tests {
         assert!(!state.config.book.cover.active);
         assert!(state.photos.is_empty());
         assert!(state.layout.is_empty());
+    }
+
+    #[test]
+    fn test_base_config_preserves_non_dimension_fields() {
+        use crate::dto_models::{BookConfig, PreviewConfig, ProjectConfig};
+
+        let base = ProjectConfig {
+            book: BookConfig {
+                dpi: 150.0, // a field that should survive untouched
+                ..Default::default()
+            },
+            preview: PreviewConfig {
+                show_slot_info: false,
+                show_preview_watermark: false,
+                show_borders: false,
+                show_filenames: false,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+
+        let config = NewConfig {
+            width_mm: 100.0,
+            base_config: Some(base),
+            ..test_config()
+        };
+
+        let state = generate_default_state(&config);
+
+        // Dimensions from NewConfig overwrite the base.
+        assert_eq!(state.config.book.page_width_mm, 100.0);
+        // Non-dimension book and preview fields come from the base.
+        assert_eq!(state.config.book.dpi, 150.0);
+        assert!(!state.config.preview.show_slot_info);
+        assert!(!state.config.preview.show_preview_watermark);
+        assert!(!state.config.preview.show_borders);
+        assert!(!state.config.preview.show_filenames);
+    }
+
+    #[test]
+    fn test_default_base_config_uses_defaults() {
+        let state = generate_default_state(&test_config());
+
+        assert_eq!(state.config.book.gap_mm, 5.0);
+        assert_eq!(state.config.book.dpi, 300.0);
+        assert!(state.config.preview.show_slot_info);
     }
 
     #[test]

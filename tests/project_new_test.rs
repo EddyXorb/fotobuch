@@ -21,6 +21,7 @@ fn test_project_new_mode1_creates_complete_structure() -> Result<()> {
         spine_grow_per_10_pages_mm: None,
         spine_mm: None,
         margin_mm: 0.0,
+        base_config: None,
     };
 
     let result = project_new(temp_dir.path(), &config)?;
@@ -97,6 +98,7 @@ fn test_project_new_mode2_creates_additional_project() -> Result<()> {
         spine_grow_per_10_pages_mm: None,
         spine_mm: None,
         margin_mm: 0.0,
+        base_config: None,
     };
     let result1 = project_new(temp_dir.path(), &config1)?;
 
@@ -113,6 +115,7 @@ fn test_project_new_mode2_creates_additional_project() -> Result<()> {
         spine_grow_per_10_pages_mm: None,
         spine_mm: None,
         margin_mm: 0.0,
+        base_config: None,
     };
     let result2 = project_new(&result1.result.project_root, &config2)?;
 
@@ -158,6 +161,7 @@ fn test_project_new_rejects_duplicate_name() -> Result<()> {
         spine_grow_per_10_pages_mm: None,
         spine_mm: None,
         margin_mm: 0.0,
+        base_config: None,
     };
 
     // Create first project
@@ -228,6 +232,7 @@ fn test_project_new_with_different_page_dimensions() -> Result<()> {
             spine_grow_per_10_pages_mm: None,
             spine_mm: None,
             margin_mm: 0.0,
+            base_config: None,
         };
 
         let result = project_new(temp_dir.path(), &config)?;
