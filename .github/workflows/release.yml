@@ -15,12 +15,12 @@ jobs:
           - name: Linux x86_64
             os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            artifact: fotobuch-linux-x86_64
+            os_label: linux-x86_64
             binary: fotobuch
           - name: Windows x86_64
             os: windows-latest
             target: x86_64-pc-windows-msvc
-            artifact: fotobuch-windows-x86_64
+            os_label: windows-x86_64
             binary: fotobuch.exe
     runs-on: ${{ matrix.os }}
     steps:
@@ -43,7 +43,7 @@ jobs:
             libxkbcommon-dev libgl1-mesa-dev
 
       - name: Build (CLI + GUI)
-        run: cargo build --profile dist --features gui --target ${{ matrix.target }}
+        run: cargo build --profile dist --features gui --bin fotobuch --bin fotobuch-gui --target ${{ matrix.target }}
 
       - name: Smoke test (CLI)
         shell: bash
@@ -52,26 +52,37 @@ jobs:
       - name: Package (Linux)
         if: runner.os == 'Linux'
         run: |
-          cp target/${{ matrix.target }}/dist/fotobuch fotobuch
-          cp target/${{ matrix.target }}/dist/fotobuch-gui fotobuch-gui
-          tar -czf ${{ matrix.artifact }}.tar.gz fotobuch fotobuch-gui
-          sha256sum ${{ matrix.artifact }}.tar.gz > ${{ matrix.artifact }}.tar.gz.sha256
+          bin_dir="target/${{ matrix.target }}/dist"
+          for variant in "cli:fotobuch" "gui:fotobuch-gui"; do
+            name="${variant%%:*}"; bin="${variant##*:}"
+            archive="fotobuch-${name}-${{ matrix.os_label }}.tar.gz"
+            cp "${bin_dir}/${bin}" "${bin}"
+            tar -czf "${archive}" "${bin}"
+            sha256sum "${archive}" > "${archive}.sha256"
+          done
 
       - name: Package (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          Copy-Item "target\${{ matrix.target }}\dist\fotobuch.exe" "fotobuch.exe"
-          Copy-Item "target\${{ matrix.target }}\dist\fotobuch-gui.exe" "fotobuch-gui.exe"
-          Compress-Archive -Path fotobuch.exe, fotobuch-gui.exe -DestinationPath "${{ matrix.artifact }}.zip"
-          $hash = (Get-FileHash "${{ matrix.artifact }}.zip" -Algorithm SHA256).Hash
-          "$hash  ${{ matrix.artifact }}.zip" | Out-File "${{ matrix.artifact }}.zip.sha256" -Encoding ascii
+          $binDir = "target\${{ matrix.target }}\dist"
+          $variants = @{ cli = "fotobuch.exe"; gui = "fotobuch-gui.exe" }
+          foreach ($name in $variants.Keys) {
+            $bin = $variants[$name]
+            $archive = "fotobuch-$name-${{ matrix.os_label }}.zip"
+            Copy-Item "$binDir\$bin" "$bin"
+            Compress-Archive -Path "$bin" -DestinationPath "$archive"
+            $hash = (Get-FileHash "$archive" -Algorithm SHA256).Hash
+            "$hash  $archive" | Out-File "$archive.sha256" -Encoding ascii
+          }
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v6
         with:
-          name: ${{ matrix.artifact }}
-          path: ${{ matrix.artifact }}.*
+          name: fotobuch-${{ matrix.os_label }}
+          path: |
+            fotobuch-cli-${{ matrix.os_label }}.*
+            fotobuch-gui-${{ matrix.os_label }}.*
 
   release:
     name: Create Release Draft
