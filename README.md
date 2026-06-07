@@ -106,7 +106,9 @@ cargo build --release --features gui
 # GUI:  ./target/release/fotobuch-gui
 # CLI:  ./target/release/fotobuch
 ```
+## Documentation
 
+The full documentation can be found [here](https://eddyxorb.github.io/fotobuch).
 
 
 ## Quick Start
