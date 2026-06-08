@@ -73,9 +73,60 @@ jobs:
           name: ${{ matrix.artifact }}
           path: ${{ matrix.artifact }}.*
 
+  appimage:
+    name: Build AppImage (Linux GUI)
+    runs-on: ubuntu-22.04 # oldest supported glibc baseline
+    env:
+      target: x86_64-unknown-linux-gnu
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ env.target }}
+
+      - name: Cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake \
+            libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev \
+            libxkbcommon-dev libgl1-mesa-dev libfuse2
+
+      - name: Build (GUI)
+        run: cargo build --profile dist --features gui --bin fotobuch-gui --target ${{ env.target }}
+
+      - name: Download linuxdeploy
+        run: |
+          curl -sSL -o linuxdeploy.AppImage \
+            https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          chmod +x linuxdeploy.AppImage
+
+      - name: Build AppImage
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: 1 # run AppImage tools without relying on FUSE
+        run: |
+          ./linuxdeploy.AppImage \
+            --appdir AppDir \
+            --executable target/${{ env.target }}/dist/fotobuch-gui \
+            --desktop-file packaging/fotobuch-gui.desktop \
+            --icon-file packaging/fotobuch-gui.png \
+            --output appimage
+          mv Fotobuch-*-x86_64.AppImage fotobuch-linux-x86_64.AppImage
+          sha256sum fotobuch-linux-x86_64.AppImage > fotobuch-linux-x86_64.AppImage.sha256
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: fotobuch-linux-x86_64-appimage
+          path: fotobuch-linux-x86_64.AppImage*
+
   release:
     name: Create Release Draft
-    needs: build
+    needs: [build, appimage]
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:

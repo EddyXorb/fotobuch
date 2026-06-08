@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Fotobuch
+GenericName=Photobook Layout Solver
+Comment=Automatically arrange photos into balanced photobook page layouts
+Exec=fotobuch-gui
+Icon=fotobuch-gui
+Terminal=false
+Categories=Graphics;Photography;
+Keywords=photo;photobook;layout;album;
