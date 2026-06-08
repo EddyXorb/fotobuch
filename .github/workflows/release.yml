@@ -109,13 +109,15 @@ jobs:
         env:
           APPIMAGE_EXTRACT_AND_RUN: 1 # run AppImage tools without relying on FUSE
         run: |
+          # sanitize the ref name (branches may contain slashes) for the filename
+          export LINUXDEPLOY_OUTPUT_VERSION="${GITHUB_REF_NAME//\//-}"
           ./linuxdeploy.AppImage \
             --appdir AppDir \
             --executable target/${{ env.target }}/dist/fotobuch-gui \
             --desktop-file packaging/fotobuch-gui.desktop \
             --icon-file packaging/fotobuch-gui.png \
             --output appimage
-          mv Fotobuch-*-x86_64.AppImage fotobuch-linux-x86_64.AppImage
+          mv Fotobuch*-x86_64.AppImage fotobuch-linux-x86_64.AppImage
           sha256sum fotobuch-linux-x86_64.AppImage > fotobuch-linux-x86_64.AppImage.sha256
 
       - name: Upload artifact
