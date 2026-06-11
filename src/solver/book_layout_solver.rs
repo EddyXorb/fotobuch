@@ -1,26 +1,22 @@
 //! Book layout solver that distributes photos across multiple pages.
 //!
 //! This module implements a two-phase approach for book layout optimization:
-//! 1. **MIP Phase**: Use Mixed Integer Programming to find a feasible initial
+//! 1. **Assignment Phase**: Use an exact dynamic program to find the optimal
 //!    assignment of photos to pages, respecting group constraints.
 //! 2. **Local Search Phase**: Refine the assignment using Variable Neighborhood
 //!    Search (VNS) to improve coverage and balance.
 //!
 //! The module provides:
 //! - High-level `solve()` API for complete book layout optimization
-//! - Internal modules for MIP, local search, feasibility checking, and caching
+//! - Internal modules for the DP, local search, feasibility checking, and caching
 
 mod cache;
 mod create_start_solution;
+mod dp;
 mod feasibility;
 mod local_search;
-mod mip;
 mod model;
 mod page_assignment_solver;
-
-// Not yet wired into the pipeline (replaces MIP in the next step).
-#[allow(dead_code)]
-mod dp;
 
 // Re-export public types
 pub use local_search::PageLayoutEvaluator;
@@ -39,16 +35,16 @@ pub enum SolverError {
     #[error("Parameter validation failed: {0}")]
     InvalidParams(#[from] crate::dto_models::ValidationError),
 
-    #[error("MIP solver failed: {0}")]
-    MipFailed(#[from] mip::MipError),
+    #[error("page assignment failed: {0}")]
+    AssignmentFailed(#[from] dp::DpError),
 }
 
-/// Solves the book layout problem using MIP + local search.
+/// Solves the book layout problem using DP + local search.
 ///
 /// # Algorithm
 /// 1. Validate parameters
 /// 2. Build GroupInfo from photos
-/// 3. Run MIP solver to get initial feasible assignment
+/// 3. Run the exact DP to get the optimal initial assignment
 /// 4. Run local search to refine the assignment
 /// 5. Collect layouts from cache and build BookLayout
 ///
@@ -69,7 +65,7 @@ pub fn solve_book_layout(
     // Build group information from photos
     let groups = GroupInfo::from_photos(photos);
 
-    // Phase 1: Page assignment (MIP + optional splitting for large instances)
+    // Phase 1: Page assignment (exact DP, heuristic fallback if infeasible)
     let page_solver = page_assignment_solver::PageAssignmentSolver::new(params.clone());
     let initial_assignment = page_solver.solve(&groups, photos)?;
     info!("Page cuts: {:?}", initial_assignment.cuts());
