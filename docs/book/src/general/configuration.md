@@ -121,8 +121,8 @@ fotobuch rebuild --page 0
 
 ### `config.book_layout_solver` — Photo-to-page distribution
 
-The book layout solver distributes your photos across pages. It first runs a
-Mixed Integer Program (MIP) to find a globally optimal assignment, then refines
+The book layout solver distributes your photos across pages. It first runs an
+exact dynamic program (DP) to find a globally optimal assignment, then refines
 it with a local search that evaluates actual layout quality per page.
 You can tweak the following parameters to control the solvers behavior in detail, but you usually only need to adjust `page_target`, `page_max`, and `search_timeout`.
 
@@ -138,12 +138,15 @@ You can tweak the following parameters to control the solvers behavior in detail
 | `weight_even`                | `1.0`   | Objective weight for even photo distribution across pages. Higher = more uniform page fill.                                                                                                   |
 | `weight_split`               | `10.0`  | Objective weight penalising group splits. Higher = groups are less likely to be split across pages.                                                                                           |
 | `weight_pages`               | `5.0`   | Objective weight penalising deviation from `page_target`. Higher = result stays closer to the target.                                                                                         |
-| **`search_timeout`**         | `30s`   | **Time budget for the entire solver** (MIP + local search). Increase for large books. YAML format: `{secs: 60, nanos: 0}`.                                                                    |
-| `enable_local_search`        | `true`  | Whether to run the local search after the MIP. The local search shifts page boundaries to improve per-page layout quality, but ignores group cohesion. Disable if group cohesion is critical. |
-| `mip_rel_gap`                | `0.01`  | Relative optimality gap for the MIP solver (0.0 = exact, 0.01 = accept solutions within 1% of optimal). Tightening this rarely helps and increases solve time.                                |
-| `max_photos_for_split`       | `300`   | When the total photo count exceeds this, the problem is automatically decomposed into smaller sub-problems solved sequentially. This avoids MIP timeouts on very large books.                 |
-| `split_group_boundary_slack` | `5`     | When splitting into sub-problems, the split point may deviate by this many photos from the ideal boundary to prefer splitting at a group boundary.                                            |
+| **`search_timeout`**         | `30s`   | **Time budget for the local search.** The DP assignment phase is exact and runs in milliseconds; this budget bounds only the refinement. YAML format: `{secs: 60, nanos: 0}`.                 |
+| `enable_local_search`        | `true`  | Whether to run the local search after the DP. The local search shifts page boundaries to improve per-page layout quality, but ignores group cohesion. Disable if group cohesion is critical. |
 | `max_coverage_cost`          | `0.95`  | **(Currently unused — will be removed in a future version.)** Was intended as a threshold for the local search to identify "bad" pages, but is not read by the solver.                        |
+
+> **Deprecated (optional, ignored):** `mip_rel_gap`, `max_photos_for_split` and
+> `split_group_boundary_slack` belonged to the former MIP solver, which has been
+> replaced by an exact dynamic program. They are still accepted in existing
+> config files for backwards compatibility but have no effect, and you can safely
+> remove them.
 
 ---
 

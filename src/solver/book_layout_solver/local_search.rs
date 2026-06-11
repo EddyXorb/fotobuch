@@ -1,7 +1,7 @@
 //! Local search for book layout refinement.
 //!
 //! This module implements a Variable Neighborhood Search (VNS) variant
-//! that improves a MIP solution by iteratively adjusting page boundaries.
+//! that improves a DP solution by iteratively adjusting page boundaries.
 
 mod improve;
 mod perturbation;

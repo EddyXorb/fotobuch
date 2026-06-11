@@ -10,7 +10,7 @@
 //!   photo arrangements on a single page. Optimizes for size distribution, coverage, balance,
 //!   and reading order.
 //!
-//! * **Multi-Page Optimization**: Uses Mixed Integer Programming (MIP) to assign photos to pages
+//! * **Multi-Page Optimization**: Uses an exact dynamic program (DP) to assign photos to pages
 //!   while respecting grouping constraints, followed by local search refinement. Each page is then
 //!   individually optimized using the genetic algorithm approach.
 //!
@@ -74,15 +74,15 @@
 //! Fitness combines multiple objectives: size distribution quality, page coverage,
 //! barycenter position, and reading order coherence.
 //!
-//! ### Mixed Integer Programming (Page Assignment)
+//! ### Dynamic Programming (Page Assignment)
 //!
-//! The multi-page optimization first uses MIP to assign photos to pages:
+//! The multi-page optimization first uses an exact DP to assign photos to pages:
 //! * Respects photo group constraints (photos in same group stay together)
 //! * Ensures page capacity constraints (min/max photos per page)
 //! * Minimizes coverage deviation across pages
 //! * Balances total aspect ratios per page
 //!
-//! The MIP solution is then refined using local search with moves like page swaps
+//! The DP solution is then refined using local search with moves like page swaps
 //! and photo transfers, with each candidate evaluated using the GA-based page solver.
 //!
 

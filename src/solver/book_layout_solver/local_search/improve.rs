@@ -262,9 +262,9 @@ mod tests {
             search_timeout: Duration::from_millis(100),
             max_coverage_cost: 0.5,
             enable_local_search: true,
-            mip_rel_gap: 0.01,
-            max_photos_for_split: 100,
-            split_group_boundary_slack: 5,
+            mip_rel_gap: None,
+            max_photos_for_split: None,
+            split_group_boundary_slack: None,
         }
     }
 

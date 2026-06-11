@@ -4,10 +4,11 @@ use thiserror::Error;
 
 /// Configuration parameters for the book layout solver.
 ///
-/// Corresponds to the parameters in the MIP formulation.
+/// Corresponds to the parameters in the DP formulation
+/// (`docs/design/book_layout_solver_dp/dp.typ`).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BookLayoutSolverConfig {
-    /// Target number of pages (s in MIP).
+    /// Target number of pages (s in the DP formulation).
     #[serde(default = "default_page_target")]
     pub page_target: usize,
     /// Minimum number of pages (b_min).
@@ -28,13 +29,13 @@ pub struct BookLayoutSolverConfig {
     /// Minimum photos in a split group (g_min).
     #[serde(default = "default_group_min_photos")]
     pub group_min_photos: usize,
-    /// Weight for evenness objective (w_1 in MIP).
+    /// Weight for evenness objective (w_1 in the DP formulation).
     #[serde(default = "default_weight_even")]
     pub weight_even: f64,
-    /// Weight for split penalty (w_2 in MIP).
+    /// Weight for split penalty (w_2 in the DP formulation).
     #[serde(default = "default_weight_split")]
     pub weight_split: f64,
-    /// Weight for page count deviation (w_3 in MIP).
+    /// Weight for page count deviation (w_3 in the DP formulation).
     #[serde(default = "default_weight_pages")]
     pub weight_pages: f64,
     /// Timeout for book layout solver.
@@ -43,18 +44,25 @@ pub struct BookLayoutSolverConfig {
     /// Maximum coverage cost threshold (pages above this are considered "bad").
     #[serde(default = "default_max_coverage_cost")]
     pub max_coverage_cost: f64,
-    /// Whether to run local search after MIP to improve page assignments.
+    /// Whether to run local search after the DP to improve page assignments.
     #[serde(default = "default_enable_local_search")]
     pub enable_local_search: bool,
-    /// Relative MIP optimality gap (0.0 = exact, 0.01 = 1% tolerance).
-    #[serde(default = "default_mip_rel_gap")]
-    pub mip_rel_gap: f64,
-    /// Maximum number of photos before triggering a split for large instances.
-    #[serde(default = "default_max_photos_for_split")]
-    pub max_photos_for_split: usize,
-    /// Allowed deviation from ideal split point to find group boundaries.
-    #[serde(default = "default_split_group_boundary_slack")]
-    pub split_group_boundary_slack: usize,
+
+    // --- Deprecated MIP-era fields ---
+    //
+    // The MIP solver was replaced by an exact dynamic program, so these are no
+    // longer read by the solver. They are kept (optional, `None` by default) so
+    // that existing config files referencing them still deserialize. They are
+    // omitted from serialized output once unset.
+    /// Deprecated: relative MIP optimality gap. Ignored by the DP solver.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mip_rel_gap: Option<f64>,
+    /// Deprecated: photo-count threshold for problem splitting. Ignored by the DP solver.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_photos_for_split: Option<usize>,
+    /// Deprecated: split-point slack to group boundaries. Ignored by the DP solver.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub split_group_boundary_slack: Option<usize>,
 }
 
 // Default functions for serde
@@ -108,18 +116,6 @@ fn default_max_coverage_cost() -> f64 {
 
 fn default_enable_local_search() -> bool {
     true
-}
-
-fn default_mip_rel_gap() -> f64 {
-    0.01
-}
-
-fn default_max_photos_for_split() -> usize {
-    300
-}
-
-fn default_split_group_boundary_slack() -> usize {
-    5
 }
 
 /// Error type for parameter validation.
@@ -272,9 +268,9 @@ impl Default for BookLayoutSolverConfig {
             search_timeout: default_search_timeout(),
             max_coverage_cost: default_max_coverage_cost(),
             enable_local_search: default_enable_local_search(),
-            mip_rel_gap: default_mip_rel_gap(),
-            max_photos_for_split: default_max_photos_for_split(),
-            split_group_boundary_slack: default_split_group_boundary_slack(),
+            mip_rel_gap: None,
+            max_photos_for_split: None,
+            split_group_boundary_slack: None,
         }
     }
 }
@@ -300,9 +296,6 @@ mod tests {
         assert_eq!(config.search_timeout, Duration::from_secs(30));
         assert_eq!(config.max_coverage_cost, 0.95);
         assert!(config.enable_local_search);
-        assert_eq!(config.mip_rel_gap, 0.01);
-        assert_eq!(config.max_photos_for_split, 300);
-        assert_eq!(config.split_group_boundary_slack, 5);
     }
 
     #[test]
@@ -330,5 +323,38 @@ weight_even: 2.0
         assert_eq!(config.page_min, 1); // Default
         assert_eq!(config.page_max, 26); // Default
         assert_eq!(config.weight_split, 10.0); // Default
+    }
+
+    #[test]
+    fn test_deprecated_mip_fields_default_to_none() {
+        let config = BookLayoutSolverConfig::default();
+        assert_eq!(config.mip_rel_gap, None);
+        assert_eq!(config.max_photos_for_split, None);
+        assert_eq!(config.split_group_boundary_slack, None);
+    }
+
+    #[test]
+    fn test_legacy_config_with_deprecated_mip_fields_still_loads() {
+        // Old config files set the now-removed MIP fields; they must still parse.
+        let yaml = r#"
+page_target: 20
+mip_rel_gap: 0.0001
+max_photos_for_split: 300
+split_group_boundary_slack: 5
+"#;
+        let config: BookLayoutSolverConfig = serde_yaml::from_str(yaml).unwrap();
+
+        assert_eq!(config.page_target, 20);
+        assert_eq!(config.mip_rel_gap, Some(0.0001));
+        assert_eq!(config.max_photos_for_split, Some(300));
+        assert_eq!(config.split_group_boundary_slack, Some(5));
+    }
+
+    #[test]
+    fn test_unset_deprecated_fields_are_not_serialized() {
+        let yaml = serde_yaml::to_string(&BookLayoutSolverConfig::default()).unwrap();
+        assert!(!yaml.contains("mip_rel_gap"));
+        assert!(!yaml.contains("max_photos_for_split"));
+        assert!(!yaml.contains("split_group_boundary_slack"));
     }
 }

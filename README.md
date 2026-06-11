@@ -270,13 +270,14 @@ sequence (top-left to bottom-right) matches the chronological order of the input
 This requires a different mutation strategy: instead of swapping arbitrary nodes, the
 mutator exchanges only leaves with compatible aspect ratios, preserving the DFS sequence.
 
-### Book layout solver — Mixed Integer Programming
+### Book layout solver — Dynamic Programming
 
 Assigning photos to pages (how many photos go on which page, and which photos belong
-together) is formulated as a Mixed Integer Program and solved with
-[HiGHS](https://highs.dev/). The objective balances page fill, group coherence, and
-user-defined photo weights. For large books the problem is automatically decomposed into
-independent sub-problems to stay within the solver time budget.
+together) is a sequence-partitioning problem solved **exactly** by a dynamic program.
+The objective balances page fill, group coherence, and user-defined photo weights. The
+DP is optimal, deterministic and runs in milliseconds even for thousand-photo books, so
+no problem decomposition is needed. See `docs/design/book_layout_solver_dp/dp.typ` for
+the derivation.
 
 
 ## License

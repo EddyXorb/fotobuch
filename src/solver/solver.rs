@@ -15,7 +15,7 @@ pub enum RequestType {
     /// Uses page_layout_solver directly on the full photo set.
     SinglePage,
     /// Multi-page book layout optimization with grouping and page assignment.
-    /// Uses the full MIP + local search pipeline to distribute photos across pages
+    /// Uses the full DP + local search pipeline to distribute photos across pages
     /// and creates layouts for each page.
     MultiPage,
 }

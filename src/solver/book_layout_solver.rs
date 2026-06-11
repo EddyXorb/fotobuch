@@ -188,9 +188,9 @@ mod tests {
                 search_timeout: Duration::from_millis(100),
                 max_coverage_cost: 0.5,
                 enable_local_search: true,
-                mip_rel_gap: 0.01,
-                max_photos_for_split: 100,
-                split_group_boundary_slack: 5,
+                mip_rel_gap: None,
+                max_photos_for_split: None,
+                split_group_boundary_slack: None,
             }
         }
 
@@ -212,7 +212,7 @@ mod tests {
 
             let book = solve_book_layout(&photos, &solver_config, &canvas, &ga_config).unwrap();
 
-            // Should fit in one or two pages (depending on MIP/local search)
+            // Should fit in one or two pages (depending on DP/local search)
             assert!(book.page_count() >= 1);
             assert!(book.page_count() <= 3);
             assert_eq!(book.total_photo_count(), 10);
