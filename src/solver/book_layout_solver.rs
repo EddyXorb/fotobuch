@@ -18,6 +18,10 @@ mod mip;
 mod model;
 mod page_assignment_solver;
 
+// Not yet wired into the pipeline (replaces MIP in the next step).
+#[allow(dead_code)]
+mod dp;
+
 // Re-export public types
 pub use local_search::PageLayoutEvaluator;
 pub use model::GroupInfo;
