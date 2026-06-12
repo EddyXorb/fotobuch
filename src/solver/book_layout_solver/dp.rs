@@ -7,12 +7,23 @@
 //! The problem is expressed in Bellman notation and handed to the generic
 //! [`BellmanSolver`]:
 //! - **State** `(i, m)` — the first `i` photos placed on `m` pages.
-//! - **Decision** `p` — the size of the next page appended at the front.
+//! - **Decision** `p` — the size of the next page appended at the end.
 //! - **Transition** `(i, m) -> (i + p, m + 1)`.
 //! - **Cost** `c_page(i, i + p) + κ(i)` — page evenness plus the split penalty of
 //!   the cut at position `i`.
 //! - **Terminal cost** — `w3·|m - s|` once all photos are placed (`i == n`) on a
 //!   valid page count, otherwise infinity.
+//!
+//! **Orientation vs. `dp.typ`.** The derivation builds pages *backwards*: it
+//! starts at `(n, m)` and peels the last page, `(i, m) -> (i - p, m - 1)`, down
+//! to the terminal `(0, 0)`. Here the recursion runs *forwards* from a single
+//! root `(0, 0)` and appends pages until `(n, m)`. Both traverse the very same
+//! DAG (nodes `(i, m)`, edges = "one page") in opposite directions and yield the
+//! identical optimum. The forward orientation is chosen because the generic
+//! solver computes `V(x_0)` from one root `x_0`: `(0, 0)` is that natural root,
+//! and the page-count term `w3·|m - s|` then falls out exactly as the terminal
+//! cost at `(n, m)` — which is how `dp.typ` already describes it. The backward
+//! form would instead need a virtual super-root choosing `m` over all `(n, m)`.
 //!
 //! All indices are 0-based.
 
@@ -72,12 +83,19 @@ pub fn solve_dp(groups: &GroupInfo, params: &Params) -> Result<PageAssignment, D
     let ctx = PageProblem::new(groups, params);
     let cache = GridCache::new(ctx.n, params.page_max);
 
+    // Bellman model components (named for readability), see the module docs.
+    let initial_state: State = (0, 0);
+    let transition = |x: &State, page_size: &usize| (x.0 + page_size, x.1 + 1);
+    let cost = |x: &State, page_size: &usize| ctx.page_cost(x.0, x.0 + page_size) + ctx.kappa(x.0);
+    let actions = |x: &State| ctx.actions(x.0, x.1);
+    let terminal_cost = |x: &State| ctx.terminal_cost(x.0, x.1);
+
     let mut solver = BellmanSolver::with_cache(
-        (0, 0),
-        |x: &State, p: &usize| (x.0 + p, x.1 + 1),
-        |x: &State, p: &usize| ctx.page_cost(x.0, x.0 + p) + ctx.kappa(x.0),
-        |x: &State| ctx.actions(x.0, x.1),
-        |x: &State| ctx.terminal_cost(x.0, x.1),
+        initial_state,
+        transition,
+        cost,
+        actions,
+        terminal_cost,
         cache,
     );
 
