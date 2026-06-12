@@ -12,6 +12,7 @@ mod data_models;
 pub(crate) mod ga_solver;
 pub(crate) mod page_layout_solver;
 pub(crate) mod prelude;
+pub(crate) mod dp_solver;
 
 #[allow(clippy::module_inception)]
 pub mod solver;
