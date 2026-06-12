@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 #[derive(Clone)]
 pub(crate) struct BellmanResult<Decision> {
@@ -10,10 +10,50 @@ pub(crate) struct BellmanResult<Decision> {
 /// achieves it (`None` for a terminal state). Storing only one decision per
 /// state — instead of the whole tail path — keeps cache entries O(1); the full
 /// path is reconstructed once at the end by walking the best decisions.
+///
+/// `in_progress` flags a state currently on the recursion stack and doubles as
+/// the cycle guard, so no separate "visiting" set (and no extra hashing) is
+/// needed.
 #[derive(Clone)]
-struct StateValue<Decision> {
-    objective: f64,
-    best_decision: Option<Decision>,
+pub(crate) struct StateValue<Decision> {
+    pub(crate) objective: f64,
+    pub(crate) best_decision: Option<Decision>,
+    pub(crate) in_progress: bool,
+}
+
+/// Memoization store for the [`BellmanSolver`], mapping each state to its cached
+/// [`StateValue`]. Abstracting it lets callers pick the representation that fits
+/// their state space: a `HashMap` for sparse/arbitrary states, or a flat `Vec`
+/// indexed directly by state for a dense grid (no hashing).
+pub(crate) trait BellmanCache<State, Decision> {
+    fn get(&self, state: &State) -> Option<&StateValue<Decision>>;
+    fn insert(&mut self, state: State, value: StateValue<Decision>);
+}
+
+/// Default `HashMap`-backed cache for arbitrary hashable states.
+pub(crate) struct HashCache<State, Decision> {
+    map: HashMap<State, StateValue<Decision>>,
+}
+
+impl<State, Decision> Default for HashCache<State, Decision> {
+    fn default() -> Self {
+        Self {
+            map: HashMap::new(),
+        }
+    }
+}
+
+impl<State, Decision> BellmanCache<State, Decision> for HashCache<State, Decision>
+where
+    State: std::hash::Hash + Eq,
+{
+    fn get(&self, state: &State) -> Option<&StateValue<Decision>> {
+        self.map.get(state)
+    }
+
+    fn insert(&mut self, state: State, value: StateValue<Decision>) {
+        self.map.insert(state, value);
+    }
 }
 
 /// Generic Bellman / dynamic-programming solver.
@@ -24,6 +64,10 @@ struct StateValue<Decision> {
 /// `f64::INFINITY` for an infeasible dead-end). `f64::INFINITY` propagates
 /// through the recursion, so infeasible branches are never chosen unless every
 /// branch is infeasible.
+///
+/// The memoization store is pluggable via [`BellmanCache`]; it defaults to a
+/// `HashMap`, but a dense state space can supply a flat `Vec` cache (via
+/// [`BellmanSolver::with_cache`]) to avoid hashing entirely.
 pub(crate) struct BellmanSolver<
     State,
     Decision,
@@ -31,23 +75,22 @@ pub(crate) struct BellmanSolver<
     TransitionFunction,
     CostFunction,
     TerminalCostFunction,
+    Cache = HashCache<State, Decision>,
 > where
     TransitionFunction: Fn(&State, &Decision) -> State,
     CostFunction: Fn(&State, &Decision) -> f64,
     PossibleDecisions: Fn(&State) -> Vec<Decision>,
     TerminalCostFunction: Fn(&State) -> f64,
+    Cache: BellmanCache<State, Decision>,
     Decision: Clone,
-    State: std::hash::Hash + Eq + Clone,
+    State: Clone,
 {
     x_0: State,
     t: TransitionFunction,
     f: CostFunction,
     a: PossibleDecisions,
     terminal_cost: TerminalCostFunction,
-
-    value_cache: HashMap<State, StateValue<Decision>>,
-    /// States on the current recursion path, used to detect cycles.
-    visiting: HashSet<State>,
+    cache: Cache,
 }
 
 impl<State, Decision, PossibleDecisions, TransitionFunction, CostFunction, TerminalCostFunction>
@@ -58,6 +101,7 @@ impl<State, Decision, PossibleDecisions, TransitionFunction, CostFunction, Termi
         TransitionFunction,
         CostFunction,
         TerminalCostFunction,
+        HashCache<State, Decision>,
     >
 where
     TransitionFunction: Fn(&State, &Decision) -> State,
@@ -67,6 +111,8 @@ where
     Decision: Clone,
     State: std::hash::Hash + Eq + Clone,
 {
+    /// Creates a solver backed by the default `HashMap` cache.
+    #[allow(dead_code)] // ergonomic default-cache constructor, exercised by unit tests
     pub(crate) fn new(
         x_0: State,
         t: TransitionFunction,
@@ -74,14 +120,54 @@ where
         a: PossibleDecisions,
         terminal_cost: TerminalCostFunction,
     ) -> Self {
+        Self::with_cache(x_0, t, f, a, terminal_cost, HashCache::default())
+    }
+}
+
+impl<
+    State,
+    Decision,
+    PossibleDecisions,
+    TransitionFunction,
+    CostFunction,
+    TerminalCostFunction,
+    Cache,
+>
+    BellmanSolver<
+        State,
+        Decision,
+        PossibleDecisions,
+        TransitionFunction,
+        CostFunction,
+        TerminalCostFunction,
+        Cache,
+    >
+where
+    TransitionFunction: Fn(&State, &Decision) -> State,
+    CostFunction: Fn(&State, &Decision) -> f64,
+    PossibleDecisions: Fn(&State) -> Vec<Decision>,
+    TerminalCostFunction: Fn(&State) -> f64,
+    Cache: BellmanCache<State, Decision>,
+    Decision: Clone,
+    State: Clone,
+{
+    /// Creates a solver backed by a caller-provided cache. Useful for dense
+    /// state spaces that index a flat `Vec` instead of hashing.
+    pub(crate) fn with_cache(
+        x_0: State,
+        t: TransitionFunction,
+        f: CostFunction,
+        a: PossibleDecisions,
+        terminal_cost: TerminalCostFunction,
+        cache: Cache,
+    ) -> Self {
         Self {
             x_0,
             t,
             f,
             a,
             terminal_cost,
-            value_cache: HashMap::new(),
-            visiting: HashSet::new(),
+            cache,
         }
     }
 
@@ -96,17 +182,18 @@ where
     }
 
     /// Compute and memoize `V(x)`. Returns only the objective; the optimal
-    /// decision per state is recorded in `value_cache` for later reconstruction.
+    /// decision per state is recorded in the cache for later reconstruction.
     fn value_function(&mut self, x: &State) -> f64 {
-        // Cycle guard: revisiting a state on the current path means there is no
-        // finite acyclic path through it here -> treat as infeasible. Not cached,
-        // since this value is an artifact of the current path, not of `x` itself.
-        if self.visiting.contains(x) {
-            return f64::INFINITY;
-        }
-
-        if let Some(cached) = self.value_cache.get(x) {
-            return cached.objective;
+        if let Some(cached) = self.cache.get(x) {
+            // A state still on the recursion stack (`in_progress`) closes a
+            // cycle: no finite acyclic path runs through it here, so it is
+            // infeasible. This value is an artifact of the current path and is
+            // not the final cached value, so it is not written back.
+            return if cached.in_progress {
+                f64::INFINITY
+            } else {
+                cached.objective
+            };
         }
 
         let possible_decisions = (self.a)(x);
@@ -114,17 +201,26 @@ where
         // Terminal state: no decisions left, value is the terminal cost.
         if possible_decisions.is_empty() {
             let objective = (self.terminal_cost)(x);
-            self.value_cache.insert(
+            self.cache.insert(
                 x.clone(),
                 StateValue {
                     objective,
                     best_decision: None,
+                    in_progress: false,
                 },
             );
             return objective;
         }
 
-        self.visiting.insert(x.clone());
+        // Mark the state in progress before recursing (cycle guard).
+        self.cache.insert(
+            x.clone(),
+            StateValue {
+                objective: f64::INFINITY,
+                best_decision: None,
+                in_progress: true,
+            },
+        );
 
         let mut best_objective = f64::INFINITY;
         let mut best_decision: Option<Decision> = None;
@@ -137,12 +233,12 @@ where
             }
         }
 
-        self.visiting.remove(x);
-        self.value_cache.insert(
+        self.cache.insert(
             x.clone(),
             StateValue {
                 objective: best_objective,
                 best_decision,
+                in_progress: false,
             },
         );
         best_objective
@@ -161,7 +257,7 @@ where
         while let Some(StateValue {
             best_decision: Some(d),
             ..
-        }) = self.value_cache.get(&state)
+        }) = self.cache.get(&state)
         {
             let d = d.clone();
             state = (self.t)(&state, &d);

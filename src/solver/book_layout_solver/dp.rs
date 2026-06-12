@@ -18,7 +18,7 @@
 
 use super::model::{GroupInfo, PageAssignment};
 use crate::dto_models::BookLayoutSolverConfig as Params;
-use crate::solver::dp_solver::BellmanSolver;
+use crate::solver::dp_solver::{BellmanCache, BellmanSolver, StateValue};
 use thiserror::Error;
 
 /// Error type for the DP solver.
@@ -31,19 +31,54 @@ pub enum DpError {
 /// DP state: `(photos placed, pages used)`.
 type State = (usize, usize);
 
+/// Flat `Vec` cache for the dense `(i, m)` state grid (`i ∈ [0, n]`,
+/// `m ∈ [0, page_max]`). The state indexes directly into the vector, so lookups
+/// avoid hashing entirely.
+struct GridCache {
+    stride: usize,
+    slots: Vec<Option<StateValue<usize>>>,
+}
+
+impl GridCache {
+    fn new(n: usize, page_max: usize) -> Self {
+        let stride = n + 1;
+        Self {
+            stride,
+            slots: vec![None; stride * (page_max + 1)],
+        }
+    }
+
+    fn index(&self, (i, m): State) -> usize {
+        m * self.stride + i
+    }
+}
+
+impl BellmanCache<State, usize> for GridCache {
+    fn get(&self, state: &State) -> Option<&StateValue<usize>> {
+        self.slots[self.index(*state)].as_ref()
+    }
+
+    fn insert(&mut self, state: State, value: StateValue<usize>) {
+        let idx = self.index(state);
+        self.slots[idx] = Some(value);
+    }
+}
+
 /// Solves the page assignment problem exactly via dynamic programming.
 ///
 /// Returns the optimal [`PageAssignment`] (minimal objective value) or
 /// [`DpError::Infeasible`] if no assignment satisfies the constraints.
 pub fn solve_dp(groups: &GroupInfo, params: &Params) -> Result<PageAssignment, DpError> {
     let ctx = PageProblem::new(groups, params);
+    let cache = GridCache::new(ctx.n, params.page_max);
 
-    let mut solver = BellmanSolver::new(
+    let mut solver = BellmanSolver::with_cache(
         (0, 0),
         |x: &State, p: &usize| (x.0 + p, x.1 + 1),
         |x: &State, p: &usize| ctx.page_cost(x.0, x.0 + p) + ctx.kappa(x.0),
         |x: &State| ctx.actions(x.0, x.1),
         |x: &State| ctx.terminal_cost(x.0, x.1),
+        cache,
     );
 
     let result = solver.solve();
@@ -602,9 +637,9 @@ mod tests {
 
     #[test]
     fn test_performance_large_instance() {
-        // 1000 photos in 30 groups, up to 100 pages. Optimized builds solve this
-        // in milliseconds; the generic memoized solver carries more constant-factor
-        // overhead unoptimized, so the bound is relaxed for debug builds.
+        // 1000 photos in 30 groups, up to 100 pages: must solve well under 1 s.
+        // The flat GridCache (no hashing) keeps even the debug build comfortably
+        // below the bound; optimized builds solve it in ~15 ms.
         let group_sizes: Vec<usize> = (0..30).map(|i| if i < 10 { 34 } else { 33 }).collect();
         let groups = GroupInfo::new(&group_sizes);
         assert_eq!(groups.total_photos(), 1000);
@@ -628,11 +663,6 @@ mod tests {
         let elapsed = start.elapsed();
 
         assert_eq!(assignment.total_photos(), 1000);
-        let limit = if cfg!(debug_assertions) {
-            Duration::from_secs(3)
-        } else {
-            Duration::from_secs(1)
-        };
-        assert!(elapsed < limit, "took {elapsed:?}");
+        assert!(elapsed < Duration::from_secs(1), "took {elapsed:?}");
     }
 }
