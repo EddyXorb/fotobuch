@@ -46,7 +46,7 @@ zerlegt wird, deren optimale Lösungen wiederverwendbar sind. Zwei Voraussetzung
   Beginnt in einer optimalen Aufteilung die letzte Seite bei Bild $i$, so müssen die
   Bilder $1..i$ darin selbst optimal aufgeteilt sein — andernfalls ließe sich die
   Gesamtlösung durch Austausch verbessern (Austauschargument).
-+ *Überlappende Teilprobleme:* Derselbe Zwischenzustand („erste $i$ Bilder auf $m$
++ *Überlappende Teilprobleme:* Derselbe Zwischenzustand ("erste $i$ Bilder auf $m$
   Seiten") tritt in vielen Gesamtlösungen auf, wird aber nur *einmal* gelöst und
   tabelliert (Memoisierung).
 
@@ -54,10 +54,10 @@ Der exponentiell große Suchraum (alle Cut-Kombinationen, $cal(O)(2^n)$) kollabi
 weil der Zustand $(i, m)$ alles zusammenfasst, was für die restliche Entscheidung
 relevant ist: _Wie_ die ersten $i$ Bilder intern geschnitten wurden, ist für die
 folgenden Seiten irrelevant — keine Nebenbedingung und kein Zielterm koppelt über
-eine Seitengrenze hinweg (@sec:zerlegung). Die Rekursion über die „letzte
+eine Seitengrenze hinweg (@sec:zerlegung). Die Rekursion über die "letzte
 Entscheidung" (Größe der letzten Seite) heißt *Bellman-Rekursion*. Äquivalente
 Sichtweise: kürzester Pfad in einem azyklischen Graphen (DAG), dessen Knoten die
-Zustände $(i, m)$ sind und dessen Kanten „eine Seite anhängen" bedeuten.
+Zustände $(i, m)$ sind und dessen Kanten "eine Seite anhängen" bedeuten.
 
 = Mengen, Parameter, Notation
 
@@ -115,7 +115,7 @@ MIP-Optimum — keine Heuristik, keine Approximation.
 
 == Zulässigkeit einer Seite
 
-Eine Seite $[a, b)$ ist zulässig, $F(a,b) = 1$, genau dann wenn:
+Eine Seite $[a, b)$ ist zulässig, $phi(a,b) = 1$, genau dann wenn:
 
 + *Seitengröße:* $p_"min" <= b - a <= p_"max"$
 + *Max. Gruppen pro Seite:* Da Gruppen zusammenhängend sind, ist die Anzahl
@@ -154,41 +154,86 @@ Damit:
 
 $ Z(c_0, ..., c_m) = sum_(j=0)^(m-1) c_"page" (c_j, c_(j+1)) + sum_(j=1)^(m-1) kappa(c_j) + w_3 dot |m - s| $
 
-= Bellman-Rekursion
+= Bellman-Gleichung
 
-== Zustand und Rekursion
+== Übersetzung in die Bellman-Notation
 
-$D(i, m)$ = minimale Kosten (Seiten- plus Cut-Kosten), die Bilder $[0, i)$ auf genau
-$m$ zulässige Seiten zu verteilen.
+Wir formulieren das Problem in der Standardnotation der Bellman-Gleichung (vgl.
+#link("https://en.wikipedia.org/wiki/Bellman_equation")[Wikipedia: _Bellman equation_]):
+Zustand $x$, Aktion $a$, Aktionsmenge $Gamma(x)$ (zulässige Aktionen im Zustand $x$),
+Übergang $T(x, a)$, Ertrag $F(x, a)$, Diskontfaktor $beta$ und Wertfunktion $V(x)$.
+Die Seiten werden per *Rückwärtsinduktion* (backward induction) von hinten
+angehängt; eine "Periode" entspricht einer Seite.
 
-*Basis:*
+#table(
+  columns: (auto, auto, 1fr),
+  align: (center, center, left),
+  stroke: 0.5pt,
 
-$ D(0, 0) = 0, quad D(i, 0) = infinity quad forall i > 0, quad D(0, m) = infinity quad forall m > 0 $
+  [*Bellman*], [*Hier*], [*Bedeutung*],
 
-*Rekursion* über die Größe $p$ der letzten Seite (der Cut an deren Anfang wird beim
-Anhängen der Seite bezahlt; $kappa(0) = 0$):
+  [Zustand $x$], [$(i, m)$], [Erste $i$ Bilder auf $m$ Seiten verteilt],
+  [Aktion $a$], [$p$], [Bildanzahl der zuletzt angehängten Seite],
+  [Aktionsmenge $Gamma(x)$], [$Gamma(i, m)$],
+    [$ {p in bb(N) : p_"min" <= p <= min(p_"max", i) " und " phi(i - p, i) = 1} $],
+  [Übergang $T(x, a)$], [$T((i, m), p)$], [$= (i - p, m - 1)$ — eine Seite abgelöst],
+  [Ertrag $F(x, a)$], [$F((i, m), p)$],
+    [$= c_"page" (i - p, i) + kappa(i - p)$ — hier *Kosten*, daher Minimierung statt Maximierung],
+  [Diskontfaktor $beta$], [$beta = 1$], [Endlicher Horizont, keine Abzinsung],
+  [Wertfunktion $V(x)$], [$V(i, m)$], [Minimale Kosten für $[0, i)$ auf $m$ Seiten],
+)
 
-$ D(i, m) = min_(p in P(i)) {D(i - p, m - 1) + kappa(i - p) + c_"page" (i - p, i)} $
+Die Zulässigkeit einer Seite (@sec:zerlegung, dort als $phi$ bezeichnet) geht nicht
+in den Ertrag ein, sondern *definiert die Aktionsmenge* $Gamma(i, m)$: unzulässige
+letzte Seiten sind schlicht keine wählbaren Aktionen.
 
-mit $P(i) = {p in [p_"min", min(p_"max", i)] : F(i - p, i) = 1}$;
-leere Menge $arrow.r.double$ $infinity$.
+Die Aktionsmenge entsteht zweistufig. Der *Kandidatenbereich* $p_"min" <= p <= min(p_"max", i)$
+legt fest, welche letzten Seitengrößen überhaupt aufgezählt werden: nach unten durch
+$p_"min"$, nach oben durch $p_"max"$ *und* durch die nur $i$ noch zu verteilenden Bilder
+(die letzte Seite $[i - p, i)$ erfordert $i - p >= 0$, also $p <= i$) — daher das
+Minimum. Aus diesem Bereich wählt der *Filter* $phi(i - p, i) = 1$ die tatsächlich
+zulässigen Größen aus. Da die Spaltungsregel in $phi$ nicht monoton in $p$ ist (ein
+bestimmtes $p$ kann ein zu kleines Gruppenfragment erzeugen, ein größeres oder
+kleineres jedoch nicht), darf $Gamma(i, m)$ *Lücken enthalten* — die Menge ist im
+Allgemeinen nicht zusammenhängend. Sie hängt zudem nur von $i$ ab; das Argument $m$
+wird für die einheitliche Bellman-Schreibweise mitgeführt.
 
-*Lösung:*
+== Wertfunktion und Bellman-Gleichung
 
-$ Z^* = min_(b_"min" <= m <= b_"max") {D(n, m) + w_3 dot |m - s|} $
+$V(i, m)$ = minimale Kosten (Seiten- plus Cut-Kosten), die ersten $i$ Bilder $[0, i)$
+auf genau $m$ zulässige Seiten zu verteilen — der beste erreichbare Zielwert als
+Funktion des Zustands.
 
-Ist $Z^* = infinity$, ist die Instanz unzulässig (im MIP: infeasible). Der optimale
-Cut-Vektor wird per *Backtracking* rekonstruiert: Zu jedem Zustand wird die
-argmin-Seitengröße gespeichert und von $(n, m^*)$ rückwärts abgelaufen.
+*Randwerte:*
+
+$ V(0, 0) = 0, quad V(i, 0) = infinity quad forall i > 0, quad V(0, m) = infinity quad forall m > 0 $
+
+*Bellman-Gleichung* (Minimierungs-Variante, $beta = 1$); der Cut am Anfang der
+letzten Seite wird beim Anhängen bezahlt, $kappa(0) = 0$:
+
+$ V(i, m) = min_(p in Gamma(i, m)) {F((i, m), p) + beta dot V(T((i, m), p))}
+         = min_(p in Gamma(i, m)) {c_"page" (i - p, i) + kappa(i - p) + V(i - p, m - 1)} $
+
+Leere Aktionsmenge $Gamma(i, m) = nothing arrow.r.double V(i, m) = infinity$.
+
+*Optimaler Zielwert:*
+
+$ Z^* = min_(b_"min" <= m <= b_"max") {V(n, m) + w_3 dot |m - s|} $
+
+Ist $Z^* = infinity$, ist die Instanz unzulässig (im MIP: infeasible). Die zugehörige
+*Policy-Funktion* $a(x)$ — also welche letzte Seitengröße $p$ in jedem Zustand
+optimal ist — liefert per *Backtracking* den optimalen Cut-Vektor: zu jedem Zustand
+wird das Argmin gespeichert und von $(n, m^*)$ rückwärts abgelaufen.
 
 == Korrektheit
 
-Optimale Substruktur: Sei $(c_0, ..., c_m)$ optimal für $(i, m) = (c_m, m)$ mit
-letzter Seite $[c_(m-1), c_m)$. Wäre $(c_0, ..., c_(m-1))$ nicht optimal für
-$(c_(m-1), m-1)$, könnte das Präfix durch ein billigeres ersetzt werden, ohne
-Zulässigkeit oder Kosten der letzten Seite zu ändern (keine Kopplung über die
-Seitengrenze) — Widerspruch. Die Rekursion enumeriert alle zulässigen letzten
-Seiten vollständig, also gilt Gleichheit.
+Bellmans *Optimalitätsprinzip* (principle of optimality): Sei $(c_0, ..., c_m)$
+optimal für den Zustand $(i, m) = (c_m, m)$ mit letzter Seite $[c_(m-1), c_m)$ als
+erster Entscheidung. Wäre der Restplan $(c_0, ..., c_(m-1))$ nicht optimal für den
+Folgezustand $T((i, m), p) = (c_(m-1), m-1)$, könnte das Präfix durch ein billigeres
+ersetzt werden, ohne Zulässigkeit oder Ertrag $F$ der letzten Seite zu ändern (keine
+Kopplung über die Seitengrenze) — Widerspruch. Die Bellman-Gleichung enumeriert über
+$Gamma(i, m)$ alle zulässigen ersten Entscheidungen vollständig, also gilt Gleichheit.
 
 == Komplexität
 
@@ -224,5 +269,5 @@ $m dot p_"min" <= i <= m dot p_"max"$.
 )
 
 *Grenzen:* Die DP setzt voraus, dass Zulässigkeit und Kosten pro Seite lokal sind.
-Künftige Nebenbedingungen, die Seiten *koppeln* (z. B. „Gruppe X und Y nie auf
+Künftige Nebenbedingungen, die Seiten *koppeln* (z. B. "Gruppe X und Y nie auf
 benachbarten Seiten"), erfordern eine Zustandserweiterung oder einen anderen Ansatz.
