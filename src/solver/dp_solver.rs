@@ -1,10 +1,9 @@
 use std::collections::{HashMap, HashSet};
 
 #[derive(Clone)]
-#[allow(dead_code)] // solver not yet wired into production; exercised by unit tests
-struct BellmanResult<Decision> {
-    objective: f64,
-    decisions: Vec<Decision>,
+pub(crate) struct BellmanResult<Decision> {
+    pub(crate) objective: f64,
+    pub(crate) decisions: Vec<Decision>,
 }
 
 /// Cached value of a state: its optimal objective and the single decision that
@@ -25,8 +24,7 @@ struct StateValue<Decision> {
 /// `f64::INFINITY` for an infeasible dead-end). `f64::INFINITY` propagates
 /// through the recursion, so infeasible branches are never chosen unless every
 /// branch is infeasible.
-#[allow(dead_code)] // solver not yet wired into production; exercised by unit tests
-struct BellmanSolver<
+pub(crate) struct BellmanSolver<
     State,
     Decision,
     PossibleDecisions,
@@ -69,8 +67,7 @@ where
     Decision: Clone,
     State: std::hash::Hash + Eq + Clone,
 {
-    #[allow(dead_code)] // solver not yet wired into production; exercised by unit tests
-    pub fn new(
+    pub(crate) fn new(
         x_0: State,
         t: TransitionFunction,
         f: CostFunction,
@@ -88,7 +85,7 @@ where
         }
     }
 
-    pub fn solve(&mut self) -> BellmanResult<Decision> {
+    pub(crate) fn solve(&mut self) -> BellmanResult<Decision> {
         let x_0 = self.x_0.clone();
         let objective = self.value_function(&x_0);
         let decisions = self.reconstruct_path(&x_0, objective);
@@ -180,6 +177,7 @@ mod tests {
 
     /// Partition `n` items into pieces; cost of a piece of size `p` is
     /// `(p - target)^2`. State is the number of remaining items.
+    #[allow(clippy::type_complexity)] // generic solver type spelled out for the test helper
     fn partition_solver(
         n: usize,
         target: f64,
@@ -252,6 +250,7 @@ mod tests {
 
     /// Partition with allowed piece sizes restricted to {2, 3}. A leftover of
     /// size 1 is an infeasible dead-end.
+    #[allow(clippy::type_complexity)] // generic solver type spelled out for the test helper
     fn restricted_solver(
         n: usize,
     ) -> BellmanSolver<
