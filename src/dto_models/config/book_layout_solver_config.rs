@@ -115,7 +115,7 @@ fn default_max_coverage_cost() -> f64 {
 }
 
 fn default_enable_local_search() -> bool {
-    true
+    false
 }
 
 /// Error type for parameter validation.
@@ -295,7 +295,7 @@ mod tests {
         assert_eq!(config.weight_pages, 5.0);
         assert_eq!(config.search_timeout, Duration::from_secs(30));
         assert_eq!(config.max_coverage_cost, 0.95);
-        assert!(config.enable_local_search);
+        assert!(!config.enable_local_search);
     }
 
     #[test]
