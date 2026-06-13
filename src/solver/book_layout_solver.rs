@@ -64,15 +64,24 @@ pub fn solve_book_layout(
     let groups = GroupInfo::from_photos(photos);
 
     // Phase 1: Page assignment (exact DP, heuristic fallback if infeasible)
+    let mut start = std::time::Instant::now();
     let page_solver = page_assignment_solver::PageAssignmentSolver::new(params.clone());
     let initial_assignment = page_solver.solve(&groups, photos)?;
-    info!("Page cuts: {:?}", initial_assignment.cuts());
+    let elapsed = start.elapsed().as_millis() as f64;
+    info!(
+        "Initial assignmentPage cuts done in time {:.3}ms: {:?}",
+        elapsed,
+        initial_assignment.cuts()
+    );
 
     // Phase 2: Compute the page layout for the initial assignment exactly once.
     // Both branches below need it: without local search it is the final result,
     // with local search it seeds the search so the initial pages are not redone.
+    start = std::time::Instant::now();
     let evaluator = GAPageEvaluator::new(canvas, ga_config);
     let initial_layouts = evaluate_pages(&initial_assignment, photos, &evaluator);
+    let elapsed = start.elapsed().as_millis() as f64;
+    info!("Initial page layouts done in {:.3}ms", elapsed);
 
     if !params.enable_local_search {
         let page_layouts = initial_layouts.into_iter().map(|r| r.layout).collect();

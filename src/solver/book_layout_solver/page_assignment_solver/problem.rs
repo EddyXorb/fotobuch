@@ -9,6 +9,18 @@ use crate::dto_models::BookLayoutSolverConfig as Params;
 /// DP state: `(photos placed, pages used)`.
 pub(super) type State = (usize, usize);
 
+/// How a single DP run treats the total page count `b` (see dp.typ §4.6/§4.7).
+#[derive(Debug, Clone, Copy)]
+pub(super) enum RunMode {
+    /// Single run with a free page count `m`: the terminal pays `w3·|m - s|`
+    /// directly. Only correct when `weight_even == 0` (then `n̄` is irrelevant).
+    FreePageCount,
+    /// Run with the page count fixed to `b`: `n̄ = n / b`, and the terminal
+    /// requires exactly `m == b` (cost 0; the constant `w3·|b - s|` is added by
+    /// the caller).
+    FixedPageCount(usize),
+}
+
 /// Precomputed instance data exposing the Bellman model (actions, cost, terminal
 /// cost) for the page-assignment problem in O(1) per call.
 pub(super) struct PageProblem<'a> {
@@ -20,12 +32,16 @@ pub(super) struct PageProblem<'a> {
     /// Photo-index range `[group_start[l], group_end[l])` of group `l`.
     group_start: Vec<usize>,
     group_end: Vec<usize>,
-    /// Target photos per page, n̄ = n / page_target.
+    /// Run mode: free page count or a fixed `b`.
+    mode: RunMode,
+    /// Target photos per page for this run, n̄ = n / b (n / page_target when free).
     n_bar: f64,
+    /// Largest page count this run may reach (`page_max`, or `b` when fixed).
+    page_limit: usize,
 }
 
 impl<'a> PageProblem<'a> {
-    pub(super) fn new(groups: &'a GroupInfo, params: &'a Params) -> Self {
+    pub(super) fn new(groups: &'a GroupInfo, params: &'a Params, mode: RunMode) -> Self {
         let n = groups.total_photos();
         let num_groups = groups.num_groups();
 
@@ -41,7 +57,11 @@ impl<'a> PageProblem<'a> {
             }
         }
 
-        let n_bar = n as f64 / params.page_target as f64;
+        let (n_bar, page_limit) = match mode {
+            // n̄ is unused here (weight_even == 0), but keep a sane finite value.
+            RunMode::FreePageCount => (n as f64 / params.page_target as f64, params.page_max),
+            RunMode::FixedPageCount(b) => (n as f64 / b as f64, b),
+        };
 
         Self {
             params,
@@ -50,14 +70,21 @@ impl<'a> PageProblem<'a> {
             photo_group,
             group_start,
             group_end,
+            mode,
             n_bar,
+            page_limit,
         }
+    }
+
+    /// Largest page count this run may reach; sizes the memoization grid.
+    pub(super) fn page_limit(&self) -> usize {
+        self.page_limit
     }
 
     /// Action set Γ(x): feasible sizes for the page appended at photo index `i`.
     /// Empty for a terminal or dead-end state.
     pub(super) fn actions(&self, i: usize, m: usize) -> Vec<usize> {
-        if i >= self.n || m >= self.params.page_max {
+        if i >= self.n || m >= self.page_limit {
             return Vec::new();
         }
         let p_min = self.params.photos_per_page_min;
@@ -67,13 +94,29 @@ impl<'a> PageProblem<'a> {
             .collect()
     }
 
-    /// Terminal cost: page-count deviation once all photos are placed on a valid
-    /// page count, otherwise infinity (dead-end).
+    /// Terminal value once all photos are placed (`i == n`), otherwise infinity.
+    ///
+    /// - `FreePageCount`: `w3·|m - s|` for a valid page count `m`.
+    /// - `FixedPageCount(b)`: `0` iff `m == b` (the `w3` term is added outside).
     pub(super) fn terminal_cost(&self, i: usize, m: usize) -> f64 {
-        if i == self.n && (self.params.page_min..=self.params.page_max).contains(&m) {
-            self.params.weight_pages * (m as f64 - self.params.page_target as f64).abs()
-        } else {
-            f64::INFINITY
+        if i != self.n {
+            return f64::INFINITY;
+        }
+        match self.mode {
+            RunMode::FreePageCount => {
+                if (self.params.page_min..=self.params.page_max).contains(&m) {
+                    self.params.weight_pages * (m as f64 - self.params.page_target as f64).abs()
+                } else {
+                    f64::INFINITY
+                }
+            }
+            RunMode::FixedPageCount(b) => {
+                if m == b {
+                    0.0
+                } else {
+                    f64::INFINITY
+                }
+            }
         }
     }
 
