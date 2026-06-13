@@ -12,7 +12,6 @@
 
 mod cache;
 mod create_start_solution;
-mod dp;
 mod feasibility;
 mod local_search;
 mod model;
@@ -36,7 +35,7 @@ pub enum SolverError {
     InvalidParams(#[from] crate::dto_models::ValidationError),
 
     #[error("page assignment failed: {0}")]
-    AssignmentFailed(#[from] dp::DpError),
+    AssignmentFailed(#[from] page_assignment_solver::PageAssignmentError),
 }
 
 /// Solves the book layout problem using DP + local search.

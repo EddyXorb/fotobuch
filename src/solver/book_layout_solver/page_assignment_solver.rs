@@ -1,15 +1,50 @@
-//! Page assignment: exact DP with a heuristic fallback.
+//! Page assignment: exact dynamic program with a heuristic fallback.
 //!
-//! The dynamic program solves any instance size directly, so no problem
-//! splitting is needed. If the instance is infeasible, a greedy start solution
-//! is used instead of failing.
+//! This is *the* page-assignment solver. Internally it expresses the problem in
+//! Bellman notation (the sequence-partitioning DP derived in
+//! `docs/design/book_layout_solver_dp/dp.typ`) and hands it to the generic
+//! [`BellmanSolver`]. Same feasible set, same objective as the former MIP, but
+//! exact, deterministic and polynomial in time:
+//! - **State** `(i, m)` — the first `i` photos placed on `m` pages.
+//! - **Decision** `p` — the size of the next page appended at the end.
+//! - **Transition** `(i, m) -> (i + p, m + 1)`.
+//! - **Cost** `c_page(i, i + p) + κ(i)` — page evenness plus the split penalty of
+//!   the cut at position `i`.
+//! - **Terminal cost** — `w3·|m - s|` once all photos are placed (`i == n`) on a
+//!   valid page count, otherwise infinity.
+//!
+//! **Orientation.** Pages are built *forwards*: the recursion starts at the
+//! single root `(0, 0)` and appends pages, `(i, m) -> (i + p, m + 1)`, until all
+//! photos are placed at a terminal `(n, m)`. The page-count term `w3·|m - s|`
+//! falls out exactly as the terminal cost at `(n, m)`.
+//!
+//! The DP solves any instance size directly, so no problem splitting is needed.
+//! If the instance is infeasible, a greedy start solution is used instead of
+//! failing. All indices are 0-based. The precomputed model lives in [`problem`],
+//! the dense memoization cache in [`cache`].
+
+mod cache;
+mod problem;
+
+#[cfg(test)]
+mod exact_tests;
 
 use super::create_start_solution;
-use super::dp;
 use super::model::{GroupInfo, PageAssignment};
 use crate::dto_models::BookLayoutSolverConfig as Params;
+use crate::solver::dp_solver::BellmanSolver;
 use crate::solver::prelude::*;
-use tracing::info;
+use cache::GridCache;
+use problem::{PageProblem, State};
+use thiserror::Error;
+use tracing::{debug, info};
+
+/// Error type for page assignment.
+#[derive(Debug, Error)]
+pub enum PageAssignmentError {
+    #[error("page assignment is infeasible")]
+    Infeasible,
+}
 
 /// Solver for page assignment.
 pub struct PageAssignmentSolver {
@@ -25,20 +60,68 @@ impl PageAssignmentSolver {
     /// Solves the page assignment exactly via the DP.
     ///
     /// Falls back to a greedy start solution if the DP reports the instance as
-    /// infeasible, preserving the previous "never hard-fail" behaviour.
+    /// infeasible, preserving the "never hard-fail" behaviour.
     pub fn solve(
         &self,
         groups: &GroupInfo,
         photos: &[Photo],
-    ) -> Result<PageAssignment, dp::DpError> {
-        dp::solve_dp(groups, &self.params).or_else(|err| {
-            info!("DP infeasible ({err}), using heuristic start solution");
+    ) -> Result<PageAssignment, PageAssignmentError> {
+        solve_exact(groups, &self.params).or_else(|err| {
+            info!("exact page assignment infeasible ({err}), using heuristic start solution");
             Ok(create_start_solution::create_start_solution(
                 &self.params,
                 photos,
             ))
         })
     }
+}
+
+/// Solves the page assignment problem exactly via dynamic programming.
+///
+/// Returns the optimal [`PageAssignment`] (minimal objective value) or
+/// [`PageAssignmentError::Infeasible`] if no assignment satisfies the constraints.
+fn solve_exact(groups: &GroupInfo, params: &Params) -> Result<PageAssignment, PageAssignmentError> {
+    let ctx = PageProblem::new(groups, params);
+    let cache = GridCache::new(ctx.n, params.page_max);
+
+    // Bellman model components (named for readability), see the module docs.
+    let initial_state: State = (0, 0);
+    let transition = |x: &State, page_size: &usize| (x.0 + page_size, x.1 + 1);
+    let cost = |x: &State, page_size: &usize| ctx.page_cost(x.0, x.0 + page_size) + ctx.kappa(x.0);
+    let actions = |x: &State| ctx.actions(x.0, x.1);
+    let terminal_cost = |x: &State| ctx.terminal_cost(x.0, x.1);
+
+    let mut solver = BellmanSolver::with_cache(
+        initial_state,
+        transition,
+        cost,
+        actions,
+        terminal_cost,
+        cache,
+    );
+
+    let result = solver.solve();
+    if !result.objective.is_finite() {
+        return Err(PageAssignmentError::Infeasible);
+    }
+
+    // Decisions are page sizes front to back; accumulate them into cut points.
+    let mut cuts = Vec::with_capacity(result.decisions.len() + 1);
+    cuts.push(0);
+    let mut acc = 0;
+    for size in &result.decisions {
+        acc += size;
+        cuts.push(acc);
+    }
+
+    info!(
+        "DP page assignment: cost {:.3}, {} pages",
+        result.objective,
+        result.decisions.len()
+    );
+    debug!("DP page cuts: {:?}", cuts);
+
+    Ok(PageAssignment::new(cuts))
 }
 
 #[cfg(test)]
