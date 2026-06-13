@@ -102,14 +102,14 @@ pub fn solve_dp(groups: &GroupInfo, params: &Params) -> Result<PageAssignment, D
         return Err(DpError::Infeasible);
     }
 
-    // Decisions are page sizes front to back; accumulate them into cut points
-    // (a leading 0 followed by the running prefix sums, ending at n).
-    let cuts: Vec<usize> = std::iter::once(0)
-        .chain(result.decisions.iter().scan(0, |acc, &size| {
-            *acc += size;
-            Some(*acc)
-        }))
-        .collect();
+   // Decisions are page sizes front to back; accumulate them into cut points.
+    let mut cuts = Vec::with_capacity(result.decisions.len() + 1);
+    cuts.push(0);
+    let mut acc = 0;
+    for size in &result.decisions {
+        acc += size;
+        cuts.push(acc);
+    }
 
     info!(
         "DP page assignment: cost {:.3}, {} pages",
