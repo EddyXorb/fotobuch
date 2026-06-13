@@ -1,6 +1,6 @@
 # Solver Tuning
 
-fotobuch has two solvers: the **book layout solver** (MIP + local search) distributes photos across pages; the **page layout solver** (genetic algorithm) arranges photos within each page. Most problems can be fixed by changing a few values in the YAML.
+fotobuch has two solvers: the **book layout solver** (exact DP + local search) distributes photos across pages; the **page layout solver** (genetic algorithm) arranges photos within each page. Most problems can be fixed by changing a few values in the YAML.
 
 Curious *how* these solvers work under the hood? See [How the Layout Engine Works](layout-engine.md).
 
@@ -28,7 +28,9 @@ Always keep `page_max` a few pages above `page_target` so the solver can use an 
 
 ## Solver too slow
 
-The total timeout (`search_timeout`, default 30 s) covers both the MIP and the local search phase:
+The page assignment phase uses an exact dynamic program that solves even
+thousand-photo books in milliseconds, so it is no longer a bottleneck. The
+`search_timeout` (default 30 s) now bounds only the local search phase:
 
 ```yaml
 book_layout_solver:
@@ -37,9 +39,6 @@ book_layout_solver:
     nanos: 0
   enable_local_search: false   # skip local search for a faster (coarser) result
 ```
-
-For books with 300+ photos the problem is automatically split into sub-problems. Raise `max_photos_for_split` to prevent splitting if you prefer one global solve,
-which is tendentially better but can be very slow.
 
 ---
 

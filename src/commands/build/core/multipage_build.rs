@@ -30,8 +30,10 @@ pub struct MultiPageParams<'a> {
     pub images_processed: usize,
     /// Whether to always create a commit even if state doesn't change (for rebuild operations)
     pub always_commit: bool,
-    /// Skip PDF generation (Typst compilation + preview cache)
+    /// Skip PDF generation (Typst compilation )
     pub skip_pdf: bool,
+    /// If true, skip updating the preview cache (useful for testing or when caller manages cache separately)
+    pub skip_cache_update: bool,
 }
 
 /// Shared multipage build logic used by first_build, rebuild_all, and rebuild_range.
@@ -48,7 +50,11 @@ pub fn multipage_build(
     params: MultiPageParams,
 ) -> Result<CommandOutput<BuildResult>> {
     // 1. Preview-Cache
-    let cache_result = update_preview_cache(&mut mgr)?;
+    let cache_result = if params.skip_cache_update {
+        Default::default()
+    } else {
+        update_preview_cache(&mut mgr)?
+    };
 
     // 2. Determine solver config
     let config = if let Some(ref custom) = params.custom_config {

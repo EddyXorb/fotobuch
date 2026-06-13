@@ -1,20 +1,18 @@
 //! Book layout solver that distributes photos across multiple pages.
 //!
 //! This module implements a two-phase approach for book layout optimization:
-//! 1. **MIP Phase**: Use Mixed Integer Programming to find a feasible initial
+//! 1. **Assignment Phase**: Use an exact dynamic program to find the optimal
 //!    assignment of photos to pages, respecting group constraints.
 //! 2. **Local Search Phase**: Refine the assignment using Variable Neighborhood
 //!    Search (VNS) to improve coverage and balance.
 //!
 //! The module provides:
 //! - High-level `solve()` API for complete book layout optimization
-//! - Internal modules for MIP, local search, feasibility checking, and caching
+//! - Internal modules for the DP, local search, feasibility checking, and caching
 
-mod cache;
 mod create_start_solution;
 mod feasibility;
 mod local_search;
-mod mip;
 mod model;
 mod page_assignment_solver;
 
@@ -35,18 +33,18 @@ pub enum SolverError {
     #[error("Parameter validation failed: {0}")]
     InvalidParams(#[from] crate::dto_models::ValidationError),
 
-    #[error("MIP solver failed: {0}")]
-    MipFailed(#[from] mip::MipError),
+    #[error("page assignment failed: {0}")]
+    AssignmentFailed(#[from] page_assignment_solver::PageAssignmentError),
 }
 
-/// Solves the book layout problem using MIP + local search.
+/// Solves the book layout problem using DP + local search.
 ///
 /// # Algorithm
 /// 1. Validate parameters
 /// 2. Build GroupInfo from photos
-/// 3. Run MIP solver to get initial feasible assignment
+/// 3. Run the exact DP to get the optimal initial assignment
 /// 4. Run local search to refine the assignment
-/// 5. Collect layouts from cache and build BookLayout
+/// 5. Build BookLayout from the per-page layouts
 ///
 pub fn solve_book_layout(
     photos: &[Photo],
@@ -65,46 +63,68 @@ pub fn solve_book_layout(
     // Build group information from photos
     let groups = GroupInfo::from_photos(photos);
 
-    // Phase 1: Page assignment (MIP + optional splitting for large instances)
+    // Phase 1: Page assignment (exact DP, heuristic fallback if infeasible)
+    let mut start = std::time::Instant::now();
     let page_solver = page_assignment_solver::PageAssignmentSolver::new(params.clone());
     let initial_assignment = page_solver.solve(&groups, photos)?;
-    info!("Page cuts: {:?}", initial_assignment.cuts());
+    let elapsed = start.elapsed().as_millis() as f64;
+    info!(
+        "Initial assignmentPage cuts done in time {:.3}ms: {:?}",
+        elapsed,
+        initial_assignment.cuts()
+    );
 
-    // Phase 2: Evaluate pages (with optional local search refinement)
-    let mut evaluator = GAPageEvaluator::new(canvas, ga_config);
+    // Phase 2: Compute the page layout for the initial assignment exactly once.
+    // Both branches below need it: without local search it is the final result,
+    // with local search it seeds the search so the initial pages are not redone.
+    start = std::time::Instant::now();
+    let evaluator = GAPageEvaluator::new(canvas, ga_config);
+    let initial_layouts = evaluate_pages(&initial_assignment, photos, &evaluator);
+    let elapsed = start.elapsed().as_millis() as f64;
+    info!("Initial page layouts done in {:.3}ms", elapsed);
 
-    let (final_assignment, layout_cache) = if params.enable_local_search {
-        info!("Start local search refinement..");
+    if !params.enable_local_search {
+        let page_layouts = initial_layouts.into_iter().map(|r| r.layout).collect();
+        return Ok(BookLayout::new(page_layouts));
+    }
 
-        let result =
-            local_search::improve(initial_assignment, photos, &groups, params, &mut evaluator);
+    // Phase 3: Optional local-search refinement. Both branches yield the final
+    // assignment together with its per-page layouts.
 
-        info!(
-            "Finished local search after {} iterations, start fitness: {:.3}, end fitness: {:.3}",
-            result.iterations, result.start_fitness, result.end_fitness
-        );
-        (result.assignment, result.cache)
-    } else {
-        let mut cache = cache::PhotoCombinationCache::new();
-        for page_idx in 0..initial_assignment.num_pages() {
-            let range = initial_assignment.page_range(page_idx);
-            let result = evaluator.evaluate(&photos[range.clone()]);
-            cache.insert_if_better(&photos[range], result);
-        }
-        (initial_assignment, cache)
-    };
+    info!("Start local search refinement..");
 
-    debug!("Cuts after local search: {:?}", final_assignment.cuts());
+    let result = local_search::improve(
+        initial_assignment,
+        initial_layouts,
+        photos,
+        &groups,
+        params,
+        &evaluator,
+    );
 
-    // Phase 3: Build BookLayout from the layout cache
-    let page_layouts: Vec<SolverPageLayout> = (0..final_assignment.num_pages())
-        .filter_map(|page_idx| {
-            let range = final_assignment.page_range(page_idx);
-            layout_cache.get(&photos[range]).map(|r| r.layout.clone())
+    info!(
+        "Finished local search after {} iterations, start fitness: {:.3}, end fitness: {:.3}",
+        result.iterations, result.start_fitness, result.end_fitness
+    );
+
+    debug!("Cuts after local search: {:?}", result.assignment.cuts());
+
+    Ok(BookLayout::new(result.layouts))
+}
+
+/// Evaluates the page layout for each page of an assignment exactly once,
+/// returning the full [`GaResult`] per page in page order.
+fn evaluate_pages(
+    assignment: &model::PageAssignment,
+    photos: &[Photo],
+    evaluator: &impl PageLayoutEvaluator,
+) -> Vec<GaResult> {
+    (0..assignment.num_pages())
+        .map(|page_idx| {
+            let range = assignment.page_range(page_idx);
+            evaluator.evaluate(&photos[range])
         })
-        .collect();
-
-    Ok(BookLayout::new(page_layouts))
+        .collect()
 }
 
 /// Evaluator that runs the GA-based page layout solver.
@@ -120,7 +140,7 @@ impl<'a> GAPageEvaluator<'a> {
 }
 
 impl PageLayoutEvaluator for GAPageEvaluator<'_> {
-    fn evaluate(&mut self, photos: &[Photo]) -> GaResult {
+    fn evaluate(&self, photos: &[Photo]) -> GaResult {
         page_layout_solver::run_ga(photos, self.canvas, self.ga_config)
     }
 }
@@ -188,9 +208,9 @@ mod tests {
                 search_timeout: Duration::from_millis(100),
                 max_coverage_cost: 0.5,
                 enable_local_search: true,
-                mip_rel_gap: 0.01,
-                max_photos_for_split: 100,
-                split_group_boundary_slack: 5,
+                mip_rel_gap: None,
+                max_photos_for_split: None,
+                split_group_boundary_slack: None,
             }
         }
 
@@ -212,7 +232,7 @@ mod tests {
 
             let book = solve_book_layout(&photos, &solver_config, &canvas, &ga_config).unwrap();
 
-            // Should fit in one or two pages (depending on MIP/local search)
+            // Should fit in one or two pages (depending on DP/local search)
             assert!(book.page_count() >= 1);
             assert!(book.page_count() <= 3);
             assert_eq!(book.total_photo_count(), 10);

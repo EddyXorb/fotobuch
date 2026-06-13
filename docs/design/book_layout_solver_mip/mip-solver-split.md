@@ -1,5 +1,9 @@
 # MIP-Solver Split für große Instanzen
 
+> **Hinweis:** Hinfällig. Der exakte DP-Solver
+> ([`book_layout_solver_dp/`](../book_layout_solver_dp/)) löst jede Instanzgröße
+> direkt in Millisekunden; das hier beschriebene Splitting entfällt ersatzlos.
+
 ## Problem
 
 Bei mehr als ~100 Bildern wird das MIP schwer lösbar. Das Problem wird in k Teilprobleme zerlegt, sequenziell gelöst und zusammengeführt.

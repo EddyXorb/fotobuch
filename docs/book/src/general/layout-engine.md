@@ -3,7 +3,7 @@
 fotobuch lays out a book in **two stages**, each solved by its own algorithm:
 
 1. The **book layout solver** decides *how many photos go on which page* and
-   *which photos belong together* — a Mixed Integer Program (MIP) refined by a
+   *which photos belong together* — an exact dynamic program (DP) refined by a
    local search.
 2. The **page layout solver** decides *how the photos on a single page are
    arranged* — a genetic algorithm operating on *slicing trees*.
@@ -21,19 +21,18 @@ the whole problem reduces to choosing **cut points** in the sequence.
 
 It runs in two phases:
 
-- **MIP phase.** The assignment is formulated as a Mixed Integer Program and
-  solved with [HiGHS](https://highs.dev/) via `good_lp`. The objective balances
-  the target page count, keeping [photo groups](../glossary.md#photo-group)
-  coherent, and respecting per-page photo limits. Hard constraints (page count,
-  photos per page, groups per page, minimum group share on a split) are enforced
-  exactly.
-- **Local search phase.** The MIP optimizes a proxy objective; the local search
+- **DP phase.** Choosing cut points is a *sequence-partitioning problem*, solved
+  exactly by a dynamic program over states "first *i* photos on *m* pages". The
+  objective balances the target page count, keeping
+  [photo groups](../glossary.md#photo-group) coherent, and respecting per-page
+  photo limits. Hard constraints (page count, photos per page, groups per page,
+  minimum group share on a split) are enforced exactly. The DP is optimal,
+  deterministic and runs in milliseconds even for thousand-photo books. The
+  derivation is documented in `docs/design/book_layout_solver_dp/dp.typ`.
+- **Local search phase.** The DP optimizes a proxy objective; the local search
   then moves cut points based on the *actual* rendered layout quality, targeting
   pages with too much white space first (worst-first). A layout cache prevents
   redundant page-solver calls.
-
-For very large books (300+ photos) the sequence is automatically decomposed into
-independent sub-problems so the solver stays within its time budget.
 
 ## Stage 2 — Page layout solver (slicing-tree GA)
 

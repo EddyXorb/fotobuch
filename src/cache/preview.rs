@@ -9,7 +9,7 @@ use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 /// Result of preview cache generation
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct PreviewCacheResult {
     /// Number of images created
     pub created: usize,

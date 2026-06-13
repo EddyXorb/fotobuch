@@ -20,8 +20,7 @@ fotobuch --version
 
 ## Build from source
 
-Requirements: [Rust (stable)](https://rustup.rs) and `cmake` (needed to build
-the [HiGHS](https://highs.dev/) optimizer library).
+Requirements: [Rust (stable)](https://rustup.rs).
 
 ```bash
 git clone https://github.com/EddyXorb/fotobuch.git

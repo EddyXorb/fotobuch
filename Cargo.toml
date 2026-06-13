@@ -59,9 +59,6 @@ regex = "1.10"
 # Fast hashing for duplicate detection
 blake3 = "1.5"
 
-# MIP solver
-good_lp = { version = "1", features = ["highs"], default-features = false }
-
 # Git integration
 git2 = { version = "0.20", default-features = false }
 

@@ -1,5 +1,9 @@
 # Book Layout Solver
 
+> **Hinweis:** Die hier beschriebene MIP-Formulierung ist durch den exakten
+> DP-Solver in [`book_layout_solver_dp/`](../book_layout_solver_dp/) abgelöst und
+> bleibt nur als Referenz erhalten.
+
 Verteilt eine sortierte Bildsequenz (gruppiert, chronologisch) auf Buchseiten. Zwei Phasen:
 
 1. **MIP-Solver** (`mip/`): Findet eine global optimale Seitenzuteilung unter strukturellen Constraints.

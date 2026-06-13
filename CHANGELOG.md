@@ -5,6 +5,18 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2926-07-13
+
+### Added
+
+- optional skip of preview cache generation leading to faster unittests
+
+### Changed
+
+- the book layout solver is much faster now, using a dynamic programming approach, which takes only milliseconds on 1000 images
+- **Deprecated** the mip related configs (made them optional)
+
+
 ## [0.2.1] - 2026-06-08
 
 ### Added

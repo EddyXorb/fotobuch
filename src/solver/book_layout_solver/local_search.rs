@@ -1,8 +1,9 @@
 //! Local search for book layout refinement.
 //!
 //! This module implements a Variable Neighborhood Search (VNS) variant
-//! that improves a MIP solution by iteratively adjusting page boundaries.
+//! that improves a DP solution by iteratively adjusting page boundaries.
 
+mod cache;
 mod improve;
 mod perturbation;
 
@@ -21,24 +22,36 @@ pub trait PageLayoutEvaluator {
     /// Evaluate the layout quality for a slice of photos.
     ///
     /// Returns the full GA result including layout, fitness, and cost breakdown.
-    fn evaluate(&mut self, photos: &[Photo]) -> GaResult;
+    fn evaluate(&self, photos: &[Photo]) -> GaResult;
 }
 
 /// Improves an initial page assignment using local search.
 ///
+/// `initial_layouts` holds the precomputed `GaResult` for each page of
+/// `assignment` (page order); they seed the layout cache so the search starts
+/// from the already-computed layouts.
+///
 /// Uses a Variable Neighborhood Search approach:
-/// 1. Evaluates all pages and caches their GaResults
+/// 1. Seeds the layout cache with the precomputed initial layouts
 /// 2. Identifies cut points adjacent to poorly-covered pages
 /// 3. Applies perturbations (shift cut by ±1, ±2, ...) in worst-first order
 /// 4. Accepts first improving move, repeats until timeout or convergence
 pub fn improve(
     assignment: PageAssignment,
+    initial_layouts: Vec<GaResult>,
     photos: &[Photo],
     groups: &GroupInfo,
     params: &BookLayoutSolverConfig,
-    evaluator: &mut impl PageLayoutEvaluator,
+    evaluator: &impl PageLayoutEvaluator,
 ) -> LocalSearchResult {
-    improve::improve(assignment, photos, groups, params, evaluator)
+    improve::improve(
+        assignment,
+        initial_layouts,
+        photos,
+        groups,
+        params,
+        evaluator,
+    )
 }
 
 #[cfg(test)]
@@ -74,7 +87,7 @@ mod tests {
     }
 
     impl PageLayoutEvaluator for MockEvaluator {
-        fn evaluate(&mut self, photos: &[Photo]) -> GaResult {
+        fn evaluate(&self, photos: &[Photo]) -> GaResult {
             make_mock_result(photos, self.ideal_count)
         }
     }

@@ -155,17 +155,8 @@ impl PageAssignment {
     }
 
     /// Creates an empty assignment (zero pages, zero photos).
-    #[allow(dead_code)]
     pub fn empty() -> Self {
         Self { cuts: vec![0] }
-    }
-
-    /// Creates an assignment with a single page containing all photos.
-    #[allow(dead_code)]
-    pub fn single_page(total_photos: usize) -> Self {
-        Self {
-            cuts: vec![0, total_photos],
-        }
     }
 
     /// Returns the number of pages.
@@ -189,20 +180,6 @@ impl PageAssignment {
     /// Panics if `page_index` is out of bounds.
     pub fn page_range(&self, page_index: usize) -> Range<usize> {
         self.cuts[page_index]..self.cuts[page_index + 1]
-    }
-
-    /// Returns the indices of the two pages adjacent to a cut point.
-    ///
-    /// Returns `(left_page, right_page)` where `left_page` ends at `cut_index`
-    /// and `right_page` starts at `cut_index`.
-    ///
-    /// # Panics
-    ///
-    /// Panics if `cut_index` is 0 or >= cuts.len() - 1 (boundary cuts have no adjacent pages on both sides).
-    #[allow(dead_code)]
-    pub fn affected_pages(&self, cut_index: usize) -> (usize, usize) {
-        assert!(cut_index > 0 && cut_index < self.cuts.len() - 1);
-        (cut_index - 1, cut_index)
     }
 
     /// Returns the total number of photos.
@@ -240,9 +217,9 @@ mod tests {
             search_timeout: Duration::from_secs(10),
             max_coverage_cost: 0.1,
             enable_local_search: true,
-            mip_rel_gap: 0.01,
-            max_photos_for_split: 100,
-            split_group_boundary_slack: 5,
+            mip_rel_gap: None,
+            max_photos_for_split: None,
+            split_group_boundary_slack: None,
         };
 
         assert!(params.validate(50).is_ok());
@@ -353,7 +330,6 @@ mod tests {
         let params = Params {
             max_coverage_cost: -0.1,
             enable_local_search: true,
-            mip_rel_gap: 0.01,
             ..default_params()
         };
 
@@ -410,9 +386,9 @@ mod tests {
             search_timeout: Duration::from_secs(10),
             max_coverage_cost: 0.1,
             enable_local_search: true,
-            mip_rel_gap: 0.01,
-            max_photos_for_split: 100,
-            split_group_boundary_slack: 5,
+            mip_rel_gap: None,
+            max_photos_for_split: None,
+            split_group_boundary_slack: None,
         }
     }
 
@@ -492,26 +468,10 @@ mod tests {
     }
 
     #[test]
-    fn test_page_assignment_affected_pages() {
-        let assignment = PageAssignment::new(vec![0, 5, 12, 20]);
-        assert_eq!(assignment.affected_pages(1), (0, 1));
-        assert_eq!(assignment.affected_pages(2), (1, 2));
-    }
-
-    #[test]
     fn test_page_assignment_empty() {
         let assignment = PageAssignment::empty();
         assert_eq!(assignment.num_pages(), 0);
         assert_eq!(assignment.total_photos(), 0);
-    }
-
-    #[test]
-    fn test_page_assignment_single_page() {
-        let assignment = PageAssignment::single_page(15);
-        assert_eq!(assignment.num_pages(), 1);
-        assert_eq!(assignment.total_photos(), 15);
-        assert_eq!(assignment.page_size(0), 15);
-        assert_eq!(assignment.page_range(0), 0..15);
     }
 
     #[test]

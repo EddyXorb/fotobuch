@@ -79,9 +79,6 @@ config:
       nanos: 0
     max_coverage_cost: 0.95
     enable_local_search: false
-    mip_rel_gap: 0.0001
-    max_photos_for_split: 300
-    split_group_boundary_slack: 5
 photos:
 - group: source-images
   sort_key: 2026-03-27 14:37:23.317695+00:00
