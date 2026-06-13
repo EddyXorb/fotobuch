@@ -3,6 +3,7 @@
 //! This module implements a Variable Neighborhood Search (VNS) variant
 //! that improves a DP solution by iteratively adjusting page boundaries.
 
+mod cache;
 mod improve;
 mod perturbation;
 

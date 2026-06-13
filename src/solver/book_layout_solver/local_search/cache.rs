@@ -106,8 +106,8 @@ impl<C: HasFitness> PhotoCombinationCache<C> {
 
 #[cfg(test)]
 mod tests {
-    use super::super::super::data_models::Canvas;
     use super::*;
+    use crate::solver::data_models::Canvas;
     use crate::solver::{
         page_layout_solver::{CostBreakdown, GaResult},
         prelude::*,
