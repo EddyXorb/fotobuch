@@ -101,7 +101,8 @@ Parameter und Mengen:
   [$p_"min", p_"max"$], [$bb(N)$], [Min./Max. Bilder pro Seite],
   [$g_"min"$], [$bb(N)$], [Min. Bilder einer Gruppe auf einer Seite bei Spaltung],
   [$g_"max"$], [$bb(N)$], [Max. verschiedene Gruppen pro Seite],
-  [$overline(n)$], [$bb(R)^+$], [Ziel-Bildanzahl pro Seite, $overline(n) = n \/ s$],
+  [$b$], [$bb(N)$], [Gewählte Gesamt-Seitenanzahl eines DP-Laufs, $b in [b_"min", b_"max"]$],
+  [$overline(n)_b$], [$bb(R)^+$], [Ziel-Bildanzahl pro Seite bei $b$ Seiten, $overline(n)_b = n \/ b$],
   [$w_1, w_2, w_3$], [$bb(R)^+$], [Gewichte der Zielfunktion],
 )
 
@@ -144,11 +145,17 @@ Bestandteile des Modells:
   [Übergang $T(x, a)$], [$(I(x) + a, P(x) + 1)$], [Nächste Seite angehängt],
   [Ertrag $F(x, a)$], [@sec:aktionen], [Kosten der angehängten Seite (es wird minimiert)],
   [Diskontfaktor $beta$], [$1$], [Endlicher Horizont, keine Abzinsung],
-  [Wertfunktion $V(x)$], [], [Minimale Restkosten, um die Bilder $I(x), ..., n-1$ zu platzieren],
+  [Wertfunktion $V_b(x)$], [], [Minimale Restkosten (bei fixierter Seitenzahl $b$), um die Bilder $I(x), ..., n-1$ zu platzieren],
 )
 
 Die Wurzel ist $x_0 = (0, 0)$ (kein Bild platziert, keine Seite belegt); Terminalzustände
 sind $(n, m)$, sobald alle $n$ Bilder verteilt sind.
+
+Die Gesamt-Seitenanzahl $b$ wird *pro DP-Lauf festgehalten* (@sec:enum) und am Terminal
+erzwungen ($m = b$). Dadurch bezieht sich die Ziel-Bildanzahl pro Seite
+$overline(n)_b = n\/b$ auf die *tatsächlich* gewählte Seitenzahl statt auf das Target $s$
+— so wirken der even-Term ($w_1$) und der Seitenzahl-Term ($w_3$) in unabhängige
+Richtungen.
 
 == Lösungsraum: Schnittpunkte
 
@@ -184,9 +191,10 @@ Prüfungen sind daher in $cal(O)(1)$ möglich.
 
 Die Zielfunktion setzt sich aus drei lokalen Termen zusammen:
 
-*Seitenkosten* — Abweichung von der Ziel-Bildanzahl pro Seite:
+*Seitenkosten* — Abweichung von der Ziel-Bildanzahl pro Seite. Diese richtet sich nach
+der im Lauf fixierten Seitenzahl $b$, also $overline(n)_b = n\/b$:
 
-$ c_"page" (u, v) = w_1 dot |(v - u) - overline(n)| $
+$ c_"page"^((b)) (u, v) = w_1 dot |(v - u) - overline(n)_b| $
 
 *Cut-Kosten* — Strafe für das Spalten einer Gruppe. Jeder innere Cut liegt strikt im
 Inneren höchstens einer Gruppe; tut er das, zerschneidet er sie. Die Cut-Kosten zählen
@@ -197,12 +205,14 @@ $ kappa(c) = cases(
   0 quad &"sonst"
 ) $
 
-*Seitenzahlkosten* — Abweichung von der Ziel-Seitenanzahl: $w_3 dot |m - s|$; hängt
-nur von $m = P(x)$ ab und wird als Terminalkosten behandelt.
+*Seitenzahlkosten* — Abweichung von der Ziel-Seitenanzahl: $w_3 dot |b - s|$. Da $b$ pro
+DP-Lauf fix ist (am Terminal gilt $m = b$), ist dieser Term *innerhalb* eines Laufs
+konstant und wird erst bei der äußeren Enumeration (@sec:enum) addiert.
 
-Für einen vollständigen Cut-Vektor ergibt sich die Gesamtzielfunktion:
+Für einen vollständigen Cut-Vektor mit $m$ Seiten ($overline(n)_m = n\/m$) ergibt sich die
+Gesamtzielfunktion:
 
-$ Z(c_0, ..., c_m) = sum_(j=0)^(m-1) c_"page" (c_j, c_(j+1)) + sum_(j=1)^(m-1) kappa(c_j) + w_3 dot |m - s| $
+$ Z(c_0, ..., c_m) = sum_(j=0)^(m-1) c_"page"^((m)) (c_j, c_(j+1)) + sum_(j=1)^(m-1) kappa(c_j) + w_3 dot |m - s| $
 
 == Aktionsmenge und Ertrag <sec:aktionen>
 
@@ -219,35 +229,60 @@ enthalten* und ist im Allgemeinen nicht zusammenhängend.
 Der Ertrag einer Aktion ist die Summe aus Seiten- und Cut-Kosten der angehängten Seite
 (der Cut an ihrem Anfang wird beim Anhängen bezahlt, $kappa(0) = 0$):
 
-$ F(x, a) = c_"page" (I(x), I(x) + a) + kappa(I(x)) $
+$ F(x, a) = c_"page"^((b)) (I(x), I(x) + a) + kappa(I(x)) $
 
 == Bellman-Gleichung
 
-*Terminalkosten:* Sind alle Bilder platziert ($I(x) = n$), entstehen keine weiteren
-Seiten; es bleibt die Abweichung von der Ziel-Seitenanzahl. Für unzulässige Endzustände
-(falsche Seitenzahl) bzw. Sackgassen ist die Wertfunktion $infinity$:
+Die folgende Rekursion gilt *bei fixierter Seitenzahl $b$* (die äußere Enumeration über
+$b$ folgt in @sec:enum).
 
-$ V((n, m)) = cases(
-  w_3 dot |m - s| quad &"falls" b_"min" <= m <= b_"max",
+*Terminalkosten:* Sind alle Bilder platziert ($I(x) = n$), muss die Seitenzahl exakt $b$
+sein, sonst ist der Zustand unzulässig. Die konstanten Seitenzahlkosten $w_3 dot |b - s|$
+werden außerhalb addiert, daher ist die Terminal-Wertfunktion hier $0$ bzw. $infinity$:
+
+$ V_b((n, m)) = cases(
+  0 quad &"falls" m = b,
   infinity quad &"sonst"
 ) $
 
 *Bellman-Gleichung* (Minimierungsform, $beta = 1$) für nicht-terminale Zustände
 ($I(x) < n$):
 
-$ V(x) &= min_(a in Gamma(x)) {F(x, a) + V(T(x, a))} \
-      &= min_(a in Gamma(x)) {c_"page" (I(x), I(x) + a) + kappa(I(x)) + V((I(x) + a, P(x) + 1))} $
+$ V_b(x) &= min_(a in Gamma(x)) {F(x, a) + V_b(T(x, a))} \
+      &= min_(a in Gamma(x)) {c_"page"^((b)) (I(x), I(x) + a) + kappa(I(x)) + V_b((I(x) + a, P(x) + 1))} $
 
-Leere Aktionsmenge $Gamma(x) = nothing arrow.r.double V(x) = infinity$ (Sackgasse).
+Leere Aktionsmenge $Gamma(x) = nothing arrow.r.double V_b(x) = infinity$ (Sackgasse).
 
-*Optimaler Zielwert:* der Wert an der Wurzel,
+== Äußere Enumeration der Seitenanzahl <sec:enum>
 
-$ Z^* = V((0, 0)) $
+Der innere DP-Lauf liefert für eine fixierte Seitenzahl $b$ den Wert $V_b((0, 0))$ — die
+minimalen Seiten- und Cut-Kosten einer Aufteilung in *genau* $b$ Seiten. Der optimale
+Zielwert ergibt sich durch Minimierung über alle zulässigen Seitenzahlen, zuzüglich der
+pro Lauf konstanten Seitenzahlkosten:
 
-Ist $Z^* = infinity$, ist die Instanz unzulässig. Die zugehörige *Policy-Funktion*
-$a(x)$ — welche nächste Seitengröße in jedem Zustand optimal ist — liefert per
-*Backtracking* den optimalen Cut-Vektor: zu jedem Zustand wird das Argmin gespeichert
-und von $(0, 0)$ vorwärts abgelaufen.
+$ Z^* = min_(b in B) [ V_b((0, 0)) + w_3 dot |b - s| ] $
+
+Der Enumerationsbereich beschränkt sich auf die überhaupt partitionierbaren Seitenzahlen:
+
+$ B = {b in bb(N) : b_"min" <= b <= b_"max" " und " ceil(n \/ p_"max") <= b <= floor(n \/ p_"min")} $
+
+Ist $Z^* = infinity$, ist die Instanz unzulässig. Die zu dem optimalen $b^*$ gehörende
+*Policy-Funktion* $a(x)$ liefert per *Backtracking* den optimalen Cut-Vektor: zu jedem
+Zustand wird das Argmin gespeichert und von $(0, 0)$ vorwärts abgelaufen.
+
+*Optimierung ($w_1 = 0$):* Ohne even-Term entfällt die Abhängigkeit von $overline(n)_b$;
+der innere DP ist dann für *jedes* $b$ identisch (nur der konstante Term $w_3 dot |b - s|$
+unterscheidet die Läufe). Die Enumeration kollabiert dann auf einen *einzigen* Lauf mit
+*freier* Seitenzahl $m$: Das Terminal trägt die Seitenzahlkosten direkt,
+
+$ V((n, m)) = cases(
+  w_3 dot |m - s| quad &"falls" b_"min" <= m <= b_"max",
+  infinity quad &"sonst"
+) $
+
+und der optimale Zielwert ist $Z^* = V((0, 0))$. Dieser Single-Run ist *exakt äquivalent*
+zur vollen Enumeration über $B$ (jeder Pfad zu $(n, m)$ kostet $V_b((0,0)) + w_3|m - s|$
+für sein $b = m$), aber so schnell wie ein einzelner DP-Lauf.
 
 == Korrektheit <sec:korrektheit>
 
@@ -257,21 +292,32 @@ verbleibende Plan muss optimal für den Folgezustand $T(x, p) = (i + p, m + 1)$ 
 andernfalls ließe er sich durch einen billigeren ersetzen, ohne Zulässigkeit oder
 Ertrag $F(x, p)$ der angehängten Seite zu ändern (keine Kopplung über die Seitengrenze)
 — Widerspruch. Da die Bellman-Gleichung über $Gamma(x)$ alle zulässigen ersten
-Entscheidungen vollständig enumeriert, gilt Gleichheit.
+Entscheidungen vollständig enumeriert, gilt Gleichheit für jedes fixierte $b$. Die äußere
+Minimierung über $b in B$ (@sec:enum) probiert alle zulässigen Seitenzahlen explizit
+durch und liefert damit das globale Optimum.
 
 == Komplexität <sec:komplexitaet>
+
+Pro fixiertem $b$ kostet der innere DP $cal(O)(n dot b dot (p_"max" - p_"min" + 1))$
+(Zustände mal Übergänge, je $cal(O)(1)$). Über die Enumeration $b in B$ summiert:
 
 #table(
   columns: (auto, 1fr),
   align: (left, left),
   stroke: 0.5pt,
 
-  [*Zeit*], [$cal(O)(n dot b_"max" dot (p_"max" - p_"min" + 1))$ — Zustände mal Übergänge, je $cal(O)(1)$],
-  [*Speicher*], [$cal(O)(n dot b_"max")$ für Werte- und Backtracking-Tabelle],
+  [*Zeit*], [$cal(O)(|B| dot n dot b_"max" dot (p_"max" - p_"min" + 1))$, worst case $|B| <= b_"max"$],
+  [*Speicher*], [$cal(O)(n dot b_"max")$ — eine Werte-/Backtracking-Tabelle, zwischen Läufen wiederverwendet],
 )
 
-Beispiel $n = 1000$, $b_"max" = 100$, $p_"max" - p_"min" + 1 = 20$: ca. $2 dot 10^6$
-Übergänge — Laufzeit im Millisekundenbereich, unabhängig von der Gruppenanzahl $k$.
+Der Faktor $|B|$ ist der L1-Abweichung vom *Ist*-Mittel inhärent (für festes $b$ ist
+$overline(n)_b$ fix; das Optimum über die Seitenzahl muss explizit gesucht werden). Das
+Fenster $B$ schrumpft ihn in der Praxis aber oft stark; bei $w_1 = 0$ kollabiert er auf
+einen einzigen Lauf (@sec:enum).
+
+Beispiel $n = 1000$, $b_"max" = 100$, $p_"max" - p_"min" + 1 = 20$: pro Lauf ca.
+$2 dot 10^6$ Übergänge — Laufzeit im Millisekundenbereich, unabhängig von der
+Gruppenanzahl $k$.
 
 Optionales Pruning (konstanter Faktor): Zustand $(i, m)$ ist nur erreichbar für
 $m dot p_"min" <= i <= m dot p_"max"$.
