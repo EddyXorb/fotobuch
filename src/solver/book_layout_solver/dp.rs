@@ -14,16 +14,13 @@
 //! - **Terminal cost** — `w3·|m - s|` once all photos are placed (`i == n`) on a
 //!   valid page count, otherwise infinity.
 //!
-//! **Orientation vs. `dp.typ`.** The derivation builds pages *backwards*: it
-//! starts at `(n, m)` and peels the last page, `(i, m) -> (i - p, m - 1)`, down
-//! to the terminal `(0, 0)`. Here the recursion runs *forwards* from a single
-//! root `(0, 0)` and appends pages until `(n, m)`. Both traverse the very same
-//! DAG (nodes `(i, m)`, edges = "one page") in opposite directions and yield the
-//! identical optimum. The forward orientation is chosen because the generic
-//! solver computes `V(x_0)` from one root `x_0`: `(0, 0)` is that natural root,
-//! and the page-count term `w3·|m - s|` then falls out exactly as the terminal
-//! cost at `(n, m)` — which is how `dp.typ` already describes it. The backward
-//! form would instead need a virtual super-root choosing `m` over all `(n, m)`.
+//! **Orientation.** Both this code and `dp.typ` build pages *forwards*: the
+//! recursion starts at the single root `(0, 0)` and appends pages,
+//! `(i, m) -> (i + p, m + 1)`, until all photos are placed at a terminal `(n, m)`.
+//! The forward orientation is the natural one for the generic solver, which
+//! computes `V(x_0)` from one root `x_0`: `(0, 0)` is that root, and the
+//! page-count term `w3·|m - s|` falls out exactly as the terminal cost at
+//! `(n, m)`.
 //!
 //! All indices are 0-based.
 

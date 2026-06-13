@@ -76,10 +76,11 @@ Folgezustand direkt eingesetzt wird):
 
 $ V(x) = min_(a in Gamma(x)) {F(x, a) + beta dot V(T(x, a))} $
 
-Sie wird per *Rückwärtsinduktion* gelöst: ausgehend von den Randzuständen wird $V$
-zustandsweise berechnet, das jeweilige Argmin liefert die Policy-Funktion $a(x)$.
-Äquivalent ist dies ein kürzester Pfad in einem azyklischen Graphen, dessen Knoten die
-Zustände und dessen Kanten die Aktionen sind.
+Sie wird per *Induktion* gelöst: Die Wertfunktion an den Terminalzuständen ist direkt
+bekannt; von dort propagieren die Werte über die Bellman-Gleichung bis zur Wurzel
+$V(x_0)$. Das jeweilige Argmin liefert die Policy-Funktion $a(x)$. Äquivalent ist dies
+ein kürzester Pfad in einem azyklischen Graphen, dessen Knoten die Zustände und dessen
+Kanten die Aktionen sind.
 
 = Mengen, Parameter, Notation
 
@@ -126,8 +127,9 @@ das Tupel $x_t = (i, m)$ mit den Komponenten
 $ I(x_t) = i quad ("platzierte Bilder"), quad P(x_t) = m quad ("belegte Seiten") $
 
 Wie auf der Wikipediaseite lassen wir den Zeitindex weg und schreiben kurz $x$. Eine
-*Periode* entspricht dem Anhängen einer Seite; die Seiten werden per Rückwärtsinduktion
-von hinten aufgebaut. Die Bestandteile des Modells:
+*Periode* entspricht dem Anhängen einer Seite; die Seiten werden von der Wurzel
+$x_0 = (0, 0)$ aus *vorwärts* angehängt, bis alle Bilder platziert sind. Die
+Bestandteile des Modells:
 
 #table(
   columns: (auto, auto, 1fr),
@@ -137,13 +139,16 @@ von hinten aufgebaut. Die Bestandteile des Modells:
   [*Bellman*], [*Hier*], [*Bedeutung*],
 
   [Zustand $x$], [$(i, m)$], [Erste $i = I(x)$ Bilder auf $m = P(x)$ Seiten verteilt],
-  [Aktion $a$], [$p$], [Bildanzahl der zuletzt (am Anfang) angehängten Seite],
-  [Aktionsmenge $Gamma(x)$], [@sec:aktionen], [Zulässige letzte Seitengrößen],
-  [Übergang $T(x, a)$], [$(I(x) - a, P(x) - 1)$], [Letzte Seite abgelöst],
-  [Ertrag $F(x, a)$], [@sec:aktionen], [Kosten der letzten Seite (es wird minimiert)],
+  [Aktion $a$], [$p$], [Bildanzahl der nächsten (am Ende) angehängten Seite],
+  [Aktionsmenge $Gamma(x)$], [@sec:aktionen], [Zulässige nächste Seitengrößen],
+  [Übergang $T(x, a)$], [$(I(x) + a, P(x) + 1)$], [Nächste Seite angehängt],
+  [Ertrag $F(x, a)$], [@sec:aktionen], [Kosten der angehängten Seite (es wird minimiert)],
   [Diskontfaktor $beta$], [$1$], [Endlicher Horizont, keine Abzinsung],
-  [Wertfunktion $V(x)$], [], [Minimale Kosten, um $I(x)$ Bilder auf $P(x)$ Seiten zu verteilen],
+  [Wertfunktion $V(x)$], [], [Minimale Restkosten, um die Bilder $I(x), ..., n-1$ zu platzieren],
 )
+
+Die Wurzel ist $x_0 = (0, 0)$ (kein Bild platziert, keine Seite belegt); Terminalzustände
+sind $(n, m)$, sobald alle $n$ Bilder verteilt sind.
 
 == Lösungsraum: Schnittpunkte
 
@@ -153,8 +158,8 @@ vollständig durch einen *Cut-Vektor* beschrieben:
 $ 0 = c_0 < c_1 < ... < c_m = n, quad b_"min" <= m <= b_"max" $
 
 Seite $j in {0, ..., m-1}$ (0-basiert) enthält die Bilder $[c_j, c_(j+1))$. Eine Aktion
-$a = p$ im Zustand $x$ entspricht dem Cut $c = I(x) - p$ und legt die letzte Seite
-$[I(x) - p, I(x))$ fest. _Wie_ die ersten $I(x)$ Bilder intern geschnitten sind, ist für
+$a = p$ im Zustand $x$ entspricht dem Cut $c = I(x)$ und hängt die Seite
+$[I(x), I(x) + p)$ an. _Wie_ die ersten $I(x)$ Bilder intern geschnitten sind, ist für
 die folgenden Seiten irrelevant — keine Nebenbedingung und kein Zielterm koppelt über
 eine Seitengrenze hinweg. Genau deshalb ist $x = (i, m)$ ein hinreichender Zustand.
 
@@ -201,51 +206,57 @@ $ Z(c_0, ..., c_m) = sum_(j=0)^(m-1) c_"page" (c_j, c_(j+1)) + sum_(j=1)^(m-1) k
 
 == Aktionsmenge und Ertrag <sec:aktionen>
 
-Die im Zustand $x$ zulässigen Aktionen — die möglichen Größen der letzten Seite:
+Die im Zustand $x$ zulässigen Aktionen — die möglichen Größen der nächsten Seite:
 
-$ Gamma(x) = {p in bb(N) : p_"min" <= p <= min(p_"max", I(x)) " und " phi(I(x) - p, I(x)) = 1} $
+$ Gamma(x) = {p in bb(N) : p_"min" <= p <= min(p_"max", n - I(x)) " und " phi(I(x), I(x) + p) = 1} $
 
-Der Kandidatenbereich ist nach oben durch $p_"max"$ *und* durch die nur $I(x)$ noch zu
-verteilenden Bilder beschränkt (die letzte Seite $[I(x) - p, I(x))$ erfordert
-$I(x) - p >= 0$) — daher das Minimum. Der Filter $phi$ wählt daraus die zulässigen
+Der Kandidatenbereich ist nach oben durch $p_"max"$ *und* durch die nur $n - I(x)$ noch
+zu platzierenden Bilder beschränkt (die nächste Seite $[I(x), I(x) + p)$ erfordert
+$I(x) + p <= n$) — daher das Minimum. Der Filter $phi$ wählt daraus die zulässigen
 Größen. Da die Spaltungsregel nicht monoton in $p$ ist, darf $Gamma(x)$ *Lücken
 enthalten* und ist im Allgemeinen nicht zusammenhängend.
 
 Der Ertrag einer Aktion ist die Summe aus Seiten- und Cut-Kosten der angehängten Seite
-(der Cut an deren Anfang wird beim Anhängen bezahlt, $kappa(0) = 0$):
+(der Cut an ihrem Anfang wird beim Anhängen bezahlt, $kappa(0) = 0$):
 
-$ F(x, a) = c_"page" (I(x) - a, I(x)) + kappa(I(x) - a) $
+$ F(x, a) = c_"page" (I(x), I(x) + a) + kappa(I(x)) $
 
 == Bellman-Gleichung
 
-*Randwerte:*
+*Terminalkosten:* Sind alle Bilder platziert ($I(x) = n$), entstehen keine weiteren
+Seiten; es bleibt die Abweichung von der Ziel-Seitenanzahl. Für unzulässige Endzustände
+(falsche Seitenzahl) bzw. Sackgassen ist die Wertfunktion $infinity$:
 
-$ V((0, 0)) = 0, quad V((i, 0)) = infinity (i > 0), quad V((0, m)) = infinity (m > 0) $
+$ V((n, m)) = cases(
+  w_3 dot |m - s| quad &"falls" b_"min" <= m <= b_"max",
+  infinity quad &"sonst"
+) $
 
-*Bellman-Gleichung* (Minimierungsform, $beta = 1$):
+*Bellman-Gleichung* (Minimierungsform, $beta = 1$) für nicht-terminale Zustände
+($I(x) < n$):
 
 $ V(x) &= min_(a in Gamma(x)) {F(x, a) + V(T(x, a))} \
-      &= min_(a in Gamma(x)) {c_"page" (I(x) - a, I(x)) + kappa(I(x) - a) + V((I(x) - a, P(x) - 1))} $
+      &= min_(a in Gamma(x)) {c_"page" (I(x), I(x) + a) + kappa(I(x)) + V((I(x) + a, P(x) + 1))} $
 
-Leere Aktionsmenge $Gamma(x) = nothing arrow.r.double V(x) = infinity$.
+Leere Aktionsmenge $Gamma(x) = nothing arrow.r.double V(x) = infinity$ (Sackgasse).
 
-*Optimaler Zielwert* (Terminalkosten über die Seitenzahl):
+*Optimaler Zielwert:* der Wert an der Wurzel,
 
-$ Z^* = min_(b_"min" <= m <= b_"max") {V((n, m)) + w_3 dot |m - s|} $
+$ Z^* = V((0, 0)) $
 
 Ist $Z^* = infinity$, ist die Instanz unzulässig. Die zugehörige *Policy-Funktion*
-$a(x)$ — welche letzte Seitengröße in jedem Zustand optimal ist — liefert per
+$a(x)$ — welche nächste Seitengröße in jedem Zustand optimal ist — liefert per
 *Backtracking* den optimalen Cut-Vektor: zu jedem Zustand wird das Argmin gespeichert
-und von $(n, m^*)$ rückwärts abgelaufen.
+und von $(0, 0)$ vorwärts abgelaufen.
 
 == Korrektheit <sec:korrektheit>
 
 Bellmans *Optimalitätsprinzip*: Sei eine optimale Aufteilung für den Zustand
-$x = (i, m)$ gegeben, deren erste Entscheidung die letzte Seite $[i - p, i)$ wählt. Der
-verbleibende Plan muss optimal für den Folgezustand $T(x, p) = (i - p, m - 1)$ sein —
+$x = (i, m)$ gegeben, deren erste Entscheidung die nächste Seite $[i, i + p)$ wählt. Der
+verbleibende Plan muss optimal für den Folgezustand $T(x, p) = (i + p, m + 1)$ sein —
 andernfalls ließe er sich durch einen billigeren ersetzen, ohne Zulässigkeit oder
-Ertrag $F(x, p)$ der letzten Seite zu ändern (keine Kopplung über die Seitengrenze) —
-Widerspruch. Da die Bellman-Gleichung über $Gamma(x)$ alle zulässigen ersten
+Ertrag $F(x, p)$ der angehängten Seite zu ändern (keine Kopplung über die Seitengrenze)
+— Widerspruch. Da die Bellman-Gleichung über $Gamma(x)$ alle zulässigen ersten
 Entscheidungen vollständig enumeriert, gilt Gleichheit.
 
 == Komplexität <sec:komplexitaet>
