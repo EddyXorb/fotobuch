@@ -99,11 +99,11 @@ fn default_weight_even() -> f64 {
 }
 
 fn default_weight_split() -> f64 {
-    1.0
+    10.0
 }
 
 fn default_weight_pages() -> f64 {
-    1.0
+    5.0
 }
 
 fn default_search_timeout() -> Duration {
