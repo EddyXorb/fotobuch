@@ -9,13 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- optional skip of preview cache generation leading to faster unittests
+- optional skip of preview cache generation l(useful for e.g. for faster unittests)
+- photo flashes when clicked on photo pool
 
 ### Changed
 
 - the book layout solver is much faster now, using a dynamic programming approach, which takes only milliseconds on 1000 images
-- **Deprecated** the mip related configs (made them optional)
+- change default `config.page_layout_solver.no_improvement_limit` from 15 to 5
+- **Deprecated** mip related configs (made them optional)
 
+### Fixed
+
+- photo pool can now be made smaller than before and it does not expand according to the longest group name anymore
 
 ## [0.2.1] - 2026-06-08
 
