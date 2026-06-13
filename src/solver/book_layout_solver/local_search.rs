@@ -21,7 +21,7 @@ pub trait PageLayoutEvaluator {
     /// Evaluate the layout quality for a slice of photos.
     ///
     /// Returns the full GA result including layout, fitness, and cost breakdown.
-    fn evaluate(&mut self, photos: &[Photo]) -> GaResult;
+    fn evaluate(&self, photos: &[Photo]) -> GaResult;
 }
 
 /// Improves an initial page assignment using local search.
@@ -36,7 +36,7 @@ pub fn improve(
     photos: &[Photo],
     groups: &GroupInfo,
     params: &BookLayoutSolverConfig,
-    evaluator: &mut impl PageLayoutEvaluator,
+    evaluator: &impl PageLayoutEvaluator,
 ) -> LocalSearchResult {
     improve::improve(assignment, photos, groups, params, evaluator)
 }
@@ -74,7 +74,7 @@ mod tests {
     }
 
     impl PageLayoutEvaluator for MockEvaluator {
-        fn evaluate(&mut self, photos: &[Photo]) -> GaResult {
+        fn evaluate(&self, photos: &[Photo]) -> GaResult {
             make_mock_result(photos, self.ideal_count)
         }
     }

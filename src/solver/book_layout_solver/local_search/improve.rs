@@ -38,7 +38,7 @@ pub fn improve(
     photos: &[Photo],
     groups: &GroupInfo,
     params: &Params,
-    evaluator: &mut impl PageLayoutEvaluator,
+    evaluator: &impl PageLayoutEvaluator,
 ) -> LocalSearchResult {
     let mut cache: PhotoCombinationCache<GaResult> = PhotoCombinationCache::new();
     let deadline = Instant::now() + params.search_timeout;
@@ -139,7 +139,7 @@ fn compute_worst_fitness_across_pages(
     assignment: &PageAssignment,
     photos: &[Photo],
     cache: &mut PhotoCombinationCache<GaResult>,
-    evaluator: &mut impl PageLayoutEvaluator,
+    evaluator: &impl PageLayoutEvaluator,
 ) -> f64 {
     pages_to_check
         .into_iter()
@@ -155,7 +155,7 @@ fn compute_worst_fitness_across_pages(
 ///
 /// Returns the `CostBreakdown` for use by the search algorithm.
 fn evaluate_page(
-    evaluator: &mut impl PageLayoutEvaluator,
+    evaluator: &impl PageLayoutEvaluator,
     cache: &mut PhotoCombinationCache<GaResult>,
     photos: &[Photo],
 ) -> CostBreakdown {
@@ -176,7 +176,7 @@ fn find_candidate_cuts(
     assignment: &PageAssignment,
     photos: &[Photo],
     cache: &mut PhotoCombinationCache<GaResult>,
-    evaluator: &mut impl PageLayoutEvaluator,
+    evaluator: &impl PageLayoutEvaluator,
 ) -> Vec<usize> {
     let num_pages = assignment.num_pages();
 
@@ -216,7 +216,7 @@ mod tests {
     }
 
     impl PageLayoutEvaluator for MockEvaluator {
-        fn evaluate(&mut self, photos: &[Photo]) -> GaResult {
+        fn evaluate(&self, photos: &[Photo]) -> GaResult {
             let count = photos.len();
             let deviation = (count as i32 - self.ideal_count as i32).abs() as f64;
             let total = deviation * 0.2;

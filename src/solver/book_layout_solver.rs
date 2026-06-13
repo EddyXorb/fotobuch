@@ -71,13 +71,38 @@ pub fn solve_book_layout(
     info!("Page cuts: {:?}", initial_assignment.cuts());
 
     // Phase 2: Evaluate pages (with optional local search refinement)
-    let mut evaluator = GAPageEvaluator::new(canvas, ga_config);
+    let evaluator = GAPageEvaluator::new(canvas, ga_config);
 
-    let (final_assignment, layout_cache) = if params.enable_local_search {
+    let (final_assignment, layout_cache) =
+        calc_page_layout(photos, params, groups, initial_assignment, evaluator);
+
+    debug!("Cuts after local search: {:?}", final_assignment.cuts());
+
+    // Phase 3: Build BookLayout from the layout cache
+    let page_layouts: Vec<SolverPageLayout> = (0..final_assignment.num_pages())
+        .filter_map(|page_idx| {
+            let range = final_assignment.page_range(page_idx);
+            layout_cache.get(&photos[range]).map(|r| r.layout.clone())
+        })
+        .collect();
+
+    Ok(BookLayout::new(page_layouts))
+}
+
+fn calc_page_layout(
+    photos: &[Photo],
+    params: &Params,
+    groups: GroupInfo,
+    initial_assignment: model::PageAssignment,
+    evaluator: GAPageEvaluator<'_>,
+) -> (
+    model::PageAssignment,
+    cache::PhotoCombinationCache<GaResult>,
+) {
+    if params.enable_local_search {
         info!("Start local search refinement..");
 
-        let result =
-            local_search::improve(initial_assignment, photos, &groups, params, &mut evaluator);
+        let result = local_search::improve(initial_assignment, photos, &groups, params, &evaluator);
 
         info!(
             "Finished local search after {} iterations, start fitness: {:.3}, end fitness: {:.3}",
@@ -92,19 +117,7 @@ pub fn solve_book_layout(
             cache.insert_if_better(&photos[range], result);
         }
         (initial_assignment, cache)
-    };
-
-    debug!("Cuts after local search: {:?}", final_assignment.cuts());
-
-    // Phase 3: Build BookLayout from the layout cache
-    let page_layouts: Vec<SolverPageLayout> = (0..final_assignment.num_pages())
-        .filter_map(|page_idx| {
-            let range = final_assignment.page_range(page_idx);
-            layout_cache.get(&photos[range]).map(|r| r.layout.clone())
-        })
-        .collect();
-
-    Ok(BookLayout::new(page_layouts))
+    }
 }
 
 /// Evaluator that runs the GA-based page layout solver.
@@ -120,7 +133,7 @@ impl<'a> GAPageEvaluator<'a> {
 }
 
 impl PageLayoutEvaluator for GAPageEvaluator<'_> {
-    fn evaluate(&mut self, photos: &[Photo]) -> GaResult {
+    fn evaluate(&self, photos: &[Photo]) -> GaResult {
         page_layout_solver::run_ga(photos, self.canvas, self.ga_config)
     }
 }
