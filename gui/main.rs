@@ -59,9 +59,14 @@ fn main() -> eframe::Result<()> {
         .map(|o| o.result.is_empty())
         .unwrap_or(true);
 
+    let native_options = eframe::NativeOptions {
+        viewport: egui::ViewportBuilder::default().with_maximized(true),
+        ..Default::default()
+    };
+
     eframe::run_native(
         "fotobuch",
-        eframe::NativeOptions::default(),
+        native_options,
         Box::new(|cc| Ok(Box::new(FotobuchApp::new(cc, vault_path, show_welcome)?))),
     )
 }
