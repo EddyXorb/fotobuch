@@ -6,10 +6,10 @@
 //! - `page_layout_solver`: Single-page layout optimization (tree, fitness)
 //! - `book_layout_solver`: Multi-page book layout optimization
 
+pub(crate) mod bellman_solver;
 pub(crate) mod book_layout_solver;
 pub mod cover_solver;
 mod data_models;
-pub(crate) mod dp_solver;
 pub(crate) mod ga_solver;
 pub(crate) mod page_layout_solver;
 pub(crate) mod prelude;

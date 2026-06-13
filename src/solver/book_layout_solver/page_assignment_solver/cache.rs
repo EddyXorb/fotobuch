@@ -1,6 +1,6 @@
 //! Dense grid cache for the page-assignment dynamic program.
 
-use crate::solver::dp_solver::{BellmanCache, StateValue};
+use crate::solver::bellman_solver::{BellmanCache, StateValue};
 
 use super::problem::State;
 
