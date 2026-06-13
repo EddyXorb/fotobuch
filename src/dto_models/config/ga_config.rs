@@ -97,7 +97,7 @@ fn default_elite_count() -> usize {
 }
 
 fn default_no_improvement_limit() -> Option<usize> {
-    Some(15)
+    Some(5)
 }
 
 fn default_enforce_order() -> bool {
