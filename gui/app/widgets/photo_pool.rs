@@ -7,7 +7,7 @@ use crate::state::{ActiveDrag, DataState, DragSource, InteractionState};
 pub fn draw(ui: &mut egui::Ui, data: &DataState, interaction: &mut InteractionState) {
     egui::Panel::left("photo_pool")
         .resizable(true)
-        .min_size(220.0)
+        .min_size(120.0)
         .default_size(260.0)
         .show_inside(ui, |ui| show(ui, data, interaction));
 }
