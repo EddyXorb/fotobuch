@@ -114,7 +114,7 @@ fn draw_slot_flash(
     };
 
     const ACCENT: egui::Color32 = egui::Color32::from_rgb(0xe0, 0x88, 0x40);
-    let fill_alpha = (intensity * 110.0) as u8;
+    let fill_alpha = (intensity * 210.0) as u8;
     let stroke_alpha = (intensity * 255.0) as u8;
     let painter = ui.painter();
     painter.rect_filled(

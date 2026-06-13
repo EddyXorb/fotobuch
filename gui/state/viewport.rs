@@ -19,7 +19,7 @@ pub struct SlotFlash {
 }
 
 /// Total duration of the slot flash effect in seconds.
-pub const FLASH_DURATION: f64 = 0.9;
+pub const FLASH_DURATION: f64 = 1.8;
 
 /// Flash overlay intensity in `0.0..=1.0` for `elapsed` seconds since the flash
 /// started, or `None` once the effect has finished. Pulses while fading out.
@@ -28,7 +28,7 @@ pub fn flash_intensity(elapsed: f64, duration: f64) -> Option<f32> {
         return None;
     }
     let fade = 1.0 - (elapsed / duration) as f32;
-    let pulse = 0.5 + 0.5 * (elapsed * 18.0).sin() as f32;
+    let pulse = 0.5 + 0.5 * (elapsed * 9.0).sin() as f32;
     Some(fade * pulse)
 }
 
