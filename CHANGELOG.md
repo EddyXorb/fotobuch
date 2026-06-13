@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - optional skip of preview cache generation l(useful for e.g. for faster unittests)
 - photo flashes when clicked on photo pool
+- build also for macOS
 
 ### Changed
 

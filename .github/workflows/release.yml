@@ -22,6 +22,11 @@ jobs:
             target: x86_64-pc-windows-msvc
             artifact: fotobuch-windows-x86_64
             binary: fotobuch.exe
+          - name: macOS arm64
+            os: macos-latest
+            target: aarch64-apple-darwin
+            artifact: fotobuch-macos-arm64
+            binary: fotobuch
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
@@ -56,6 +61,14 @@ jobs:
           cp target/${{ matrix.target }}/dist/fotobuch-gui fotobuch-gui
           tar -czf ${{ matrix.artifact }}.tar.gz fotobuch fotobuch-gui
           sha256sum ${{ matrix.artifact }}.tar.gz > ${{ matrix.artifact }}.tar.gz.sha256
+
+      - name: Package (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          cp target/${{ matrix.target }}/dist/fotobuch fotobuch
+          cp target/${{ matrix.target }}/dist/fotobuch-gui fotobuch-gui
+          tar -czf ${{ matrix.artifact }}.tar.gz fotobuch fotobuch-gui
+          shasum -a 256 ${{ matrix.artifact }}.tar.gz > ${{ matrix.artifact }}.tar.gz.sha256
 
       - name: Package (Windows)
         if: runner.os == 'Windows'
