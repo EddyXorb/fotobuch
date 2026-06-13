@@ -1,9 +1,12 @@
 use std::path::Path;
 
 use crate::state::{
-    ActiveDrag, DataState, DragSource, HoveredTarget, InteractionState, PhotoSelection,
+    ActiveDrag, DataState, DragSource, HoveredTarget, InteractionState, PhotoSelection, SlotFlash,
     SlotSelection,
 };
+
+const THUMB_SIZE: f32 = 24.0;
+const BADGE_SIZE: f32 = 16.0;
 
 pub(super) fn draw_row(
     ui: &mut egui::Ui,
@@ -23,7 +26,15 @@ pub(super) fn draw_row(
     let row_response = ui.push_id(egui::Id::new(("pool_row", id)), |ui| {
         let inner = ui.horizontal(|ui| {
             draw_thumb_cell(ui, data, id);
-            draw_filename_label(ui, source, id);
+            // Reserve room for the trailing badge so the truncating filename does
+            // not push it past the panel edge, which would force the panel wider.
+            let reserve = BADGE_SIZE + ui.spacing().item_spacing.x;
+            let label_w = (ui.available_width() - reserve).max(0.0);
+            ui.allocate_ui_with_layout(
+                egui::vec2(label_w, THUMB_SIZE),
+                egui::Layout::left_to_right(egui::Align::Center),
+                |ui| draw_filename_label(ui, source, id),
+            );
             let badge_start_x = ui.cursor().min.x;
             badge_hovered = draw_placement_badge(ui, data, id);
             badge_start_x
@@ -57,7 +68,7 @@ pub(super) fn draw_row(
 }
 
 fn draw_thumb_cell(ui: &mut egui::Ui, data: &DataState, id: &str) {
-    let thumb_size = egui::vec2(24.0, 24.0);
+    let thumb_size = egui::vec2(THUMB_SIZE, THUMB_SIZE);
     let (thumb_rect, _) = ui.allocate_exact_size(thumb_size, egui::Sense::hover());
     if let Some(tex) = data.thumbs.get(id) {
         ui.painter().image(
@@ -88,7 +99,7 @@ fn draw_placement_badge(ui: &mut egui::Ui, data: &DataState, id: &str) -> bool {
         _ => egui::Color32::from_rgb(220, 40, 40),
     };
     let (badge_rect, badge_resp) =
-        ui.allocate_exact_size(egui::vec2(16.0, 16.0), egui::Sense::hover());
+        ui.allocate_exact_size(egui::vec2(BADGE_SIZE, BADGE_SIZE), egui::Sense::hover());
     ui.painter()
         .circle_filled(badge_rect.center(), 4.0, badge_color);
 
@@ -170,6 +181,11 @@ fn handle_selection_click(
             let (page, slot) = locs[0];
             interaction.viewport.scroll_to_page = Some(page);
             interaction.selections.slots = SlotSelection::single(page, slot);
+            interaction.viewport.flash = Some(SlotFlash {
+                page,
+                slot,
+                start: ui.ctx().input(|i| i.time),
+            });
         }
     }
 }

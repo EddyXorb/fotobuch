@@ -31,7 +31,7 @@ pub use selection::SlotSelection;
 pub use selections::Selections;
 pub use timings::Timings;
 pub use toasts::ToastQueue;
-pub use viewport::Viewport;
+pub use viewport::{FLASH_DURATION, SlotFlash, Viewport, flash_intensity};
 pub use weight_slider::WeightSlider;
 
 use std::collections::HashMap;

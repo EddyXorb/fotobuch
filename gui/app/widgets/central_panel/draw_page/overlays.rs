@@ -87,7 +87,51 @@ pub(super) fn draw_slot_overlays(
                 egui::StrokeKind::Middle,
             );
         }
+
+        draw_slot_flash(ui, interaction, page_idx, slot_idx, slot_rect);
     }
+}
+
+/// Brief pulsing highlight on the slot a clicked pool photo was scrolled to.
+fn draw_slot_flash(
+    ui: &egui::Ui,
+    interaction: &InteractionState,
+    page_idx: usize,
+    slot_idx: usize,
+    slot_rect: egui::Rect,
+) {
+    use crate::state::{FLASH_DURATION, flash_intensity};
+
+    let Some(flash) = &interaction.viewport.flash else {
+        return;
+    };
+    if flash.page != page_idx || flash.slot != slot_idx {
+        return;
+    }
+    let elapsed = ui.ctx().input(|i| i.time) - flash.start;
+    let Some(intensity) = flash_intensity(elapsed, FLASH_DURATION) else {
+        return;
+    };
+
+    const ACCENT: egui::Color32 = egui::Color32::from_rgb(0xe0, 0x88, 0x40);
+    let fill_alpha = (intensity * 210.0) as u8;
+    let stroke_alpha = (intensity * 255.0) as u8;
+    let painter = ui.painter();
+    painter.rect_filled(
+        slot_rect,
+        0.0,
+        egui::Color32::from_rgba_unmultiplied(ACCENT.r(), ACCENT.g(), ACCENT.b(), fill_alpha),
+    );
+    painter.rect_stroke(
+        slot_rect,
+        0.0,
+        egui::Stroke::new(
+            3.0,
+            egui::Color32::from_rgba_unmultiplied(ACCENT.r(), ACCENT.g(), ACCENT.b(), stroke_alpha),
+        ),
+        egui::StrokeKind::Middle,
+    );
+    ui.ctx().request_repaint();
 }
 
 pub(super) fn draw_page_move_highlight(
