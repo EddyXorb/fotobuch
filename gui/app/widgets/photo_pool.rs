@@ -8,7 +8,6 @@ pub fn draw(ui: &mut egui::Ui, data: &DataState, interaction: &mut InteractionSt
     egui::Panel::left("photo_pool")
         .resizable(true)
         .min_size(220.0)
-        .max_size(400.0)
         .default_size(260.0)
         .show_inside(ui, |ui| show(ui, data, interaction));
 }
@@ -91,13 +90,23 @@ fn show(ui: &mut egui::Ui, data: &DataState, interaction: &mut InteractionState)
         })
         .show(ui, |ui| {
             for (group_name, files) in &groups {
-                egui::CollapsingHeader::new(group_name)
-                    .default_open(true)
-                    .show(ui, |ui| {
-                        for (id, source) in files {
-                            row::draw_row(ui, data, interaction, id, source, &order);
-                        }
-                    });
+                let group_id = ui.make_persistent_id(("pool_group", group_name));
+                egui::collapsing_header::CollapsingState::load_with_default_open(
+                    ui.ctx(),
+                    group_id,
+                    true,
+                )
+                .show_header(ui, |ui| {
+                    // Truncate the group name to the available width so a long name
+                    // shows "…" instead of widening the panel. Full name on hover.
+                    ui.add(egui::Label::new(group_name).truncate())
+                        .on_hover_text(group_name);
+                })
+                .body(|ui| {
+                    for (id, source) in files {
+                        row::draw_row(ui, data, interaction, id, source, &order);
+                    }
+                });
             }
         });
 
