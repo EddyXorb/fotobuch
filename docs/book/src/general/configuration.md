@@ -139,7 +139,7 @@ You can tweak the following parameters to control the solvers behavior in detail
 | `weight_split`               | `10.0`  | Objective weight penalising group splits. Higher = groups are less likely to be split across pages.                                                                                           |
 | `weight_pages`               | `5.0`   | Objective weight penalising deviation from `page_target`. Higher = result stays closer to the target.                                                                                         |
 | **`search_timeout`**         | `30s`   | **Time budget for the local search.** The DP assignment phase is exact and runs in milliseconds; this budget bounds only the refinement. YAML format: `{secs: 60, nanos: 0}`.                 |
-| `enable_local_search`        | `true`  | Whether to run the local search after the DP. The local search shifts page boundaries to improve per-page layout quality, but ignores group cohesion. Disable if group cohesion is critical. |
+| `enable_local_search`        | `false` | Whether to run the local search after the DP. The local search shifts page boundaries to improve per-page layout quality, but ignores group cohesion. Enable to trade group cohesion for tighter per-page layouts. |
 | `max_coverage_cost`          | `0.95`  | **(Currently unused — will be removed in a future version.)** Was intended as a threshold for the local search to identify "bad" pages, but is not read by the solver.                        |
 
 > **Deprecated (optional, ignored):** `mip_rel_gap`, `max_photos_for_split` and

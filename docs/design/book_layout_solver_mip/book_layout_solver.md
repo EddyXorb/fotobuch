@@ -1,9 +1,8 @@
 # Book Layout Solver
 
 > **Hinweis:** Die hier beschriebene MIP-Formulierung ist durch den exakten
-> DP-Solver in [`book_layout_solver_dp/`](../book_layout_solver_dp/) abgelöst.
-> Dieses Dokument bleibt als Referenz erhalten, da die Äquivalenz-Argumentation
-> in `book_layout_solver_dp/dp.typ` darauf verweist.
+> DP-Solver in [`book_layout_solver_dp/`](../book_layout_solver_dp/) abgelöst und
+> bleibt nur als Referenz erhalten.
 
 Verteilt eine sortierte Bildsequenz (gruppiert, chronologisch) auf Buchseiten. Zwei Phasen:
 

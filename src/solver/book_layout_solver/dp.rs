@@ -4,11 +4,32 @@
 //! `docs/design/book_layout_solver_dp/dp.typ`. Same feasible set, same objective,
 //! but exact, deterministic and polynomial in time.
 //!
-//! State `(i, m)` = "first `i` photos distributed over exactly `m` pages"; the
-//! Bellman recursion appends one page at a time. All indices are 0-based.
+//! The problem is expressed in Bellman notation and handed to the generic
+//! [`BellmanSolver`]:
+//! - **State** `(i, m)` — the first `i` photos placed on `m` pages.
+//! - **Decision** `p` — the size of the next page appended at the end.
+//! - **Transition** `(i, m) -> (i + p, m + 1)`.
+//! - **Cost** `c_page(i, i + p) + κ(i)` — page evenness plus the split penalty of
+//!   the cut at position `i`.
+//! - **Terminal cost** — `w3·|m - s|` once all photos are placed (`i == n`) on a
+//!   valid page count, otherwise infinity.
+//!
+//! **Orientation vs. `dp.typ`.** The derivation builds pages *backwards*: it
+//! starts at `(n, m)` and peels the last page, `(i, m) -> (i - p, m - 1)`, down
+//! to the terminal `(0, 0)`. Here the recursion runs *forwards* from a single
+//! root `(0, 0)` and appends pages until `(n, m)`. Both traverse the very same
+//! DAG (nodes `(i, m)`, edges = "one page") in opposite directions and yield the
+//! identical optimum. The forward orientation is chosen because the generic
+//! solver computes `V(x_0)` from one root `x_0`: `(0, 0)` is that natural root,
+//! and the page-count term `w3·|m - s|` then falls out exactly as the terminal
+//! cost at `(n, m)` — which is how `dp.typ` already describes it. The backward
+//! form would instead need a virtual super-root choosing `m` over all `(n, m)`.
+//!
+//! All indices are 0-based.
 
 use super::model::{GroupInfo, PageAssignment};
 use crate::dto_models::BookLayoutSolverConfig as Params;
+use crate::solver::dp_solver::{BellmanCache, BellmanSolver, StateValue};
 use thiserror::Error;
 
 /// Error type for the DP solver.
@@ -18,16 +39,85 @@ pub enum DpError {
     Infeasible,
 }
 
+/// DP state: `(photos placed, pages used)`.
+type State = (usize, usize);
+
+/// Flat `Vec` cache for the dense `(i, m)` state grid (`i ∈ [0, n]`,
+/// `m ∈ [0, page_max]`). The state indexes directly into the vector, so lookups
+/// avoid hashing entirely.
+struct GridCache {
+    stride: usize,
+    slots: Vec<Option<StateValue<usize>>>,
+}
+
+impl GridCache {
+    fn new(n: usize, page_max: usize) -> Self {
+        let stride = n + 1;
+        Self {
+            stride,
+            slots: vec![None; stride * (page_max + 1)],
+        }
+    }
+
+    fn index(&self, (i, m): State) -> usize {
+        m * self.stride + i
+    }
+}
+
+impl BellmanCache<State, usize> for GridCache {
+    fn get(&self, state: &State) -> Option<&StateValue<usize>> {
+        self.slots[self.index(*state)].as_ref()
+    }
+
+    fn insert(&mut self, state: State, value: StateValue<usize>) {
+        let idx = self.index(state);
+        self.slots[idx] = Some(value);
+    }
+}
+
 /// Solves the page assignment problem exactly via dynamic programming.
 ///
 /// Returns the optimal [`PageAssignment`] (minimal objective value) or
 /// [`DpError::Infeasible`] if no assignment satisfies the constraints.
 pub fn solve_dp(groups: &GroupInfo, params: &Params) -> Result<PageAssignment, DpError> {
-    DpSolver::new(groups, params).solve()
+    let ctx = PageProblem::new(groups, params);
+    let cache = GridCache::new(ctx.n, params.page_max);
+
+    // Bellman model components (named for readability), see the module docs.
+    let initial_state: State = (0, 0);
+    let transition = |x: &State, page_size: &usize| (x.0 + page_size, x.1 + 1);
+    let cost = |x: &State, page_size: &usize| ctx.page_cost(x.0, x.0 + page_size) + ctx.kappa(x.0);
+    let actions = |x: &State| ctx.actions(x.0, x.1);
+    let terminal_cost = |x: &State| ctx.terminal_cost(x.0, x.1);
+
+    let mut solver = BellmanSolver::with_cache(
+        initial_state,
+        transition,
+        cost,
+        actions,
+        terminal_cost,
+        cache,
+    );
+
+    let result = solver.solve();
+    if !result.objective.is_finite() {
+        return Err(DpError::Infeasible);
+    }
+
+    // Decisions are page sizes front to back; accumulate them into cut points.
+    let mut cuts = Vec::with_capacity(result.decisions.len() + 1);
+    cuts.push(0);
+    let mut acc = 0;
+    for size in &result.decisions {
+        acc += size;
+        cuts.push(acc);
+    }
+    Ok(PageAssignment::new(cuts))
 }
 
-/// Precomputed instance data plus parameters for O(1) per-page feasibility/cost.
-struct DpSolver<'a> {
+/// Precomputed instance data exposing the Bellman model (actions, cost, terminal
+/// cost) for the page-assignment problem in O(1) per call.
+struct PageProblem<'a> {
     params: &'a Params,
     groups: &'a GroupInfo,
     n: usize,
@@ -40,7 +130,7 @@ struct DpSolver<'a> {
     n_bar: f64,
 }
 
-impl<'a> DpSolver<'a> {
+impl<'a> PageProblem<'a> {
     fn new(groups: &'a GroupInfo, params: &'a Params) -> Self {
         let n = groups.total_photos();
         let num_groups = groups.num_groups();
@@ -70,13 +160,36 @@ impl<'a> DpSolver<'a> {
         }
     }
 
-    /// Feasibility of a page covering photos `[a, b)` (F(a, b) in dp.typ).
+    /// Action set Γ(x): feasible sizes for the page appended at photo index `i`.
+    /// Empty for a terminal or dead-end state.
+    fn actions(&self, i: usize, m: usize) -> Vec<usize> {
+        if i >= self.n || m >= self.params.page_max {
+            return Vec::new();
+        }
+        let p_min = self.params.photos_per_page_min;
+        let p_max = self.params.photos_per_page_max.min(self.n - i);
+        (p_min..=p_max)
+            .filter(|&p| self.interval_feasible(i, i + p))
+            .collect()
+    }
+
+    /// Terminal cost: page-count deviation once all photos are placed on a valid
+    /// page count, otherwise infinity (dead-end).
+    fn terminal_cost(&self, i: usize, m: usize) -> f64 {
+        if i == self.n && (self.params.page_min..=self.params.page_max).contains(&m) {
+            self.params.weight_pages * (m as f64 - self.params.page_target as f64).abs()
+        } else {
+            f64::INFINITY
+        }
+    }
+
+    /// Feasibility of a page covering photos `[u, v)` (φ(u, v) in dp.typ).
     ///
-    /// The page-size bound `[p_min, p_max]` is already guaranteed by the caller's
-    /// loop ranges, so only the group constraints are checked here.
-    fn interval_feasible(&self, a: usize, b: usize) -> bool {
-        let first = self.photo_group[a];
-        let last = self.photo_group[b - 1];
+    /// The page-size bound `[p_min, p_max]` is already guaranteed by `actions`,
+    /// so only the group constraints are checked here.
+    fn interval_feasible(&self, u: usize, v: usize) -> bool {
+        let first = self.photo_group[u];
+        let last = self.photo_group[v - 1];
 
         // Max distinct groups per page (groups are contiguous).
         if last - first + 1 > self.params.group_max_per_page {
@@ -84,18 +197,18 @@ impl<'a> DpSolver<'a> {
         }
 
         // Splitting rule: only the boundary groups can be partial.
-        if !self.split_ok(a, b, first) {
+        if !self.split_ok(u, v, first) {
             return false;
         }
-        if last != first && !self.split_ok(a, b, last) {
+        if last != first && !self.split_ok(u, v, last) {
             return false;
         }
         true
     }
 
-    /// Checks the splitting rule for group `l` on page `[a, b)`.
-    fn split_ok(&self, a: usize, b: usize, l: usize) -> bool {
-        let fragment = b.min(self.group_end[l]) - a.max(self.group_start[l]);
+    /// Checks the splitting rule for group `l` on page `[u, v)`.
+    fn split_ok(&self, u: usize, v: usize, l: usize) -> bool {
+        let fragment = v.min(self.group_end[l]) - u.max(self.group_start[l]);
         let size = self.groups.group_size(l);
         if fragment < size {
             // Group is split here: must be splittable and the fragment big enough.
@@ -105,9 +218,9 @@ impl<'a> DpSolver<'a> {
         }
     }
 
-    /// Even-distribution cost of a page covering `[a, b)`.
-    fn page_cost(&self, a: usize, b: usize) -> f64 {
-        self.params.weight_even * (((b - a) as f64) - self.n_bar).abs()
+    /// Even-distribution cost of a page covering `[u, v)`.
+    fn page_cost(&self, u: usize, v: usize) -> f64 {
+        self.params.weight_even * (((v - u) as f64) - self.n_bar).abs()
     }
 
     /// Split cost charged for the cut at position `c` (κ in dp.typ): `weight_split`
@@ -118,72 +231,6 @@ impl<'a> DpSolver<'a> {
         } else {
             0.0
         }
-    }
-
-    fn solve(&self) -> Result<PageAssignment, DpError> {
-        let n = self.n;
-        let p_min = self.params.photos_per_page_min;
-        let p_max = self.params.photos_per_page_max;
-        let page_max = self.params.page_max;
-        let stride = n + 1;
-        let idx = |m: usize, i: usize| m * stride + i;
-
-        // dp[idx(m, i)] = min cost (page + split) to place [0, i) on exactly m pages.
-        let mut dp = vec![f64::INFINITY; (page_max + 1) * stride];
-        // parent[idx(m, i)] = chosen size of the last page.
-        let mut parent = vec![u32::MAX; (page_max + 1) * stride];
-        dp[idx(0, 0)] = 0.0;
-
-        for m in 1..=page_max {
-            // Pruning: state (m, i) is only reachable for m*p_min <= i <= m*p_max.
-            let lo = (m * p_min).max(1);
-            let hi = (m * p_max).min(n);
-            for i in lo..=hi {
-                for size in p_min..=p_max.min(i) {
-                    let a = i - size;
-                    let prev = dp[idx(m - 1, a)];
-                    if prev.is_finite() && self.interval_feasible(a, i) {
-                        let cand = prev + self.kappa(a) + self.page_cost(a, i);
-                        // Strict <: smallest page size wins ties (deterministic).
-                        if cand < dp[idx(m, i)] {
-                            dp[idx(m, i)] = cand;
-                            parent[idx(m, i)] = size as u32;
-                        }
-                    }
-                }
-            }
-        }
-
-        // Pick the page count minimising total cost incl. page-count deviation.
-        // Strict <: smallest m wins ties (deterministic).
-        let mut best_m = None;
-        let mut best_cost = f64::INFINITY;
-        for m in self.params.page_min..=page_max {
-            let value = dp[idx(m, n)];
-            if value.is_finite() {
-                let total = value
-                    + self.params.weight_pages * (m as f64 - self.params.page_target as f64).abs();
-                if total < best_cost {
-                    best_cost = total;
-                    best_m = Some(m);
-                }
-            }
-        }
-        let best_m = best_m.ok_or(DpError::Infeasible)?;
-
-        // Backtrack the cut vector via the stored page sizes.
-        let mut cuts = Vec::with_capacity(best_m + 1);
-        let mut i = n;
-        let mut m = best_m;
-        while m > 0 {
-            cuts.push(i);
-            i -= parent[idx(m, i)] as usize;
-            m -= 1;
-        }
-        cuts.push(0);
-        cuts.reverse();
-
-        Ok(PageAssignment::new(cuts))
     }
 }
 
@@ -609,6 +656,8 @@ mod tests {
     #[test]
     fn test_performance_large_instance() {
         // 1000 photos in 30 groups, up to 100 pages: must solve well under 1 s.
+        // The flat GridCache (no hashing) keeps even the debug build comfortably
+        // below the bound; optimized builds solve it in ~15 ms.
         let group_sizes: Vec<usize> = (0..30).map(|i| if i < 10 { 34 } else { 33 }).collect();
         let groups = GroupInfo::new(&group_sizes);
         assert_eq!(groups.total_photos(), 1000);
