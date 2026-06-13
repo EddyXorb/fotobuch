@@ -62,6 +62,7 @@ pub fn rebuild(
     project_root: &Path,
     scope: RebuildScope,
     skip_pdf: bool,
+    skip_cache_update: bool,
 ) -> Result<CommandOutput<BuildResult>> {
     let mgr = StateManager::open(project_root)?;
 
@@ -71,11 +72,19 @@ pub fn rebuild(
     let skip_pdf = skip_pdf || !mgr.state.config.preview.write_pdf;
 
     match scope {
-        RebuildScope::SinglePage(idx) => rebuild_single(mgr, project_root, idx, skip_pdf),
-        RebuildScope::Range { start, end, flex } => {
-            rebuild_range(mgr, project_root, start, end, flex, skip_pdf)
+        RebuildScope::SinglePage(idx) => {
+            rebuild_single(mgr, project_root, idx, skip_pdf, skip_cache_update)
         }
-        RebuildScope::All => rebuild_all(mgr, project_root, skip_pdf),
+        RebuildScope::Range { start, end, flex } => rebuild_range(
+            mgr,
+            project_root,
+            start,
+            end,
+            flex,
+            skip_pdf,
+            skip_cache_update,
+        ),
+        RebuildScope::All => rebuild_all(mgr, project_root, skip_pdf, skip_cache_update),
     }
 }
 
@@ -119,6 +128,7 @@ fn rebuild_single(
     project_root: &Path,
     idx: usize,
     skip_pdf: bool,
+    skip_cache_update: bool,
 ) -> Result<CommandOutput<BuildResult>> {
     // 1. Check if page is manual - can't rebuild manual pages
     if mgr.state.layout[idx].mode == crate::dto_models::PageMode::Manual {
@@ -130,7 +140,7 @@ fn rebuild_single(
     }
 
     // 2. Preview-Cache
-    if !skip_pdf {
+    if !skip_cache_update {
         let preview_cache_dir = mgr.preview_cache_dir();
         preview::ensure_previews(&mut mgr.state, &preview_cache_dir)?;
     }
@@ -193,6 +203,7 @@ fn rebuild_range(
     end: usize,
     flex: usize,
     skip_pdf: bool,
+    skip_cache_update: bool,
 ) -> Result<CommandOutput<BuildResult>> {
     let effective_start = skip_cover_if_needed(mgr.state.has_cover(), start, end)?;
 
@@ -217,6 +228,7 @@ fn rebuild_range(
             images_processed: 0,
             always_commit: true,
             skip_pdf,
+            skip_cache_update,
         },
     )
 }
@@ -227,6 +239,7 @@ fn rebuild_all(
     mgr: StateManager,
     project_root: &Path,
     skip_pdf: bool,
+    skip_cache_update: bool,
 ) -> Result<CommandOutput<BuildResult>> {
     let layout_len = mgr.state.layout.len();
 
@@ -259,6 +272,7 @@ fn rebuild_all(
             images_processed: 0,
             always_commit: true,
             skip_pdf,
+            skip_cache_update,
         },
     )
 }

@@ -66,6 +66,7 @@ fn create_test_project_with_layout(temp_dir: &TempDir) -> Result<PathBuf> {
         force: false,
         pages: None,
         skip_pdf: true,
+        skip_cache_update: true,
     };
     build(&project_root, &build_config)?;
 

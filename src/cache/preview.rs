@@ -19,6 +19,16 @@ pub struct PreviewCacheResult {
     pub total: usize,
 }
 
+impl Default for PreviewCacheResult {
+    fn default() -> Self {
+        Self {
+            created: 0,
+            skipped: 0,
+            total: 0,
+        }
+    }
+}
+
 /// Ensures all preview images are present and up-to-date.
 /// Generates missing or stale previews in parallel using rayon.
 /// Updates each photos metadata if the source image is newer than the cached preview.

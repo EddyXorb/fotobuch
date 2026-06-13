@@ -14,11 +14,16 @@ pub fn incremental_build(
     project_root: &Path,
     page_filter: Option<&[usize]>,
     skip_pdf: bool,
+    skip_cache_update: bool,
 ) -> Result<CommandOutput<BuildResult>> {
     info!("Incremental build: checking for changes...");
 
     // 1. Generate/update preview cache
-    let cache_result = update_preview_cache(&mut mgr)?;
+    let cache_result = if skip_cache_update {
+        Default::default()
+    } else {
+        update_preview_cache(&mut mgr)?
+    };
 
     // 2. Detect which pages need rebuilding
     let page_indices_needing_rebuild = mgr.outdated_pages_indices();

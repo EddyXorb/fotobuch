@@ -20,6 +20,7 @@ pub fn build_after_command(
         force: false,
         pages: None,
         skip_pdf: false,
+        skip_cache_update: false,
     };
     match build(rctx.project_root, &build_cfg) {
         Err(e) => {

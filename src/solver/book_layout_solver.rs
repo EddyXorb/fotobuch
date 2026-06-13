@@ -68,44 +68,52 @@ pub fn solve_book_layout(
     let initial_assignment = page_solver.solve(&groups, photos)?;
     info!("Page cuts: {:?}", initial_assignment.cuts());
 
-    // Phase 2: Optional local-search refinement. Both branches yield the final
-    // assignment together with its per-page layouts; the local-search branch
-    // reuses the layouts it already computed during the search.
+    // Phase 2: Compute the page layout for the initial assignment exactly once.
+    // Both branches below need it: without local search it is the final result,
+    // with local search it seeds the search so the initial pages are not redone.
     let evaluator = GAPageEvaluator::new(canvas, ga_config);
-    let (final_assignment, page_layouts) = if params.enable_local_search {
-        info!("Start local search refinement..");
+    let initial_layouts = evaluate_pages(&initial_assignment, photos, &evaluator);
 
-        let result = local_search::improve(initial_assignment, photos, &groups, params, &evaluator);
+    if !params.enable_local_search {
+        let page_layouts = initial_layouts.into_iter().map(|r| r.layout).collect();
+        return Ok(BookLayout::new(page_layouts));
+    }
 
-        info!(
-            "Finished local search after {} iterations, start fitness: {:.3}, end fitness: {:.3}",
-            result.iterations, result.start_fitness, result.end_fitness
-        );
-        (result.assignment, result.layouts)
-    } else {
-        let layouts = calculate_page_layouts(&initial_assignment, photos, &evaluator);
-        (initial_assignment, layouts)
-    };
+    // Phase 3: Optional local-search refinement. Both branches yield the final
+    // assignment together with its per-page layouts.
 
-    debug!("Cuts after page layout: {:?}", final_assignment.cuts());
+    info!("Start local search refinement..");
 
-    // Phase 3: Build the book from the per-page layouts.
-    Ok(BookLayout::new(page_layouts))
+    let result = local_search::improve(
+        initial_assignment,
+        initial_layouts,
+        photos,
+        &groups,
+        params,
+        &evaluator,
+    );
+
+    info!(
+        "Finished local search after {} iterations, start fitness: {:.3}, end fitness: {:.3}",
+        result.iterations, result.start_fitness, result.end_fitness
+    );
+
+    debug!("Cuts after local search: {:?}", result.assignment.cuts());
+
+    Ok(BookLayout::new(result.layouts))
 }
 
-/// Computes the layout for each page of an assignment exactly once.
-///
-/// Used when local search is disabled; the local-search branch instead returns
-/// the layouts it already produced during the search.
-fn calculate_page_layouts(
+/// Evaluates the page layout for each page of an assignment exactly once,
+/// returning the full [`GaResult`] per page in page order.
+fn evaluate_pages(
     assignment: &model::PageAssignment,
     photos: &[Photo],
     evaluator: &impl PageLayoutEvaluator,
-) -> Vec<SolverPageLayout> {
+) -> Vec<GaResult> {
     (0..assignment.num_pages())
         .map(|page_idx| {
             let range = assignment.page_range(page_idx);
-            evaluator.evaluate(&photos[range]).layout
+            evaluator.evaluate(&photos[range])
         })
         .collect()
 }

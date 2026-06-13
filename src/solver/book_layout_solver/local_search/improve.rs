@@ -29,21 +29,27 @@ pub struct LocalSearchResult {
 
 /// Improves a page assignment using variable neighborhood search.
 ///
+/// `initial_layouts` holds the already-computed [`GaResult`] for each page of the
+/// starting `assignment` (page order). They seed the layout cache, so the search
+/// starts from precomputed layouts and never re-evaluates the initial pages.
+///
 /// Algorithm:
-/// 1. Evaluate all pages, populate layout cache
+/// 1. Seed the layout cache with the precomputed initial layouts
 /// 2. Loop until timeout or convergence:
 ///    a. Identify all candidate cuts, sorted by worst adjacent-page total cost
 ///    b. For each candidate, try perturbations with increasing |delta|
 ///    c. Accept first improving move and restart
-/// 3. Return best assignment, its layout cache, worst total cost, and iteration count
+/// 3. Return best assignment, its per-page layouts, worst total cost, and iteration count
 pub fn improve(
     mut assignment: PageAssignment,
+    initial_layouts: Vec<GaResult>,
     photos: &[Photo],
     groups: &GroupInfo,
     params: &Params,
     evaluator: &impl PageLayoutEvaluator,
 ) -> LocalSearchResult {
     let mut cache: PhotoCombinationCache<GaResult> = PhotoCombinationCache::new();
+    seed_cache(&mut cache, &assignment, photos, initial_layouts);
     let deadline = Instant::now() + params.search_timeout;
     let max_delta = max_perturbation_delta(params);
     let mut iterations = 0;
@@ -135,6 +141,22 @@ pub fn improve(
         start_fitness: initial_worst_over_all,
         end_fitness: final_worst_over_all,
         iterations,
+    }
+}
+
+/// Seeds the layout cache with the precomputed layouts of the initial pages.
+///
+/// `layouts[page_idx]` is the [`GaResult`] for page `page_idx` of `assignment`,
+/// so the search reuses these instead of re-running the page layout solver.
+fn seed_cache(
+    cache: &mut PhotoCombinationCache<GaResult>,
+    assignment: &PageAssignment,
+    photos: &[Photo],
+    layouts: Vec<GaResult>,
+) {
+    for (page_idx, result) in layouts.into_iter().enumerate() {
+        let range = assignment.page_range(page_idx);
+        cache.insert_if_better(&photos[range], result);
     }
 }
 
@@ -299,6 +321,18 @@ mod tests {
         GroupInfo::new(&[12])
     }
 
+    /// Precomputes the per-page `GaResult` for an assignment, as the caller does
+    /// before handing the assignment to `improve`.
+    fn eval_pages(
+        assignment: &PageAssignment,
+        photos: &[Photo],
+        evaluator: &impl PageLayoutEvaluator,
+    ) -> Vec<GaResult> {
+        (0..assignment.num_pages())
+            .map(|page_idx| evaluator.evaluate(&photos[assignment.page_range(page_idx)]))
+            .collect()
+    }
+
     #[test]
     fn test_improve_attempts_to_balance_pages() {
         let photos = create_test_photos(12);
@@ -310,8 +344,16 @@ mod tests {
         // Initial: [0, 4, 8, 12] → 3 pages of 4 photos each (deviation=2 from ideal 6)
         // Due to min-page-size=4, most perturbations are infeasible, so assignment may stay.
         let initial = PageAssignment::new(vec![0, 4, 8, 12]);
+        let layouts = eval_pages(&initial, &photos, &evaluator);
 
-        let result = improve(initial.clone(), &photos, &groups, &params, &mut evaluator);
+        let result = improve(
+            initial.clone(),
+            layouts,
+            &photos,
+            &groups,
+            &params,
+            &mut evaluator,
+        );
 
         assert!(result.iterations > 0, "Expected at least one iteration");
 
@@ -331,9 +373,10 @@ mod tests {
         let mut evaluator = MockEvaluator { ideal_count: 6 };
 
         let initial = PageAssignment::new(vec![0, 4, 8, 12]);
+        let layouts = eval_pages(&initial, &photos, &evaluator);
 
         let start = Instant::now();
-        let _ = improve(initial, &photos, &groups, &params, &mut evaluator);
+        let _ = improve(initial, layouts, &photos, &groups, &params, &mut evaluator);
         let elapsed = start.elapsed();
 
         assert!(
@@ -351,8 +394,16 @@ mod tests {
 
         // Already optimal: 2 pages of 6 photos each → coverage = 0.0
         let initial = PageAssignment::new(vec![0, 6, 12]);
+        let layouts = eval_pages(&initial, &photos, &evaluator);
 
-        let result = improve(initial.clone(), &photos, &groups, &params, &mut evaluator);
+        let result = improve(
+            initial.clone(),
+            layouts,
+            &photos,
+            &groups,
+            &params,
+            &mut evaluator,
+        );
 
         assert_eq!(result.assignment.cuts(), initial.cuts());
         assert!(result.iterations <= 2, "Should stop quickly when optimal");
@@ -368,7 +419,8 @@ mod tests {
         let mut evaluator = MockEvaluator { ideal_count: 6 };
 
         let initial = PageAssignment::new(vec![0, 6, 12]);
-        let result = improve(initial, &photos, &groups, &params, &mut evaluator);
+        let layouts = eval_pages(&initial, &photos, &evaluator);
+        let result = improve(initial, layouts, &photos, &groups, &params, &mut evaluator);
 
         // One final layout is returned for each page of the final assignment.
         assert_eq!(

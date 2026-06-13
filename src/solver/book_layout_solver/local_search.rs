@@ -27,19 +27,31 @@ pub trait PageLayoutEvaluator {
 
 /// Improves an initial page assignment using local search.
 ///
+/// `initial_layouts` holds the precomputed `GaResult` for each page of
+/// `assignment` (page order); they seed the layout cache so the search starts
+/// from the already-computed layouts.
+///
 /// Uses a Variable Neighborhood Search approach:
-/// 1. Evaluates all pages and caches their GaResults
+/// 1. Seeds the layout cache with the precomputed initial layouts
 /// 2. Identifies cut points adjacent to poorly-covered pages
 /// 3. Applies perturbations (shift cut by ±1, ±2, ...) in worst-first order
 /// 4. Accepts first improving move, repeats until timeout or convergence
 pub fn improve(
     assignment: PageAssignment,
+    initial_layouts: Vec<GaResult>,
     photos: &[Photo],
     groups: &GroupInfo,
     params: &BookLayoutSolverConfig,
     evaluator: &impl PageLayoutEvaluator,
 ) -> LocalSearchResult {
-    improve::improve(assignment, photos, groups, params, evaluator)
+    improve::improve(
+        assignment,
+        initial_layouts,
+        photos,
+        groups,
+        params,
+        evaluator,
+    )
 }
 
 #[cfg(test)]

@@ -11,6 +11,7 @@ pub fn first_build(
     mgr: StateManager,
     project_root: &Path,
     skip_pdf: bool,
+    skip_cache_update: bool,
 ) -> Result<CommandOutput<BuildResult>> {
     info!("First build: creating layout for all photos...");
 
@@ -28,6 +29,7 @@ pub fn first_build(
             images_processed: 0,
             always_commit: false,
             skip_pdf,
+            skip_cache_update,
         },
     )?;
 
