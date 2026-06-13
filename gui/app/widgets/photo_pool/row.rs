@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use crate::state::{
-    ActiveDrag, DataState, DragSource, HoveredTarget, InteractionState, PhotoSelection,
+    ActiveDrag, DataState, DragSource, HoveredTarget, InteractionState, PhotoSelection, SlotFlash,
     SlotSelection,
 };
 
@@ -181,6 +181,11 @@ fn handle_selection_click(
             let (page, slot) = locs[0];
             interaction.viewport.scroll_to_page = Some(page);
             interaction.selections.slots = SlotSelection::single(page, slot);
+            interaction.viewport.flash = Some(SlotFlash {
+                page,
+                slot,
+                start: ui.ctx().input(|i| i.time),
+            });
         }
     }
 }
