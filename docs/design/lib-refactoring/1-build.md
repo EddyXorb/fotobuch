@@ -41,29 +41,85 @@ Wiederkehrende Schritte, die heute in mehreren dieser Funktionen kopiert sind:
 
 ## Zielbild
 
-**Schicht 1 — eine Pipeline.** Eine Funktion führt die Schritte 1–6 aus:
+**Einstiegspunkte bleiben die CLI-Kommandos.** Konvention in `commands/`: jedes
+CLI-Kommando hat eine gleichnamige Funktion. Das bleibt so — `build` *ist* der
+Einstiegspunkt, `rebuild` ebenfalls (darf aber in `build.rs` wohnen, eine eigene
+`rebuild.rs` ist nicht nötig). Beide tun nur zwei Dinge: aus ihren Argumenten
+einen `BuildPlan` bauen und die gemeinsame Pipeline starten.
 
-```text
-run_build(mgr, project_root, plan: BuildPlan, opts: BuildOptions)
-    -> CommandOutput<BuildResult>
-```
+**Ein Plan je Situation** — das Enum, über das die Pipeline genau einmal
+verzweigt:
 
-**Schicht 2 — ein Handler je Situation,** gesteuert durch ein Enum, über das
-`run_build` genau einmal verzweigt:
-
-```text
+```rust
 enum BuildPlan {
-    Full,                          // erster Build / rebuild ohne Argument
+    Full,                                            // erster Build / rebuild ohne Argument
     Incremental { pages: Option<Vec<usize>> },
-    Page(usize),                   // rebuild --page
-    Range { start, end, flex },    // rebuild --range
-    Release,                       // build --release (kein Neulösen)
+    Page(usize),                                     // rebuild --page
+    Range { start: usize, end: usize, flex: usize }, // rebuild --range
+    Release,                                         // build --release (kein Neulösen)
 }
 ```
 
-Jeder Handler macht nur Schritt 2 und meldet, welche Seiten betroffen sind.
-Die Unterschiede Cache-Art, Commit-Art und PDF-Art werden **Daten im Plan**,
-keine eigenen Funktionen mehr.
+**Eine Pipeline** kennt den festen Ablauf (Schritte 1–6 von oben). Sie ist
+bewusst *kein* freistehendes `run_build`, sondern eine Methode auf dem Plan: so
+liest sich der Aufruf als `plan.run(...)`, und der Name `build` bleibt dem
+CLI-Kommando vorbehalten.
+
+### Skizze
+
+Die abstrakten Methoden rufen fast nur Submethoden auf — der Code liest sich als
+kurze Geschichte:
+
+```rust
+// CLI-Einstieg: Kommando `build`
+pub fn build(project_root: &Path, config: &BuildConfig)
+    -> Result<CommandOutput<BuildResult>>
+{
+    let mgr = StateManager::open(project_root)?;
+    let plan = BuildPlan::from_build_config(&mgr, config)?; // Full | Incremental | Release
+    plan.run(mgr, project_root, config.into())
+}
+
+// CLI-Einstieg: Kommando `rebuild` (in build.rs, keine eigene Datei)
+pub fn rebuild(project_root: &Path, scope: RebuildScope, opts: BuildOptions)
+    -> Result<CommandOutput<BuildResult>>
+{
+    let mgr = StateManager::open(project_root)?;
+    let plan = BuildPlan::from_rebuild_scope(&mgr, scope)?;  // Full | Range | Page
+    plan.run(mgr, project_root, opts)
+}
+
+impl BuildPlan {
+    /// Der feste Ablauf; nur `resolve_layout` unterscheidet sich je Situation.
+    fn run(self, mut mgr: StateManager, project_root: &Path, opts: BuildOptions)
+        -> Result<CommandOutput<BuildResult>>
+    {
+        refresh_image_cache(&mut mgr, &self, &opts)?;
+        let changed_pages = self.resolve_layout(&mut mgr)?;
+        renumber_pages(&mut mgr.state.layout, mgr.state.has_cover());
+
+        let ctx = RenderContext::capture(&mgr);    // vor dem Verbrauch von mgr
+        let changed_state = self.commit(mgr)?;     // finish / finish_always
+        let pdf = render_pdf(&self, project_root, &ctx, opts.skip_pdf)?;
+
+        Ok(build_result(&self, changed_pages, pdf, changed_state))
+    }
+
+    /// Der einzige situationsabhängige Schritt — eine Ebene tiefer, ein Arm je Typ.
+    fn resolve_layout(&self, mgr: &mut StateManager) -> Result<Vec<usize>> {
+        match self {
+            BuildPlan::Full                       => solve_whole_book(mgr),
+            BuildPlan::Incremental { pages }      => resolve_outdated_pages(mgr, pages.as_deref()),
+            BuildPlan::Page(idx)                  => resolve_single_page(mgr, *idx),
+            BuildPlan::Range { start, end, flex } => resolve_range(mgr, *start, *end, *flex),
+            BuildPlan::Release                    => Ok(Vec::new()), // kein Neulösen
+        }
+    }
+}
+```
+
+(Schematisch — Borrow-Details, etwa dass `commit` den `mgr` verbraucht, können in
+der Umsetzung leicht abweichen.)
 
 ---
 
@@ -117,24 +173,26 @@ die intern in `free`/`structured` verzweigt; alle vier Altstellen rufen sie auf.
 
 ### Phase C — Pipeline & Plan (der eigentliche Umbau)
 
-**C1 · `refactor(build): introduce BuildPlan enum + situation handlers`**
-Das `BuildPlan`-Enum (siehe Zielbild) plus je Variante eine **reine** Handler-
-Funktion, die nur das Layout ändert und die betroffenen Seitenindizes liefert
-(`Release` ändert nichts). Wird vorerst noch von den alten Orchestratoren
-aufgerufen.
+**C1 · `refactor(build): introduce BuildPlan enum + resolve_layout handlers`**
+Das `BuildPlan`-Enum (siehe Zielbild) plus je Variante eine **reine**
+`resolve_*`-Submethode, die nur das Layout ändert und die betroffenen
+Seitenindizes liefert (`Release` ändert nichts). Wird vorerst noch von den alten
+Orchestratoren aufgerufen.
 *Verify:* Unit-Test je Variante.
 
-**C2 · `feat(build): add run_build pipeline`**
-`run_build` führt die Schritte 1–6 aus und ruft für Schritt 2 den passenden
-Handler. Läuft zunächst **parallel** zu den Altpfaden; ein erster Aufrufer
-(`first_build`) wird umgestellt.
+**C2 · `feat(build): add BuildPlan::run pipeline`**
+`BuildPlan::run` führt die Schritte 1–6 aus und ruft für Schritt 2 die passende
+`resolve_*`-Submethode. Läuft zunächst **parallel** zu den Altpfaden; ein erster
+Aufrufer (`first_build`) wird umgestellt.
 *Verify:* `first_build`-Tests grün gegen die neue Pipeline.
 
-**C3 · `refactor(build): route build()/rebuild() through run_build`**
+**C3 · `refactor(build): route build()/rebuild() through BuildPlan::run`**
 `build()` baut `Full | Incremental | Release`, `rebuild()` baut
-`Full | Range | Page`; beide rufen nur noch `run_build`. Die heutigen
+`Full | Range | Page`; beide rufen nur noch `plan.run(...)`. Dabei zieht
+`rebuild` aus `rebuild.rs` nach `build.rs` (Konvention: gleichnamige Funktion,
+aber keine eigene Datei nötig); `rebuild.rs` wird gelöscht. Die heutigen
 Vorab-Prüfungen (`validate_scope`, `skip_cover_if_needed`) wandern in die
-Plan-Konstruktion.
+Plan-Konstruktion (`from_rebuild_scope`).
 *Verify:* gesamter build/rebuild/release-Testsatz grün.
 
 ### Phase D — Aufräumen
@@ -150,11 +208,12 @@ Löschen: `first_build`, `incremental_build`, `release_build`, `rebuild_all`,
 `Option`; `images_processed` an genau einer Stelle in `run_build` setzen.
 *Verify:* CLI-Ausgabe / `print_build_result` angepasst.
 
-**D3 · `refactor(build): hoist shared engine out of build/core`**
-Die geteilte Engine (`run_build`, Handler, cover) nach `commands/build_engine.rs`;
-`build.rs`/`rebuild.rs` werden dünne CLI-Adapter, `build/core.rs` entfällt.
-Außerdem `build_photo_index` in ein neutrales Query-Modul ziehen, damit die
-Lese-Kommandos `place`/`status` nicht mehr aus `commands::build` importieren.
+**D3 · `refactor(build): flatten build/ module layout`**
+Die geteilte Engine (`BuildPlan::run`, `resolve_*`, cover) lebt in den
+`build/`-Submodulen; die verschachtelte `build/core.rs`-Ebene entfällt. `build.rs`
+enthält die beiden CLI-Einstiege `build`/`rebuild`. Außerdem `build_photo_index`
+in ein neutrales Query-Modul ziehen, damit die Lese-Kommandos `place`/`status`
+nicht mehr aus `commands::build` importieren.
 *Verify:* `place`/`status` ohne `commands::build`-Import; Tests grün.
 
 ---
