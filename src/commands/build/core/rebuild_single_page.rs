@@ -1,11 +1,7 @@
-use crate::{
-    dto_models::{PhotoFile, PhotoGroup},
-    run_solver,
-    solver::{
-        Request, RequestType,
-        cover_solver::{compute_cover_slots, warn_slot_count_mismatch},
-    },
-};
+use super::super::cover::update_cover_page;
+use crate::dto_models::{PhotoFile, PhotoGroup};
+use crate::run_solver;
+use crate::solver::{Request, RequestType};
 use anyhow::Result;
 use std::collections::HashMap;
 
@@ -41,75 +37,10 @@ pub fn rebuild_single_page(
     }
 
     if page_idx == 0 && state.has_cover() {
-        rebuild_cover_page(state, files, photo_index)
+        update_cover_page(state, photo_index)
     } else {
         rebuild_inner_page(state, page_idx, files)
     }
-}
-
-// ── cover page (index 0) ─────────────────────────────────────────────────────
-
-fn rebuild_cover_page(
-    state: &mut crate::dto_models::ProjectState,
-    files: Vec<PhotoFile>,
-    photo_index: &HashMap<String, (PhotoFile, String)>,
-) -> Result<()> {
-    let cover = &state.config.book.cover;
-
-    if cover.mode.is_free() {
-        // GA solver with correct cover spread dimensions
-        rebuild_cover_free(state, files)
-    } else {
-        // Deterministic cover solver
-        rebuild_cover_structured(state, files, photo_index)
-    }
-}
-
-fn rebuild_cover_free(
-    state: &mut crate::dto_models::ProjectState,
-    files: Vec<PhotoFile>,
-) -> Result<()> {
-    let cover = &state.config.book.cover;
-    let inner_page_count = state.layout.len() - 1;
-    let spread_config = CoverCanvasConfig {
-        cover,
-        inner_page_count,
-    };
-    let group = photo_group_for_page(0, files);
-    let request = Request {
-        request_type: RequestType::SinglePage,
-        groups: &[group],
-        config: &state.config.book_layout_solver,
-        ga_config: &state.config.page_layout_solver,
-        canvas_config: &spread_config,
-    };
-    let result = run_solver(&request)?;
-    apply_result(state, 0, result)
-}
-
-fn rebuild_cover_structured(
-    state: &mut crate::dto_models::ProjectState,
-    files: Vec<PhotoFile>,
-    photo_index: &HashMap<String, (PhotoFile, String)>,
-) -> Result<()> {
-    let cover = &state.config.book.cover;
-    let mode = cover.mode;
-    let inner_page_count = state.layout.len() - 1;
-
-    warn_slot_count_mismatch(mode, files.len());
-
-    let ratios: Vec<f64> = state.layout[0]
-        .photos
-        .iter()
-        .filter_map(|id| photo_index.get(id))
-        .map(|(f, _)| f.aspect_ratio())
-        .collect();
-
-    let slots = compute_cover_slots(cover, &ratios, inner_page_count)?;
-
-    state.layout[0].slots = slots;
-    // photos order is unchanged — cover solver respects the existing assignment
-    Ok(())
 }
 
 // ── inner pages ───────────────────────────────────────────────────────────────
@@ -152,33 +83,4 @@ fn apply_result(
     state.layout[page_idx].slots = result[0].slots.clone();
     state.layout[page_idx].photos = result[0].photos.clone();
     Ok(())
-}
-
-// ── CoverSpreadConfig ─────────────────────────────────────────────────────────
-
-/// Presents the full cover spread (front + back + spine) as `page_width_mm` to the GA solver.
-struct CoverCanvasConfig<'a> {
-    cover: &'a crate::dto_models::CoverConfig,
-    inner_page_count: usize,
-}
-
-impl crate::dto_models::CanvasConfig for CoverCanvasConfig<'_> {
-    fn page_width_mm(&self) -> f64 {
-        self.cover.spread_width_mm(self.inner_page_count)
-    }
-    fn page_height_mm(&self) -> f64 {
-        self.cover.height_mm
-    }
-    fn bleed_mm(&self) -> f64 {
-        self.cover.bleed_mm
-    }
-    fn margin_mm(&self) -> f64 {
-        self.cover.margin_mm
-    }
-    fn gap_mm(&self) -> f64 {
-        self.cover.gap_mm
-    }
-    fn bleed_threshold_mm(&self) -> f64 {
-        self.cover.bleed_threshold_mm
-    }
 }

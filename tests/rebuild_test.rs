@@ -2,7 +2,7 @@
 mod common;
 
 use anyhow::Result;
-use fotobuch::commands::build::{BuildConfig, build};
+use fotobuch::commands::build::{BuildConfig, BuildOptions, build};
 use fotobuch::commands::project::new::{NewConfig, project_new};
 use fotobuch::commands::rebuild::{RebuildScope, rebuild};
 use fotobuch::commands::{AddConfig, add};
@@ -106,8 +106,10 @@ fn test_rebuild_single_page_only_changes_slots() -> Result<()> {
     let result = rebuild(
         &project_root,
         RebuildScope::SinglePage(page_idx_to_rebuild),
-        true,
-        true,
+        BuildOptions {
+            skip_pdf: true,
+            skip_cache_update: true,
+        },
     )?;
 
     // Verify result
@@ -172,8 +174,10 @@ fn test_rebuild_single_page_invalid_page_index() -> Result<()> {
     let result = rebuild(
         &project_root,
         RebuildScope::SinglePage(page_count),
-        true,
-        true,
+        BuildOptions {
+            skip_pdf: true,
+            skip_cache_update: true,
+        },
     );
     assert!(
         result.is_err(),
@@ -191,8 +195,10 @@ fn test_rebuild_single_page_invalid_page_index() -> Result<()> {
     let result = rebuild(
         &project_root,
         RebuildScope::SinglePage(page_count + 5),
-        true,
-        true,
+        BuildOptions {
+            skip_pdf: true,
+            skip_cache_update: true,
+        },
     );
     assert!(result.is_err(), "Page index beyond count should be invalid");
 
@@ -229,8 +235,10 @@ fn test_rebuild_range_replaces_pages() -> Result<()> {
             end,
             flex: 0,
         },
-        true,
-        true,
+        BuildOptions {
+            skip_pdf: true,
+            skip_cache_update: true,
+        },
     )?;
 
     // Verify result
@@ -293,8 +301,10 @@ fn test_rebuild_range_flex_allows_page_variation() -> Result<()> {
     let result = rebuild(
         &project_root,
         RebuildScope::Range { start, end, flex },
-        true,
-        true,
+        BuildOptions {
+            skip_pdf: true,
+            skip_cache_update: true,
+        },
     )?;
 
     // Load state after rebuild
@@ -352,8 +362,10 @@ fn test_rebuild_range_preserves_groups() -> Result<()> {
             end,
             flex: 0,
         },
-        true,
-        true,
+        BuildOptions {
+            skip_pdf: true,
+            skip_cache_update: true,
+        },
     )?;
 
     // Load state after rebuild
@@ -399,7 +411,14 @@ fn test_rebuild_all_redistributes_everything() -> Result<()> {
 
     // Rebuild all
     eprintln!("About to call rebuild(All)...");
-    let result = rebuild(&project_root, RebuildScope::All, true, true)?;
+    let result = rebuild(
+        &project_root,
+        RebuildScope::All,
+        BuildOptions {
+            skip_pdf: true,
+            skip_cache_update: true,
+        },
+    )?;
     eprintln!(
         "Rebuild returned: pages_rebuilt = {:?}, pdf exists = {}",
         result.result.pages_rebuilt,
@@ -501,7 +520,14 @@ fn test_rebuild_without_layout_fails_except_all() -> Result<()> {
     assert!(state.layout.is_empty(), "Layout should be empty");
 
     // SinglePage should fail (no layout)
-    let result = rebuild(&project_root, RebuildScope::SinglePage(0), true, true);
+    let result = rebuild(
+        &project_root,
+        RebuildScope::SinglePage(0),
+        BuildOptions {
+            skip_pdf: true,
+            skip_cache_update: true,
+        },
+    );
     assert!(
         result.is_err(),
         "SinglePage rebuild without layout should fail"
@@ -520,8 +546,10 @@ fn test_rebuild_without_layout_fails_except_all() -> Result<()> {
             end: 0,
             flex: 0,
         },
-        true,
-        true,
+        BuildOptions {
+            skip_pdf: true,
+            skip_cache_update: true,
+        },
     );
     assert!(result.is_err(), "Range rebuild without layout should fail");
     let err = result.unwrap_err();
@@ -531,7 +559,14 @@ fn test_rebuild_without_layout_fails_except_all() -> Result<()> {
     );
 
     // All should succeed (like first build)
-    let result = rebuild(&project_root, RebuildScope::All, true, true);
+    let result = rebuild(
+        &project_root,
+        RebuildScope::All,
+        BuildOptions {
+            skip_pdf: true,
+            skip_cache_update: true,
+        },
+    );
     assert!(result.is_ok(), "All rebuild should work without layout");
 
     let result = result?;
@@ -561,8 +596,10 @@ fn test_rebuild_range_invalid_range() -> Result<()> {
             end: 1,
             flex: 0,
         },
-        true,
-        true,
+        BuildOptions {
+            skip_pdf: true,
+            skip_cache_update: true,
+        },
     );
     assert!(result.is_err(), "start > end should be invalid");
 
@@ -574,8 +611,10 @@ fn test_rebuild_range_invalid_range() -> Result<()> {
             end: page_count, // page_count is out of bounds (valid: 0..page_count-1)
             flex: 0,
         },
-        true,
-        true,
+        BuildOptions {
+            skip_pdf: true,
+            skip_cache_update: true,
+        },
     );
     assert!(result.is_err(), "end >= page_count should be invalid");
 

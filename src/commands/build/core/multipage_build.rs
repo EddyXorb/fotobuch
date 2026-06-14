@@ -1,13 +1,12 @@
+use super::super::cover::{build_cover_page, split_cover_photos, update_cover_page};
 use super::super::helpers::{
     CommitMode, PdfTarget, RenderContext, build_photo_index, render_pdf, update_preview_cache,
 };
-use super::rebuild_single_page::rebuild_single_page;
 use crate::commands::CommandOutput;
 use crate::commands::build::{BuildOptions, BuildResult};
 use crate::dto_models::{
     BookLayoutSolverConfig, CoverConfig, LayoutPage, PageMode, PhotoFile, PhotoGroup,
 };
-use crate::solver::cover_solver::{compute_cover_slots, warn_slot_count_mismatch};
 use crate::solver::{Request, RequestType, run_solver};
 use crate::state_manager::{StateManager, renumber_pages};
 use anyhow::Result;
@@ -64,7 +63,7 @@ pub fn multipage_build(
     // 3. For full rebuilds with a structured cover (non-Free mode): peel off the first N
     //    photos and solve the cover separately so the multipage solver only sees inner pages.
     let cover_cfg = &mgr.state.config.book.cover;
-    let (cover_files_opt, inner_groups) = split_cover_files(&params, cover_cfg);
+    let (cover_files_opt, inner_groups) = split_cover_for_params(&params, cover_cfg);
 
     // 3b. Snapshot manual pages so the solver does not redistribute their photos.
     //     Manual pages are restored after the solver run.
@@ -121,7 +120,7 @@ pub fn multipage_build(
         && mgr.state.config.book.cover.mode.is_free()
     {
         let photo_index = build_photo_index(&mgr.state.photos);
-        rebuild_single_page(&mut mgr.state, 0, &photo_index)?;
+        update_cover_page(&mut mgr.state, &photo_index)?;
     }
 
     let ctx = RenderContext::capture(&mgr);
@@ -155,72 +154,20 @@ pub fn multipage_build(
     })
 }
 
-fn split_cover_files(
+fn split_cover_for_params(
     params: &MultiPageParams<'_>,
     cover_cfg: &CoverConfig,
 ) -> (Option<Vec<PhotoFile>>, Vec<PhotoGroup>) {
     let is_structured_cover =
         params.range.is_none() && cover_cfg.active && !cover_cfg.mode.is_free();
 
-    let (cover_files_opt, inner_groups) = if is_structured_cover {
+    if is_structured_cover {
         let n = cover_cfg.mode.required_slots().unwrap();
         let (cover_files, remaining) = split_cover_photos(params.groups, n);
         (Some(cover_files), remaining)
     } else {
         (None, params.groups.to_vec())
-    };
-    (cover_files_opt, inner_groups)
-}
-
-// ── helpers ───────────────────────────────────────────────────────────────────
-
-/// Splits the first `n` photos (flattened across groups) into cover files, returning
-/// the cover files and the rebuilt remaining groups in their original order.
-fn split_cover_photos(groups: &[PhotoGroup], n: usize) -> (Vec<PhotoFile>, Vec<PhotoGroup>) {
-    let mut flat: Vec<(PhotoFile, &str, &str)> = groups
-        .iter()
-        .flat_map(|g| {
-            g.files
-                .iter()
-                .map(move |f| (f.clone(), g.group.as_str(), g.sort_key.as_str()))
-        })
-        .collect();
-
-    let cover_files: Vec<PhotoFile> = flat.drain(..n.min(flat.len())).map(|(f, _, _)| f).collect();
-
-    // Reconstruct remaining groups preserving original order and group names
-    let mut remaining: Vec<PhotoGroup> = Vec::new();
-    for (file, group_name, sort_key) in flat {
-        if let Some(g) = remaining.iter_mut().find(|g| g.group == group_name) {
-            g.files.push(file);
-        } else {
-            remaining.push(PhotoGroup {
-                group: group_name.to_string(),
-                sort_key: sort_key.to_string(),
-                files: vec![file],
-            });
-        }
     }
-
-    (cover_files, remaining)
-}
-
-/// Creates a cover `LayoutPage` (index 0) from the given files using the deterministic
-/// cover solver. `inner_page_count` is needed for spine width calculation.
-fn build_cover_page(
-    cover: &CoverConfig,
-    files: Vec<PhotoFile>,
-    inner_page_count: usize,
-) -> Result<LayoutPage> {
-    let ratios: Vec<f64> = files.iter().map(|f| f.aspect_ratio()).collect();
-    warn_slot_count_mismatch(cover.mode, files.len());
-    let slots = compute_cover_slots(cover, &ratios, inner_page_count)?;
-    Ok(LayoutPage {
-        page: 0,
-        photos: files.into_iter().map(|f| f.id).collect(),
-        slots,
-        mode: PageMode::Auto,
-    })
 }
 
 /// Extracts manual pages from the layout range, returning a sorted snapshot and

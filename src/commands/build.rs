@@ -1,5 +1,6 @@
 //! `fotobuch build` command - Calculate layout and generate preview PDF
 mod core;
+pub(super) mod cover;
 mod first_build;
 mod helpers;
 mod incremental_build;
