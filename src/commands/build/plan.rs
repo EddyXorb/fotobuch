@@ -4,7 +4,7 @@ use super::helpers::{
     CommitMode, PdfTarget, RenderContext, build_photo_index, collect_photos_as_groups, render_pdf,
     update_preview_cache,
 };
-use super::{BuildOptions, BuildResult, DpiWarning};
+use super::{BuildConfig, BuildOptions, BuildResult, DpiWarning};
 use crate::cache::final_cache;
 use crate::commands::CommandOutput;
 use crate::dto_models::{BookLayoutSolverConfig, LayoutPage, PageMode, PhotoGroup};
@@ -16,11 +16,32 @@ use std::path::Path;
 use std::sync::atomic::AtomicUsize;
 use tracing::{info, warn};
 
+/// Scope of a rebuild operation (input to `BuildPlan::from_rebuild_scope`).
+///
+/// All page references use **0-based array indices** (position in `layout[]`).
+/// Cover page (when active) is always at index 0.
+#[derive(Debug, Clone)]
+pub enum RebuildScope {
+    /// Rebuild all pages (like first build, but always commits the result).
+    All,
+    /// Rebuild single page.
+    /// `page_idx` is a 0-based index into `layout[]`.
+    SinglePage(usize),
+    /// Rebuild page range with optional flexibility.
+    /// `start` and `end` are both 0-based inclusive indices into `layout[]`.
+    Range {
+        start: usize,
+        end: usize,
+        /// Allow page count to vary by +/- N (default: 0)
+        flex: usize,
+    },
+}
+
 /// Describes the layout-change strategy for one build or rebuild invocation.
 #[derive(Debug, Clone)]
 pub enum BuildPlan {
     /// First build or full rebuild: all photos → all pages via the book-layout solver.
-    Full,
+    Full { always_commit: bool },
     /// Incremental build: re-solve only pages whose photos changed since last commit.
     Incremental { pages: Option<Vec<usize>> },
     /// Re-solve a single page with the GA solver.
@@ -36,13 +57,71 @@ pub enum BuildPlan {
 }
 
 impl BuildPlan {
+    /// Constructs a plan from a `build` command config.
+    pub fn from_build_config(mgr: &StateManager, config: &BuildConfig) -> Result<Self> {
+        if config.release {
+            if config.pages.is_some() {
+                anyhow::bail!("--pages is not allowed with release (must build entire book)");
+            }
+            return Ok(BuildPlan::Release {
+                force: config.force,
+            });
+        }
+        if mgr.state.layout.is_empty() {
+            Ok(BuildPlan::Full {
+                always_commit: false,
+            })
+        } else {
+            Ok(BuildPlan::Incremental {
+                pages: config.pages.clone(),
+            })
+        }
+    }
+
+    /// Constructs a plan from a `rebuild` command scope, validating the scope against the layout.
+    pub fn from_rebuild_scope(mgr: &StateManager, scope: RebuildScope) -> Result<Self> {
+        if !matches!(scope, RebuildScope::All) && mgr.state.layout.is_empty() {
+            anyhow::bail!(
+                "No layout exists. Run `fotobuch build` first, \
+                 or use `fotobuch rebuild` (without arguments) for a full rebuild."
+            );
+        }
+        if let RebuildScope::Range { start, end, .. } = scope
+            && (start > end || end >= mgr.state.layout.len())
+        {
+            anyhow::bail!(
+                "Invalid page range {}-{} (layout has {} pages, indices 0..{})",
+                start,
+                end,
+                mgr.state.layout.len(),
+                mgr.state.layout.len().saturating_sub(1),
+            );
+        }
+        if let RebuildScope::SinglePage(idx) = scope
+            && idx >= mgr.state.layout.len()
+        {
+            anyhow::bail!(
+                "Invalid page index {} (layout has {} pages, indices 0..{})",
+                idx,
+                mgr.state.layout.len(),
+                mgr.state.layout.len().saturating_sub(1),
+            );
+        }
+        Ok(match scope {
+            RebuildScope::All => BuildPlan::Full {
+                always_commit: true,
+            },
+            RebuildScope::SinglePage(idx) => BuildPlan::Page(idx),
+            RebuildScope::Range { start, end, flex } => BuildPlan::Range { start, end, flex },
+        })
+    }
     /// Runs the layout solver for this variant and updates `mgr.state.layout`.
     ///
     /// Pure layout step: no cache update, no commit, no PDF.
     /// Returns 0-based indices of pages that were modified.
     pub fn resolve_layout(&self, mgr: &mut StateManager) -> Result<Vec<usize>> {
         match self {
-            BuildPlan::Full => resolve_whole_book(mgr),
+            BuildPlan::Full { .. } => resolve_whole_book(mgr),
             BuildPlan::Incremental { pages } => resolve_outdated_pages(mgr, pages.as_deref()),
             BuildPlan::Page(idx) => resolve_single_page(mgr, *idx),
             BuildPlan::Range { start, end, flex } => resolve_range(mgr, *start, *end, *flex),
@@ -102,7 +181,7 @@ impl BuildPlan {
                 total_cost: 0.0,
                 dpi_warnings,
                 nothing_to_do: changed_pages.is_empty()
-                    && !matches!(self, BuildPlan::Release { .. }),
+                    && !matches!(self, BuildPlan::Release { .. } | BuildPlan::Full { .. }),
             },
             changed_state,
         })
@@ -178,7 +257,10 @@ fn refresh_cache(
 
 fn commit_mode(plan: &BuildPlan) -> CommitMode {
     match plan {
-        BuildPlan::Full | BuildPlan::Incremental { .. } => CommitMode::Auto,
+        BuildPlan::Full {
+            always_commit: true,
+        } => CommitMode::Always,
+        BuildPlan::Full { .. } | BuildPlan::Incremental { .. } => CommitMode::Auto,
         BuildPlan::Page(_) | BuildPlan::Range { .. } | BuildPlan::Release { .. } => {
             CommitMode::Always
         }
@@ -208,7 +290,12 @@ fn commit_message(
     total_photos: usize,
 ) -> String {
     match plan {
-        BuildPlan::Full => "build: initial layout".to_string(),
+        BuildPlan::Full {
+            always_commit: true,
+        } => {
+            format!("rebuild: {} photos redistributed", total_photos)
+        }
+        BuildPlan::Full { .. } => "build: initial layout".to_string(),
         BuildPlan::Incremental { .. } => {
             format!("build: {} page(s) rebuilt", changed_pages.len())
         }
@@ -223,6 +310,14 @@ fn commit_message(
 // ── resolve_* handlers ────────────────────────────────────────────────────────
 
 fn resolve_whole_book(mgr: &mut StateManager) -> Result<Vec<usize>> {
+    let layout_len = mgr.state.layout.len();
+    // For an existing layout with an active cover, skip page 0 so the cover is not
+    // redistributed (use `rebuild --page 0` to rebuild it explicitly).
+    if layout_len > 0 && mgr.state.has_cover() {
+        let effective_start = skip_cover_if_needed(true, 0, layout_len - 1)?;
+        let groups = collect_photos_as_groups(&mgr.state, effective_start, layout_len);
+        return solve_multipage_layout(mgr, &groups, Some((effective_start, layout_len)), None);
+    }
     let groups = mgr.state.photos.clone();
     solve_multipage_layout(mgr, &groups, None, None)
 }
@@ -561,7 +656,12 @@ mod tests {
 
     #[test]
     fn build_plan_variants_are_constructible() {
-        let _ = BuildPlan::Full;
+        let _ = BuildPlan::Full {
+            always_commit: false,
+        };
+        let _ = BuildPlan::Full {
+            always_commit: true,
+        };
         let _ = BuildPlan::Incremental { pages: None };
         let _ = BuildPlan::Incremental {
             pages: Some(vec![0, 2]),

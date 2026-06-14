@@ -16,16 +16,16 @@ pub fn handle(
     let project_root = std::env::current_dir().context("Failed to determine current directory")?;
 
     let scope = if all {
-        commands::rebuild::RebuildScope::All
+        commands::build::RebuildScope::All
     } else if let Some(p) = page {
-        commands::rebuild::RebuildScope::SinglePage(p)
+        commands::build::RebuildScope::SinglePage(p)
     } else if let (Some(start), Some(end)) = (range_start, range_end) {
-        commands::rebuild::RebuildScope::Range { start, end, flex }
+        commands::build::RebuildScope::Range { start, end, flex }
     } else {
-        commands::rebuild::RebuildScope::All
+        commands::build::RebuildScope::All
     };
 
-    let output = commands::rebuild::rebuild(
+    let output = commands::build::rebuild(
         &project_root,
         scope,
         BuildOptions {

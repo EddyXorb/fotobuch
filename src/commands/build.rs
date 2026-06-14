@@ -1,21 +1,15 @@
-//! `fotobuch build` command - Calculate layout and generate preview PDF
+//! `fotobuch build` and `fotobuch rebuild` commands
 mod core;
 pub(super) mod cover;
-mod first_build;
 mod helpers;
-mod incremental_build;
 pub mod plan;
-mod release_build;
 
 pub use core::multipage_build::{MultiPageParams, multipage_build};
 pub use core::rebuild_single_page::rebuild_single_page;
-use first_build::first_build;
 pub use helpers::{
     CommitMode, PdfTarget, RenderContext, build_photo_index, collect_photos_as_groups, render_pdf,
 };
-use incremental_build::incremental_build;
-pub use plan::BuildPlan;
-use release_build::release_build;
+pub use plan::{BuildPlan, RebuildScope};
 
 use crate::state_manager::StateManager;
 use anyhow::Result;
@@ -44,7 +38,7 @@ pub struct BuildOptions {
     pub skip_cache_update: bool,
 }
 
-/// Configuration for build command
+/// Configuration for the `build` command.
 #[derive(Debug, Clone)]
 pub struct BuildConfig {
     /// Build final PDF instead of preview (default: false)
@@ -78,75 +72,36 @@ pub struct BuildResult {
     pub nothing_to_do: bool,
 }
 
-/// Calculate layout and generate preview or final PDF
-///
-/// # Steps
-/// ## For first build (no layout in YAML):
-/// 1. Preview cache: generate missing/stale preview images + watermark
-/// 2. Book-Layout-Solver: distribute all photos from photos onto pages
-/// 3. Page-Layout-Solver (GA): run_ga() for each page -> write layout[].slots
-/// 4. Write fotobuch.yaml
-/// 5. Compile Typst -> PDF
-/// 6. Git commit: "post-build: N pages (cost: X)"
-///
-/// ## For incremental build (layout exists):
-/// 1. Preview cache: check and regenerate changed images
-/// 2. Compare with last git commit to find modified pages:
-///    - Photos added/removed (length of photos changed)
-///    - Photo swapped with different ratio
-///    - area_weight changed in photos
-/// 3. Page-Layout-Solver only for modified pages
-/// 4. If nothing changed: "Nothing to do."
-/// 5. Write fotobuch.yaml, compile Typst, git commit
-///
-/// ## For release build (--release):
-/// 1. Check layout is clean (no uncommitted changes)
-/// 2. Generate final cache: for each photo:
-///    - Calculate target pixels from slot_mm and 300 DPI
-///    - Always resample from original (no incremental)
-///    - No watermark, high JPEG quality
-/// 3. Compile fotobuch_final.typ -> final PDF
-/// 4. Validate all images reach 300 DPI, collect warnings
-/// 5. Git commit: "release: N pages, M photos"
-///
-/// # Arguments
-/// * `project_root` - Path to the project directory
-/// * `config` - Build configuration
-///
-/// # Returns
-/// * `BuildResult` with PDF path, statistics, and warnings
+/// Calculate layout and generate preview or final PDF.
 pub fn build(
     project_root: &Path,
     config: &BuildConfig,
 ) -> Result<super::CommandOutput<BuildResult>> {
     let mgr = StateManager::open(project_root)?;
-
-    // Handle release builds separately
-    if config.release {
-        if config.pages.is_some() {
-            anyhow::bail!("--pages is not allowed with release (must build entire book)");
-        }
-        return release_build(mgr, project_root, config.force);
-    }
-
     let opts = BuildOptions {
         skip_pdf: config.skip_pdf || !mgr.state.config.preview.write_pdf,
         skip_cache_update: config.skip_cache_update,
     };
+    let plan = BuildPlan::from_build_config(&mgr, config)?;
+    plan.run(mgr, project_root, opts)
+}
 
-    // First build vs incremental build
-    if mgr.state.layout.is_empty() {
-        first_build(mgr, project_root, opts)
-    } else {
-        incremental_build(mgr, project_root, config.pages.as_deref(), opts)
-    }
+/// Force re-optimization of pages or page ranges.
+pub fn rebuild(
+    project_root: &Path,
+    scope: RebuildScope,
+    opts: BuildOptions,
+) -> Result<super::CommandOutput<BuildResult>> {
+    let mgr = StateManager::open(project_root)?;
+    let opts = BuildOptions {
+        skip_pdf: opts.skip_pdf || !mgr.state.config.preview.write_pdf,
+        ..opts
+    };
+    let plan = BuildPlan::from_rebuild_scope(&mgr, scope)?;
+    plan.run(mgr, project_root, opts)
 }
 
 /// Output build result summary (pages rebuilt, PDF path, DPI warnings).
-///
-/// This is called after build() to log the final result.
-/// Note: The build functions already log incremental progress,
-/// this logs only the final summary.
 pub fn print_build_result(result: &BuildResult) {
     if !result.pages_rebuilt.is_empty() {
         info!(

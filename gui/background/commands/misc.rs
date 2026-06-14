@@ -1,6 +1,6 @@
 use fotobuch::commands::build::{BuildConfig, BuildOptions, build};
+use fotobuch::commands::build::{RebuildScope, rebuild};
 use fotobuch::commands::config::config_set;
-use fotobuch::commands::rebuild::{RebuildScope, rebuild};
 use fotobuch::commands::undo::{redo, undo};
 
 use crate::background::send_command_done;
