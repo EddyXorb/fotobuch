@@ -1,13 +1,15 @@
-use super::core::rebuild_single_page::rebuild_single_page;
 use super::cover::{build_cover_page, split_cover_photos, update_cover_page};
 use super::helpers::{
-    CommitMode, PdfTarget, RenderContext, build_photo_index, collect_photos_as_groups, render_pdf,
+    CommitMode, PdfTarget, RenderContext, collect_photos_as_groups, render_pdf,
     update_preview_cache,
 };
+use super::rebuild_single_page::rebuild_single_page;
 use super::{BuildConfig, BuildOptions, BuildResult, DpiWarning};
 use crate::cache::final_cache;
 use crate::commands::CommandOutput;
-use crate::dto_models::{BookLayoutSolverConfig, LayoutPage, PageMode, PhotoGroup};
+use crate::dto_models::{
+    BookLayoutSolverConfig, LayoutPage, PageMode, PhotoGroup, build_photo_index,
+};
 use crate::solver::{Request, RequestType, run_solver};
 use crate::state_manager::{StateManager, renumber_pages};
 use anyhow::Result;

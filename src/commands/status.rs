@@ -5,8 +5,7 @@ use std::collections::HashSet;
 use std::path::Path;
 
 use crate::commands::CommandOutput;
-use crate::commands::build::build_photo_index;
-use crate::dto_models::ProjectState;
+use crate::dto_models::{ProjectState, build_photo_index};
 use crate::state_manager::StateManager;
 
 /// Configuration for status command

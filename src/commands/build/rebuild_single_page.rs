@@ -1,4 +1,4 @@
-use super::super::cover::update_cover_page;
+use super::cover::update_cover_page;
 use crate::dto_models::{PhotoFile, PhotoGroup};
 use crate::run_solver;
 use crate::solver::{Request, RequestType};

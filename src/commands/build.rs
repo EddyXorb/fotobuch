@@ -1,10 +1,10 @@
 //! `fotobuch build` and `fotobuch rebuild` commands
-mod core;
 pub(super) mod cover;
 mod helpers;
 pub mod plan;
+mod rebuild_single_page;
 
-pub use helpers::{build_photo_index, collect_photos_as_groups};
+pub use helpers::collect_photos_as_groups;
 pub use plan::{BuildPlan, RebuildScope};
 
 use crate::state_manager::StateManager;

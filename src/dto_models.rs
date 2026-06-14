@@ -15,5 +15,5 @@ pub use config::{
     FitnessWeights, GaConfig, PreviewConfig, ProjectConfig, SpineConfig, ValidationError,
 };
 pub use layout::{LayoutPage, PageMode, Slot};
-pub use photos::{PhotoFile, PhotoGroup};
+pub use photos::{PhotoFile, PhotoGroup, build_photo_index};
 pub use state::ProjectState;

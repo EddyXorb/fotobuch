@@ -3,7 +3,7 @@ use std::{collections::HashMap, path::Path, path::PathBuf};
 use tracing::info;
 
 use crate::cache::preview;
-use crate::dto_models::{PhotoFile, PhotoGroup, ProjectState};
+use crate::dto_models::{PhotoFile, PhotoGroup, ProjectState, build_photo_index};
 use crate::output::typst;
 use crate::state_manager::StateManager;
 
@@ -41,16 +41,6 @@ pub fn update_preview_cache(
     Ok(cache_result)
 }
 
-pub fn update_preview_pdf(
-    project_root: &Path,
-    bleed_mm: f64,
-    project_name: &str,
-) -> Result<PathBuf> {
-    let pdf_path = typst::compile_preview(project_root, project_name, bleed_mm)?;
-    info!("PDF updated: {}", pdf_path.display());
-    Ok(pdf_path)
-}
-
 pub enum PdfTarget {
     Preview,
     Final,
@@ -79,19 +69,6 @@ pub fn render_pdf(
             Ok(path)
         }
     }
-}
-
-/// Maps photo ID to (PhotoFile, group_name).
-pub fn build_photo_index(photos: &[PhotoGroup]) -> HashMap<String, (PhotoFile, String)> {
-    photos
-        .iter()
-        .flat_map(|group| {
-            group
-                .files
-                .iter()
-                .map(move |file| (file.id.clone(), (file.clone(), group.group.clone())))
-        })
-        .collect()
 }
 
 /// Sammelt alle Fotos aus dem Seitenbereich und rekonstruiert PhotoGroups.
