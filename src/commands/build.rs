@@ -75,7 +75,7 @@ pub fn build(
         skip_cache_update: config.skip_cache_update,
     };
     let plan = BuildPlan::from_build_config(&mgr, config)?;
-    plan.run(mgr, project_root, opts)
+    plan.run(mgr, opts)
 }
 
 /// Force re-optimization of pages or page ranges.
@@ -90,7 +90,7 @@ pub fn rebuild(
         ..opts
     };
     let plan = BuildPlan::from_rebuild_scope(&mgr, scope)?;
-    plan.run(mgr, project_root, opts)
+    plan.run(mgr, opts)
 }
 
 /// Output build result summary (pages rebuilt, PDF path, DPI warnings).

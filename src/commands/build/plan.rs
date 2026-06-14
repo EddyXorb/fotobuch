@@ -14,7 +14,6 @@ use crate::solver::{Request, RequestType, run_solver};
 use crate::state_manager::{StateManager, renumber_pages};
 use anyhow::Result;
 use std::collections::HashSet;
-use std::path::Path;
 use std::sync::atomic::AtomicUsize;
 use tracing::{info, warn};
 
@@ -137,7 +136,6 @@ impl BuildPlan {
     pub fn run(
         self,
         mut mgr: StateManager,
-        project_root: &Path,
         opts: BuildOptions,
     ) -> Result<CommandOutput<BuildResult>> {
         if let BuildPlan::Release { force } = self {
@@ -166,13 +164,7 @@ impl BuildPlan {
         };
 
         // 5. PDF
-        let pdf_path = render_pdf(
-            project_root,
-            &ctx.project_name,
-            ctx.bleed_mm,
-            pdf_target(&self),
-            effective_skip_pdf(&self, &opts),
-        )?;
+        let pdf_path = render_pdf(&ctx, pdf_target(&self), effective_skip_pdf(&self, &opts))?;
 
         Ok(CommandOutput {
             result: BuildResult {

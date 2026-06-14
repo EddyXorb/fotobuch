@@ -134,6 +134,11 @@ impl StateManager {
         &self.project_name
     }
 
+    /// Root directory of the project (the path passed to `StateManager::open`).
+    pub fn project_root(&self) -> &Path {
+        &self.project_root
+    }
+
     /// Path to `{project_root}/.fotobuch/cache/{project_name}/`.
     pub fn cache_dir(&self) -> PathBuf {
         self.project_root
