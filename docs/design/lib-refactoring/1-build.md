@@ -249,8 +249,9 @@ zweites, fast deckungsgleiches Enum, das nur über `from_rebuild_scope` in
 
 ### Zielbild
 
-`BuildPlan` enthält **alle** build-/rebuild-Varianten und *ist* das Interface;
-`rebuild`, `RebuildScope` und `BuildOptions` entfallen. Ein einziger Einstieg:
+`BuildPlan` enthält **alle** build-/rebuild-Varianten und steckt als Feld in der
+`BuildConfig`; diese ist das einzige Interface-Objekt. `rebuild`, `RebuildScope`
+und `BuildOptions` entfallen. Genau ein Einstieg:
 
 ```rust
 pub enum BuildPlan {
@@ -261,53 +262,69 @@ pub enum BuildPlan {
     Release { force: bool },                         // finale PDF, kein Neulösen
 }
 
-pub struct BuildConfig {   // nur noch Optionen — keine Doppelung mit BuildOptions
-    pub skip_pdf: bool,
+pub struct BuildConfig {
+    pub plan: BuildPlan,        // alle Varianten + variantenspezifische Daten (pages, flex, force)
+    pub skip_pdf: bool,         // bisher in BuildOptions — jetzt hier, keine Doppelung
     pub skip_cache_update: bool,
 }
 
-pub fn build(project_root: &Path, plan: BuildPlan, config: &BuildConfig)
+pub fn build(project_root: &Path, config: &BuildConfig)
     -> Result<CommandOutput<BuildResult>>;
 ```
 
-Damit verschwindet der `always_commit`-Bool: `Auto` committet via `CommitMode::Auto`,
-alle anderen Varianten via `Always` (aus `commit_mode(plan)` ableitbar). Die
-Erst-Build-vs-inkrementell-Entscheidung wandert in `resolve_layout` für `Auto`
+Das ersetzt die Signaturen aus der Skizze in Phase C (zwei Einstiege +
+`BuildOptions`). Der `always_commit`-Bool verschwindet: `Auto` committet via
+`CommitMode::Auto`, alle anderen via `Always` (aus `commit_mode(&plan)` ableitbar).
+Die Erst-Build-vs-inkrementell-Entscheidung wandert in `resolve_layout` für `Auto`
 (Layout leer ⇒ ganzes Buch, sonst veraltete Seiten). `commands.rs` exportiert nur
 noch `build`, `BuildPlan`, `BuildConfig`, `BuildResult`, `DpiWarning`.
 
-*Alternative (falls ein einzelner Parameter bevorzugt wird):* `BuildConfig { plan:
-BuildPlan, skip_pdf, skip_cache_update }` und `build(project_root, &config)`. Hier
-bewusst getrennt gehalten, damit `BuildPlan` der sichtbare Star bleibt.
+### `project_root` nicht doppelt durchreichen
+
+Heute bekommen Pipeline-Submethoden sowohl `mgr` *als auch* `project_root` — obwohl
+der Root den `mgr` überhaupt erst erzeugt hat (`StateManager::open(project_root)`).
+`StateManager` hält den Root bereits als privates Feld; es fehlt nur ein Getter.
+
+- **Getter** `StateManager::project_root(&self) -> &Path` ergänzen (analog zum
+  vorhandenen `project_name()`).
+- Submethoden bekommen **nur noch `mgr`**; sie holen den Root bei Bedarf über
+  `mgr.project_root()`.
+- `finish`/`finish_always` *verbrauchen* `mgr`. Deshalb wird der Root — wie schon
+  `project_name`/`bleed_mm` — vorher in `RenderContext::capture(&mgr)` mitgesichert;
+  `render_pdf` nimmt den Root aus `ctx`, nicht aus einem Parameter.
+
+Nur `build()` selbst nimmt `project_root` noch entgegen, um `mgr` zu öffnen.
 
 ### Commit-Portionen
 
-**E1 · `refactor(build): unify Full/Incremental into BuildPlan::Auto, add All`**
-Interner Schritt, Interface noch stabil. `Full{always_commit}` + `Incremental`
-→ `Auto{pages}`; neue Variante `All` für den vollen Neu-Aufbau. `always_commit`-
-Feld entfällt; `commit_mode` leitet aus der Variante ab. `resolve_layout::Auto`
+**E1 · `refactor(state): add project_root() getter, drop the param from the build pipeline`**
+Verhaltensneutral, interface-stabil. Getter ergänzen; `project_root` aus den
+Pipeline-Submethoden (`run`, `render_pdf`-Aufruf) entfernen und über
+`mgr.project_root()` bzw. `RenderContext` beziehen.
+*Verify:* keine Logikänderung; Tests grün.
+
+**E2 · `refactor(build): unify Full/Incremental into BuildPlan::Auto, add All`**
+Verhaltensneutral, interface-stabil. `Full{always_commit}` + `Incremental` →
+`Auto{pages}`; neue Variante `All` für den vollen Neu-Aufbau. `always_commit`-Feld
+entfällt; `commit_mode` leitet aus der Variante ab. `resolve_layout::Auto`
 verzweigt anhand `mgr.state.layout.is_empty()`. Die `from_*`-Konstruktoren und
-`rebuild()` mappen vorerst weiter auf die neuen Varianten (`RebuildScope::All` →
-`All` usw.).
+`rebuild()` mappen vorerst weiter auf die neuen Varianten.
 *Verify:* erster Build, inkrementell, rebuild-all liefern identische Layouts;
 voller Testsatz grün.
 
-**E2 · `refactor(build): make BuildPlan the public build interface`**
-*Interface-Bruch.* Neuer Einstieg `build(project_root, plan, &config)`. Entfernen:
-`rebuild()`, `RebuildScope`, `from_rebuild_scope`, `from_build_config`. Die
-bisherige Konstruktions-/Validierungslogik (Range-/Index-Grenzen, „--pages nicht
-mit release") wandert in `build()` bzw. an den Anfang von `run`/`resolve_layout`,
-geprüft gegen den geladenen State. Aufrufer im selben Commit umstellen:
-`cli/cli/build.rs`, `cli/cli/rebuild.rs` (baut jetzt `BuildPlan::{All,Page,Range}`),
-`gui/background/commands/misc.rs` + `page.rs`.
-*Verify:* `cli` und `gui` kompilieren gegen das neue Interface; Tests grün.
-
-**E3 · `refactor(build): fold options into BuildConfig, drop BuildOptions`**
-`BuildConfig` enthält nur noch `skip_pdf` + `skip_cache_update`; `release`,
-`force`, `pages` leben jetzt in `BuildPlan`. `BuildOptions` löschen. Die Regel
-`skip_pdf || !preview.write_pdf` einmal in `build()` auswerten. Aufrufer
-nachziehen.
-*Verify:* keine `BuildOptions`-Referenz mehr; Tests grün.
+**E3 · `refactor(build): BuildPlan into BuildConfig, single build() entry`**
+*Interface-Bruch, atomar* (Teilzustände kompilieren nicht). In einem Commit:
+- `BuildConfig` bekommt das Feld `plan`; `release`/`force`/`pages` ziehen in die
+  `BuildPlan`-Varianten; `skip_pdf`/`skip_cache_update` bleiben in `BuildConfig`.
+- `BuildOptions`, `rebuild()`, `RebuildScope`, `from_rebuild_scope`,
+  `from_build_config` entfallen.
+- Validierung (Range-/Index-Grenzen, „--pages nicht mit release") gegen den
+  geladenen State am Anfang von `run`/`resolve_layout`.
+- `skip_pdf || !preview.write_pdf` einmal in `build()`.
+- Aufrufer mitziehen: `cli/cli/build.rs`, `cli/cli/rebuild.rs` (baut
+  `BuildConfig{ plan: BuildPlan::{All,Page,Range}, .. }`),
+  `gui/background/commands/misc.rs` + `page.rs`, `commands.rs`-Re-Exports.
+*Verify:* `cli` und `gui` kompilieren; voller Testsatz grün.
 
 **E4 · `refactor(build): split plan.rs into plan + resolve`**
 Gegen die verbliebene Aufblähung von `plan.rs` (~680 Z.): `enum BuildPlan` + `run`
@@ -318,8 +335,8 @@ die `resolve_*`-Funktionen samt Manual-Page- und Multipage-Hilfen wandern nach
 
 ### Reihenfolge & Risiko (E)
 
-- E1 ist verhaltensneutral und interface-stabil → zuerst, isoliert testbar.
-- E2/E3 brechen das Interface; jeder dieser Commits muss **alle** Aufrufer
-  (`cli/`, `gui/`) im selben Schritt mitziehen, sonst bricht der Build.
-- Risiko liegt auf der `Auto`-Verzweigung (erster Build vs. inkrementell): die
-  bestehenden Tests beider Pfade müssen vor E1 vorhanden und nach E1 grün sein.
+- E1 und E2 sind verhaltensneutral und interface-stabil → zuerst, isoliert testbar.
+- E3 bricht das Interface und muss **alle** Aufrufer (`cli/`, `gui/`) im selben
+  Commit mitziehen, sonst bricht der Build.
+- Hauptrisiko: die `Auto`-Verzweigung (erster Build vs. inkrementell) — die
+  bestehenden Tests beider Pfade müssen vor E2 vorhanden und danach grün sein.
