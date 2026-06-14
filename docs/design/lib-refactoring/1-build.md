@@ -231,3 +231,95 @@ nicht mehr aus `commands::build` importieren.
   Beide in C1/C2 mit gezielten Tests absichern, **bevor** D1 die Altpfade löscht.
 - **D erst**, wenn der komplette build/rebuild/release-Testsatz über `run_build`
   grün ist.
+
+---
+
+## Phase E — BuildPlan als Interface, `rebuild` & Doppelungen auflösen
+
+> Status: Phasen A–D sind umgesetzt (Branch `claude/lib-refactoring-build-…`).
+> Phase E baut darauf auf. Das Lib-Interface darf jetzt brechen — Aufrufer in
+> `cli/` und `gui/` werden mitgezogen.
+
+**Befund nach A–D:** Die Pipeline (`BuildPlan::run`) ist gut, aber das *Interface*
+ist noch aufgebläht: zwei Einstiege (`build` + `rebuild`) und **vier** Typen —
+`BuildPlan`, `RebuildScope`, `BuildConfig`, `BuildOptions`. `RebuildScope` ist ein
+zweites, fast deckungsgleiches Enum, das nur über `from_rebuild_scope` in
+`BuildPlan` übersetzt wird; `BuildOptions` dupliziert zwei Felder aus
+`BuildConfig`.
+
+### Zielbild
+
+`BuildPlan` enthält **alle** build-/rebuild-Varianten und *ist* das Interface;
+`rebuild`, `RebuildScope` und `BuildOptions` entfallen. Ein einziger Einstieg:
+
+```rust
+pub enum BuildPlan {
+    Auto { pages: Option<Vec<usize>> },              // build: leeres Layout ⇒ erster Build, sonst inkrementell
+    All,                                             // voller Neu-Aufbau (war: rebuild ohne Argument)
+    Page(usize),                                     // war: rebuild --page
+    Range { start: usize, end: usize, flex: usize }, // war: rebuild --range
+    Release { force: bool },                         // finale PDF, kein Neulösen
+}
+
+pub struct BuildConfig {   // nur noch Optionen — keine Doppelung mit BuildOptions
+    pub skip_pdf: bool,
+    pub skip_cache_update: bool,
+}
+
+pub fn build(project_root: &Path, plan: BuildPlan, config: &BuildConfig)
+    -> Result<CommandOutput<BuildResult>>;
+```
+
+Damit verschwindet der `always_commit`-Bool: `Auto` committet via `CommitMode::Auto`,
+alle anderen Varianten via `Always` (aus `commit_mode(plan)` ableitbar). Die
+Erst-Build-vs-inkrementell-Entscheidung wandert in `resolve_layout` für `Auto`
+(Layout leer ⇒ ganzes Buch, sonst veraltete Seiten). `commands.rs` exportiert nur
+noch `build`, `BuildPlan`, `BuildConfig`, `BuildResult`, `DpiWarning`.
+
+*Alternative (falls ein einzelner Parameter bevorzugt wird):* `BuildConfig { plan:
+BuildPlan, skip_pdf, skip_cache_update }` und `build(project_root, &config)`. Hier
+bewusst getrennt gehalten, damit `BuildPlan` der sichtbare Star bleibt.
+
+### Commit-Portionen
+
+**E1 · `refactor(build): unify Full/Incremental into BuildPlan::Auto, add All`**
+Interner Schritt, Interface noch stabil. `Full{always_commit}` + `Incremental`
+→ `Auto{pages}`; neue Variante `All` für den vollen Neu-Aufbau. `always_commit`-
+Feld entfällt; `commit_mode` leitet aus der Variante ab. `resolve_layout::Auto`
+verzweigt anhand `mgr.state.layout.is_empty()`. Die `from_*`-Konstruktoren und
+`rebuild()` mappen vorerst weiter auf die neuen Varianten (`RebuildScope::All` →
+`All` usw.).
+*Verify:* erster Build, inkrementell, rebuild-all liefern identische Layouts;
+voller Testsatz grün.
+
+**E2 · `refactor(build): make BuildPlan the public build interface`**
+*Interface-Bruch.* Neuer Einstieg `build(project_root, plan, &config)`. Entfernen:
+`rebuild()`, `RebuildScope`, `from_rebuild_scope`, `from_build_config`. Die
+bisherige Konstruktions-/Validierungslogik (Range-/Index-Grenzen, „--pages nicht
+mit release") wandert in `build()` bzw. an den Anfang von `run`/`resolve_layout`,
+geprüft gegen den geladenen State. Aufrufer im selben Commit umstellen:
+`cli/cli/build.rs`, `cli/cli/rebuild.rs` (baut jetzt `BuildPlan::{All,Page,Range}`),
+`gui/background/commands/misc.rs` + `page.rs`.
+*Verify:* `cli` und `gui` kompilieren gegen das neue Interface; Tests grün.
+
+**E3 · `refactor(build): fold options into BuildConfig, drop BuildOptions`**
+`BuildConfig` enthält nur noch `skip_pdf` + `skip_cache_update`; `release`,
+`force`, `pages` leben jetzt in `BuildPlan`. `BuildOptions` löschen. Die Regel
+`skip_pdf || !preview.write_pdf` einmal in `build()` auswerten. Aufrufer
+nachziehen.
+*Verify:* keine `BuildOptions`-Referenz mehr; Tests grün.
+
+**E4 · `refactor(build): split plan.rs into plan + resolve`**
+Gegen die verbliebene Aufblähung von `plan.rs` (~680 Z.): `enum BuildPlan` + `run`
++ Pipeline-Glue (`commit_mode`/`pdf_target`/`commit_message`) bleiben in `plan.rs`;
+die `resolve_*`-Funktionen samt Manual-Page- und Multipage-Hilfen wandern nach
+`build/resolve.rs`. Reine Verschiebung.
+*Verify:* keine Logikänderung; Tests grün.
+
+### Reihenfolge & Risiko (E)
+
+- E1 ist verhaltensneutral und interface-stabil → zuerst, isoliert testbar.
+- E2/E3 brechen das Interface; jeder dieser Commits muss **alle** Aufrufer
+  (`cli/`, `gui/`) im selben Schritt mitziehen, sonst bricht der Build.
+- Risiko liegt auf der `Auto`-Verzweigung (erster Build vs. inkrementell): die
+  bestehenden Tests beider Pfade müssen vor E1 vorhanden und nach E1 grün sein.
