@@ -24,6 +24,7 @@ Inhalt:
 8. `input`-Modul
 9. Querschnitt: Namens- & Sprachkonsistenz
 10. Innerhalb von Methoden
+11. Umsetzungsplan für Abschnitt 1 (Conventional Commits)
 
 ---
 
@@ -404,3 +405,106 @@ Falls Abschnitt 1 nicht sofort kommt, lohnen diese lokalen Schnitte:
   → inlinen.
 - **`execute_move_to`** (`move_cmd.rs:33–248`) hat 6 Frühreturns über mehrere
   Abstraktionsebenen → Validierung/Dispatch/Mutation trennen.
+
+---
+
+## 11. Umsetzungsplan für Abschnitt 1 (Conventional Commits)
+
+Inkrementell, jeder Schritt ein eigener Commit, **Tests bleiben grün** und je
+Commit `cargo build`/`clippy --fix`/`fmt` ohne Warnungen (CLAUDE.md). Reihenfolge
+von risikoarm (reine Umstrukturierung) zu strukturell. Die ersten Schritte ändern
+**kein Verhalten** — sie schaffen nur die Bausteine, auf denen die spätere
+Vereinheitlichung aufsetzt.
+
+Erfolgskriterium über alle Schritte: bestehende Integrationstests von
+`build`/`rebuild`/`release` produzieren identische Layouts/PDF-Pfade wie vorher.
+
+### Phase A — Bausteine (verhaltensneutral)
+
+**A1 · `refactor(build): bundle skip flags into BuildOptions`**
+- Neues `struct BuildOptions { skip_pdf, skip_cache_update }` (später ggf.
+  `force`). Ersetzt das Quartett in `first_build`, `incremental_build`,
+  `rebuild_single/range/all`.
+- Verify: Signaturen kompilieren, Tests grün, keine Logikänderung.
+
+**A2 · `refactor(build): extract render_pdf helper`**
+- Eine Funktion `render_pdf(plan_target, project_root, project_name, bleed_mm,
+  skip_pdf) -> PathBuf`, die das 4×-Muster `if skip_pdf { join } else { compile_*
+  }` aufsaugt (Preview/Final unterscheidet ein `enum PdfTarget`).
+- Call-Sites: `multipage_build.rs:140`, `incremental_build.rs:36,88`,
+  `rebuild.rs:159`, `release_build.rs:98`.
+- Verify: PDF-Pfade in Tests unverändert.
+
+**A3 · `refactor(build): capture RenderContext before mgr is consumed`**
+- Kleines `struct RenderContext { project_name, bleed_mm }`, einmal vor `finish`
+  erzeugt; ersetzt die manuellen „backup before mgr consumed"-Stellen.
+- Verify: Tests grün.
+
+**A4 · `refactor(build): replace always_commit bool with CommitMode`**
+- `enum CommitMode { Auto, Always }` statt `always_commit: bool`; `run-` bzw.
+  `finish`-Aufruf wählt anhand des Enums `finish`/`finish_always`.
+- Verify: Commit-Verhalten (welche Pfade committen immer) bleibt identisch.
+
+### Phase B — Cover-Konsolidierung (Abschnitt 2)
+
+**B1 · `refactor(build): extract cover module`**
+- Neues `commands/build/cover.rs` mit *einer* öffentlichen Funktion
+  „erzeuge/aktualisiere Cover-Seite", die intern in `free`/`structured`
+  verzweigt. Zieht `split_cover_files`, `build_cover_page` und die
+  Free-Cover-Nachlösung aus `multipage_build` sowie `rebuild_cover_*` aus
+  `rebuild_single_page` zusammen.
+- Verify: Cover-Tests (Split/Free/structured) grün; identische Slots.
+
+### Phase C — Pipeline & Plan (Kern)
+
+**C1 · `refactor(build): introduce BuildPlan enum + situation handlers`**
+- `enum BuildPlan { Full, Incremental{pages}, Page(idx), Range{..}, Release }`.
+- Je Variante eine **reine** Handler-Funktion, die nur die Layout-Änderung
+  produziert und die betroffenen Seitenindizes zurückgibt (Release: keine
+  Änderung). Vorerst noch von den alten Orchestratoren aufgerufen.
+- Verify: Handler-Unit-Tests pro Variante.
+
+**C2 · `feat(build): add run_build pipeline`**
+- `run_build(mgr, project_root, plan, opts) -> CommandOutput<BuildResult>`:
+  ensure-cache (Preview/Final je Plan) → Handler (C1) → `renumber_pages` →
+  commit (CommitMode) → `render_pdf` (A2) → `BuildResult`.
+- Noch parallel zu den alten Pfaden; ein erster Aufrufer (z. B. `first_build`)
+  wird auf `run_build` umgestellt.
+- Verify: `first_build`-Tests grün gegen die neue Pipeline.
+
+**C3 · `refactor(build): route build()/rebuild() through run_build`**
+- `build()` baut `BuildPlan::{Full|Incremental|Release}`, `rebuild()` baut
+  `BuildPlan::{Full|Range|Page}`; beide rufen nur noch `run_build`.
+- `validate_scope`/`skip_cover_if_needed` wandern in die Plan-Konstruktion.
+- Verify: kompletter `build`/`rebuild`/`release`-Testsatz grün.
+
+### Phase D — Aufräumen
+
+**D1 · `refactor(build): remove obsolete orchestrators`**
+- Löschen: `first_build`, `incremental_build`, `release_build`, `rebuild_all`,
+  `rebuild_range`, `rebuild_single`, `MultiPageParams` (Felder sind jetzt in
+  `BuildPlan`/`BuildOptions`/`CommitMode` aufgegangen).
+- Verify: keine toten Imports; Tests grün.
+
+**D2 · `refactor(build): slim BuildResult`**
+- `pages_swapped` und `total_cost` entfernen (oder `Option`), `images_processed`
+  an genau einer Stelle in `run_build` setzen.
+- Verify: Aufrufer in CLI/`print_build_result` angepasst.
+
+**D3 · `refactor(build): hoist shared engine out of build/core`**
+- Geteilte Engine (`run_build`, Handler, cover) nach `commands/build_engine.rs`;
+  `build.rs`/`rebuild.rs` werden dünne CLI-Adapter; `build/core.rs` entfällt.
+- `build_photo_index` in ein neutrales Query-Modul (raus aus `commands::build`,
+  siehe 3 & 7.1).
+- Verify: `place`/`status` importieren nicht mehr aus `commands::build`.
+
+### Reihenfolge-Rationale & Risiko
+
+- A vor B/C: kleine, reviewbare, verhaltensneutrale Schritte zuerst.
+- B vor C: die Plan-Handler (C1) sollen die *konsolidierte* Cover-Funktion
+  aufrufen, nicht die verstreute alte Logik.
+- Höchstes Regressionsrisiko: **Manual-Page-Snapshotting** (`extract_manual_pages`)
+  und **Free-Cover-Nachlösung** — beide in C1/C2 mit gezielten Tests absichern,
+  bevor D1 die alten Pfade löscht.
+- D ist erst zulässig, wenn der gesamte build/rebuild/release-Testsatz über
+  `run_build` grün ist.
