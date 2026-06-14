@@ -477,7 +477,7 @@ impl Execute for Commands {
             }),
             Commands::Build { command, pages } => match command {
                 Some(BuildCommands::Release { force }) => build::handle_release(*force),
-                None => build::handle(false, pages.clone()),
+                None => build::handle(pages.clone()),
             },
             Commands::Rebuild {
                 page,

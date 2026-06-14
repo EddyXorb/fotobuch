@@ -4,7 +4,7 @@ use super::helpers::{
     update_preview_cache,
 };
 use super::rebuild_single_page::rebuild_single_page;
-use super::{BuildConfig, BuildOptions, BuildResult, DpiWarning};
+use super::{BuildResult, DpiWarning};
 use crate::cache::final_cache;
 use crate::commands::CommandOutput;
 use crate::dto_models::{
@@ -16,27 +16,6 @@ use anyhow::Result;
 use std::collections::HashSet;
 use std::sync::atomic::AtomicUsize;
 use tracing::{info, warn};
-
-/// Scope of a rebuild operation (input to `BuildPlan::from_rebuild_scope`).
-///
-/// All page references use **0-based array indices** (position in `layout[]`).
-/// Cover page (when active) is always at index 0.
-#[derive(Debug, Clone)]
-pub enum RebuildScope {
-    /// Rebuild all pages (like first build, but always commits the result).
-    All,
-    /// Rebuild single page.
-    /// `page_idx` is a 0-based index into `layout[]`.
-    SinglePage(usize),
-    /// Rebuild page range with optional flexibility.
-    /// `start` and `end` are both 0-based inclusive indices into `layout[]`.
-    Range {
-        start: usize,
-        end: usize,
-        /// Allow page count to vary by +/- N (default: 0)
-        flex: usize,
-    },
-}
 
 /// Describes the layout-change strategy for one build or rebuild invocation.
 #[derive(Debug, Clone)]
@@ -58,57 +37,6 @@ pub enum BuildPlan {
 }
 
 impl BuildPlan {
-    /// Constructs a plan from a `build` command config.
-    pub fn from_build_config(mgr: &StateManager, config: &BuildConfig) -> Result<Self> {
-        if config.release {
-            if config.pages.is_some() {
-                anyhow::bail!("--pages is not allowed with release (must build entire book)");
-            }
-            return Ok(BuildPlan::Release {
-                force: config.force,
-            });
-        }
-        let _ = mgr; // layout-emptiness check moved into resolve_layout for Auto
-        Ok(BuildPlan::Auto {
-            pages: config.pages.clone(),
-        })
-    }
-
-    /// Constructs a plan from a `rebuild` command scope, validating the scope against the layout.
-    pub fn from_rebuild_scope(mgr: &StateManager, scope: RebuildScope) -> Result<Self> {
-        if !matches!(scope, RebuildScope::All) && mgr.state.layout.is_empty() {
-            anyhow::bail!(
-                "No layout exists. Run `fotobuch build` first, \
-                 or use `fotobuch rebuild` (without arguments) for a full rebuild."
-            );
-        }
-        if let RebuildScope::Range { start, end, .. } = scope
-            && (start > end || end >= mgr.state.layout.len())
-        {
-            anyhow::bail!(
-                "Invalid page range {}-{} (layout has {} pages, indices 0..{})",
-                start,
-                end,
-                mgr.state.layout.len(),
-                mgr.state.layout.len().saturating_sub(1),
-            );
-        }
-        if let RebuildScope::SinglePage(idx) = scope
-            && idx >= mgr.state.layout.len()
-        {
-            anyhow::bail!(
-                "Invalid page index {} (layout has {} pages, indices 0..{})",
-                idx,
-                mgr.state.layout.len(),
-                mgr.state.layout.len().saturating_sub(1),
-            );
-        }
-        Ok(match scope {
-            RebuildScope::All => BuildPlan::All,
-            RebuildScope::SinglePage(idx) => BuildPlan::Page(idx),
-            RebuildScope::Range { start, end, flex } => BuildPlan::Range { start, end, flex },
-        })
-    }
     /// Runs the layout solver for this variant and updates `mgr.state.layout`.
     ///
     /// Pure layout step: no cache update, no commit, no PDF.
@@ -135,14 +63,15 @@ impl BuildPlan {
     pub fn run(
         self,
         mut mgr: StateManager,
-        opts: BuildOptions,
+        skip_pdf: bool,
+        skip_cache_update: bool,
     ) -> Result<CommandOutput<BuildResult>> {
         if let BuildPlan::Release { force } = self {
             validate_release(&mgr, force)?;
         }
 
         // 1. Update image cache
-        let (images_processed, dpi_warnings) = refresh_cache(&self, &mut mgr, &opts)?;
+        let (images_processed, dpi_warnings) = refresh_cache(&self, &mut mgr, skip_cache_update)?;
 
         // 2. Resolve layout (pure)
         let changed_pages = self.resolve_layout(&mut mgr)?;
@@ -163,7 +92,10 @@ impl BuildPlan {
         };
 
         // 5. PDF
-        let pdf_path = render_pdf(&ctx, pdf_target(&self), effective_skip_pdf(&self, &opts))?;
+        let effective_skip = matches!(self, BuildPlan::Release { .. })
+            .then_some(false)
+            .unwrap_or(skip_pdf);
+        let pdf_path = render_pdf(&ctx, pdf_target(&self), effective_skip)?;
 
         Ok(CommandOutput {
             result: BuildResult {
@@ -205,7 +137,7 @@ fn validate_release(mgr: &StateManager, force: bool) -> Result<()> {
 fn refresh_cache(
     plan: &BuildPlan,
     mgr: &mut StateManager,
-    opts: &BuildOptions,
+    skip_cache_update: bool,
 ) -> Result<(usize, Vec<DpiWarning>)> {
     if let BuildPlan::Release { .. } = plan {
         let dpi = mgr.state.config.book.dpi;
@@ -239,7 +171,7 @@ fn refresh_cache(
         return Ok((result.created, result.dpi_warnings));
     }
 
-    if opts.skip_cache_update {
+    if skip_cache_update {
         return Ok((0, vec![]));
     }
     let result = update_preview_cache(mgr)?;
@@ -261,14 +193,6 @@ fn pdf_target(plan: &BuildPlan) -> PdfTarget {
         PdfTarget::Final
     } else {
         PdfTarget::Preview
-    }
-}
-
-fn effective_skip_pdf(plan: &BuildPlan, opts: &BuildOptions) -> bool {
-    if matches!(plan, BuildPlan::Release { .. }) {
-        false
-    } else {
-        opts.skip_pdf
     }
 }
 
@@ -328,11 +252,15 @@ fn resolve_outdated_pages(
 }
 
 fn resolve_single_page(mgr: &mut StateManager, idx: usize) -> Result<Vec<usize>> {
+    if mgr.state.layout.is_empty() {
+        anyhow::bail!("No layout exists. Run `fotobuch build` first.");
+    }
     if idx >= mgr.state.layout.len() {
         anyhow::bail!(
-            "Page {} does not exist (layout has {} pages)",
+            "Invalid page index {} (layout has {} pages, indices 0..{})",
             idx,
-            mgr.state.layout.len()
+            mgr.state.layout.len(),
+            mgr.state.layout.len().saturating_sub(1),
         );
     }
     if mgr.state.layout[idx].mode == PageMode::Manual {
@@ -354,6 +282,18 @@ fn resolve_range(
     end: usize,
     flex: usize,
 ) -> Result<Vec<usize>> {
+    if mgr.state.layout.is_empty() {
+        anyhow::bail!("No layout exists. Run `fotobuch build` first.");
+    }
+    if start > end || end >= mgr.state.layout.len() {
+        anyhow::bail!(
+            "Invalid page range {}-{} (layout has {} pages, indices 0..{})",
+            start,
+            end,
+            mgr.state.layout.len(),
+            mgr.state.layout.len().saturating_sub(1),
+        );
+    }
     let effective_start = skip_cover_if_needed(mgr.state.has_cover(), start, end)?;
     let groups = collect_photos_as_groups(&mgr.state, effective_start, end + 1);
     let n = end - effective_start + 1;

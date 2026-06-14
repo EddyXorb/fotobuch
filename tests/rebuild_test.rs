@@ -2,8 +2,7 @@
 mod common;
 
 use anyhow::Result;
-use fotobuch::commands::build::{BuildConfig, BuildOptions, build};
-use fotobuch::commands::build::{RebuildScope, rebuild};
+use fotobuch::commands::build::{BuildConfig, BuildPlan, build};
 use fotobuch::commands::project::new::{NewConfig, project_new};
 use fotobuch::commands::{AddConfig, add};
 use fotobuch::dto_models::ProjectState;
@@ -64,9 +63,7 @@ fn create_test_project_with_build(temp_dir: &TempDir) -> Result<PathBuf> {
 
     // Run initial build (with 5 photos and max 2 per page, we get at least 3 pages)
     let build_config = BuildConfig {
-        release: false,
-        force: false,
-        pages: None,
+        plan: BuildPlan::Auto { pages: None },
         skip_pdf: true,
         skip_cache_update: true,
     };
@@ -103,10 +100,10 @@ fn test_rebuild_single_page_only_changes_slots() -> Result<()> {
         .collect();
 
     // Rebuild single page by 0-based index
-    let result = rebuild(
+    let result = build(
         &project_root,
-        RebuildScope::SinglePage(page_idx_to_rebuild),
-        BuildOptions {
+        &BuildConfig {
+            plan: BuildPlan::Page(page_idx_to_rebuild),
             skip_pdf: true,
             skip_cache_update: true,
         },
@@ -171,10 +168,10 @@ fn test_rebuild_single_page_invalid_page_index() -> Result<()> {
     let page_count = state.layout.len();
 
     // Test index >= len (invalid — 0-based, so len is out of bounds)
-    let result = rebuild(
+    let result = build(
         &project_root,
-        RebuildScope::SinglePage(page_count),
-        BuildOptions {
+        &BuildConfig {
+            plan: BuildPlan::Page(page_count),
             skip_pdf: true,
             skip_cache_update: true,
         },
@@ -192,10 +189,10 @@ fn test_rebuild_single_page_invalid_page_index() -> Result<()> {
     );
 
     // Test index well beyond count
-    let result = rebuild(
+    let result = build(
         &project_root,
-        RebuildScope::SinglePage(page_count + 5),
-        BuildOptions {
+        &BuildConfig {
+            plan: BuildPlan::Page(page_count + 5),
             skip_pdf: true,
             skip_cache_update: true,
         },
@@ -228,14 +225,14 @@ fn test_rebuild_range_replaces_pages() -> Result<()> {
     let page_after_range = state_before.layout[2].clone();
 
     // Rebuild range with flex=0 (should keep same number of pages)
-    let result = rebuild(
+    let result = build(
         &project_root,
-        RebuildScope::Range {
-            start,
-            end,
-            flex: 0,
-        },
-        BuildOptions {
+        &BuildConfig {
+            plan: BuildPlan::Range {
+                start,
+                end,
+                flex: 0,
+            },
             skip_pdf: true,
             skip_cache_update: true,
         },
@@ -298,10 +295,10 @@ fn test_rebuild_range_flex_allows_page_variation() -> Result<()> {
     let original_range_size = end - start + 1;
 
     // Rebuild range with flex=1
-    let result = rebuild(
+    let result = build(
         &project_root,
-        RebuildScope::Range { start, end, flex },
-        BuildOptions {
+        &BuildConfig {
+            plan: BuildPlan::Range { start, end, flex },
             skip_pdf: true,
             skip_cache_update: true,
         },
@@ -355,14 +352,14 @@ fn test_rebuild_range_preserves_groups() -> Result<()> {
         .collect();
 
     // Rebuild range
-    let result = rebuild(
+    let result = build(
         &project_root,
-        RebuildScope::Range {
-            start,
-            end,
-            flex: 0,
-        },
-        BuildOptions {
+        &BuildConfig {
+            plan: BuildPlan::Range {
+                start,
+                end,
+                flex: 0,
+            },
             skip_pdf: true,
             skip_cache_update: true,
         },
@@ -411,10 +408,10 @@ fn test_rebuild_all_redistributes_everything() -> Result<()> {
 
     // Rebuild all
     eprintln!("About to call rebuild(All)...");
-    let result = rebuild(
+    let result = build(
         &project_root,
-        RebuildScope::All,
-        BuildOptions {
+        &BuildConfig {
+            plan: BuildPlan::All,
             skip_pdf: true,
             skip_cache_update: true,
         },
@@ -520,10 +517,10 @@ fn test_rebuild_without_layout_fails_except_all() -> Result<()> {
     assert!(state.layout.is_empty(), "Layout should be empty");
 
     // SinglePage should fail (no layout)
-    let result = rebuild(
+    let result = build(
         &project_root,
-        RebuildScope::SinglePage(0),
-        BuildOptions {
+        &BuildConfig {
+            plan: BuildPlan::Page(0),
             skip_pdf: true,
             skip_cache_update: true,
         },
@@ -539,14 +536,14 @@ fn test_rebuild_without_layout_fails_except_all() -> Result<()> {
     );
 
     // Range should fail (no layout)
-    let result = rebuild(
+    let result = build(
         &project_root,
-        RebuildScope::Range {
-            start: 0,
-            end: 0,
-            flex: 0,
-        },
-        BuildOptions {
+        &BuildConfig {
+            plan: BuildPlan::Range {
+                start: 0,
+                end: 0,
+                flex: 0,
+            },
             skip_pdf: true,
             skip_cache_update: true,
         },
@@ -559,10 +556,10 @@ fn test_rebuild_without_layout_fails_except_all() -> Result<()> {
     );
 
     // All should succeed (like first build)
-    let result = rebuild(
+    let result = build(
         &project_root,
-        RebuildScope::All,
-        BuildOptions {
+        &BuildConfig {
+            plan: BuildPlan::All,
             skip_pdf: true,
             skip_cache_update: true,
         },
@@ -589,14 +586,14 @@ fn test_rebuild_range_invalid_range() -> Result<()> {
     let page_count = state.layout.len();
 
     // Test start > end (invalid)
-    let result = rebuild(
+    let result = build(
         &project_root,
-        RebuildScope::Range {
-            start: 2,
-            end: 1,
-            flex: 0,
-        },
-        BuildOptions {
+        &BuildConfig {
+            plan: BuildPlan::Range {
+                start: 2,
+                end: 1,
+                flex: 0,
+            },
             skip_pdf: true,
             skip_cache_update: true,
         },
@@ -604,14 +601,14 @@ fn test_rebuild_range_invalid_range() -> Result<()> {
     assert!(result.is_err(), "start > end should be invalid");
 
     // Test end >= page_count (out of bounds, 0-based)
-    let result = rebuild(
+    let result = build(
         &project_root,
-        RebuildScope::Range {
-            start: 0,
-            end: page_count, // page_count is out of bounds (valid: 0..page_count-1)
-            flex: 0,
-        },
-        BuildOptions {
+        &BuildConfig {
+            plan: BuildPlan::Range {
+                start: 0,
+                end: page_count, // page_count is out of bounds (valid: 0..page_count-1)
+                flex: 0,
+            },
             skip_pdf: true,
             skip_cache_update: true,
         },

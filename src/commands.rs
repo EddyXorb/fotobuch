@@ -40,8 +40,7 @@ impl<T: std::fmt::Debug> std::fmt::Debug for CommandOutput<T> {
 }
 
 pub use add::{AddConfig, AddResult, GroupSummary, add};
-pub use build::{BuildConfig, BuildResult, DpiWarning, build};
-pub use build::{RebuildScope, rebuild};
+pub use build::{BuildConfig, BuildPlan, BuildResult, DpiWarning, build};
 pub use config::{ConfigResult, config, render_config};
 pub use history::{HistoryEntry, history};
 pub use place::{PlaceConfig, PlaceDst, PlaceResult, place};

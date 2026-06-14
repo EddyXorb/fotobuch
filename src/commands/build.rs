@@ -1,11 +1,10 @@
-//! `fotobuch build` and `fotobuch rebuild` commands
+//! `fotobuch build` command
 pub(super) mod cover;
 mod helpers;
 pub mod plan;
 mod rebuild_single_page;
 
-pub use helpers::collect_photos_as_groups;
-pub use plan::{BuildPlan, RebuildScope};
+pub use plan::BuildPlan;
 
 use crate::state_manager::StateManager;
 use anyhow::Result;
@@ -27,25 +26,14 @@ pub struct DpiWarning {
     pub slot_mm: (f64, f64),
 }
 
-/// Options controlling the build pipeline's side effects.
-#[derive(Debug, Clone, Copy)]
-pub struct BuildOptions {
-    pub skip_pdf: bool,
-    pub skip_cache_update: bool,
-}
-
 /// Configuration for the `build` command.
 #[derive(Debug, Clone)]
 pub struct BuildConfig {
-    /// Build final PDF instead of preview (default: false)
-    pub release: bool,
-    /// Force release even if layout has uncommitted changes (default: false)
-    pub force: bool,
-    /// Only process these pages (0-based indices, optional, default: all)
-    pub pages: Option<Vec<usize>>,
+    /// Which layout strategy to apply.
+    pub plan: BuildPlan,
     /// Skip PDF generation (Typst compilation). Only produce YAML layout.
     pub skip_pdf: bool,
-    /// Skip preview cache update, only for preview builds. Use with caution.
+    /// Skip preview cache update. Use with caution.
     pub skip_cache_update: bool,
 }
 
@@ -70,27 +58,11 @@ pub fn build(
     config: &BuildConfig,
 ) -> Result<super::CommandOutput<BuildResult>> {
     let mgr = StateManager::open(project_root)?;
-    let opts = BuildOptions {
-        skip_pdf: config.skip_pdf || !mgr.state.config.preview.write_pdf,
-        skip_cache_update: config.skip_cache_update,
-    };
-    let plan = BuildPlan::from_build_config(&mgr, config)?;
-    plan.run(mgr, opts)
-}
-
-/// Force re-optimization of pages or page ranges.
-pub fn rebuild(
-    project_root: &Path,
-    scope: RebuildScope,
-    opts: BuildOptions,
-) -> Result<super::CommandOutput<BuildResult>> {
-    let mgr = StateManager::open(project_root)?;
-    let opts = BuildOptions {
-        skip_pdf: opts.skip_pdf || !mgr.state.config.preview.write_pdf,
-        ..opts
-    };
-    let plan = BuildPlan::from_rebuild_scope(&mgr, scope)?;
-    plan.run(mgr, opts)
+    let skip_pdf = config.skip_pdf || !mgr.state.config.preview.write_pdf;
+    config
+        .plan
+        .clone()
+        .run(mgr, skip_pdf, config.skip_cache_update)
 }
 
 /// Output build result summary (pages rebuilt, PDF path, DPI warnings).

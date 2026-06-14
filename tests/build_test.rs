@@ -3,7 +3,7 @@
 mod common;
 
 use anyhow::Result;
-use fotobuch::commands::build::{BuildConfig, build};
+use fotobuch::commands::build::{BuildConfig, BuildPlan, build};
 use fotobuch::commands::project::new::{NewConfig, project_new};
 use fotobuch::commands::{AddConfig, add};
 use fotobuch::dto_models::ProjectState;
@@ -136,9 +136,7 @@ fn test_first_build_creates_layout_and_pdf() -> Result<()> {
 
     // Run first build
     let build_config = BuildConfig {
-        release: false,
-        force: false,
-        pages: None,
+        plan: BuildPlan::Auto { pages: None },
         skip_pdf: false,
         skip_cache_update: false,
     };
@@ -207,9 +205,7 @@ fn test_incremental_build_without_changes_does_nothing() -> Result<()> {
 
     // First build
     let build_config = BuildConfig {
-        release: false,
-        force: false,
-        pages: None,
+        plan: BuildPlan::Auto { pages: None },
         skip_pdf: true,
         skip_cache_update: true,
     };
@@ -252,48 +248,13 @@ fn test_incremental_build_without_changes_does_nothing() -> Result<()> {
 }
 
 #[test]
-fn test_release_requires_pages_flag_not_allowed() -> Result<()> {
-    let temp_dir = TempDir::new()?;
-    let project_root = create_test_project_with_photos(&temp_dir)?;
-
-    // First build to create layout
-    let build_config = BuildConfig {
-        release: false,
-        force: false,
-        pages: None,
-        skip_pdf: true,
-        skip_cache_update: true,
-    };
-    build(&project_root, &build_config)?;
-
-    // Try release with --pages (should fail before PDF generation)
-    let release_config = BuildConfig {
-        release: true,
-        force: false,
-        pages: Some(vec![1]),
-        skip_pdf: false,
-        skip_cache_update: true,
-    };
-    let result = build(&project_root, &release_config);
-
-    assert!(result.is_err(), "Release with --pages should fail");
-    let err_msg = result.unwrap_err().to_string();
-    assert!(err_msg.contains("--pages"), "Error should mention --pages");
-    assert!(err_msg.contains("release"), "Error should mention release");
-
-    Ok(())
-}
-
-#[test]
 fn test_release_requires_clean_state() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let project_root = create_test_project_with_photos(&temp_dir)?;
 
     // First build
     let build_config = BuildConfig {
-        release: false,
-        force: false,
-        pages: None,
+        plan: BuildPlan::Auto { pages: None },
         skip_pdf: true,
         skip_cache_update: true,
     };
@@ -311,9 +272,7 @@ fn test_release_requires_clean_state() -> Result<()> {
 
     // Try release build (should fail because layout is not clean)
     let release_config = BuildConfig {
-        release: true,
-        force: false,
-        pages: None,
+        plan: BuildPlan::Release { force: false },
         skip_pdf: false,
         skip_cache_update: true,
     };
@@ -339,9 +298,7 @@ fn test_release_creates_final_cache_and_pdf() -> Result<()> {
 
     // First build
     let build_config = BuildConfig {
-        release: false,
-        force: false,
-        pages: None,
+        plan: BuildPlan::Auto { pages: None },
         skip_pdf: true,
         skip_cache_update: true,
     };
@@ -349,9 +306,7 @@ fn test_release_creates_final_cache_and_pdf() -> Result<()> {
 
     // Release build
     let release_config = BuildConfig {
-        release: true,
-        force: false,
-        pages: None,
+        plan: BuildPlan::Release { force: false },
         skip_pdf: false,
         skip_cache_update: false,
     };
@@ -405,9 +360,7 @@ fn test_pages_filter_limits_scope() -> Result<()> {
 
     // First build to create multi-page layout
     let build_config = BuildConfig {
-        release: false,
-        force: false,
-        pages: None,
+        plan: BuildPlan::Auto { pages: None },
         skip_pdf: true,
         skip_cache_update: true,
     };
@@ -430,9 +383,9 @@ fn test_pages_filter_limits_scope() -> Result<()> {
     // Build with page filter (only first page that was created)
     let first_page = *result1.result.pages_rebuilt.first().unwrap_or(&0);
     let filtered_config = BuildConfig {
-        release: false,
-        force: false,
-        pages: Some(vec![first_page]),
+        plan: BuildPlan::Auto {
+            pages: Some(vec![first_page]),
+        },
         skip_pdf: true,
         skip_cache_update: true,
     };
@@ -475,9 +428,7 @@ fn test_build_handles_empty_photo_list() -> Result<()> {
 
     // Try to build with no photos
     let build_config = BuildConfig {
-        release: false,
-        force: false,
-        pages: None,
+        plan: BuildPlan::Auto { pages: None },
         skip_pdf: true,
         skip_cache_update: true,
     };
@@ -536,9 +487,7 @@ fn test_max_groups_per_page_limits_to_one_group() -> Result<()> {
 
     // Build with the constraint
     let build_config = BuildConfig {
-        release: false,
-        force: false,
-        pages: None,
+        plan: BuildPlan::Auto { pages: None },
         skip_pdf: true,
         skip_cache_update: true,
     };
@@ -596,9 +545,7 @@ fn test_build_from_scratch_with_max_groups_per_page_one() -> Result<()> {
 
     // First, do an initial build to ensure everything is set up
     let build_config = BuildConfig {
-        release: false,
-        force: false,
-        pages: None,
+        plan: BuildPlan::Auto { pages: None },
         skip_pdf: true,
         skip_cache_update: true,
     };
@@ -681,9 +628,7 @@ fn test_incremental_build_detects_no_changes_when_swapping_page_order() -> Resul
 
     // First build to create layout
     let build_config = BuildConfig {
-        release: false,
-        force: false,
-        pages: None,
+        plan: BuildPlan::Auto { pages: None },
         skip_pdf: true,
         skip_cache_update: true,
     };
@@ -744,9 +689,7 @@ fn test_incremental_rebuild_after_swapping_photos_on_same_page() -> Result<()> {
 
     // First build to create layout
     let build_config = BuildConfig {
-        release: false,
-        force: false,
-        pages: None,
+        plan: BuildPlan::Auto { pages: None },
         skip_pdf: true,
         skip_cache_update: true,
     };
@@ -830,9 +773,7 @@ fn test_release_build_with_force_flag() -> Result<()> {
 
     // First build to create layout
     let build_config = BuildConfig {
-        release: false,
-        force: false,
-        pages: None,
+        plan: BuildPlan::Auto { pages: None },
         skip_pdf: true,
         skip_cache_update: true,
     };
@@ -842,9 +783,7 @@ fn test_release_build_with_force_flag() -> Result<()> {
     // (We don't modify the layout to trigger outdated pages,
     // but force=true should not cause any issues even if it could apply)
     let release_config = BuildConfig {
-        release: true,
-        force: true,
-        pages: None,
+        plan: BuildPlan::Release { force: true },
         skip_pdf: false,
         skip_cache_update: true,
     };
@@ -867,9 +806,7 @@ fn incremental_build_skips_manual_page() -> Result<()> {
     build(
         &project_root,
         &BuildConfig {
-            release: false,
-            force: false,
-            pages: None,
+            plan: BuildPlan::Auto { pages: None },
             skip_pdf: true,
             skip_cache_update: true,
         },
@@ -904,9 +841,7 @@ fn incremental_build_skips_manual_page() -> Result<()> {
     let result = build(
         &project_root,
         &BuildConfig {
-            release: false,
-            force: false,
-            pages: None,
+            plan: BuildPlan::Auto { pages: None },
             skip_pdf: true,
             skip_cache_update: true,
         },
@@ -940,9 +875,7 @@ fn build_does_not_write_pdf_when_write_pdf_disabled() -> Result<()> {
     let result = build(
         &project_root,
         &BuildConfig {
-            release: false,
-            force: false,
-            pages: None,
+            plan: BuildPlan::Auto { pages: None },
             skip_pdf: false,
             skip_cache_update: false,
         },

@@ -1,4 +1,4 @@
-use fotobuch::commands::build::{BuildConfig, build};
+use fotobuch::commands::build::{BuildConfig, BuildPlan, build};
 use fotobuch::commands::page::{
     DstMove, DstSwap, PageMoveCmd, PagesExpr, SlotExpr, Src, execute_move,
 };
@@ -16,9 +16,7 @@ pub fn build_after_command(
         return;
     }
     let build_cfg = BuildConfig {
-        release: false,
-        force: false,
-        pages: None,
+        plan: BuildPlan::Auto { pages: None },
         skip_pdf: false,
         skip_cache_update: false,
     };

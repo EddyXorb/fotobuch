@@ -1,5 +1,4 @@
-use fotobuch::commands::build::{BuildConfig, BuildOptions, build};
-use fotobuch::commands::build::{RebuildScope, rebuild};
+use fotobuch::commands::build::{BuildConfig, BuildPlan, build};
 use fotobuch::commands::config::config_set;
 use fotobuch::commands::undo::{redo, undo};
 
@@ -56,10 +55,10 @@ pub fn run_rebuild_pages(pages: Vec<usize>, rctx: &mut crate::background::Render
     let mut dirty: Vec<usize> = vec![];
     let mut new_state: Option<fotobuch::dto_models::ProjectState> = None;
     for p in pages {
-        match rebuild(
+        match build(
             rctx.project_root,
-            RebuildScope::SinglePage(p),
-            BuildOptions {
+            &BuildConfig {
+                plan: BuildPlan::Page(p),
                 skip_pdf: false,
                 skip_cache_update: false,
             },
@@ -82,10 +81,10 @@ pub fn run_rebuild_pages(pages: Vec<usize>, rctx: &mut crate::background::Render
 }
 
 pub fn run_rebuild_all(rctx: &mut crate::background::RenderCtx<'_>) {
-    match rebuild(
+    match build(
         rctx.project_root,
-        RebuildScope::All,
-        BuildOptions {
+        &BuildConfig {
+            plan: BuildPlan::All,
             skip_pdf: false,
             skip_cache_update: false,
         },
@@ -101,9 +100,7 @@ pub fn run_rebuild_all(rctx: &mut crate::background::RenderCtx<'_>) {
 
 pub fn run_release_build(rctx: &mut crate::background::RenderCtx<'_>) {
     let cfg = BuildConfig {
-        release: true,
-        force: false,
-        pages: None,
+        plan: BuildPlan::Release { force: false },
         skip_pdf: false,
         skip_cache_update: false,
     };
