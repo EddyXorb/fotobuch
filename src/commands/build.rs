@@ -3,6 +3,7 @@ pub(super) mod cover;
 mod helpers;
 pub mod plan;
 mod rebuild_single_page;
+mod resolve;
 
 pub use plan::BuildPlan;
 
