@@ -32,6 +32,13 @@ pub struct DpiWarning {
     pub slot_mm: (f64, f64),
 }
 
+/// Options controlling the build pipeline's side effects.
+#[derive(Debug, Clone, Copy)]
+pub struct BuildOptions {
+    pub skip_pdf: bool,
+    pub skip_cache_update: bool,
+}
+
 /// Configuration for build command
 #[derive(Debug, Clone)]
 pub struct BuildConfig {
@@ -117,20 +124,16 @@ pub fn build(
         return release_build(mgr, project_root, config.force);
     }
 
-    // Honor the project's `preview.write_pdf` setting in addition to the explicit flag.
-    let skip_pdf = config.skip_pdf || !mgr.state.config.preview.write_pdf;
+    let opts = BuildOptions {
+        skip_pdf: config.skip_pdf || !mgr.state.config.preview.write_pdf,
+        skip_cache_update: config.skip_cache_update,
+    };
 
     // First build vs incremental build
     if mgr.state.layout.is_empty() {
-        first_build(mgr, project_root, skip_pdf, config.skip_cache_update)
+        first_build(mgr, project_root, opts)
     } else {
-        incremental_build(
-            mgr,
-            project_root,
-            config.pages.as_deref(),
-            skip_pdf,
-            config.skip_cache_update,
-        )
+        incremental_build(mgr, project_root, config.pages.as_deref(), opts)
     }
 }
 

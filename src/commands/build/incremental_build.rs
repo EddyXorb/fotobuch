@@ -1,8 +1,9 @@
-use super::super::BuildResult;
+use super::BuildOptions;
 use super::core::rebuild_single_page::rebuild_single_page;
 use super::helpers::update_preview_cache;
 use super::helpers::{build_photo_index, update_preview_pdf};
 use crate::commands::CommandOutput;
+use crate::commands::build::BuildResult;
 use crate::state_manager::StateManager;
 use anyhow::Result;
 use std::path::Path;
@@ -13,13 +14,12 @@ pub fn incremental_build(
     mut mgr: StateManager,
     project_root: &Path,
     page_filter: Option<&[usize]>,
-    skip_pdf: bool,
-    skip_cache_update: bool,
+    opts: BuildOptions,
 ) -> Result<CommandOutput<BuildResult>> {
     info!("Incremental build: checking for changes...");
 
     // 1. Generate/update preview cache
-    let cache_result = if skip_cache_update {
+    let cache_result = if opts.skip_cache_update {
         Default::default()
     } else {
         update_preview_cache(&mut mgr)?
@@ -33,7 +33,7 @@ pub fn incremental_build(
 
     if pages_needing_rebuild.is_empty() {
         info!("No changes detected. Nothing to do. Build only pdf.");
-        let pdf_path = if skip_pdf {
+        let pdf_path = if opts.skip_pdf {
             project_root.join(format!("{}.pdf", mgr.project_name()))
         } else {
             update_preview_pdf(
@@ -85,7 +85,7 @@ pub fn incremental_build(
     ))?;
 
     // 6. Compile Typst template to PDF
-    let pdf_path = if skip_pdf {
+    let pdf_path = if opts.skip_pdf {
         project_root.join(format!("{project_name}.pdf"))
     } else {
         update_preview_pdf(project_root, bleed_mm, &project_name)?

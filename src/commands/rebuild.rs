@@ -9,8 +9,8 @@ use anyhow::Result;
 use std::path::Path;
 
 use super::build::{
-    BuildResult, MultiPageParams, build_photo_index, collect_photos_as_groups, multipage_build,
-    rebuild_single_page,
+    BuildOptions, BuildResult, MultiPageParams, build_photo_index, collect_photos_as_groups,
+    multipage_build, rebuild_single_page,
 };
 use tracing::warn;
 
@@ -61,30 +61,23 @@ pub enum RebuildScope {
 pub fn rebuild(
     project_root: &Path,
     scope: RebuildScope,
-    skip_pdf: bool,
-    skip_cache_update: bool,
+    opts: BuildOptions,
 ) -> Result<CommandOutput<BuildResult>> {
     let mgr = StateManager::open(project_root)?;
 
     validate_scope(&scope, &mgr)?;
 
-    // Honor the project's `preview.write_pdf` setting in addition to the explicit flag.
-    let skip_pdf = skip_pdf || !mgr.state.config.preview.write_pdf;
+    let opts = BuildOptions {
+        skip_pdf: opts.skip_pdf || !mgr.state.config.preview.write_pdf,
+        ..opts
+    };
 
     match scope {
-        RebuildScope::SinglePage(idx) => {
-            rebuild_single(mgr, project_root, idx, skip_pdf, skip_cache_update)
+        RebuildScope::SinglePage(idx) => rebuild_single(mgr, project_root, idx, opts),
+        RebuildScope::Range { start, end, flex } => {
+            rebuild_range(mgr, project_root, start, end, flex, opts)
         }
-        RebuildScope::Range { start, end, flex } => rebuild_range(
-            mgr,
-            project_root,
-            start,
-            end,
-            flex,
-            skip_pdf,
-            skip_cache_update,
-        ),
-        RebuildScope::All => rebuild_all(mgr, project_root, skip_pdf, skip_cache_update),
+        RebuildScope::All => rebuild_all(mgr, project_root, opts),
     }
 }
 
@@ -127,8 +120,7 @@ fn rebuild_single(
     mut mgr: StateManager,
     project_root: &Path,
     idx: usize,
-    skip_pdf: bool,
-    skip_cache_update: bool,
+    opts: BuildOptions,
 ) -> Result<CommandOutput<BuildResult>> {
     // 1. Check if page is manual - can't rebuild manual pages
     if mgr.state.layout[idx].mode == crate::dto_models::PageMode::Manual {
@@ -140,7 +132,7 @@ fn rebuild_single(
     }
 
     // 2. Preview-Cache
-    if !skip_cache_update {
+    if !opts.skip_cache_update {
         let preview_cache_dir = mgr.preview_cache_dir();
         preview::ensure_previews(&mut mgr.state, &preview_cache_dir)?;
     }
@@ -156,7 +148,7 @@ fn rebuild_single(
     // 5. Save — always commit (even if slots don't change)
     let changed_state = mgr.finish_always(&format!("rebuild: page {}", idx))?;
 
-    let pdf_path = if skip_pdf {
+    let pdf_path = if opts.skip_pdf {
         project_root.join(format!("{}.pdf", project_name))
     } else {
         typst::compile_preview(project_root, &project_name, bleed_mm)?
@@ -202,8 +194,7 @@ fn rebuild_range(
     start: usize,
     end: usize,
     flex: usize,
-    skip_pdf: bool,
-    skip_cache_update: bool,
+    opts: BuildOptions,
 ) -> Result<CommandOutput<BuildResult>> {
     let effective_start = skip_cover_if_needed(mgr.state.has_cover(), start, end)?;
 
@@ -227,8 +218,7 @@ fn rebuild_range(
             commit_message: format!("rebuild: pages {}-{}", effective_start, end),
             images_processed: 0,
             always_commit: true,
-            skip_pdf,
-            skip_cache_update,
+            opts,
         },
     )
 }
@@ -238,8 +228,7 @@ fn rebuild_range(
 fn rebuild_all(
     mgr: StateManager,
     project_root: &Path,
-    skip_pdf: bool,
-    skip_cache_update: bool,
+    opts: BuildOptions,
 ) -> Result<CommandOutput<BuildResult>> {
     let layout_len = mgr.state.layout.len();
 
@@ -271,8 +260,7 @@ fn rebuild_all(
             commit_message: format!("rebuild: {} photos redistributed", photo_count),
             images_processed: 0,
             always_commit: true,
-            skip_pdf,
-            skip_cache_update,
+            opts,
         },
     )
 }

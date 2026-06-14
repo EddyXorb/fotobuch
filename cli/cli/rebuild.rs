@@ -3,6 +3,7 @@
 use anyhow::Context;
 use anyhow::Result;
 use fotobuch::commands;
+use fotobuch::commands::build::BuildOptions;
 use tracing::info;
 
 pub fn handle(
@@ -24,7 +25,14 @@ pub fn handle(
         commands::rebuild::RebuildScope::All
     };
 
-    let output = commands::rebuild::rebuild(&project_root, scope, false, false)?;
+    let output = commands::rebuild::rebuild(
+        &project_root,
+        scope,
+        BuildOptions {
+            skip_pdf: false,
+            skip_cache_update: false,
+        },
+    )?;
 
     if !output.result.pages_rebuilt.is_empty() {
         info!(

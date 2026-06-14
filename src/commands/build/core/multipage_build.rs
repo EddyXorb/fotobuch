@@ -1,8 +1,8 @@
-use super::super::BuildResult;
 use super::super::helpers::update_preview_cache;
 use super::super::helpers::{build_photo_index, update_preview_pdf};
 use super::rebuild_single_page::rebuild_single_page;
 use crate::commands::CommandOutput;
+use crate::commands::build::{BuildOptions, BuildResult};
 use crate::dto_models::{
     BookLayoutSolverConfig, CoverConfig, LayoutPage, PageMode, PhotoFile, PhotoGroup,
 };
@@ -30,10 +30,8 @@ pub struct MultiPageParams<'a> {
     pub images_processed: usize,
     /// Whether to always create a commit even if state doesn't change (for rebuild operations)
     pub always_commit: bool,
-    /// Skip PDF generation (Typst compilation )
-    pub skip_pdf: bool,
-    /// If true, skip updating the preview cache (useful for testing or when caller manages cache separately)
-    pub skip_cache_update: bool,
+    /// Build pipeline side-effect options (PDF generation, cache update)
+    pub opts: BuildOptions,
 }
 
 /// Shared multipage build logic used by first_build, rebuild_all, and rebuild_range.
@@ -50,7 +48,7 @@ pub fn multipage_build(
     params: MultiPageParams,
 ) -> Result<CommandOutput<BuildResult>> {
     // 1. Preview-Cache
-    let cache_result = if params.skip_cache_update {
+    let cache_result = if params.opts.skip_cache_update {
         Default::default()
     } else {
         update_preview_cache(&mut mgr)?
@@ -137,7 +135,7 @@ pub fn multipage_build(
     };
 
     // 9. Compile Typst to PDF - do this after commit to ensure yaml is up to date for typst
-    let pdf_path = if params.skip_pdf {
+    let pdf_path = if params.opts.skip_pdf {
         project_root.join(format!("{project_name}.pdf"))
     } else {
         update_preview_pdf(project_root, bleed_mm, &project_name)?

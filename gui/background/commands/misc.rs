@@ -1,4 +1,4 @@
-use fotobuch::commands::build::{BuildConfig, build};
+use fotobuch::commands::build::{BuildConfig, BuildOptions, build};
 use fotobuch::commands::config::config_set;
 use fotobuch::commands::rebuild::{RebuildScope, rebuild};
 use fotobuch::commands::undo::{redo, undo};
@@ -56,7 +56,14 @@ pub fn run_rebuild_pages(pages: Vec<usize>, rctx: &mut crate::background::Render
     let mut dirty: Vec<usize> = vec![];
     let mut new_state: Option<fotobuch::dto_models::ProjectState> = None;
     for p in pages {
-        match rebuild(rctx.project_root, RebuildScope::SinglePage(p), false, false) {
+        match rebuild(
+            rctx.project_root,
+            RebuildScope::SinglePage(p),
+            BuildOptions {
+                skip_pdf: false,
+                skip_cache_update: false,
+            },
+        ) {
             Err(e) => {
                 let _ = rctx.result_tx.send(BackgroundResult::CommandFailed(format!(
                     "rebuild page {p}: {e}"
@@ -75,7 +82,14 @@ pub fn run_rebuild_pages(pages: Vec<usize>, rctx: &mut crate::background::Render
 }
 
 pub fn run_rebuild_all(rctx: &mut crate::background::RenderCtx<'_>) {
-    match rebuild(rctx.project_root, RebuildScope::All, false, false) {
+    match rebuild(
+        rctx.project_root,
+        RebuildScope::All,
+        BuildOptions {
+            skip_pdf: false,
+            skip_cache_update: false,
+        },
+    ) {
         Err(e) => {
             let _ = rctx
                 .result_tx

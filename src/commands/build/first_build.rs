@@ -1,6 +1,7 @@
-use super::BuildResult;
+use super::BuildOptions;
 use super::core::multipage_build::{MultiPageParams, multipage_build};
 use crate::commands::CommandOutput;
+use crate::commands::build::BuildResult;
 use crate::state_manager::StateManager;
 use anyhow::Result;
 use std::path::Path;
@@ -10,8 +11,7 @@ use tracing::info;
 pub fn first_build(
     mgr: StateManager,
     project_root: &Path,
-    skip_pdf: bool,
-    skip_cache_update: bool,
+    opts: BuildOptions,
 ) -> Result<CommandOutput<BuildResult>> {
     info!("First build: creating layout for all photos...");
 
@@ -28,8 +28,7 @@ pub fn first_build(
             commit_message: "build: initial layout".to_string(),
             images_processed: 0,
             always_commit: false,
-            skip_pdf,
-            skip_cache_update,
+            opts,
         },
     )?;
 
