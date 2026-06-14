@@ -4,6 +4,7 @@ pub(super) mod cover;
 mod first_build;
 mod helpers;
 mod incremental_build;
+pub mod plan;
 mod release_build;
 
 pub use core::multipage_build::{MultiPageParams, multipage_build};
@@ -13,6 +14,7 @@ pub use helpers::{
     CommitMode, PdfTarget, RenderContext, build_photo_index, collect_photos_as_groups, render_pdf,
 };
 use incremental_build::incremental_build;
+pub use plan::BuildPlan;
 use release_build::release_build;
 
 use crate::state_manager::StateManager;

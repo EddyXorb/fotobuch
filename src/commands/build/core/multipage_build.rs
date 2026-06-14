@@ -2,15 +2,13 @@ use super::super::cover::{build_cover_page, split_cover_photos, update_cover_pag
 use super::super::helpers::{
     CommitMode, PdfTarget, RenderContext, build_photo_index, render_pdf, update_preview_cache,
 };
+use super::super::plan::extract_manual_pages;
 use crate::commands::CommandOutput;
 use crate::commands::build::{BuildOptions, BuildResult};
-use crate::dto_models::{
-    BookLayoutSolverConfig, CoverConfig, LayoutPage, PageMode, PhotoFile, PhotoGroup,
-};
+use crate::dto_models::{BookLayoutSolverConfig, CoverConfig, PhotoFile, PhotoGroup};
 use crate::solver::{Request, RequestType, run_solver};
 use crate::state_manager::{StateManager, renumber_pages};
 use anyhow::Result;
-use std::collections::HashSet;
 use std::path::Path;
 
 /// Parameters for multipage build/rebuild operations
@@ -170,60 +168,6 @@ fn split_cover_for_params(
     }
 }
 
-/// Extracts manual pages from the layout range, returning a sorted snapshot and
-/// filtered groups that exclude those pages' photos.
-///
-/// Returns `(snapshots, filtered_groups)` where snapshots are `(original_absolute_index, page)`.
-fn extract_manual_pages(
-    layout: &[LayoutPage],
-    groups: &[PhotoGroup],
-    range: Option<(usize, usize)>,
-) -> (Vec<(usize, LayoutPage)>, Vec<PhotoGroup>) {
-    let (range_start, range_end) = match range {
-        Some((s, e)) => (s, e),
-        None => (0, layout.len()),
-    };
-
-    let snapshots: Vec<(usize, LayoutPage)> = layout[range_start..range_end.min(layout.len())]
-        .iter()
-        .enumerate()
-        .filter(|(_, p)| p.mode == PageMode::Manual)
-        .map(|(i, p)| (range_start + i, p.clone()))
-        .collect();
-
-    if snapshots.is_empty() {
-        return (snapshots, groups.to_vec());
-    }
-
-    let manual_ids: HashSet<&str> = snapshots
-        .iter()
-        .flat_map(|(_, p)| p.photos.iter().map(String::as_str))
-        .collect();
-
-    let filtered: Vec<PhotoGroup> = groups
-        .iter()
-        .filter_map(|g| {
-            let files: Vec<_> = g
-                .files
-                .iter()
-                .filter(|f| !manual_ids.contains(f.id.as_str()))
-                .cloned()
-                .collect();
-            if files.is_empty() {
-                None
-            } else {
-                Some(PhotoGroup {
-                    group: g.group.clone(),
-                    sort_key: g.sort_key.clone(),
-                    files,
-                })
-            }
-        })
-        .collect();
-
-    (snapshots, filtered)
-}
-
 // ── tests ─────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -305,86 +249,5 @@ mod tests {
         assert_eq!(remaining.len(), 1);
         assert_eq!(remaining[0].group, "b_group");
         assert_eq!(remaining[0].sort_key, "b_group");
-    }
-
-    fn make_auto_page(idx: usize, ids: &[&str]) -> LayoutPage {
-        LayoutPage {
-            page: idx,
-            photos: ids.iter().map(|s| s.to_string()).collect(),
-            slots: vec![],
-            mode: PageMode::Auto,
-        }
-    }
-
-    fn make_manual_page(idx: usize, ids: &[&str]) -> LayoutPage {
-        LayoutPage {
-            page: idx,
-            photos: ids.iter().map(|s| s.to_string()).collect(),
-            slots: vec![],
-            mode: PageMode::Manual,
-        }
-    }
-
-    #[test]
-    fn book_layout_solver_preserves_manual_pages() {
-        // layout: [auto@0, manual@1, auto@2]
-        let layout = vec![
-            make_auto_page(0, &["a", "b"]),
-            make_manual_page(1, &["m1", "m2"]),
-            make_auto_page(2, &["c"]),
-        ];
-        let groups = vec![
-            make_group("g1", &[("a", 3, 2), ("b", 4, 3)]),
-            make_group("g_manual", &[("m1", 1, 1), ("m2", 1, 1)]),
-            make_group("g2", &[("c", 2, 3)]),
-        ];
-
-        let (snapshots, filtered) = extract_manual_pages(&layout, &groups, None);
-        // manual page at index 1 should be snapshotted
-        assert_eq!(snapshots.len(), 1);
-        assert_eq!(snapshots[0].0, 1); // original absolute index
-        assert_eq!(snapshots[0].1.photos, vec!["m1", "m2"]);
-        // filtered groups should not contain m1/m2
-        let all_ids: Vec<_> = filtered
-            .iter()
-            .flat_map(|g| g.files.iter().map(|f| f.id.as_str()))
-            .collect();
-        assert!(!all_ids.contains(&"m1"));
-        assert!(!all_ids.contains(&"m2"));
-        assert!(all_ids.contains(&"a"));
-        assert!(all_ids.contains(&"c"));
-    }
-
-    #[test]
-    fn extract_manual_pages_no_manual_returns_unchanged() {
-        let layout = vec![make_auto_page(0, &["a"]), make_auto_page(1, &["b"])];
-        let groups = vec![make_group("g", &[("a", 1, 1), ("b", 1, 1)])];
-        let (snapshots, filtered) = extract_manual_pages(&layout, &groups, None);
-        assert!(snapshots.is_empty());
-        assert_eq!(filtered.len(), groups.len());
-    }
-
-    #[test]
-    fn extract_manual_pages_range_only_within_range() {
-        // layout: [auto@0, manual@1, manual@2, auto@3]
-        let layout = vec![
-            make_auto_page(0, &["a"]),
-            make_manual_page(1, &["m1"]),
-            make_manual_page(2, &["m2"]),
-            make_auto_page(3, &["b"]),
-        ];
-        let groups = vec![make_group("g", &[("m1", 1, 1), ("m2", 1, 1), ("b", 2, 3)])];
-        // range covers only indices 2..4 (m2 and b)
-        let (snapshots, filtered) = extract_manual_pages(&layout, &groups, Some((2, 4)));
-        assert_eq!(snapshots.len(), 1);
-        assert_eq!(snapshots[0].0, 2);
-        let ids: Vec<_> = filtered
-            .iter()
-            .flat_map(|g| g.files.iter().map(|f| f.id.as_str()))
-            .collect();
-        assert!(!ids.contains(&"m2"));
-        assert!(ids.contains(&"b"));
-        // m1 is outside range, should still be in filtered (not a manual page for this range)
-        assert!(ids.contains(&"m1"));
     }
 }
