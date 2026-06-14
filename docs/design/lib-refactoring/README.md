@@ -148,10 +148,11 @@ nicht in die Konfiguration (siehe Abschnitt 5.2).
   `multipage_build` liegen unter `build/`, werden aber vom Schwester-Kommando
   `rebuild.rs` über `super::build::{…}` mitbenutzt (`rebuild.rs:11`). Die
   faktische Abhängigkeitsrichtung sagt: geteilte **Build-Engine**, kein
-  build-internes Detail. Engine nach `commands/build_engine.rs` (oder lib-Modul
-  `build/`) heben; `build.rs`/`rebuild.rs` werden dünne CLI-Adapter.
-- **`build/core.rs`** (`:1`) ist nur ein Re-Export-Knoten — entfällt nach der
-  Engine-Extraktion.
+  build-internes Detail. Lösung im Umsetzungsplan [`1-build.md`](./1-build.md):
+  `rebuild` zieht (ohne eigene Datei) nach `build.rs`, die geteilte Engine bleibt
+  in den `build/`-Submodulen, die verschachtelte `build/core`-Ebene entfällt.
+- **`build/core.rs`** (`:1`) ist nur ein Re-Export-Knoten — entfällt mit der
+  Verflachung.
 - **`build_photo_index` falsch eingehaust.** Lebt in `commands/build/helpers.rs`,
   wird aber von Lese-Commands `place` und `status` importiert
   (`status.rs:8`, `place.rs:10,534,572`). Eine Lese-Query sollte nicht von
