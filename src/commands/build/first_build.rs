@@ -1,5 +1,6 @@
 use super::BuildOptions;
 use super::core::multipage_build::{MultiPageParams, multipage_build};
+use super::helpers::CommitMode;
 use crate::commands::CommandOutput;
 use crate::commands::build::BuildResult;
 use crate::state_manager::StateManager;
@@ -27,7 +28,7 @@ pub fn first_build(
             custom_config: None,
             commit_message: "build: initial layout".to_string(),
             images_processed: 0,
-            always_commit: false,
+            commit: CommitMode::Auto,
             opts,
         },
     )?;

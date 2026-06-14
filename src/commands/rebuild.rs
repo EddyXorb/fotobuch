@@ -8,8 +8,8 @@ use anyhow::Result;
 use std::path::Path;
 
 use super::build::{
-    BuildOptions, BuildResult, MultiPageParams, PdfTarget, RenderContext, build_photo_index,
-    collect_photos_as_groups, multipage_build, rebuild_single_page, render_pdf,
+    BuildOptions, BuildResult, CommitMode, MultiPageParams, PdfTarget, RenderContext,
+    build_photo_index, collect_photos_as_groups, multipage_build, rebuild_single_page, render_pdf,
 };
 use tracing::warn;
 
@@ -213,7 +213,7 @@ fn rebuild_range(
             custom_config: Some(custom_config),
             commit_message: format!("rebuild: pages {}-{}", effective_start, end),
             images_processed: 0,
-            always_commit: true,
+            commit: CommitMode::Always,
             opts,
         },
     )
@@ -255,7 +255,7 @@ fn rebuild_all(
             custom_config: None,
             commit_message: format!("rebuild: {} photos redistributed", photo_count),
             images_processed: 0,
-            always_commit: true,
+            commit: CommitMode::Always,
             opts,
         },
     )

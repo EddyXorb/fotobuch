@@ -1,5 +1,5 @@
 use super::super::helpers::{
-    PdfTarget, RenderContext, build_photo_index, render_pdf, update_preview_cache,
+    CommitMode, PdfTarget, RenderContext, build_photo_index, render_pdf, update_preview_cache,
 };
 use super::rebuild_single_page::rebuild_single_page;
 use crate::commands::CommandOutput;
@@ -29,8 +29,7 @@ pub struct MultiPageParams<'a> {
     pub commit_message: String,
     /// Number of images processed in cache (for BuildResult)
     pub images_processed: usize,
-    /// Whether to always create a commit even if state doesn't change (for rebuild operations)
-    pub always_commit: bool,
+    pub commit: CommitMode,
     /// Build pipeline side-effect options (PDF generation, cache update)
     pub opts: BuildOptions,
 }
@@ -128,10 +127,9 @@ pub fn multipage_build(
     let ctx = RenderContext::capture(&mgr);
 
     // 8. Save and commit
-    let changed_state = if params.always_commit {
-        mgr.finish_always(&params.commit_message)?
-    } else {
-        mgr.finish(&params.commit_message)?
+    let changed_state = match params.commit {
+        CommitMode::Always => mgr.finish_always(&params.commit_message)?,
+        CommitMode::Auto => mgr.finish(&params.commit_message)?,
     };
 
     // 9. Compile Typst to PDF - do this after commit to ensure yaml is up to date for typst
