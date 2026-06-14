@@ -3,7 +3,7 @@ use std::{path::Path, sync::atomic::AtomicUsize};
 use crate::commands::{BuildResult, CommandOutput};
 use crate::{cache::final_cache, state_manager::StateManager};
 
-use crate::output::typst;
+use super::helpers::{PdfTarget, render_pdf};
 use anyhow::Result;
 use tracing::{info, warn};
 /// Performs release build: generates final high-quality PDF at the configured DPI.
@@ -95,8 +95,13 @@ pub fn release_build(
     ))?;
 
     // 3. Compile final.typ -> final.pdf (with bleed boxes)
-    let pdf_path = typst::compile_final(project_root, &project_name, bleed_mm)?;
-    info!("Final PDF generated: {}", pdf_path.display());
+    let pdf_path = render_pdf(
+        project_root,
+        &project_name,
+        bleed_mm,
+        PdfTarget::Final,
+        false,
+    )?;
 
     Ok(CommandOutput {
         result: BuildResult {

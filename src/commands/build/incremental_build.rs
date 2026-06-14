@@ -1,7 +1,6 @@
 use super::BuildOptions;
 use super::core::rebuild_single_page::rebuild_single_page;
-use super::helpers::update_preview_cache;
-use super::helpers::{build_photo_index, update_preview_pdf};
+use super::helpers::{PdfTarget, build_photo_index, render_pdf, update_preview_cache};
 use crate::commands::CommandOutput;
 use crate::commands::build::BuildResult;
 use crate::state_manager::StateManager;
@@ -33,15 +32,13 @@ pub fn incremental_build(
 
     if pages_needing_rebuild.is_empty() {
         info!("No changes detected. Nothing to do. Build only pdf.");
-        let pdf_path = if opts.skip_pdf {
-            project_root.join(format!("{}.pdf", mgr.project_name()))
-        } else {
-            update_preview_pdf(
-                project_root,
-                mgr.state.config.book.bleed_mm,
-                mgr.project_name(),
-            )?
-        };
+        let pdf_path = render_pdf(
+            project_root,
+            mgr.project_name(),
+            mgr.state.config.book.bleed_mm,
+            PdfTarget::Preview,
+            opts.skip_pdf,
+        )?;
 
         let changed_state = mgr.finish("")?;
         return Ok(CommandOutput {
@@ -85,11 +82,13 @@ pub fn incremental_build(
     ))?;
 
     // 6. Compile Typst template to PDF
-    let pdf_path = if opts.skip_pdf {
-        project_root.join(format!("{project_name}.pdf"))
-    } else {
-        update_preview_pdf(project_root, bleed_mm, &project_name)?
-    };
+    let pdf_path = render_pdf(
+        project_root,
+        &project_name,
+        bleed_mm,
+        PdfTarget::Preview,
+        opts.skip_pdf,
+    )?;
 
     Ok(CommandOutput {
         result: BuildResult {

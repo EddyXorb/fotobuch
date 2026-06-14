@@ -1,5 +1,4 @@
-use super::super::helpers::update_preview_cache;
-use super::super::helpers::{build_photo_index, update_preview_pdf};
+use super::super::helpers::{PdfTarget, build_photo_index, render_pdf, update_preview_cache};
 use super::rebuild_single_page::rebuild_single_page;
 use crate::commands::CommandOutput;
 use crate::commands::build::{BuildOptions, BuildResult};
@@ -135,11 +134,13 @@ pub fn multipage_build(
     };
 
     // 9. Compile Typst to PDF - do this after commit to ensure yaml is up to date for typst
-    let pdf_path = if params.opts.skip_pdf {
-        project_root.join(format!("{project_name}.pdf"))
-    } else {
-        update_preview_pdf(project_root, bleed_mm, &project_name)?
-    };
+    let pdf_path = render_pdf(
+        project_root,
+        &project_name,
+        bleed_mm,
+        PdfTarget::Preview,
+        params.opts.skip_pdf,
+    )?;
 
     Ok(CommandOutput {
         result: BuildResult {

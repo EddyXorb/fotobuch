@@ -1,10 +1,11 @@
+use anyhow::Result;
+use std::{collections::HashMap, path::Path, path::PathBuf};
 use tracing::info;
 
 use crate::cache::preview;
 use crate::dto_models::{PhotoFile, PhotoGroup, ProjectState};
 use crate::output::typst;
 use crate::state_manager::StateManager;
-use std::{collections::HashMap, path::Path};
 
 pub fn update_preview_cache(
     mgr: &mut StateManager,
@@ -24,10 +25,40 @@ pub fn update_preview_pdf(
     project_root: &Path,
     bleed_mm: f64,
     project_name: &str,
-) -> Result<std::path::PathBuf, anyhow::Error> {
+) -> Result<PathBuf> {
     let pdf_path = typst::compile_preview(project_root, project_name, bleed_mm)?;
     info!("PDF updated: {}", pdf_path.display());
     Ok(pdf_path)
+}
+
+pub enum PdfTarget {
+    Preview,
+    Final,
+}
+
+/// Renders the PDF or returns only the output path when `skip_pdf` is true.
+pub fn render_pdf(
+    project_root: &Path,
+    project_name: &str,
+    bleed_mm: f64,
+    target: PdfTarget,
+    skip_pdf: bool,
+) -> Result<PathBuf> {
+    if skip_pdf {
+        return Ok(project_root.join(format!("{project_name}.pdf")));
+    }
+    match target {
+        PdfTarget::Preview => {
+            let path = typst::compile_preview(project_root, project_name, bleed_mm)?;
+            info!("PDF updated: {}", path.display());
+            Ok(path)
+        }
+        PdfTarget::Final => {
+            let path = typst::compile_final(project_root, project_name, bleed_mm)?;
+            info!("Final PDF generated: {}", path.display());
+            Ok(path)
+        }
+    }
 }
 
 /// Maps photo ID to (PhotoFile, group_name).

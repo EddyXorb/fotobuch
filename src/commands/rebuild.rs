@@ -3,14 +3,13 @@
 use crate::cache::preview;
 use crate::commands::CommandOutput;
 use crate::dto_models::BookLayoutSolverConfig;
-use crate::output::typst;
 use crate::state_manager::StateManager;
 use anyhow::Result;
 use std::path::Path;
 
 use super::build::{
-    BuildOptions, BuildResult, MultiPageParams, build_photo_index, collect_photos_as_groups,
-    multipage_build, rebuild_single_page,
+    BuildOptions, BuildResult, MultiPageParams, PdfTarget, build_photo_index,
+    collect_photos_as_groups, multipage_build, rebuild_single_page, render_pdf,
 };
 use tracing::warn;
 
@@ -148,11 +147,13 @@ fn rebuild_single(
     // 5. Save — always commit (even if slots don't change)
     let changed_state = mgr.finish_always(&format!("rebuild: page {}", idx))?;
 
-    let pdf_path = if opts.skip_pdf {
-        project_root.join(format!("{}.pdf", project_name))
-    } else {
-        typst::compile_preview(project_root, &project_name, bleed_mm)?
-    };
+    let pdf_path = render_pdf(
+        project_root,
+        &project_name,
+        bleed_mm,
+        PdfTarget::Preview,
+        opts.skip_pdf,
+    )?;
 
     Ok(CommandOutput {
         result: BuildResult {
