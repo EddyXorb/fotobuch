@@ -41,10 +41,10 @@ pub enum RebuildScope {
 /// Describes the layout-change strategy for one build or rebuild invocation.
 #[derive(Debug, Clone)]
 pub enum BuildPlan {
-    /// First build or full rebuild: all photos → all pages via the book-layout solver.
-    Full { always_commit: bool },
-    /// Incremental build: re-solve only pages whose photos changed since last commit.
-    Incremental { pages: Option<Vec<usize>> },
+    /// Automatic: empty layout → solve whole book; existing layout → incremental (outdated pages only).
+    Auto { pages: Option<Vec<usize>> },
+    /// Full rebuild: solve all photos → all pages, always commits.
+    All,
     /// Re-solve a single page with the GA solver.
     Page(usize),
     /// Re-solve a page range with the book-layout solver.
@@ -68,15 +68,10 @@ impl BuildPlan {
                 force: config.force,
             });
         }
-        if mgr.state.layout.is_empty() {
-            Ok(BuildPlan::Full {
-                always_commit: false,
-            })
-        } else {
-            Ok(BuildPlan::Incremental {
-                pages: config.pages.clone(),
-            })
-        }
+        let _ = mgr; // layout-emptiness check moved into resolve_layout for Auto
+        Ok(BuildPlan::Auto {
+            pages: config.pages.clone(),
+        })
     }
 
     /// Constructs a plan from a `rebuild` command scope, validating the scope against the layout.
@@ -109,9 +104,7 @@ impl BuildPlan {
             );
         }
         Ok(match scope {
-            RebuildScope::All => BuildPlan::Full {
-                always_commit: true,
-            },
+            RebuildScope::All => BuildPlan::All,
             RebuildScope::SinglePage(idx) => BuildPlan::Page(idx),
             RebuildScope::Range { start, end, flex } => BuildPlan::Range { start, end, flex },
         })
@@ -122,8 +115,14 @@ impl BuildPlan {
     /// Returns 0-based indices of pages that were modified.
     pub fn resolve_layout(&self, mgr: &mut StateManager) -> Result<Vec<usize>> {
         match self {
-            BuildPlan::Full { .. } => resolve_whole_book(mgr),
-            BuildPlan::Incremental { pages } => resolve_outdated_pages(mgr, pages.as_deref()),
+            BuildPlan::Auto { pages } => {
+                if mgr.state.layout.is_empty() {
+                    resolve_whole_book(mgr)
+                } else {
+                    resolve_outdated_pages(mgr, pages.as_deref())
+                }
+            }
+            BuildPlan::All => resolve_whole_book(mgr),
             BuildPlan::Page(idx) => resolve_single_page(mgr, *idx),
             BuildPlan::Range { start, end, flex } => resolve_range(mgr, *start, *end, *flex),
             BuildPlan::Release { .. } => Ok(Vec::new()),
@@ -173,7 +172,7 @@ impl BuildPlan {
                 images_processed,
                 dpi_warnings,
                 nothing_to_do: changed_pages.is_empty()
-                    && !matches!(self, BuildPlan::Release { .. } | BuildPlan::Full { .. }),
+                    && !matches!(self, BuildPlan::Release { .. } | BuildPlan::All),
             },
             changed_state,
         })
@@ -249,13 +248,11 @@ fn refresh_cache(
 
 fn commit_mode(plan: &BuildPlan) -> CommitMode {
     match plan {
-        BuildPlan::Full {
-            always_commit: true,
-        } => CommitMode::Always,
-        BuildPlan::Full { .. } | BuildPlan::Incremental { .. } => CommitMode::Auto,
-        BuildPlan::Page(_) | BuildPlan::Range { .. } | BuildPlan::Release { .. } => {
-            CommitMode::Always
-        }
+        BuildPlan::Auto { .. } => CommitMode::Auto,
+        BuildPlan::All
+        | BuildPlan::Page(_)
+        | BuildPlan::Range { .. }
+        | BuildPlan::Release { .. } => CommitMode::Always,
     }
 }
 
@@ -282,15 +279,14 @@ fn commit_message(
     total_photos: usize,
 ) -> String {
     match plan {
-        BuildPlan::Full {
-            always_commit: true,
-        } => {
-            format!("rebuild: {} photos redistributed", total_photos)
+        BuildPlan::Auto { .. } => {
+            if changed_pages.is_empty() {
+                "build: no changes".to_string()
+            } else {
+                format!("build: {} page(s) rebuilt", changed_pages.len())
+            }
         }
-        BuildPlan::Full { .. } => "build: initial layout".to_string(),
-        BuildPlan::Incremental { .. } => {
-            format!("build: {} page(s) rebuilt", changed_pages.len())
-        }
+        BuildPlan::All => format!("rebuild: {} photos redistributed", total_photos),
         BuildPlan::Page(idx) => format!("rebuild: page {}", idx),
         BuildPlan::Range { start, end, .. } => format!("rebuild: pages {}-{}", start, end),
         BuildPlan::Release { .. } => {
@@ -648,16 +644,11 @@ mod tests {
 
     #[test]
     fn build_plan_variants_are_constructible() {
-        let _ = BuildPlan::Full {
-            always_commit: false,
-        };
-        let _ = BuildPlan::Full {
-            always_commit: true,
-        };
-        let _ = BuildPlan::Incremental { pages: None };
-        let _ = BuildPlan::Incremental {
+        let _ = BuildPlan::Auto { pages: None };
+        let _ = BuildPlan::Auto {
             pages: Some(vec![0, 2]),
         };
+        let _ = BuildPlan::All;
         let _ = BuildPlan::Page(3);
         let _ = BuildPlan::Range {
             start: 1,
