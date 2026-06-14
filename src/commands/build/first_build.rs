@@ -1,6 +1,5 @@
 use super::BuildOptions;
-use super::core::multipage_build::{MultiPageParams, multipage_build};
-use super::helpers::CommitMode;
+use super::plan::BuildPlan;
 use crate::commands::CommandOutput;
 use crate::commands::build::BuildResult;
 use crate::state_manager::StateManager;
@@ -15,28 +14,10 @@ pub fn first_build(
     opts: BuildOptions,
 ) -> Result<CommandOutput<BuildResult>> {
     info!("First build: creating layout for all photos...");
-
-    let groups = mgr.state.photos.clone();
-
-    let output = multipage_build(
-        mgr,
-        project_root,
-        MultiPageParams {
-            groups: &groups,
-            range: None,
-            flex: 0,
-            custom_config: None,
-            commit_message: "build: initial layout".to_string(),
-            images_processed: 0,
-            commit: CommitMode::Auto,
-            opts,
-        },
-    )?;
-
+    let output = BuildPlan::Full.run(mgr, project_root, opts)?;
     info!(
         "First build complete: {} pages generated",
         output.result.pages_rebuilt.len()
     );
-
     Ok(output)
 }

@@ -1,12 +1,20 @@
 use super::core::rebuild_single_page::rebuild_single_page;
 use super::cover::{build_cover_page, split_cover_photos, update_cover_page};
-use super::helpers::{build_photo_index, collect_photos_as_groups};
+use super::helpers::{
+    CommitMode, PdfTarget, RenderContext, build_photo_index, collect_photos_as_groups, render_pdf,
+    update_preview_cache,
+};
+use super::{BuildOptions, BuildResult, DpiWarning};
+use crate::cache::final_cache;
+use crate::commands::CommandOutput;
 use crate::dto_models::{BookLayoutSolverConfig, LayoutPage, PageMode, PhotoGroup};
 use crate::solver::{Request, RequestType, run_solver};
-use crate::state_manager::StateManager;
+use crate::state_manager::{StateManager, renumber_pages};
 use anyhow::Result;
 use std::collections::HashSet;
-use tracing::warn;
+use std::path::Path;
+use std::sync::atomic::AtomicUsize;
+use tracing::{info, warn};
 
 /// Describes the layout-change strategy for one build or rebuild invocation.
 #[derive(Debug, Clone)]
@@ -39,6 +47,175 @@ impl BuildPlan {
             BuildPlan::Page(idx) => resolve_single_page(mgr, *idx),
             BuildPlan::Range { start, end, flex } => resolve_range(mgr, *start, *end, *flex),
             BuildPlan::Release { .. } => Ok(Vec::new()),
+        }
+    }
+
+    /// Executes the full build pipeline for this plan.
+    ///
+    /// Steps: cache refresh → resolve layout → renumber → commit → PDF → BuildResult.
+    pub fn run(
+        self,
+        mut mgr: StateManager,
+        project_root: &Path,
+        opts: BuildOptions,
+    ) -> Result<CommandOutput<BuildResult>> {
+        if let BuildPlan::Release { force } = self {
+            validate_release(&mgr, force)?;
+        }
+
+        // 1. Update image cache
+        let (images_processed, dpi_warnings) = refresh_cache(&self, &mut mgr, &opts)?;
+
+        // 2. Resolve layout (pure)
+        let changed_pages = self.resolve_layout(&mut mgr)?;
+
+        // 3. Renumber pages
+        let has_cover = mgr.state.has_cover();
+        renumber_pages(&mut mgr.state.layout, has_cover);
+
+        let ctx = RenderContext::capture(&mgr);
+        let page_count = mgr.state.layout.len();
+        let total_photos: usize = mgr.state.layout.iter().map(|p| p.photos.len()).sum();
+
+        // 4. Commit
+        let msg = commit_message(&self, &changed_pages, page_count, total_photos);
+        let changed_state = match commit_mode(&self) {
+            CommitMode::Always => mgr.finish_always(&msg)?,
+            CommitMode::Auto => mgr.finish(&msg)?,
+        };
+
+        // 5. PDF
+        let pdf_path = render_pdf(
+            project_root,
+            &ctx.project_name,
+            ctx.bleed_mm,
+            pdf_target(&self),
+            effective_skip_pdf(&self, &opts),
+        )?;
+
+        Ok(CommandOutput {
+            result: BuildResult {
+                pdf_path,
+                pages_rebuilt: changed_pages.clone(),
+                pages_swapped: vec![],
+                images_processed,
+                total_cost: 0.0,
+                dpi_warnings,
+                nothing_to_do: changed_pages.is_empty()
+                    && !matches!(self, BuildPlan::Release { .. }),
+            },
+            changed_state,
+        })
+    }
+}
+
+// ── pipeline helpers ─────────────────────────────────────────────────────────
+
+fn validate_release(mgr: &StateManager, force: bool) -> Result<()> {
+    if mgr.state.layout.is_empty() {
+        anyhow::bail!("No layout found. Run `fotobuch build` first to generate layout.");
+    }
+    if !force {
+        let changed: Vec<_> = mgr
+            .outdated_pages_indices()
+            .into_iter()
+            .filter(|i| !mgr.state.config.book.cover.active || *i != 0)
+            .collect();
+        if !changed.is_empty() {
+            anyhow::bail!(
+                "Layout has changes since last build. Changed pages: {:?}. \
+                 Run `fotobuch build` first or use `fotobuch build release --force`.",
+                changed
+            );
+        }
+    }
+    Ok(())
+}
+
+fn refresh_cache(
+    plan: &BuildPlan,
+    mgr: &mut StateManager,
+    opts: &BuildOptions,
+) -> Result<(usize, Vec<DpiWarning>)> {
+    if let BuildPlan::Release { .. } = plan {
+        let dpi = mgr.state.config.book.dpi;
+        info!("Release build: generating final PDF at {:.0} DPI...", dpi);
+        let progress = AtomicUsize::new(0);
+        let final_cache_dir = mgr.final_cache_dir();
+        let result = final_cache::build_final_cache(&mut mgr.state, &final_cache_dir, &progress)?;
+        info!(
+            "Final cache: {} images generated, {} DPI warnings",
+            result.created,
+            result.dpi_warnings.len()
+        );
+        if !result.dpi_warnings.is_empty() {
+            warn!(
+                "\nWARNING: Some photos will be displayed below {:.0} DPI:",
+                dpi
+            );
+            for w in &result.dpi_warnings {
+                warn!(
+                    "  Page {}: {} - {:.2} DPI ({}x{} px in {:.1}x{:.1} mm slot)",
+                    w.page,
+                    w.photo_id,
+                    w.actual_dpi,
+                    w.original_px.0,
+                    w.original_px.1,
+                    w.slot_mm.0,
+                    w.slot_mm.1
+                );
+            }
+        }
+        return Ok((result.created, result.dpi_warnings));
+    }
+
+    if opts.skip_cache_update {
+        return Ok((0, vec![]));
+    }
+    let result = update_preview_cache(mgr)?;
+    Ok((result.created, vec![]))
+}
+
+fn commit_mode(plan: &BuildPlan) -> CommitMode {
+    match plan {
+        BuildPlan::Full | BuildPlan::Incremental { .. } => CommitMode::Auto,
+        BuildPlan::Page(_) | BuildPlan::Range { .. } | BuildPlan::Release { .. } => {
+            CommitMode::Always
+        }
+    }
+}
+
+fn pdf_target(plan: &BuildPlan) -> PdfTarget {
+    if matches!(plan, BuildPlan::Release { .. }) {
+        PdfTarget::Final
+    } else {
+        PdfTarget::Preview
+    }
+}
+
+fn effective_skip_pdf(plan: &BuildPlan, opts: &BuildOptions) -> bool {
+    if matches!(plan, BuildPlan::Release { .. }) {
+        false
+    } else {
+        opts.skip_pdf
+    }
+}
+
+fn commit_message(
+    plan: &BuildPlan,
+    changed_pages: &[usize],
+    page_count: usize,
+    total_photos: usize,
+) -> String {
+    match plan {
+        BuildPlan::Full => "build: initial layout".to_string(),
+        BuildPlan::Incremental { .. } => {
+            format!("build: {} page(s) rebuilt", changed_pages.len())
+        }
+        BuildPlan::Page(idx) => format!("rebuild: page {}", idx),
+        BuildPlan::Range { start, end, .. } => format!("rebuild: pages {}-{}", start, end),
+        BuildPlan::Release { .. } => {
+            format!("release: {} pages, {} photos", page_count, total_photos)
         }
     }
 }
