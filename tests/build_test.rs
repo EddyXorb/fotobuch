@@ -157,10 +157,6 @@ fn test_first_build_creates_layout_and_pdf() -> Result<()> {
         "Should have rebuilt pages"
     );
     assert!(
-        result.result.pages_swapped.is_empty(),
-        "First build has no swaps"
-    );
-    assert!(
         !result.result.nothing_to_do,
         "First build should do something"
     );
@@ -235,11 +231,6 @@ fn test_incremental_build_without_changes_does_nothing() -> Result<()> {
         result2.result.pages_rebuilt.is_empty(),
         "No pages should be rebuilt"
     );
-    assert!(
-        result2.result.pages_swapped.is_empty(),
-        "No pages should be swapped"
-    );
-
     // Verify no new commit was created
     let repo = git2::Repository::open(&project_root)?;
     let head = repo.head()?;
@@ -734,8 +725,8 @@ fn test_incremental_build_detects_no_changes_when_swapping_page_order() -> Resul
     // the photo sets and slot structures still exist and haven't changed.
     assert!(
         result2.result.nothing_to_do,
-        "After swapping page order without changing internal content, should report nothing to do. Got pages_rebuilt={:?}, pages_swapped={:?}",
-        result2.result.pages_rebuilt, result2.result.pages_swapped
+        "After swapping page order without changing internal content, should report nothing to do. Got pages_rebuilt={:?}",
+        result2.result.pages_rebuilt
     );
     assert!(
         result2.result.pages_rebuilt.is_empty(),

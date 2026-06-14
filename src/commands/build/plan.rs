@@ -176,9 +176,7 @@ impl BuildPlan {
             result: BuildResult {
                 pdf_path,
                 pages_rebuilt: changed_pages.clone(),
-                pages_swapped: vec![],
                 images_processed,
-                total_cost: 0.0,
                 dpi_warnings,
                 nothing_to_do: changed_pages.is_empty()
                     && !matches!(self, BuildPlan::Release { .. } | BuildPlan::Full { .. }),

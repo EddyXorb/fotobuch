@@ -4,11 +4,7 @@ pub(super) mod cover;
 mod helpers;
 pub mod plan;
 
-pub use core::multipage_build::{MultiPageParams, multipage_build};
-pub use core::rebuild_single_page::rebuild_single_page;
-pub use helpers::{
-    CommitMode, PdfTarget, RenderContext, build_photo_index, collect_photos_as_groups, render_pdf,
-};
+pub use helpers::{build_photo_index, collect_photos_as_groups};
 pub use plan::{BuildPlan, RebuildScope};
 
 use crate::state_manager::StateManager;
@@ -60,12 +56,8 @@ pub struct BuildResult {
     pub pdf_path: PathBuf,
     /// Pages that were rebuilt (0-based array indices into layout[])
     pub pages_rebuilt: Vec<usize>,
-    /// Pages with only swaps (no layout changes, 0-based indices)
-    pub pages_swapped: Vec<usize>,
     /// Number of images processed in cache
     pub images_processed: usize,
-    /// Total fitness cost
-    pub total_cost: f64,
     /// DPI warnings (only for release builds)
     pub dpi_warnings: Vec<DpiWarning>,
     /// True if nothing needed to be done

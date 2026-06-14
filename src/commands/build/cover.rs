@@ -124,6 +124,90 @@ pub fn split_cover_photos(groups: &[PhotoGroup], n: usize) -> (Vec<PhotoFile>, V
     (cover_files, remaining)
 }
 
+// ── tests ─────────────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::dto_models::PhotoFile;
+    use chrono::Utc;
+
+    fn make_file(id: &str, w: u32, h: u32) -> PhotoFile {
+        PhotoFile {
+            id: id.to_string(),
+            source: format!("/photos/{id}.jpg"),
+            width_px: w,
+            height_px: h,
+            area_weight: 1.0,
+            timestamp: Utc::now(),
+            hash: "abc".to_string(),
+        }
+    }
+
+    fn make_group(name: &str, ids: &[(&str, u32, u32)]) -> PhotoGroup {
+        PhotoGroup {
+            group: name.to_string(),
+            sort_key: name.to_string(),
+            files: ids.iter().map(|(id, w, h)| make_file(id, *w, *h)).collect(),
+        }
+    }
+
+    #[test]
+    fn split_takes_first_n_from_single_group() {
+        let groups = vec![make_group("g1", &[("a", 3, 2), ("b", 4, 3), ("c", 1, 1)])];
+        let (cover, remaining) = split_cover_photos(&groups, 1);
+        assert_eq!(cover.len(), 1);
+        assert_eq!(cover[0].id, "a");
+        assert_eq!(remaining.len(), 1);
+        assert_eq!(remaining[0].files.len(), 2);
+        assert_eq!(remaining[0].files[0].id, "b");
+        assert_eq!(remaining[0].files[1].id, "c");
+    }
+
+    #[test]
+    fn split_takes_two_across_groups() {
+        let groups = vec![
+            make_group("g1", &[("a", 3, 2)]),
+            make_group("g2", &[("b", 4, 3), ("c", 1, 1)]),
+        ];
+        let (cover, remaining) = split_cover_photos(&groups, 2);
+        assert_eq!(cover.len(), 2);
+        assert_eq!(cover[0].id, "a");
+        assert_eq!(cover[1].id, "b");
+        assert_eq!(remaining.len(), 1);
+        assert_eq!(remaining[0].group, "g2");
+        assert_eq!(remaining[0].files[0].id, "c");
+    }
+
+    #[test]
+    fn split_n_greater_than_total_returns_all_as_cover() {
+        let groups = vec![make_group("g1", &[("a", 3, 2)])];
+        let (cover, remaining) = split_cover_photos(&groups, 5);
+        assert_eq!(cover.len(), 1);
+        assert!(remaining.is_empty());
+    }
+
+    #[test]
+    fn split_empty_groups_returns_empty() {
+        let groups: Vec<PhotoGroup> = vec![];
+        let (cover, remaining) = split_cover_photos(&groups, 1);
+        assert!(cover.is_empty());
+        assert!(remaining.is_empty());
+    }
+
+    #[test]
+    fn split_preserves_group_order_and_sort_key() {
+        let groups = vec![
+            make_group("a_group", &[("x", 1, 1)]),
+            make_group("b_group", &[("y", 1, 1), ("z", 1, 1)]),
+        ];
+        let (_, remaining) = split_cover_photos(&groups, 1);
+        assert_eq!(remaining.len(), 1);
+        assert_eq!(remaining[0].group, "b_group");
+        assert_eq!(remaining[0].sort_key, "b_group");
+    }
+}
+
 /// Presents the full cover spread (front + back + spine) as `page_width_mm` to the GA solver.
 pub struct CoverCanvasConfig<'a> {
     pub cover: &'a CoverConfig,
