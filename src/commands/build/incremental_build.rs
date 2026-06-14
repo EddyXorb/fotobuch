@@ -1,6 +1,8 @@
 use super::BuildOptions;
 use super::core::rebuild_single_page::rebuild_single_page;
-use super::helpers::{PdfTarget, build_photo_index, render_pdf, update_preview_cache};
+use super::helpers::{
+    PdfTarget, RenderContext, build_photo_index, render_pdf, update_preview_cache,
+};
 use crate::commands::CommandOutput;
 use crate::commands::build::BuildResult;
 use crate::state_manager::StateManager;
@@ -72,20 +74,17 @@ pub fn incremental_build(
         rebuild_single_page(&mut mgr.state, page_idx, &photo_index)?;
     }
 
-    // 7. Save state and commit
-    let project_name = mgr.project_name().to_string(); // need to backup these before mgr gets consumed
-    let bleed_mm = mgr.state.config.book.bleed_mm;
+    let ctx = RenderContext::capture(&mgr);
     let total_cost = 0.0; //TODO: calculate actual cost from modified pages when available
     let changed_state = mgr.finish(&format!(
         "build: {} page(s) rebuilt",
         pages_needing_rebuild.len()
     ))?;
 
-    // 6. Compile Typst template to PDF
     let pdf_path = render_pdf(
         project_root,
-        &project_name,
-        bleed_mm,
+        &ctx.project_name,
+        ctx.bleed_mm,
         PdfTarget::Preview,
         opts.skip_pdf,
     )?;

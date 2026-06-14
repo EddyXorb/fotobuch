@@ -1,4 +1,6 @@
-use super::super::helpers::{PdfTarget, build_photo_index, render_pdf, update_preview_cache};
+use super::super::helpers::{
+    PdfTarget, RenderContext, build_photo_index, render_pdf, update_preview_cache,
+};
 use super::rebuild_single_page::rebuild_single_page;
 use crate::commands::CommandOutput;
 use crate::commands::build::{BuildOptions, BuildResult};
@@ -123,8 +125,7 @@ pub fn multipage_build(
         rebuild_single_page(&mut mgr.state, 0, &photo_index)?;
     }
 
-    let bleed_mm = mgr.state.config.book.bleed_mm; // need to backup these before mgr gets consumed
-    let project_name = mgr.project_name().to_string();
+    let ctx = RenderContext::capture(&mgr);
 
     // 8. Save and commit
     let changed_state = if params.always_commit {
@@ -136,8 +137,8 @@ pub fn multipage_build(
     // 9. Compile Typst to PDF - do this after commit to ensure yaml is up to date for typst
     let pdf_path = render_pdf(
         project_root,
-        &project_name,
-        bleed_mm,
+        &ctx.project_name,
+        ctx.bleed_mm,
         PdfTarget::Preview,
         params.opts.skip_pdf,
     )?;

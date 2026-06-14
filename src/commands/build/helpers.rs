@@ -7,6 +7,21 @@ use crate::dto_models::{PhotoFile, PhotoGroup, ProjectState};
 use crate::output::typst;
 use crate::state_manager::StateManager;
 
+/// Data captured from `StateManager` before it is consumed by `finish`/`finish_always`.
+pub struct RenderContext {
+    pub project_name: String,
+    pub bleed_mm: f64,
+}
+
+impl RenderContext {
+    pub fn capture(mgr: &StateManager) -> Self {
+        Self {
+            project_name: mgr.project_name().to_string(),
+            bleed_mm: mgr.state.config.book.bleed_mm,
+        }
+    }
+}
+
 pub fn update_preview_cache(
     mgr: &mut StateManager,
 ) -> Result<preview::PreviewCacheResult, anyhow::Error> {

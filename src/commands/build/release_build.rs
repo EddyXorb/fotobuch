@@ -3,7 +3,7 @@ use std::{path::Path, sync::atomic::AtomicUsize};
 use crate::commands::{BuildResult, CommandOutput};
 use crate::{cache::final_cache, state_manager::StateManager};
 
-use super::helpers::{PdfTarget, render_pdf};
+use super::helpers::{PdfTarget, RenderContext, render_pdf};
 use anyhow::Result;
 use tracing::{info, warn};
 /// Performs release build: generates final high-quality PDF at the configured DPI.
@@ -82,10 +82,7 @@ pub fn release_build(
         info!("");
     }
 
-    // 4. Save state and commit
-    let bleed_mm = mgr.state.config.book.bleed_mm; // need to backup these before mgr gets consumed
-    let project_name = mgr.project_name().to_string();
-
+    let ctx = RenderContext::capture(&mgr);
     let page_count = mgr.state.layout.len();
     let total_photos: usize = mgr.state.layout.iter().map(|p| p.photos.len()).sum();
 
@@ -97,8 +94,8 @@ pub fn release_build(
     // 3. Compile final.typ -> final.pdf (with bleed boxes)
     let pdf_path = render_pdf(
         project_root,
-        &project_name,
-        bleed_mm,
+        &ctx.project_name,
+        ctx.bleed_mm,
         PdfTarget::Final,
         false,
     )?;

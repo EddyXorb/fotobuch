@@ -8,7 +8,7 @@ use anyhow::Result;
 use std::path::Path;
 
 use super::build::{
-    BuildOptions, BuildResult, MultiPageParams, PdfTarget, build_photo_index,
+    BuildOptions, BuildResult, MultiPageParams, PdfTarget, RenderContext, build_photo_index,
     collect_photos_as_groups, multipage_build, rebuild_single_page, render_pdf,
 };
 use tracing::warn;
@@ -140,17 +140,12 @@ fn rebuild_single(
     let photo_index = build_photo_index(&mgr.state.photos);
     rebuild_single_page(&mut mgr.state, idx, &photo_index)?;
 
-    // 4. Compile Typst
-    let bleed_mm = mgr.state.config.book.bleed_mm;
-    let project_name = mgr.project_name().to_string();
-
-    // 5. Save — always commit (even if slots don't change)
+    let ctx = RenderContext::capture(&mgr);
     let changed_state = mgr.finish_always(&format!("rebuild: page {}", idx))?;
-
     let pdf_path = render_pdf(
         project_root,
-        &project_name,
-        bleed_mm,
+        &ctx.project_name,
+        ctx.bleed_mm,
         PdfTarget::Preview,
         opts.skip_pdf,
     )?;
