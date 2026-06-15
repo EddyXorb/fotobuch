@@ -413,11 +413,26 @@ Zwei Probleme:
    als String-Literale weit weg von den clap-Definitionen. Wird ein Flag
    umbenannt, bleiben die Strings stehen; nichts erzwingt Konsistenz.
 
-### Lösung: geschichtete Fehler
+### Grundidee: Bedingung und Abhilfe trennen
 
-**Die Lib liefert getippte, CLI-freie Fehler, die die *Bedingung* beschreiben,
-nicht die Abhilfe.** Statt `anyhow::bail!("… Run \`fotobuch build\` first")` ein
-`thiserror`-Enum je Command (oder ein gemeinsames Domänen-Fehler-Enum):
+Eine Fehlermeldung wie „Run `fotobuch build` first" vermischt **zwei** Dinge:
+
+- **die Bedingung** — *was* ist schiefgelaufen? („es gibt noch kein Layout")
+- **die Abhilfe** — *wie* behebt der Nutzer es? („führe `fotobuch build` aus")
+
+Die Bedingung ist allgemeingültig und gehört in die Lib. Die Abhilfe ist
+oberflächenspezifisch: ein CLI-Nutzer soll einen Befehl tippen, ein GUI-Nutzer
+auf einen Knopf klicken. Heute steht beides als ein fixer String in der Lib —
+deshalb ist er für die GUI falsch und enthält CLI-Wissen, das die Lib nichts
+angeht.
+
+**Regel:** Die Lib beschreibt nur die Bedingung. Die jeweilige Oberfläche (CLI,
+GUI) ergänzt die Abhilfe.
+
+### Schritt 1 — Lib: getippte, CLI-freie Fehler
+
+Statt `anyhow::bail!("… Run \`fotobuch build\` first")` gibt die Lib einen
+*getippten* Fehler zurück (`thiserror`-Enum je Command oder gemeinsam):
 
 ```rust
 #[derive(Debug, thiserror::Error)]
@@ -428,62 +443,115 @@ pub enum BuildError {
     LayoutDirty { pages: Vec<usize> },
     #[error("page {idx} is in manual mode")]
     PageIsManual { idx: usize },
-    #[error("page range {start}-{end} is out of bounds (0..{len})")]
-    RangeOutOfBounds { start: usize, end: usize, len: usize },
     #[error("page selection is not allowed for a release build")]
     PagesWithRelease,
 }
 ```
 
-`Display` ist neutral und nennt nur den Sachverhalt. Intern/GUI ist das bereits
-nutzbar.
+Jede Variante ist eine **maschinenlesbare** Fehlerursache; der `#[error(...)]`-Text
+nennt nur den Sachverhalt, keine Befehle. Die GUI kann diesen Text direkt
+anzeigen und zusätzlich anhand der Variante einen eigenen Knopf vorschlagen.
 
-**Die CLI übersetzt jeden getippten Fehler in eine handlungsweisende Meldung mit
-konkreten Flags** — co-lokalisiert mit den clap-Definitionen:
+### Schritt 2 — CLI: Abhilfe mit echten Flags anhängen
+
+Die CLI fängt den getippten Fehler ab und hängt einen Hinweis an. Beispiel-Ablauf
+für `BuildError::NoLayout`:
+
+```text
+Lib gibt zurück:   Err(BuildError::NoLayout)
+CLI zeigt:         error: no layout exists yet
+                   hint:  run `fotobuch build` first
+GUI zeigt:         "No layout exists yet."  + [Build]-Knopf
+```
+
+Die Übersetzung Variante → Hinweis lebt ausschließlich in der CLI-Kiste:
 
 ```rust
-// nur in der CLI-Kiste
+// nur in der CLI-Kiste, direkt neben den clap-Definitionen
 fn hint(err: &BuildError) -> String {
-    match err {                                   // KEIN `_`-Arm
-        BuildError::NoLayout =>
-            format!("Run `{BUILD}` first.", BUILD = cmd::BUILD),
-        BuildError::LayoutDirty { .. } =>
-            format!("Run `{BUILD}` or `{BUILD} {RELEASE} --{FORCE}`.", ...),
-        BuildError::PagesWithRelease =>
-            format!("`--{PAGES}` cannot be combined with `{RELEASE}`."),
-        BuildError::PageIsManual { idx } =>
-            format!("Switch it first: `{PAGE} mode {idx} a`."),
-        BuildError::RangeOutOfBounds { .. } => /* … */,
+    match err {
+        BuildError::NoLayout       => format!("run `{BUILD}` first"),
+        BuildError::LayoutDirty{..} => format!("run `{BUILD}` or `{BUILD} {RELEASE} --{FORCE}`"),
+        BuildError::PagesWithRelease => format!("`--{PAGES}` cannot be combined with `{RELEASE}`"),
+        BuildError::PageIsManual{idx} => format!("switch it first: `{PAGE} mode {idx} a`"),
     }
 }
 ```
 
-Die GUI mappt dieselben Varianten auf GUI-gerechte Hinweise (oder zeigt nur die
-neutrale `Display`-Meldung).
+### Das Drift-Problem genau benannt
 
-### Drift verhindern (Kernfrage)
+„Drift" heißt: Hinweistext und tatsächliche CLI laufen auseinander, **ohne dass
+es jemand merkt.** Es gibt zwei Spielarten:
 
-Zwei sich ergänzende Mechanismen:
+- **Spielart A — falscher Name.** Jemand benennt das Flag `--page` in `--single`
+  um (in der clap-Definition). Der hartkodierte String „`rebuild --page 0`" bleibt
+  stehen. Ergebnis: die Meldung empfiehlt ein Flag, das es nicht mehr gibt. Kein
+  Compilerfehler, kein Testfehler — niemand merkt es.
+- **Spielart B — fehlender Hinweis.** Jemand fügt eine neue Fehlerbedingung
+  hinzu (`BuildError::CoverLocked`), vergisst aber, ihr eine Meldung zu geben. Der
+  Nutzer bekommt im besten Fall einen nichtssagenden Standardtext.
 
-1. **Exhaustives `match` statt Strings.** Die CLI-Übersetzung verzichtet auf den
-   `_`-Arm. Eine **neue** Fehler-Variante lässt die CLI nicht mehr kompilieren,
-   bis ein Hinweis ergänzt wird — die Kopplung wird vom Compiler erzwungen.
-2. **Eine Wahrheit für Flag-/Kommandonamen.** Namen wie `build`, `release`,
-   `--pages`, `--force` als `const` an *einer* Stelle in der CLI-Kiste definieren
-   und sowohl im clap-Builder **als auch** in `hint()` verwenden. Ein Test, der
-   den fertig gebauten clap-`Command`-Baum introspektiert
-   (`Command::get_subcommands()`, `Arg::get_id()`), prüft, dass jede in den
-   Konstanten geführte ID real existiert. Umbenennen passiert dann an genau einem
-   `const`; ein versehentlich entfernter Flag bricht den Test.
+### Lösung gegen Drift — zwei Mechanismen
 
-So bleibt der Lib-Code frei von CLI-Wissen, die CLI bekommt präzise Hinweise mit
-echten Flags, und Hinweistexte können nicht mehr unbemerkt von den tatsächlichen
-Kommandos abdriften.
+**Mechanismus 1 gegen Spielart B: exhaustives `match` ohne `_`-Arm.**
+Die `hint`-Funktion oben behandelt jede Variante einzeln und hat **keinen**
+Auffang-Arm (`_ => …`). Fügt jemand `BuildError::CoverLocked` hinzu, ist das
+`match` nicht mehr vollständig → **die CLI kompiliert nicht**, bis der Hinweis
+ergänzt ist. Der Compiler erzwingt, dass jede Fehlerursache eine
+Nutzer-Abhilfe bekommt.
+
+**Mechanismus 2 gegen Spielart A: ein einziger Ursprung für jeden Namen.**
+In drei Schritten:
+
+1. Jeden Kommando-/Flag-Namen **einmal** als `const` definieren (CLI-Kiste):
+   ```rust
+   pub const BUILD: &str = "build";
+   pub const PAGE:  &str = "page";   // Flag-/Subcommand-Name
+   pub const FORCE: &str = "force";
+   ```
+2. Der clap-Builder benutzt **dieselbe** Konstante, d. h. das echte Flag *ist*
+   die Konstante:
+   ```rust
+   Command::new(BUILD).arg(Arg::new(PAGE).long(PAGE)) // ...
+   ```
+3. `hint()` baut seinen Text aus **derselben** Konstante (siehe oben
+   `format!("... `{PAGE} mode ...`")`).
+
+Da clap-Definition und Hinweis dieselbe Konstante lesen, kann ein Umbenennen sie
+nicht mehr auseinanderbringen: man ändert `PAGE` an *einer* Stelle, und beides —
+das reale Flag und der Hinweistext — ändert sich gemeinsam.
+
+**Restlücke + Absicherung:** Was, wenn jemand ein Flag ganz aus clap entfernt,
+die Konstante aber stehen lässt (oder umgekehrt)? Dagegen ein kleiner Test, der
+den **fertig gebauten** clap-`Command`-Baum durchläuft und prüft, dass jede
+geführte Namens-Konstante real als Subcommand/Arg existiert:
+
+```rust
+#[test]
+fn every_referenced_name_exists_in_clap() {
+    let cmd = build_cli();                 // der echte clap-Command-Baum
+    assert!(cmd.find_subcommand(BUILD).is_some());
+    let build = cmd.find_subcommand(BUILD).unwrap();
+    assert!(build.get_arguments().any(|a| a.get_id() == PAGE));
+    // … je geführter Konstante eine Zusicherung
+}
+```
+
+Wird ein Flag aus clap gelöscht, schlägt dieser Test fehl — die Drift wird
+sichtbar, bevor sie den Nutzer erreicht.
+
+### Zusammengefasst
+
+- **Lib:** sagt nur, *was* falsch ist (getippter Fehler, kein CLI-Text).
+- **CLI:** sagt, *wie* man es behebt (Hinweis mit echten Flags).
+- **Spielart B** (fehlender Hinweis) fängt das exhaustive `match` zur Compilezeit.
+- **Spielart A** (falscher Name) fängt die gemeinsame Konstante + der
+  Introspektions-Test.
 
 ### Umfang
 
-Betrifft v. a. `commands/`: die `bail!`/`anyhow!`-Stellen oben auf getippte
-Fehler umstellen; Next-Steps-Ausgaben wie `project/new.rs:78–81` und
+Betrifft v. a. `commands/`: die `bail!`/`anyhow!`-Stellen aus dem Befund auf
+getippte Fehler umstellen; Next-Steps-Ausgaben wie `project/new.rs:78–81` und
 `switch.rs:35` aus der Lib in die CLI verschieben. Doc-Comments (`//! \`fotobuch
 …\``) dürfen bleiben — sie sind Dokumentation, keine Laufzeit-Strings.
 
