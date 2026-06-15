@@ -23,8 +23,9 @@ Inhalt:
 7. Commands: Duplizierung, Struktur, Config/Result-Muster
 8. `input`-Modul
 9. Querschnitt: Namens- & Sprachkonsistenz
-10. Innerhalb von Methoden
-11. Umsetzungspläne (separate Dokumente) → [`1-build.md`](./1-build.md)
+10. Fehlermeldungen: CLI-Begriffe aus dem Lib-Code verbannen
+11. Innerhalb von Methoden
+12. Umsetzungspläne (separate Dokumente) → [`1-build.md`](./1-build.md)
 
 ---
 
@@ -392,7 +393,103 @@ gewollte Ausnahme dokumentieren).
 
 ---
 
-## 10. Innerhalb von Methoden (nach Abschnitt 1 großteils erledigt)
+## 10. Fehlermeldungen: CLI-Begriffe aus dem Lib-Code verbannen
+
+### Befund
+
+Mehrere Laufzeitfehler in der Lib nennen konkrete CLI-Kommandos und -Flags:
+
+- `build.rs:115` „`--pages is not allowed with release`"
+- `place.rs:102` „Run `fotobuch build` first."
+- `rebuild.rs:95,136,187` („`rebuild --page 0`", „`page mode {} a`", …)
+- `build/release_build.rs:43,50` („`fotobuch build release --force`")
+- `project/switch.rs:35` („`fotobuch project list`")
+
+Zwei Probleme:
+
+1. **Falscher Kontext für Nicht-CLI-Konsumenten.** Die GUI nutzt dieselbe Lib;
+   ein GUI-Nutzer bekommt „Run `fotobuch build` first" — sinnlos.
+2. **Drift.** Flag-/Kommandonamen (`--flex`, `--page`, `release --force`) liegen
+   als String-Literale weit weg von den clap-Definitionen. Wird ein Flag
+   umbenannt, bleiben die Strings stehen; nichts erzwingt Konsistenz.
+
+### Lösung: geschichtete Fehler
+
+**Die Lib liefert getippte, CLI-freie Fehler, die die *Bedingung* beschreiben,
+nicht die Abhilfe.** Statt `anyhow::bail!("… Run \`fotobuch build\` first")` ein
+`thiserror`-Enum je Command (oder ein gemeinsames Domänen-Fehler-Enum):
+
+```rust
+#[derive(Debug, thiserror::Error)]
+pub enum BuildError {
+    #[error("no layout exists yet")]
+    NoLayout,
+    #[error("layout has uncommitted changes on pages {pages:?}")]
+    LayoutDirty { pages: Vec<usize> },
+    #[error("page {idx} is in manual mode")]
+    PageIsManual { idx: usize },
+    #[error("page range {start}-{end} is out of bounds (0..{len})")]
+    RangeOutOfBounds { start: usize, end: usize, len: usize },
+    #[error("page selection is not allowed for a release build")]
+    PagesWithRelease,
+}
+```
+
+`Display` ist neutral und nennt nur den Sachverhalt. Intern/GUI ist das bereits
+nutzbar.
+
+**Die CLI übersetzt jeden getippten Fehler in eine handlungsweisende Meldung mit
+konkreten Flags** — co-lokalisiert mit den clap-Definitionen:
+
+```rust
+// nur in der CLI-Kiste
+fn hint(err: &BuildError) -> String {
+    match err {                                   // KEIN `_`-Arm
+        BuildError::NoLayout =>
+            format!("Run `{BUILD}` first.", BUILD = cmd::BUILD),
+        BuildError::LayoutDirty { .. } =>
+            format!("Run `{BUILD}` or `{BUILD} {RELEASE} --{FORCE}`.", ...),
+        BuildError::PagesWithRelease =>
+            format!("`--{PAGES}` cannot be combined with `{RELEASE}`."),
+        BuildError::PageIsManual { idx } =>
+            format!("Switch it first: `{PAGE} mode {idx} a`."),
+        BuildError::RangeOutOfBounds { .. } => /* … */,
+    }
+}
+```
+
+Die GUI mappt dieselben Varianten auf GUI-gerechte Hinweise (oder zeigt nur die
+neutrale `Display`-Meldung).
+
+### Drift verhindern (Kernfrage)
+
+Zwei sich ergänzende Mechanismen:
+
+1. **Exhaustives `match` statt Strings.** Die CLI-Übersetzung verzichtet auf den
+   `_`-Arm. Eine **neue** Fehler-Variante lässt die CLI nicht mehr kompilieren,
+   bis ein Hinweis ergänzt wird — die Kopplung wird vom Compiler erzwungen.
+2. **Eine Wahrheit für Flag-/Kommandonamen.** Namen wie `build`, `release`,
+   `--pages`, `--force` als `const` an *einer* Stelle in der CLI-Kiste definieren
+   und sowohl im clap-Builder **als auch** in `hint()` verwenden. Ein Test, der
+   den fertig gebauten clap-`Command`-Baum introspektiert
+   (`Command::get_subcommands()`, `Arg::get_id()`), prüft, dass jede in den
+   Konstanten geführte ID real existiert. Umbenennen passiert dann an genau einem
+   `const`; ein versehentlich entfernter Flag bricht den Test.
+
+So bleibt der Lib-Code frei von CLI-Wissen, die CLI bekommt präzise Hinweise mit
+echten Flags, und Hinweistexte können nicht mehr unbemerkt von den tatsächlichen
+Kommandos abdriften.
+
+### Umfang
+
+Betrifft v. a. `commands/`: die `bail!`/`anyhow!`-Stellen oben auf getippte
+Fehler umstellen; Next-Steps-Ausgaben wie `project/new.rs:78–81` und
+`switch.rs:35` aus der Lib in die CLI verschieben. Doc-Comments (`//! \`fotobuch
+…\``) dürfen bleiben — sie sind Dokumentation, keine Laufzeit-Strings.
+
+---
+
+## 11. Innerhalb von Methoden (nach Abschnitt 1 großteils erledigt)
 
 Falls Abschnitt 1 nicht sofort kommt, lohnen diese lokalen Schnitte:
 
@@ -409,7 +506,7 @@ Falls Abschnitt 1 nicht sofort kommt, lohnen diese lokalen Schnitte:
 
 ---
 
-## 11. Umsetzungspläne (separate Dokumente)
+## 12. Umsetzungspläne (separate Dokumente)
 
 Die konkreten, in Conventional Commits gegliederten Umsetzungspläne liegen je
 Themenblock in eigenen Dateien neben diesem Dokument:
