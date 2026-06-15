@@ -478,6 +478,10 @@ fn hint(err: &BuildError) -> String {
 }
 ```
 
+Die Bezeichner `BUILD`/`PAGE`/… sind hier **keine** freien Literale: sie werden
+zur Laufzeit aus clap gelesen (siehe Mechanismus 2), damit der Hinweis denselben
+Namen zeigt wie Help und Parser.
+
 ### Das Drift-Problem genau benannt
 
 „Drift" heißt: Hinweistext und tatsächliche CLI laufen auseinander, **ohne dass
@@ -500,53 +504,71 @@ Auffang-Arm (`_ => …`). Fügt jemand `BuildError::CoverLocked` hinzu, ist das
 ergänzt ist. Der Compiler erzwingt, dass jede Fehlerursache eine
 Nutzer-Abhilfe bekommt.
 
-**Mechanismus 2 gegen Spielart A: ein einziger Ursprung für jeden Namen.**
-In drei Schritten:
+**Mechanismus 2 gegen Spielart A: clap bleibt die einzige Quelle — Namen werden
+*aus* clap gelesen, nicht hineingegeben.**
 
-1. Jeden Kommando-/Flag-Namen **einmal** als `const` definieren (CLI-Kiste):
-   ```rust
-   pub const BUILD: &str = "build";
-   pub const PAGE:  &str = "page";   // Flag-/Subcommand-Name
-   pub const FORCE: &str = "force";
-   ```
-2. Der clap-Builder benutzt **dieselbe** Konstante, d. h. das echte Flag *ist*
-   die Konstante:
-   ```rust
-   Command::new(BUILD).arg(Arg::new(PAGE).long(PAGE)) // ...
-   ```
-3. `hint()` baut seinen Text aus **derselben** Konstante (siehe oben
-   `format!("... `{PAGE} mode ...`")`).
+Wichtig vorweg: An clap ändert sich **nichts**. Die Flags bleiben per Derive
+definiert (`#[arg(long)]`), und **Help wird unverändert aus genau diesen echten
+Definitionen erzeugt.** Wir füttern clap *nicht* mit Konstanten — das wäre genau
+die schlechte Variante, bei der Help von der Definition abkoppelt.
 
-Da clap-Definition und Hinweis dieselbe Konstante lesen, kann ein Umbenennen sie
-nicht mehr auseinanderbringen: man ändert `PAGE` an *einer* Stelle, und beides —
-das reale Flag und der Hinweistext — ändert sich gemeinsam.
-
-**Restlücke + Absicherung:** Was, wenn jemand ein Flag ganz aus clap entfernt,
-die Konstante aber stehen lässt (oder umgekehrt)? Dagegen ein kleiner Test, der
-den **fertig gebauten** clap-`Command`-Baum durchläuft und prüft, dass jede
-geführte Namens-Konstante real als Subcommand/Arg existiert:
+Stattdessen holt sich der Hinweis den anzuzeigenden Namen zur Laufzeit aus dem
+bereits gebauten Command-Baum (clap-Derive liefert `Cli::command()`):
 
 ```rust
-#[test]
-fn every_referenced_name_exists_in_clap() {
-    let cmd = build_cli();                 // der echte clap-Command-Baum
-    assert!(cmd.find_subcommand(BUILD).is_some());
-    let build = cmd.find_subcommand(BUILD).unwrap();
-    assert!(build.get_arguments().any(|a| a.get_id() == PAGE));
-    // … je geführter Konstante eine Zusicherung
+/// Liefert das echte `--long` eines Args (per Arg-Id) aus dem clap-Baum.
+/// Findet es das Arg nicht, schlägt es fehl — wird vom Test unten erkannt.
+fn long(cmd: &clap::Command, sub_path: &[&str], arg_id: &str) -> String {
+    let sub = sub_path.iter().fold(cmd, |c, name| {
+        c.find_subcommand(name).expect("unbekanntes Subcommand")
+    });
+    let arg = sub
+        .get_arguments()
+        .find(|a| a.get_id() == arg_id)
+        .expect("unbekannte Arg-Id");
+    format!("--{}", arg.get_long().expect("Arg hat kein --long"))
 }
 ```
 
-Wird ein Flag aus clap gelöscht, schlägt dieser Test fehl — die Drift wird
-sichtbar, bevor sie den Nutzer erreicht.
+Der angezeigte Name stammt damit buchstäblich aus clap und kann gar nicht von
+Help/Parser abweichen. Im `hint()`-Code steht nur noch die **Id** (z. B.
+`"force"`), nie der sichtbare Name:
+
+```rust
+let cmd = Cli::command();
+let force = long(&cmd, &["build"], "force");   // ergibt "--force" laut clap
+format!("run `fotobuch build {force}`")
+```
+
+Bei clap-Derive ist die Arg-Id standardmäßig der Feldname. Wird das Feld
+umbenannt, passt die Id `"force"` nicht mehr → `long(...)` findet nichts.
+
+**Absicherung per Test:** damit dieser Fehlschlag nicht erst beim Nutzer
+auftritt, prüft ein Test alle vom Hinweis benutzten Lookups gegen den echten
+clap-Baum:
+
+```rust
+#[test]
+fn hint_lookups_resolve() {
+    let cmd = Cli::command();
+    long(&cmd, &["build"], "force");   // schlägt fehl, falls entfernt/umbenannt
+    long(&cmd, &["build"], "pages");
+    // … je benutztem Lookup eine Zeile
+}
+```
+
+Optional die Lookup-Liste (`(sub_path, arg_id)`) einmal zentral halten und sowohl
+von `hint()` als auch vom Test durchlaufen — dann kann auch diese Liste nicht
+auseinanderlaufen. So bleibt clap die alleinige Namensquelle, Help kommt
+unverändert aus den echten Flags, und der Hinweis spiegelt sie nur wider.
 
 ### Zusammengefasst
 
 - **Lib:** sagt nur, *was* falsch ist (getippter Fehler, kein CLI-Text).
 - **CLI:** sagt, *wie* man es behebt (Hinweis mit echten Flags).
 - **Spielart B** (fehlender Hinweis) fängt das exhaustive `match` zur Compilezeit.
-- **Spielart A** (falscher Name) fängt die gemeinsame Konstante + der
-  Introspektions-Test.
+- **Spielart A** (falscher Name): clap bleibt einzige Quelle — der Hinweis liest
+  den Namen aus clap heraus; ein Test stellt sicher, dass jeder Lookup auflöst.
 
 ### Umfang
 
