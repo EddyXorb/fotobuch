@@ -123,23 +123,17 @@ einheitlich setzen.
 
 ## 2. Cover-Logik konsolidieren
 
-Cover-Behandlung ist über zwei Dateien und drei Stellen verstreut:
+**Status: Konsolidierung erledigt.** Die früher über `multipage_build` und
+`rebuild_single_page` verstreute Cover-Logik (Fallunterscheidung *free vs.
+structured*, `split_cover_photos`, `build_cover_page`, `update_cover_page`) liegt
+jetzt gebündelt in `commands/build/build_layout/cover_page.rs`.
 
-- `multipage_build.rs`: `split_cover_files`, `build_cover_page`,
-  Free-Cover-Nachlösung (Schritt 7, `:121`).
-- `rebuild_single_page.rs`: `rebuild_cover_free` / `rebuild_cover_structured`.
-
-Beide kennen die Fallunterscheidung *free vs. structured* und rufen
-`compute_cover_slots` / `warn_slot_count_mismatch`. `rebuild_single_page` ist
-das gute Vorbild (saubere Verzweigung `cover_free`/`cover_structured`/`inner`).
-Vorschlag: ein Modul `commands/build/cover.rs` (oder `solver::cover_solver`
-erweitern), das die alleinige Antwort auf "erzeuge/aktualisiere Cover-Seite"
-besitzt; `multipage_build` ruft es einmal auf.
-
-Verwandt: Cover-**Geometrie** (`spread_width_mm`, `spine_width_mm`,
-`resolved_spine_text`) liegt aktuell als Berechnungslogik auf dem Config-DTO
-`CoverConfig` (`cover_config.rs:144–173`) — gehört in genau dieses Cover-Modul,
-nicht in die Konfiguration (siehe Abschnitt 5.2).
+**Offen bleibt** die Cover-**Geometrie** (`spread_width_mm`, `spine_width_mm`,
+`resolved_spine_text`), die weiterhin als Berechnungslogik auf dem Daten-DTO
+`CoverConfig` (`cover_config.rs:144–173`) liegt statt in einem eigenen Wertobjekt
+— dazu kommt eine tote, irreführende zweite `impl CanvasConfig for CoverConfig`
+(`cover_config.rs:176`, ohne Consumer). Plan: [`02-cover.md`](./02-cover.md)
+(verwandt mit Abschnitt 5.2).
 
 ---
 
@@ -603,5 +597,7 @@ Themenblock in eigenen Dateien neben diesem Dokument:
 
 - [`1-build.md`](./1-build.md) — Vereinheitlichung der build-/rebuild-Methoden
   (Abschnitte 1–3).
+- [`02-cover.md`](./02-cover.md) — Cover-Geometrie aus dem DTO lösen
+  (Abschnitt 2 / 5.2; Konsolidierung bereits erledigt).
 
 Weitere Pläne (Solver, `dto_models`, Commands …) folgen demselben Schema.
