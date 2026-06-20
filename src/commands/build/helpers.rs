@@ -1,8 +1,10 @@
 use anyhow::Result;
+use std::sync::atomic::AtomicUsize;
 use std::{collections::HashMap, path::PathBuf};
-use tracing::info;
+use tracing::{info, warn};
 
-use crate::cache::preview;
+use super::DpiWarning;
+use crate::cache::{final_cache, preview};
 use crate::dto_models::{PhotoFile, PhotoGroup, ProjectState, build_photo_index};
 use crate::output::typst;
 use crate::state_manager::StateManager;
@@ -41,6 +43,49 @@ pub fn update_preview_cache(
         );
     };
     Ok(cache_result)
+}
+
+/// Builds the final high-resolution image cache for a release build and logs DPI
+/// warnings. Returns `(images_created, dpi_warnings)`.
+pub fn refresh_final_cache(mgr: &mut StateManager) -> Result<(usize, Vec<DpiWarning>)> {
+    let dpi = mgr.state.config.book.dpi;
+    info!("Release build: generating final PDF at {:.0} DPI...", dpi);
+
+    let progress = AtomicUsize::new(0);
+    let final_cache_dir = mgr.final_cache_dir();
+    let result = final_cache::build_final_cache(&mut mgr.state, &final_cache_dir, &progress)?;
+
+    info!(
+        "Final cache: {} images generated, {} DPI warnings",
+        result.created,
+        result.dpi_warnings.len()
+    );
+    log_dpi_warnings(dpi, &result.dpi_warnings);
+
+    Ok((result.created, result.dpi_warnings))
+}
+
+/// Logs each photo that will be rendered below the target DPI.
+fn log_dpi_warnings(target_dpi: f64, warnings: &[DpiWarning]) {
+    if warnings.is_empty() {
+        return;
+    }
+    warn!(
+        "\nWARNING: Some photos will be displayed below {:.0} DPI:",
+        target_dpi
+    );
+    for w in warnings {
+        warn!(
+            "  Page {}: {} - {:.2} DPI ({}x{} px in {:.1}x{:.1} mm slot)",
+            w.page,
+            w.photo_id,
+            w.actual_dpi,
+            w.original_px.0,
+            w.original_px.1,
+            w.slot_mm.0,
+            w.slot_mm.1
+        );
+    }
 }
 
 pub enum PdfTarget {

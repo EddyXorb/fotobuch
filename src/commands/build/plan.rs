@@ -1,12 +1,11 @@
 use super::build_layout::{build_full_book, build_outdated_pages, build_page, build_page_range};
-use super::helpers::{CommitMode, PdfTarget, RenderContext, render_pdf, update_preview_cache};
+use super::helpers::{
+    CommitMode, PdfTarget, RenderContext, refresh_final_cache, render_pdf, update_preview_cache,
+};
 use super::{BuildResult, DpiWarning};
-use crate::cache::final_cache;
 use crate::commands::CommandOutput;
 use crate::state_manager::{StateManager, renumber_pages};
 use anyhow::Result;
-use std::sync::atomic::AtomicUsize;
-use tracing::{info, warn};
 
 /// Describes the layout-change strategy for one build or rebuild invocation.
 #[derive(Debug, Clone)]
@@ -131,37 +130,8 @@ fn refresh_cache(
     skip_cache_update: bool,
 ) -> Result<(usize, Vec<DpiWarning>)> {
     if let BuildPlan::Release { .. } = plan {
-        let dpi = mgr.state.config.book.dpi;
-        info!("Release build: generating final PDF at {:.0} DPI...", dpi);
-        let progress = AtomicUsize::new(0);
-        let final_cache_dir = mgr.final_cache_dir();
-        let result = final_cache::build_final_cache(&mut mgr.state, &final_cache_dir, &progress)?;
-        info!(
-            "Final cache: {} images generated, {} DPI warnings",
-            result.created,
-            result.dpi_warnings.len()
-        );
-        if !result.dpi_warnings.is_empty() {
-            warn!(
-                "\nWARNING: Some photos will be displayed below {:.0} DPI:",
-                dpi
-            );
-            for w in &result.dpi_warnings {
-                warn!(
-                    "  Page {}: {} - {:.2} DPI ({}x{} px in {:.1}x{:.1} mm slot)",
-                    w.page,
-                    w.photo_id,
-                    w.actual_dpi,
-                    w.original_px.0,
-                    w.original_px.1,
-                    w.slot_mm.0,
-                    w.slot_mm.1
-                );
-            }
-        }
-        return Ok((result.created, result.dpi_warnings));
+        return refresh_final_cache(mgr);
     }
-
     if skip_cache_update {
         return Ok((0, vec![]));
     }
