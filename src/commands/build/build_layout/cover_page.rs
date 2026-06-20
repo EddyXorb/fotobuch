@@ -1,4 +1,4 @@
-use crate::dto_models::{CanvasConfig, CoverConfig, LayoutPage, PageMode, PhotoFile, PhotoGroup};
+use crate::dto_models::{CoverConfig, CoverGeometry, LayoutPage, PageMode, PhotoFile, PhotoGroup};
 use crate::run_solver;
 use crate::solver::cover_solver::{compute_cover_slots, warn_slot_count_mismatch};
 use crate::solver::{Request, RequestType};
@@ -47,10 +47,7 @@ fn update_cover_free(
 ) -> Result<()> {
     let cover = &state.config.book.cover;
     let inner_page_count = state.layout.len() - 1;
-    let spread_config = CoverCanvasConfig {
-        cover,
-        inner_page_count,
-    };
+    let spread_config = CoverGeometry::new(cover, inner_page_count);
     let group = PhotoGroup {
         group: "page_0".to_string(),
         sort_key: String::new(),
@@ -125,33 +122,6 @@ pub(super) fn split_cover_photos(
     }
 
     (cover_files, remaining)
-}
-
-/// Presents the full cover spread (front + back + spine) as `page_width_mm` to the GA solver.
-struct CoverCanvasConfig<'a> {
-    cover: &'a CoverConfig,
-    inner_page_count: usize,
-}
-
-impl CanvasConfig for CoverCanvasConfig<'_> {
-    fn page_width_mm(&self) -> f64 {
-        self.cover.spread_width_mm(self.inner_page_count)
-    }
-    fn page_height_mm(&self) -> f64 {
-        self.cover.height_mm
-    }
-    fn bleed_mm(&self) -> f64 {
-        self.cover.bleed_mm
-    }
-    fn margin_mm(&self) -> f64 {
-        self.cover.margin_mm
-    }
-    fn gap_mm(&self) -> f64 {
-        self.cover.gap_mm
-    }
-    fn bleed_threshold_mm(&self) -> f64 {
-        self.cover.bleed_threshold_mm
-    }
 }
 
 // ── tests ─────────────────────────────────────────────────────────────────────

@@ -65,7 +65,7 @@ impl ProjectState {
         if self.has_cover() && page == 0 {
             let inner_count = self.layout.len().saturating_sub(1);
             (
-                self.config.book.cover.spread_width_mm(inner_count),
+                CoverGeometry::new(&self.config.book.cover, inner_count).spread_width_mm(),
                 self.config.book.cover.height_mm,
             )
         } else {
