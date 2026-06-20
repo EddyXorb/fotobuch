@@ -14,7 +14,7 @@ pub fn handle(pages: Option<Vec<usize>>) -> Result<()> {
         skip_cache_update: false,
     };
 
-    let output = commands::build::build(&project_root, &config)?;
+    commands::build::build(&project_root, &config)?;
 
     Ok(())
 }
@@ -28,7 +28,7 @@ pub fn handle_release(force: bool) -> Result<()> {
         skip_cache_update: false,
     };
 
-    let output = commands::build::build(&project_root, &config)?;
+    commands::build::build(&project_root, &config)?;
 
     Ok(())
 }
