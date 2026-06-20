@@ -1,5 +1,7 @@
+/// This is an abstraction layer over the solver engines in solve/ and below plan.rs.
+
 use super::helpers::collect_photos_as_groups;
-use super::solve::multipage::solve_multipage;
+use super::solve::multi_page::solve_multipage;
 use super::solve::single_page::solve_single_page;
 use crate::dto_models::{BookLayoutSolverConfig, PageMode, PhotoGroup, build_photo_index};
 use crate::state_manager::StateManager;

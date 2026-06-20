@@ -4,5 +4,5 @@
 //! `run_solver` call and applying the result to `state.layout`. The layout
 //! builders one level up decide *which* photos and pages each engine receives.
 
-pub(super) mod multipage;
+pub(super) mod multi_page;
 pub(super) mod single_page;
