@@ -1,8 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-use crate::dto_models::config::book_config::CanvasConfig;
-use crate::dto_models::cover::CoverGeometry;
-
 /// Layout mode for the cover page.
 ///
 /// Controls whether the GA solver or the deterministic cover solver is used for
@@ -142,133 +139,9 @@ impl Default for CoverConfig {
     }
 }
 
-impl CoverConfig {
-    /// Total cover spread width. Delegates to `CoverGeometry`.
-    pub fn spread_width_mm(&self, inner_page_count: usize) -> f64 {
-        CoverGeometry::new(self, inner_page_count).spread_width_mm()
-    }
-
-    /// Spine width in mm. Delegates to `CoverGeometry`.
-    pub fn spine_width_mm(&self, inner_page_count: usize) -> f64 {
-        CoverGeometry::new(self, inner_page_count).spine_width_mm()
-    }
-
-    /// Resolved spine text: explicit value or fallback to book title.
-    pub fn resolved_spine_text<'a>(&'a self, book_title: &'a str) -> &'a str {
-        self.spine_text.as_deref().unwrap_or(book_title)
-    }
-}
-
-impl CanvasConfig for CoverConfig {
-    /// Returns the full spread width (front + back + spine).
-    /// Caller must pass the correct inner_page_count via spread_width_mm() when
-    /// constructing the solver canvas — this value excludes the spine.
-    fn page_width_mm(&self) -> f64 {
-        self.front_back_width_mm
-    }
-    fn page_height_mm(&self) -> f64 {
-        self.height_mm
-    }
-    fn bleed_mm(&self) -> f64 {
-        self.bleed_mm
-    }
-    fn margin_mm(&self) -> f64 {
-        self.margin_mm
-    }
-    fn gap_mm(&self) -> f64 {
-        self.gap_mm
-    }
-    fn bleed_threshold_mm(&self) -> f64 {
-        self.bleed_threshold_mm
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn cfg_auto(spine_mm_per_10_pages: f64) -> CoverConfig {
-        CoverConfig {
-            active: true,
-            mode: CoverMode::Free,
-            spine_clearance_mm: 5.0,
-            spine: SpineConfig::Auto {
-                spine_mm_per_10_pages,
-            },
-            front_back_width_mm: 420.0,
-            height_mm: 297.0,
-            spine_text: None,
-            bleed_mm: 3.0,
-            margin_mm: 0.0,
-            gap_mm: 5.0,
-            bleed_threshold_mm: 3.0,
-        }
-    }
-
-    fn cfg_fixed(spine_width_mm: f64) -> CoverConfig {
-        CoverConfig {
-            active: true,
-            mode: CoverMode::Free,
-            spine_clearance_mm: 5.0,
-            spine: SpineConfig::Fixed { spine_width_mm },
-            front_back_width_mm: 420.0,
-            height_mm: 297.0,
-            spine_text: None,
-            bleed_mm: 3.0,
-            margin_mm: 0.0,
-            gap_mm: 5.0,
-            bleed_threshold_mm: 3.0,
-        }
-    }
-
-    #[test]
-    fn spine_width_auto_linear() {
-        let c = cfg_auto(1.4);
-        assert!((c.spine_width_mm(10) - 1.4).abs() < 1e-9);
-        assert!((c.spine_width_mm(100) - 14.0).abs() < 1e-9);
-        assert!((c.spine_width_mm(0) - 0.0).abs() < 1e-9);
-    }
-
-    #[test]
-    fn spine_width_fixed() {
-        let c = cfg_fixed(2.5);
-        assert!((c.spine_width_mm(10) - 2.5).abs() < 1e-9);
-        assert!((c.spine_width_mm(100) - 2.5).abs() < 1e-9);
-        assert!((c.spine_width_mm(0) - 2.5).abs() < 1e-9);
-    }
-
-    #[test]
-    fn spread_width_auto_no_spine() {
-        let c = cfg_auto(1.0);
-        assert!((c.spread_width_mm(0) - 420.0).abs() < 1e-9);
-    }
-
-    #[test]
-    fn spread_width_auto_includes_spine() {
-        let c = cfg_auto(1.4);
-        assert!((c.spread_width_mm(10) - 421.4).abs() < 1e-9);
-    }
-
-    #[test]
-    fn spread_width_fixed_ignores_spine() {
-        let c = cfg_fixed(2.5);
-        // Fixed mode: spread width is always front_back_width, regardless of page count
-        assert!((c.spread_width_mm(10) - 420.0).abs() < 1e-9);
-        assert!((c.spread_width_mm(100) - 420.0).abs() < 1e-9);
-    }
-
-    #[test]
-    fn resolved_spine_text_fallback() {
-        let c = cfg_auto(1.0);
-        assert_eq!(c.resolved_spine_text("Mein Buch"), "Mein Buch");
-    }
-
-    #[test]
-    fn resolved_spine_text_explicit() {
-        let mut c = cfg_auto(1.0);
-        c.spine_text = Some("Override".into());
-        assert_eq!(c.resolved_spine_text("Mein Buch"), "Override");
-    }
 
     #[test]
     fn cover_mode_required_slots() {
