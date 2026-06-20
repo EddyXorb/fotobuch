@@ -6,7 +6,7 @@ use crate::state_manager::StateManager;
 use anyhow::Result;
 use tracing::warn;
 
-pub(super) fn resolve_whole_book(mgr: &mut StateManager) -> Result<Vec<usize>> {
+pub(super) fn build_full_book(mgr: &mut StateManager) -> Result<Vec<usize>> {
     let layout_len = mgr.state.layout.len();
     // For an existing layout with an active cover, skip page 0 so the cover is not
     // redistributed (use rebuild --page 0 to rebuild it explicitly).
@@ -24,7 +24,7 @@ pub(super) fn resolve_whole_book(mgr: &mut StateManager) -> Result<Vec<usize>> {
     solve_multipage(&mut mgr.state, &groups, None, None)
 }
 
-pub(super) fn resolve_outdated_pages(
+pub(super) fn build_outdated_pages(
     mgr: &mut StateManager,
     page_filter: Option<&[usize]>,
 ) -> Result<Vec<usize>> {
@@ -41,7 +41,7 @@ pub(super) fn resolve_outdated_pages(
     Ok(pages)
 }
 
-pub(super) fn resolve_single_page(mgr: &mut StateManager, idx: usize) -> Result<Vec<usize>> {
+pub(super) fn build_page(mgr: &mut StateManager, idx: usize) -> Result<Vec<usize>> {
     if mgr.state.layout.is_empty() {
         anyhow::bail!("No layout exists. Run `fotobuch build` first.");
     }
@@ -66,7 +66,7 @@ pub(super) fn resolve_single_page(mgr: &mut StateManager, idx: usize) -> Result<
     Ok(vec![idx])
 }
 
-pub(super) fn resolve_range(
+pub(super) fn build_page_range(
     mgr: &mut StateManager,
     start: usize,
     end: usize,

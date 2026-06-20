@@ -1,7 +1,5 @@
 use super::helpers::{CommitMode, PdfTarget, RenderContext, render_pdf, update_preview_cache};
-use super::resolve::{
-    resolve_outdated_pages, resolve_range, resolve_single_page, resolve_whole_book,
-};
+use super::layout::{build_full_book, build_outdated_pages, build_page, build_page_range};
 use super::{BuildResult, DpiWarning};
 use crate::cache::final_cache;
 use crate::commands::CommandOutput;
@@ -34,18 +32,18 @@ impl BuildPlan {
     ///
     /// Pure layout step: no cache update, no commit, no PDF.
     /// Returns 0-based indices of pages that were modified.
-    pub fn resolve_layout(&self, mgr: &mut StateManager) -> Result<Vec<usize>> {
+    pub fn build_layout(&self, mgr: &mut StateManager) -> Result<Vec<usize>> {
         match self {
             BuildPlan::Auto { pages } => {
                 if mgr.state.layout.is_empty() {
-                    resolve_whole_book(mgr)
+                    build_full_book(mgr)
                 } else {
-                    resolve_outdated_pages(mgr, pages.as_deref())
+                    build_outdated_pages(mgr, pages.as_deref())
                 }
             }
-            BuildPlan::All => resolve_whole_book(mgr),
-            BuildPlan::Page(idx) => resolve_single_page(mgr, *idx),
-            BuildPlan::Range { start, end, flex } => resolve_range(mgr, *start, *end, *flex),
+            BuildPlan::All => build_full_book(mgr),
+            BuildPlan::Page(idx) => build_page(mgr, *idx),
+            BuildPlan::Range { start, end, flex } => build_page_range(mgr, *start, *end, *flex),
             BuildPlan::Release { .. } => Ok(Vec::new()),
         }
     }
@@ -66,8 +64,8 @@ impl BuildPlan {
         // 1. Update image cache
         let (images_processed, dpi_warnings) = refresh_cache(&self, &mut mgr, skip_cache_update)?;
 
-        // 2. Resolve layout (pure)
-        let changed_pages = self.resolve_layout(&mut mgr)?;
+        // 2. Build layout (pure)
+        let changed_pages = self.build_layout(&mut mgr)?;
 
         // 3. Renumber pages
         let has_cover = mgr.state.has_cover();
