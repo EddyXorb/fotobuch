@@ -8,7 +8,7 @@ use std::sync::atomic::AtomicU64;
 
 use super::individual::LayoutIndividual;
 use crate::dto_models::FitnessWeights;
-use crate::solver::ga_solver::EvolutionDynamic;
+use crate::solver::algorithms::genetic_algorithm::EvolutionDynamic;
 use crate::solver::page_layout_solver::create_initial_population;
 use crate::solver::prelude::*;
 

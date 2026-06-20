@@ -1,17 +1,14 @@
 //! Generic genetic algorithm framework.
 //!
-//! This module provides a domain-agnostic genetic algorithm implementation
-//! with support for parallel island-based evolution.
+//! Domain-agnostic GA implementation with parallel island-based evolution.
 //!
 //! # Architecture
-//! - **solver**: Main GeneticAlgorithm orchestrator
+//! - **engine**: Main GeneticAlgorithm orchestrator
 //! - **individual**: Individual trait for population members
 //! - **evolution**: EvolutionDynamic trait + Island/World structures
 //! - **config**: Configuration parameters
 //!
-//! # Zero Dependencies
-//! This module has NO dependencies on domain-specific code (photos, layouts, etc.).
-//! It provides only the generic GA framework.
+//! No dependencies on domain-specific code (photos, layouts, etc.).
 
 pub mod config;
 pub mod engine;

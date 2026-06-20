@@ -1,6 +1,6 @@
 //! Selection operators for genetic algorithm.
 
-use crate::solver::ga_solver::Individual;
+use crate::solver::algorithms::genetic_algorithm::Individual;
 use rand::Rng;
 
 /// Performs tournament selection on a population.

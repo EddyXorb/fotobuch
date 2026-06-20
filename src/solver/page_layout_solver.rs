@@ -7,10 +7,10 @@
 //! - `individual`: LayoutIndividual implementing Individual trait
 //! - `evolution`: Evolution dynamics for photo layouts
 
-mod affine_solver;
 mod evolution;
 mod fitness;
 mod individual;
+mod placer;
 mod tree;
 
 use crate::solver::prelude::*;
@@ -32,7 +32,7 @@ pub struct GaResult {
 
 /// Entry point for running GA on a single page layout.
 pub fn run_ga(photos: &[Photo], canvas: &Canvas, ga_config: &GaConfig) -> GaResult {
-    use crate::solver::ga_solver::{Config, GeneticAlgorithm, Individual};
+    use crate::solver::algorithms::genetic_algorithm::{Config, GeneticAlgorithm, Individual};
 
     let start_time = std::time::Instant::now();
 
