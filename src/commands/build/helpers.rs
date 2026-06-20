@@ -31,7 +31,7 @@ impl RenderContext {
     }
 }
 
-pub fn update_preview_cache(
+pub fn refresh_preview_cache(
     mgr: &mut StateManager,
 ) -> Result<preview::PreviewCacheResult, anyhow::Error> {
     let preview_cache_dir = mgr.preview_cache_dir();

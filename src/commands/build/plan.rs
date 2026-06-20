@@ -1,6 +1,6 @@
 use super::build_layout::{build_full_book, build_outdated_pages, build_page, build_page_range};
 use super::helpers::{
-    CommitMode, PdfTarget, RenderContext, refresh_final_cache, render_pdf, update_preview_cache,
+    CommitMode, PdfTarget, RenderContext, refresh_final_cache, refresh_preview_cache, render_pdf,
 };
 use super::{BuildResult, DpiWarning};
 use crate::commands::CommandOutput;
@@ -135,7 +135,7 @@ fn refresh_cache(
     if skip_cache_update {
         return Ok((0, vec![]));
     }
-    let result = update_preview_cache(mgr)?;
+    let result = refresh_preview_cache(mgr)?;
     Ok((result.created, vec![]))
 }
 
