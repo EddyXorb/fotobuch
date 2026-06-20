@@ -17,24 +17,22 @@ use crate::dto_models::{BookLayoutSolverConfig, CanvasConfig, LayoutPage, PhotoG
 pub use book_layout_solver::SolverError;
 use prelude::*;
 
-/// Simple switch enum to select solver mode.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum RequestType {
+/// Solver mode, carrying any variant-specific configuration.
+#[derive(Debug, Clone, Copy)]
+pub enum RequestType<'a> {
     /// Single-page layout optimization; no grouping or multi-page logic applied.
     SinglePage,
     /// Multi-page book layout optimization with grouping and page assignment.
-    MultiPage,
+    MultiPage { config: &'a BookLayoutSolverConfig },
 }
 
 /// Request containing all data for running the solver.
 #[derive(Debug)]
 pub struct Request<'a, C: CanvasConfig> {
     /// Type of optimization to perform.
-    pub request_type: RequestType,
+    pub request_type: RequestType<'a>,
     /// Photo groups (for both single and multi-page requests).
     pub groups: &'a [PhotoGroup],
-    /// Book layout solver configuration.
-    pub config: &'a BookLayoutSolverConfig,
     /// Genetic algorithm configuration.
     pub ga_config: &'a GaConfig,
     /// Canvas configuration (page size, margins, bleed, gap).
@@ -52,7 +50,7 @@ pub fn run_solver<C: CanvasConfig>(request: &Request<C>) -> Result<Vec<LayoutPag
 
     match request.request_type {
         RequestType::SinglePage => run_single_page(&photos, &canvas, request),
-        RequestType::MultiPage => run_multi_page(&photos, &canvas, request),
+        RequestType::MultiPage { config } => run_multi_page(&photos, &canvas, request, config),
     }
 }
 
@@ -71,9 +69,10 @@ fn run_multi_page<C: CanvasConfig>(
     photos: &[Photo],
     canvas: &Canvas,
     request: &Request<C>,
+    config: &BookLayoutSolverConfig,
 ) -> Result<Vec<LayoutPage>, SolverError> {
     let book_layout =
-        book_layout_solver::solve_book_layout(photos, request.config, canvas, request.ga_config)?;
+        book_layout_solver::solve_book_layout(photos, config, canvas, request.ga_config)?;
 
     let mut curr_idx = 0;
     let layout_pages: Vec<LayoutPage> = book_layout

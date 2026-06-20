@@ -54,7 +54,6 @@ fn solve_inner_page(
     let request = Request {
         request_type: RequestType::SinglePage,
         groups: &[group],
-        config: &state.config.book_layout_solver,
         ga_config: &state.config.page_layout_solver,
         canvas_config: &state.config.book,
     };

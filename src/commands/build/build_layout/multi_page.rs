@@ -76,9 +76,10 @@ impl SolverPlan {
     /// The solver request, borrowing this plan's owned inputs.
     fn request(&self) -> Request<'_, BookConfig> {
         Request {
-            request_type: RequestType::MultiPage,
+            request_type: RequestType::MultiPage {
+                config: &self.solver_config,
+            },
             groups: &self.groups,
-            config: &self.solver_config,
             ga_config: &self.ga_config,
             canvas_config: &self.book_config,
         }

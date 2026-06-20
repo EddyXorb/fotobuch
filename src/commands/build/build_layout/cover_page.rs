@@ -56,7 +56,6 @@ fn update_cover_free(
     let request = Request {
         request_type: RequestType::SinglePage,
         groups: &[group],
-        config: &state.config.book_layout_solver,
         ga_config: &state.config.page_layout_solver,
         canvas_config: &spread_config,
     };
