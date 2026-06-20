@@ -79,73 +79,20 @@ Verben `build_`/`solve_`/`update_`. Plan: [`03-build-structure.md`](./03-build-s
 
 ## 4. Solver-Modul
 
-### 4.1 Doppelbenennung (verletzt die `mod.rs`-Konvention)
+**Status: offen.** Vollständiger Plan: [`04-solver.md`](./04-solver.md). Befunde
+in Kürze:
 
-CLAUDE.md verlangt: kein `mod.rs`, Modul = Ordnername, Inhalt in gleichnamiger
-Datei daneben. Gebrochen durch **Modul-Inception**:
-
-- `src/solver/solver.rs` ⇒ Pfad `solver::solver::run_solver`; explizit mit
-  `#[allow(clippy::module_inception)]` (`solver.rs:17`) übergangen.
-- `src/solver/ga_solver/solver.rs` ⇒ `solver::ga_solver::solver::…`.
-
-Inhalt thematisch benennen: `solver/solver.rs` → `runner.rs`/`orchestrator.rs`
-(oder direkt in `solver.rs` heben), `ga_solver/solver.rs` → `genetic_algorithm.rs`.
-
-### 4.2 Benennungsschema mischt Algorithmus und Aufgabe
-
-| Modul | Achse |
-|---|---|
-| `page_layout_solver`, `book_layout_solver`, `cover_solver` | Aufgabe |
-| `ga_solver`, `bellman_solver`, `affine_solver` | Algorithmus |
-
-`ga_solver` und `bellman_solver` sind **generische, domänenfreie Frameworks**
-(`ga_solver.rs:12` "Zero Dependencies on domain-specific code"); `bellman_solver`
-ist `pub(crate)`-Infrastruktur ohne Fotobuch-Bezug. Vorschlag: generische
-Algorithmen in ein Subverzeichnis `solver/algorithms/` (oder `engine/`) und nach
-Algorithmus benennen (`genetic_algorithm`, `bellman_dp`); aufgabenorientierte
-Solver bleiben oben. `affine_solver` (unter `page_layout_solver/`) ist inkonsistent
-zu seinen Siblings (`fitness`, `individual`, `tree`, `evolution` — alle nach
-Domänenkonzept) → nach Aufgabe benennen.
-
-### 4.3 `Request`-Struct leicht aufgebläht
-
-`Request` (`solver.rs:25`) führt `config: &BookLayoutSolverConfig` **und**
-`ga_config: &GaConfig` als Pflichtfelder; für `RequestType::SinglePage` wird
-`config` nicht genutzt, ist aber Pflicht. Optionen: `RequestType` als Enum mit
-variantenspezifischen Daten, oder die beiden Configs in einen
-`SolverConfig`-Aggregat-Parameter bündeln.
-
-### 4.4 `Params`-Alias stiftet Mehrfachnamen
-
-`BookLayoutSolverConfig` wird 6× als `Params` re-importiert
-(`book_layout_solver/model.rs:10` u. a.). Derselbe Typ heißt damit je nach Scope
-`Params`, `BookLayoutSolverConfig` oder `config`. Einen Namen wählen.
-
-### 4.5 Schicht-Trennung `data_models` vs. `dto_models`
-
-`mod data_models;` ist `solver.rs:12` **nicht** `pub`, wird aber via
-`prelude.rs:1` allen Solver-Untermodulen zugänglich gemacht — die fundamentale
-Datenebene ist versteckt. Außerdem brechen Konvertierungsmethoden die Grenze:
-`SolverPageLayout::to_layout_page()` (`data_models/layout.rs:223`) und
-`Photo::from_photo_groups()` (`data_models/photo.rs:78`, enthält Sortier-Logik)
-importieren aus `dto_models` — Abhängigkeit zeigt von innen nach außen.
-Empfehlung: Konvertierung an *einer* Grenzschicht bündeln (z. B.
-`solver/conversion.rs`), Datenmodelle logikfrei halten, Modul-Rollen in den
-Modul-Docs benennen.
-
-### 4.6 Weitere
-
-- `page_layout_solver/tree.rs` (654 Z.) und `data_models/layout.rs` (694 Z.) zu
-  groß; Bleed-Skalierung (`layout.rs:259–320`) ist ein eigener Algorithmus →
-  eigenes File.
-- `GAPageEvaluator` (Trait-Impl) lebt im Fassadenfile `book_layout_solver.rs:131`
-  statt in einem Submodul.
-- Hardcodierte Magic Numbers + TODOs in `run_ga` (`page_layout_solver.rs:44–65`:
-  `tournament_size = 3`, `seed = 42`, "Add … to GaConfig").
-- Inkonsistente Submodul-Sichtbarkeit (`ga_solver` deklariert `pub mod`,
-  `page_layout_solver` `mod`).
-- `ProjectConfig.page_layout_solver: GaConfig` (`project_config.rs:10`) wird auch
-  im Multi-Page-Kontext genutzt → Feldname irreführend, eher `ga_config`.
+- **Modul-Inception:** `solver/solver.rs` (`#[allow(module_inception)]`,
+  `solver.rs:17`) und `ga_solver/solver.rs`.
+- **Benennung mischt Achsen:** Aufgabe (`page_layout_solver`/`book_layout_solver`/
+  `cover_solver`) vs. Algorithmus (`ga_solver`/`bellman_solver`/`affine_solver`);
+  die generischen Frameworks gehören erkennbar getrennt.
+- **`Params`-Alias** (`BookLayoutSolverConfig as Params`, 6×) → ein Name pro Typ.
+- **Versteckte Datenebene** `mod data_models` (nicht `pub`, aber via `prelude`
+  überall sichtbar) + Konvertierungslogik in den Modellen.
+- **Große Dateien** (`tree.rs` 654 Z., `data_models/layout.rs` 694 Z.),
+  `GAPageEvaluator` im Fassadenfile, hardcodierte GA-Parameter in `run_ga`.
+- **`Request` leicht aufgebläht**; Config-Feld `page_layout_solver` irreführend.
 
 ---
 
@@ -515,5 +462,7 @@ Themenblock in eigenen Dateien neben diesem Dokument:
   (Abschnitt 2 / 5.2; Konsolidierung bereits erledigt).
 - [`03-build-structure.md`](./03-build-structure.md) — Benennung & Kohäsion im
   build-Pfad (Abschnitt 3; Strukturbefunde bereits erledigt).
+- [`04-solver.md`](./04-solver.md) — Modul-/Namensstruktur des Solvers
+  (Abschnitt 4; offen).
 
-Weitere Pläne (Solver, `dto_models`, Commands …) folgen demselben Schema.
+Weitere Pläne (`dto_models`, Commands …) folgen demselben Schema.
