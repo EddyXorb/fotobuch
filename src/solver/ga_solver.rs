@@ -14,12 +14,12 @@
 //! It provides only the generic GA framework.
 
 pub mod config;
+pub mod engine;
 pub mod evolution;
 pub mod individual;
-pub mod solver;
 
 // Re-export main types
 pub use config::Config;
+pub use engine::GeneticAlgorithm;
 pub use evolution::EvolutionDynamic;
 pub use individual::Individual;
-pub use solver::GeneticAlgorithm;
