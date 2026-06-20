@@ -90,17 +90,34 @@ serde-Defaults, damit bestehende YAML weiter lädt. Der Default für `seed` blei
 *Verify:* gleiche Layout-Ausgabe bei Default-Config (Golden-/Snapshot-Test); alte
 YAML deserialisiert.
 
-**H8 · `refactor(config): rename page_layout_solver field to ga_config`**
-Feld in `ProjectConfig` umbenennen, **`#[serde(alias = "page_layout_solver")]`**
-für Abwärtskompatibilität bestehender Projekte. Submodul-Sichtbarkeit angleichen
-(`ga_solver`/`page_layout_solver` einheitlich `mod` bzw. `pub(crate) mod`).
-*Verify:* alte YAML lädt über den Alias; Tests grün.
+**H8 · `refactor(config): name the page-layout config after its task, not its algorithm`**
+**Nicht** das Feld umbenennen: `page_layout_solver` ist domänenrichtig und parallel
+zu `book_layout_solver`. Dass der Book-Layout-Solver es mitnutzt, ist kein
+Widerspruch — er *delegiert* die Intra-Page-Anordnung an genau diesen Solver, es
+bleibt also Page-Layout-Konfiguration. (Ein `ga_config` wäre eine Verschlechterung:
+es benennt das Heuristik-Detail „genetischer Algorithmus" statt der Aufgabe und
+zerstört die Parallelität.)
+
+Die echte Inkonsistenz ist der **Typname**: `GaConfig` (Algorithmus) gegenüber dem
+Sibling `BookLayoutSolverConfig` (Aufgabe). Daher den Typ
+`GaConfig` → `PageLayoutSolverConfig` umbenennen. Der GA ist Implementierungsdetail;
+der wirklich generische Framework-Config heißt ohnehin schon separat
+`ga_solver::Config`, sodass kein Namenskonflikt entsteht.
+
+- **Kein YAML-Migrationsschritt nötig:** serde nutzt den *Feldnamen*
+  (`page_layout_solver`), nicht den Typnamen — der Feldname bleibt unverändert.
+- **Öffentliche API:** `pub use dto_models::GaConfig` (`lib.rs:102`) sowie die
+  `cli`/`gui`-Aufrufer im selben Commit mitziehen.
+- **Separat (klein):** Submodul-Sichtbarkeit angleichen (`ga_solver` `pub mod` vs.
+  `page_layout_solver` `mod`).
+*Verify:* `cli`/`gui` kompilieren; bestehende YAML lädt unverändert; Tests grün.
 
 ## Reihenfolge & Risiko
 
 - H1–H5 sind verhaltensneutral (Umbenennen/Verschieben) → zuerst, je einzeln
   reviewbar; Risiko gering, durch die bestehenden Solver-/Proptests abgesichert.
 - **H6** ändert eine öffentliche Solver-Signatur → alle Aufrufer im selben Commit.
-- **H7/H8** ändern das **Config-/YAML-Schema**: serde-Defaults bzw. `alias`
-  zwingend, sonst brechen bestehende Projektdateien. Determinismus (`seed = 42`)
+- **H7** ändert das **YAML-Schema** (neue `GaConfig`-Felder): serde-Defaults
+  zwingend, sonst brechen bestehende Projektdateien; Determinismus (`seed = 42`)
   über einen Vergleichstest absichern, bevor `run_ga` umgestellt wird.
+- **H8** berührt das YAML-Schema *nicht* (nur Typname + öffentliche API).

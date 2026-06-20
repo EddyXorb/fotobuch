@@ -92,7 +92,9 @@ in Kürze:
   überall sichtbar) + Konvertierungslogik in den Modellen.
 - **Große Dateien** (`tree.rs` 654 Z., `data_models/layout.rs` 694 Z.),
   `GAPageEvaluator` im Fassadenfile, hardcodierte GA-Parameter in `run_ga`.
-- **`Request` leicht aufgebläht**; Config-Feld `page_layout_solver` irreführend.
+- **`Request` leicht aufgebläht**; Config-**Typ** `GaConfig` ist nach dem
+  Algorithmus statt der Aufgabe benannt (Sibling: `BookLayoutSolverConfig`) →
+  `PageLayoutSolverConfig`. Das Feld `page_layout_solver` bleibt (domänenrichtig).
 
 ---
 
