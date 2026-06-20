@@ -25,7 +25,7 @@ Inhalt:
 9. Querschnitt: Namens- & Sprachkonsistenz
 10. Fehlermeldungen: CLI-Begriffe aus dem Lib-Code verbannen
 11. Innerhalb von Methoden
-12. Umsetzungspläne (separate Dokumente) → [`1-build.md`](./1-build.md)
+12. Umsetzungspläne (separate Dokumente) → [`01-build.md`](./01-build.md)
 
 ---
 
@@ -139,22 +139,16 @@ jetzt gebündelt in `commands/build/build_layout/cover_page.rs`.
 
 ## 3. Datei- & Modulstruktur des build-Pfads
 
-- **`build/core/` ist ein Kopplungs-Smell.** `rebuild_single_page` und
-  `multipage_build` liegen unter `build/`, werden aber vom Schwester-Kommando
-  `rebuild.rs` über `super::build::{…}` mitbenutzt (`rebuild.rs:11`). Die
-  faktische Abhängigkeitsrichtung sagt: geteilte **Build-Engine**, kein
-  build-internes Detail. Lösung im Umsetzungsplan [`1-build.md`](./1-build.md):
-  `rebuild` zieht (ohne eigene Datei) nach `build.rs`, die geteilte Engine bleibt
-  in den `build/`-Submodulen, die verschachtelte `build/core`-Ebene entfällt.
-- **`build/core.rs`** (`:1`) ist nur ein Re-Export-Knoten — entfällt mit der
-  Verflachung.
-- **`build_photo_index` falsch eingehaust.** Lebt in `commands/build/helpers.rs`,
-  wird aber von Lese-Commands `place` und `status` importiert
-  (`status.rs:8`, `place.rs:10,534,572`). Eine Lese-Query sollte nicht von
-  `commands::build` abhängen → in ein neutrales Query-Modul (z. B.
-  `commands/photo_query.rs` oder Methode auf `ProjectState`).
-- **Doc-Numerierung driftet vom Code ab** (`rebuild.rs:152` "4. Compile Typst",
-  danach erst commit). Nach der Pipeline-Vereinheitlichung überflüssig.
+**Status: ursprüngliche Befunde erledigt.** `build/core/` und `build/core.rs`
+sind weg (Pfad verflacht), `rebuild.rs` ist als `BuildPlan`-Variante in den einen
+`build()`-Einstieg aufgegangen, `build_photo_index` lebt jetzt in
+`dto_models/photos.rs` (von `place`/`status` dort importiert), die driftende
+Doc-Numerierung ist mit `rebuild.rs` verschwunden.
+
+**Offen bleibt** Benennung & Kohäsion im jetzt gut geschnittenen Pfad:
+`helpers.rs` ist ein Sammelname mit vier Themen, Modul `build_layout` kollidiert
+mit der Methode `BuildPlan::build_layout()`, und die Layout-Schicht mischt die
+Verben `build_`/`solve_`/`update_`. Plan: [`03-build-structure.md`](./03-build-structure.md).
 
 ---
 
@@ -595,9 +589,11 @@ Falls Abschnitt 1 nicht sofort kommt, lohnen diese lokalen Schnitte:
 Die konkreten, in Conventional Commits gegliederten Umsetzungspläne liegen je
 Themenblock in eigenen Dateien neben diesem Dokument:
 
-- [`1-build.md`](./1-build.md) — Vereinheitlichung der build-/rebuild-Methoden
+- [`01-build.md`](./01-build.md) — Vereinheitlichung der build-/rebuild-Methoden
   (Abschnitte 1–3).
 - [`02-cover.md`](./02-cover.md) — Cover-Geometrie aus dem DTO lösen
   (Abschnitt 2 / 5.2; Konsolidierung bereits erledigt).
+- [`03-build-structure.md`](./03-build-structure.md) — Benennung & Kohäsion im
+  build-Pfad (Abschnitt 3; Strukturbefunde bereits erledigt).
 
 Weitere Pläne (Solver, `dto_models`, Commands …) folgen demselben Schema.
