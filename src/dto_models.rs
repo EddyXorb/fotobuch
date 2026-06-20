@@ -1,7 +1,7 @@
 //! Domain models for the photobook layout solver.
 //!
 //! This module contains all data structures used throughout the application:
-//! - **Configuration**: Canvas, FitnessWeights, GaConfig, IslandConfig
+//! - **Configuration**: Canvas, FitnessWeights, PageLayoutSolverConfig, IslandConfig
 //! - **Photos**: Photo, PhotoInfo, ScannedPhoto, PhotoGroup
 //! - **Layout**: PhotoPlacement, SolverPageLayout, BookLayout
 //! - **Request**: SolverRequest
@@ -13,7 +13,8 @@ mod state;
 
 pub use config::{
     AppendixConfig, BookConfig, BookLayoutSolverConfig, CanvasConfig, CoverConfig, CoverMode,
-    FitnessWeights, GaConfig, PreviewConfig, ProjectConfig, SpineConfig, ValidationError,
+    FitnessWeights, PageLayoutSolverConfig, PreviewConfig, ProjectConfig, SpineConfig,
+    ValidationError,
 };
 pub use cover::CoverGeometry;
 pub use layout::{LayoutPage, PageMode, Slot};

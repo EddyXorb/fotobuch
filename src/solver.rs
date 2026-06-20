@@ -34,7 +34,7 @@ pub struct Request<'a, C: CanvasConfig> {
     /// Photo groups (for both single and multi-page requests).
     pub groups: &'a [PhotoGroup],
     /// Genetic algorithm configuration.
-    pub ga_config: &'a GaConfig,
+    pub ga_config: &'a PageLayoutSolverConfig,
     /// Canvas configuration (page size, margins, bleed, gap).
     pub canvas_config: &'a C,
 }

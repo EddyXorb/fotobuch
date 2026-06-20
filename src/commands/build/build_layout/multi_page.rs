@@ -1,7 +1,7 @@
 use super::cover_page::{build_cover_page, split_cover_photos, update_cover_page};
 use crate::dto_models::{
-    BookConfig, BookLayoutSolverConfig, GaConfig, LayoutPage, PageMode, PhotoFile, PhotoGroup,
-    ProjectState, build_photo_index,
+    BookConfig, BookLayoutSolverConfig, LayoutPage, PageLayoutSolverConfig, PageMode, PhotoFile,
+    PhotoGroup, ProjectState, build_photo_index,
 };
 use crate::solver::{Request, RequestType, run_solver};
 use anyhow::Result;
@@ -29,7 +29,7 @@ pub(super) fn solve_multipage(
 struct SolverPlan {
     groups: Vec<PhotoGroup>,
     solver_config: BookLayoutSolverConfig,
-    ga_config: GaConfig,
+    ga_config: PageLayoutSolverConfig,
     book_config: BookConfig,
     /// Structured-cover photos split off the front (full-book solve only).
     cover_files: Option<Vec<PhotoFile>>,

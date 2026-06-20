@@ -17,6 +17,6 @@ pub use book_config::{BookConfig, CanvasConfig};
 pub use book_layout_solver_config::{BookLayoutSolverConfig, ValidationError};
 pub use cover_config::{CoverConfig, CoverMode, SpineConfig};
 pub use fitness_weights::FitnessWeights;
-pub use ga_config::GaConfig;
+pub use ga_config::PageLayoutSolverConfig;
 pub use preview_config::PreviewConfig;
 pub use project_config::ProjectConfig;

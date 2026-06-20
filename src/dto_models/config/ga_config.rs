@@ -4,9 +4,9 @@ use serde::{Deserialize, Serialize};
 
 use super::fitness_weights::FitnessWeights;
 
-/// Genetic algorithm configuration (persisted in YAML, mirrors internal GaConfig)
+/// Genetic algorithm configuration (persisted in YAML, mirrors internal PageLayoutSolverConfig)
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GaConfig {
+pub struct PageLayoutSolverConfig {
     #[serde(default = "default_seed")]
     pub seed: u64,
     #[serde(default = "default_population_size")]
@@ -49,7 +49,7 @@ pub struct GaConfig {
     pub timeout_ms: Option<u64>,
 }
 
-impl Default for GaConfig {
+impl Default for PageLayoutSolverConfig {
     fn default() -> Self {
         Self {
             islands_nr: default_islands_nr(),
@@ -70,7 +70,7 @@ impl Default for GaConfig {
     }
 }
 
-impl GaConfig {
+impl PageLayoutSolverConfig {
     pub fn timeout(&self) -> Option<Duration> {
         self.timeout_ms.map(Duration::from_millis)
     }
@@ -132,7 +132,7 @@ mod tests {
 
     #[test]
     fn test_ga_config_default() {
-        let config = GaConfig::default();
+        let config = PageLayoutSolverConfig::default();
         assert_eq!(config.population_size, 750);
         assert_eq!(config.max_generations, 100);
         assert!(config.islands_nr >= 1);

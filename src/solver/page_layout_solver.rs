@@ -31,7 +31,7 @@ pub struct GaResult {
 }
 
 /// Entry point for running GA on a single page layout.
-pub fn run_ga(photos: &[Photo], canvas: &Canvas, ga_config: &GaConfig) -> GaResult {
+pub fn run_ga(photos: &[Photo], canvas: &Canvas, ga_config: &PageLayoutSolverConfig) -> GaResult {
     use crate::solver::algorithms::genetic_algorithm::{Config, GeneticAlgorithm, Individual};
 
     let start_time = std::time::Instant::now();

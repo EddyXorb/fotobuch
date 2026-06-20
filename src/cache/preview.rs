@@ -119,7 +119,7 @@ mod tests {
                 cover: Default::default(),
                 appendix: Default::default(),
             },
-            page_layout_solver: GaConfig::default(),
+            page_layout_solver: PageLayoutSolverConfig::default(),
             preview: PreviewConfig {
                 max_preview_px,
                 ..Default::default()

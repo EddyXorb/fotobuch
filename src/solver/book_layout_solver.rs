@@ -52,7 +52,7 @@ pub fn solve_book_layout(
     photos: &[Photo],
     params: &BookLayoutSolverConfig,
     canvas: &Canvas,
-    ga_config: &GaConfig,
+    ga_config: &PageLayoutSolverConfig,
 ) -> Result<BookLayout, SolverError> {
     // Handle empty input
     if photos.is_empty() {
@@ -143,9 +143,9 @@ mod tests {
         ];
 
         let canvas = Canvas::new(297.0, 210.0, 5.0);
-        let ga_config = GaConfig {
+        let ga_config = PageLayoutSolverConfig {
             seed: 42,
-            ..GaConfig::default()
+            ..PageLayoutSolverConfig::default()
         };
 
         let solver_config = BookLayoutSolverConfig::default();
@@ -162,7 +162,7 @@ mod tests {
         let photos = vec![];
 
         let canvas = Canvas::new(297.0, 210.0, 5.0);
-        let ga_config = GaConfig::default();
+        let ga_config = PageLayoutSolverConfig::default();
         let solver_config = BookLayoutSolverConfig::default();
 
         let book = solve_book_layout(&photos, &solver_config, &canvas, &ga_config).unwrap();
@@ -207,11 +207,11 @@ mod tests {
 
             let solver_config = create_test_params();
             let canvas = Canvas::new(297.0, 210.0, 5.0);
-            let ga_config = GaConfig {
+            let ga_config = PageLayoutSolverConfig {
                 population_size: 10,
                 max_generations: 3,
                 seed: 42,
-                ..GaConfig::default()
+                ..PageLayoutSolverConfig::default()
             };
 
             let book = solve_book_layout(&photos, &solver_config, &canvas, &ga_config).unwrap();
@@ -241,11 +241,11 @@ mod tests {
 
             let solver_config = create_test_params();
             let canvas = Canvas::new(297.0, 210.0, 5.0);
-            let ga_config = GaConfig {
+            let ga_config = PageLayoutSolverConfig {
                 population_size: 10,
                 max_generations: 3,
                 seed: 42,
-                ..GaConfig::default()
+                ..PageLayoutSolverConfig::default()
             };
 
             let book = solve_book_layout(&photos, &solver_config, &canvas, &ga_config).unwrap();
@@ -280,7 +280,7 @@ mod tests {
             let photos: Vec<Photo> = vec![];
             let solver_config = create_test_params();
             let canvas = Canvas::new(297.0, 210.0, 5.0);
-            let ga_config = GaConfig::default();
+            let ga_config = PageLayoutSolverConfig::default();
 
             let book = solve_book_layout(&photos, &solver_config, &canvas, &ga_config).unwrap();
 
@@ -303,7 +303,7 @@ mod tests {
             // min capacity = 5 * 10 = 50, but we only have 20 photos
 
             let canvas = Canvas::new(297.0, 210.0, 5.0);
-            let ga_config = GaConfig::default();
+            let ga_config = PageLayoutSolverConfig::default();
 
             let result = solve_book_layout(&photos, &solver_config, &canvas, &ga_config);
 
@@ -319,11 +319,11 @@ mod tests {
 
             let solver_config = create_test_params();
             let canvas = Canvas::new(297.0, 210.0, 5.0);
-            let ga_config = GaConfig {
+            let ga_config = PageLayoutSolverConfig {
                 population_size: 10,
                 max_generations: 3,
                 seed: 42,
-                ..GaConfig::default()
+                ..PageLayoutSolverConfig::default()
             };
 
             let book = solve_book_layout(&photos, &solver_config, &canvas, &ga_config).unwrap();

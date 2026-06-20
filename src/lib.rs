@@ -38,16 +38,15 @@
 //! let solver_config = BookLayoutSolverConfig::default();
 //!
 //! // Define GA configuration
-//! let ga_config = GaConfig::default();
+//! let ga_config = PageLayoutSolverConfig::default();
 //!
 //! // Load photo groups (from directory or other source)
 //! let photo_groups: Vec<PhotoGroup> = vec![/* ... */];
 //!
 //! // Create request
 //! let request = Request {
-//!     request_type: RequestType::MultiPage,  // or RequestType::SinglePage
+//!     request_type: RequestType::MultiPage { config: &solver_config },
 //!     groups: &photo_groups,
-//!     config: &solver_config,
 //!     ga_config: &ga_config,
 //!     canvas_config: &book_config,
 //! };
@@ -99,5 +98,5 @@ pub mod undo_stack;
 pub mod vault;
 
 // Re-export core API types for convenience
-pub use dto_models::{FitnessWeights, GaConfig};
+pub use dto_models::{FitnessWeights, PageLayoutSolverConfig};
 pub use solver::run_solver;
