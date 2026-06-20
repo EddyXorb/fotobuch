@@ -6,6 +6,7 @@
 //! - **Layout**: PhotoPlacement, SolverPageLayout, BookLayout
 //! - **Request**: SolverRequest
 mod config;
+mod cover;
 mod layout;
 mod photos;
 mod state;
@@ -14,6 +15,7 @@ pub use config::{
     AppendixConfig, BookConfig, BookLayoutSolverConfig, CanvasConfig, CoverConfig, CoverMode,
     FitnessWeights, GaConfig, PreviewConfig, ProjectConfig, SpineConfig, ValidationError,
 };
+pub use cover::CoverGeometry;
 pub use layout::{LayoutPage, PageMode, Slot};
 pub use photos::{PhotoFile, PhotoGroup, build_photo_index};
 pub use state::ProjectState;

@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::dto_models::config::book_config::CanvasConfig;
+use crate::dto_models::cover::CoverGeometry;
 
 /// Layout mode for the cover page.
 ///
@@ -142,34 +143,19 @@ impl Default for CoverConfig {
 }
 
 impl CoverConfig {
-    /// Total cover spread width in auto mode: front_back_width_mm + spine.
-    /// In fixed mode: only front_back_width_mm (spine doesn't affect solver canvas).
+    /// Total cover spread width. Delegates to `CoverGeometry`.
     pub fn spread_width_mm(&self, inner_page_count: usize) -> f64 {
-        match &self.spine {
-            SpineConfig::Auto { .. } => {
-                self.front_back_width_mm + self.spine_width_mm(inner_page_count)
-            }
-            SpineConfig::Fixed { .. } => {
-                // Fixed spine does not affect cover width
-                self.front_back_width_mm
-            }
-        }
+        CoverGeometry::new(self, inner_page_count).spread_width_mm()
+    }
+
+    /// Spine width in mm. Delegates to `CoverGeometry`.
+    pub fn spine_width_mm(&self, inner_page_count: usize) -> f64 {
+        CoverGeometry::new(self, inner_page_count).spine_width_mm()
     }
 
     /// Resolved spine text: explicit value or fallback to book title.
     pub fn resolved_spine_text<'a>(&'a self, book_title: &'a str) -> &'a str {
         self.spine_text.as_deref().unwrap_or(book_title)
-    }
-
-    /// Spine width in mm. In auto mode, calculated from page count. In fixed mode, the provided value.
-    /// Used by template for display/text sizing in both modes.
-    pub fn spine_width_mm(&self, inner_page_count: usize) -> f64 {
-        match &self.spine {
-            SpineConfig::Auto {
-                spine_mm_per_10_pages,
-            } => (inner_page_count as f64 / 10.0) * spine_mm_per_10_pages,
-            SpineConfig::Fixed { spine_width_mm } => *spine_width_mm,
-        }
     }
 }
 
