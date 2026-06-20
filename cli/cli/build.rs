@@ -16,8 +16,6 @@ pub fn handle(pages: Option<Vec<usize>>) -> Result<()> {
 
     let output = commands::build::build(&project_root, &config)?;
 
-    commands::build::print_build_result(&output.result);
-
     Ok(())
 }
 
@@ -31,8 +29,6 @@ pub fn handle_release(force: bool) -> Result<()> {
     };
 
     let output = commands::build::build(&project_root, &config)?;
-
-    commands::build::print_build_result(&output.result);
 
     Ok(())
 }

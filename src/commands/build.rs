@@ -8,7 +8,6 @@ pub use plan::BuildPlan;
 use crate::state_manager::StateManager;
 use anyhow::Result;
 use std::path::{Path, PathBuf};
-use tracing::{info, warn};
 
 /// DPI warning for final build
 #[derive(Debug)]
@@ -62,28 +61,4 @@ pub fn build(
         .plan
         .clone()
         .run(mgr, skip_pdf, config.skip_cache_update)
-}
-
-/// Output build result summary (pages rebuilt, PDF path, DPI warnings).
-pub fn print_build_result(result: &BuildResult) {
-    if !result.pages_rebuilt.is_empty() {
-        info!(
-            "Rebuilt {} page(s): {:?}",
-            result.pages_rebuilt.len(),
-            result.pages_rebuilt
-        );
-    }
-
-    if !result.dpi_warnings.is_empty() {
-        warn!(
-            "\nWARNING: {} photo(s) below 300 DPI:",
-            result.dpi_warnings.len()
-        );
-        for w in &result.dpi_warnings {
-            warn!(
-                "  Page {}: {} — {:.0} DPI",
-                w.page, w.photo_id, w.actual_dpi
-            );
-        }
-    }
 }
