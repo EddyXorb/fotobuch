@@ -1,3 +1,4 @@
+pub(super) mod bleed;
 pub(super) mod book_layout;
 pub(super) mod canvas;
 pub(super) mod layout;

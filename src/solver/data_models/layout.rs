@@ -1,5 +1,4 @@
 use super::canvas::Canvas;
-use crate::dto_models::CanvasConfig;
 
 /// Placement of a single photo on the canvas.
 #[derive(Debug, Clone, Copy)]
@@ -39,6 +38,7 @@ impl PhotoPlacement {
     pub fn center(&self) -> (f64, f64) {
         (self.x + self.w / 2.0, self.y + self.h / 2.0)
     }
+
     /// Moves the photo by the given offsets.
     #[allow(dead_code)]
     pub fn shift(&self, dx: f64, dy: f64) -> Self {
@@ -143,16 +143,6 @@ impl SolverPageLayout {
     }
 
     /// Centers the layout on its canvas by calculating offsets.
-    ///
-    /// The solver produces layouts that start at (0, 0). This method calculates
-    /// the bounding box of all placements and returns a new layout with centered
-    /// placements. Since the underlying solver maximizes coverage (resulting in a bounding box
-    /// that is maximal with respect to the canvas), we do not have to
-    /// worry about unused space on the sides.
-    ///
-    /// # Returns
-    ///
-    /// A new `SolverPageLayout` with centered placements.
     pub fn centered(&self) -> Self {
         if self.placements.is_empty() {
             return self.clone();
@@ -163,11 +153,9 @@ impl SolverPageLayout {
         let layout_width = max_x - min_x;
         let layout_height = max_y - min_y;
 
-        // Calculate centering offsets
         let offset_x = (self.canvas.width - layout_width) / 2.0 - min_x;
         let offset_y = (self.canvas.height - layout_height) / 2.0 - min_y;
 
-        // Apply offsets to all placements
         let centered_placements: Vec<PhotoPlacement> = self
             .placements
             .iter()
@@ -177,8 +165,7 @@ impl SolverPageLayout {
         SolverPageLayout::new(centered_placements, self.canvas)
     }
 
-    fn bounding_box(&self) -> [f64; 4] {
-        // Calculate bounding box of the layout
+    pub(super) fn bounding_box(&self) -> [f64; 4] {
         let mut min_x = f64::MAX;
         let mut min_y = f64::MAX;
         let mut max_x = f64::MIN;
@@ -192,96 +179,13 @@ impl SolverPageLayout {
         }
         [min_x, min_y, max_x, max_y]
     }
-
-    fn scale_around_fixpoint(&self, factor: f64, fixpoint_x: f64, fixpoint_y: f64) -> Self {
-        let scaled_placements: Vec<PhotoPlacement> = self
-            .placements
-            .iter()
-            .map(|p| {
-                let new_x = fixpoint_x + (p.x - fixpoint_x) * factor;
-                let new_y = fixpoint_y + (p.y - fixpoint_y) * factor;
-                PhotoPlacement::new(p.photo_idx, new_x, new_y, p.w * factor, p.h * factor)
-            })
-            .collect();
-
-        SolverPageLayout::new(scaled_placements, self.canvas)
-    }
-
-    /// Calculates the needed scaling factor to add bleed around the page
-    /// center if the layout is too close to the print border.
-    /// The scaling is meant to be applied to the center of the layout,
-    ///  so that the layout "zooms in" and touches the bleed-margins, if necessary.
-    fn calc_needed_scaling_around_center_for_bleed(&self, book_config: &impl CanvasConfig) -> f64 {
-        if book_config.margin_mm() > 0.0 || book_config.bleed_mm() == 0.0 {
-            return 1.0;
-        }
-        let mut bleed_scale_factor = 1.0;
-        let mut scale_factor_increase_last_iteration = 1.0;
-        let mut bb = self.bounding_box();
-        let (center_width, center_height) = self.canvas.center();
-
-        loop {
-            // we have to loop here, since increasing one dimension could lead to the other dimension being too close to the print border
-            bb[0] = center_width + (bb[0] - center_width) * scale_factor_increase_last_iteration;
-            bb[1] = center_height + (bb[1] - center_height) * scale_factor_increase_last_iteration;
-            bb[2] = center_width + (bb[2] - center_width) * scale_factor_increase_last_iteration;
-            bb[3] = center_height + (bb[3] - center_height) * scale_factor_increase_last_iteration;
-
-            let border_distances = [
-                bb[0],                      // left
-                bb[1],                      // top
-                self.canvas.width - bb[2],  // right
-                self.canvas.height - bb[3], // bottom
-            ];
-
-            // this is the needed increase in either x or y dim to reach the outer bleed border (which is around the canvas)
-            let needed_increase = border_distances
-                .iter()
-                .enumerate()
-                .filter(|&(_, d)| {
-                    d <= &book_config.bleed_threshold_mm() && d >= &-book_config.bleed_mm()
-                })
-                .map(|(i, d)| (i, f64::abs(-book_config.bleed_mm() - d)))
-                .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
-
-            if needed_increase.is_none() || needed_increase.unwrap().1 <= 0.001 {
-                break;
-            }
-            let idx_with_max = needed_increase.unwrap().0;
-
-            if idx_with_max % 2 == 0 {
-                // Left or right border
-                let distance_to_center = f64::abs(center_width - bb[idx_with_max]);
-                scale_factor_increase_last_iteration =
-                    (distance_to_center + needed_increase.unwrap().1) / distance_to_center;
-                bleed_scale_factor *= scale_factor_increase_last_iteration;
-            } else {
-                // Top or bottom border
-                let distance_to_center = f64::abs(center_height - bb[idx_with_max]);
-                scale_factor_increase_last_iteration =
-                    (distance_to_center + needed_increase.unwrap().1) / distance_to_center;
-                bleed_scale_factor *= scale_factor_increase_last_iteration;
-            }
-        }
-
-        bleed_scale_factor
-    }
-
-    /// This method zooms the layout in around the center (it possibly crops, too), to respect the bleed requirements.
-    pub(crate) fn zoom_to_respect_bleed(&self, book_config: &impl CanvasConfig) -> Self {
-        let scale_factor = self.calc_needed_scaling_around_center_for_bleed(book_config);
-        let (center_x, center_y) = self.canvas.center();
-        self.scale_around_fixpoint(scale_factor, center_x, center_y)
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::dto_models::BookConfig;
     use approx::assert_relative_eq;
 
-    // PhotoPlacement tests
     #[test]
     fn test_photo_placement_new() {
         let p = PhotoPlacement::new(0, 10.0, 20.0, 100.0, 50.0);
@@ -325,13 +229,12 @@ mod tests {
         assert_relative_eq!(p.bottom(), 70.0, epsilon = 1e-6);
     }
 
-    // SolverPageLayout tests
     #[test]
     fn test_layout_result_coverage() {
         let canvas = Canvas::new(200.0, 100.0, 2.0);
         let placements = vec![
-            PhotoPlacement::new(0, 0.0, 0.0, 100.0, 100.0), // 10000 mm²
-            PhotoPlacement::new(1, 102.0, 0.0, 98.0, 100.0), // 9800 mm²
+            PhotoPlacement::new(0, 0.0, 0.0, 100.0, 100.0),
+            PhotoPlacement::new(1, 102.0, 0.0, 98.0, 100.0),
         ];
         let layout = SolverPageLayout::new(placements, canvas);
 
@@ -343,8 +246,8 @@ mod tests {
     fn test_layout_result_barycenter() {
         let canvas = Canvas::new(200.0, 200.0, 0.0);
         let placements = vec![
-            PhotoPlacement::new(0, 0.0, 0.0, 100.0, 100.0), // center: (50, 50), area: 10000
-            PhotoPlacement::new(1, 100.0, 100.0, 100.0, 100.0), // center: (150, 150), area: 10000
+            PhotoPlacement::new(0, 0.0, 0.0, 100.0, 100.0),
+            PhotoPlacement::new(1, 100.0, 100.0, 100.0, 100.0),
         ];
         let layout = SolverPageLayout::new(placements, canvas);
 
@@ -363,7 +266,6 @@ mod tests {
         assert_relative_eq!(by, 50.0, epsilon = 1e-6);
     }
 
-    // SolverPageLayout::centered() tests
     #[test]
     fn test_centered_offset() {
         let canvas = Canvas::new(500.0, 500.0, 2.0);
@@ -402,146 +304,5 @@ mod tests {
         let centered = layout.centered();
 
         assert!(centered.placements.is_empty());
-    }
-
-    #[test]
-    fn test_calc_scaling_for_bleed_no_bleed_due_to_margin() {
-        let canvas = Canvas::new(200.0, 200.0, 0.0);
-        let placements = vec![PhotoPlacement::new(0, 50.0, 50.0, 100.0, 100.0)];
-        let layout = SolverPageLayout::new(placements, canvas);
-
-        let book_config = BookConfig {
-            margin_mm: 10.0,
-            bleed_mm: 5.0,
-            bleed_threshold_mm: 5.0,
-            ..Default::default()
-        };
-
-        let scale_factor = layout.calc_needed_scaling_around_center_for_bleed(&book_config);
-        assert_relative_eq!(scale_factor, 1.0, epsilon = 1e-6);
-    }
-
-    #[test]
-    fn test_calc_scaling_for_bleed_no_bleed_due_distance_to_print_border() {
-        let canvas = Canvas::new(200.0, 200.0, 0.0);
-        let placements = vec![PhotoPlacement::new(0, 5.0, 5.0, 100.0, 100.0)];
-        let layout = SolverPageLayout::new(placements, canvas);
-
-        let book_config = BookConfig {
-            margin_mm: 0.0,
-            bleed_mm: 5.0,
-            bleed_threshold_mm: 4.99999,
-            ..Default::default()
-        };
-
-        let scale_factor = layout.calc_needed_scaling_around_center_for_bleed(&book_config);
-        assert_relative_eq!(scale_factor, 1.0, epsilon = 1e-6);
-    }
-
-    #[test]
-    fn test_calc_scaling_for_bleed_bleed_due_distance_to_print_border() {
-        let canvas = Canvas::new(200.0, 200.0, 0.0);
-        let placements = vec![PhotoPlacement::new(0, 5.0, 5.0, 100.0, 100.0)];
-        let layout = SolverPageLayout::new(placements, canvas);
-
-        let book_config = BookConfig {
-            margin_mm: 0.0,
-            bleed_mm: 5.0,
-            bleed_threshold_mm: 5.0,
-            ..Default::default()
-        };
-
-        let scale_factor = layout.calc_needed_scaling_around_center_for_bleed(&book_config);
-        assert_relative_eq!(scale_factor, 105.0 / 95.0, epsilon = 1e-6);
-    }
-
-    #[test]
-    fn test_calc_scaling_for_bleed_scales_correctly_height() {
-        let canvas = Canvas::new(200.0, 200.0, 0.0);
-        let placements = vec![PhotoPlacement::new(0, 100.0, 100.0, 10.0, 95.0)];
-        let layout = SolverPageLayout::new(placements, canvas);
-
-        let book_config = BookConfig {
-            margin_mm: 0.0,
-            bleed_mm: 5.0,
-            bleed_threshold_mm: 5.0,
-            ..Default::default()
-        };
-
-        let scale_factor = layout.calc_needed_scaling_around_center_for_bleed(&book_config);
-        assert_relative_eq!(scale_factor, 105.0 / 95.0, epsilon = 1e-6);
-    }
-
-    #[test]
-    fn test_calc_scaling_for_bleed_scales_correctly_width() {
-        let canvas = Canvas::new(200.0, 200.0, 0.0);
-        let placements = vec![PhotoPlacement::new(0, 100.0, 100.0, 10.0, 95.0)];
-        let layout = SolverPageLayout::new(placements.clone(), canvas);
-
-        let book_config = BookConfig {
-            margin_mm: 0.0,
-            bleed_mm: 5.0,
-            bleed_threshold_mm: 5.0,
-            ..Default::default()
-        };
-
-        let scale_factor = layout.calc_needed_scaling_around_center_for_bleed(&book_config);
-        assert_relative_eq!(
-            canvas.center().1
-                + (canvas.center().1 - placements[0].y) * scale_factor
-                + placements[0].h * scale_factor,
-            205.0,
-            epsilon = 1e-6
-        );
-    }
-
-    #[test]
-    fn test_calc_needed_cascading_scaling_around_center_for_bleed() {
-        let canvas = Canvas::new(100.0, 100.0, 0.0);
-        let placements = vec![PhotoPlacement::new(0, 5.0, 4.0, 92.0, 94.0)];
-        let layout = SolverPageLayout::new(placements.clone(), canvas);
-
-        let book_config = BookConfig {
-            margin_mm: 0.0,
-            bleed_mm: 2.0,
-            bleed_threshold_mm: 2.0,
-            ..Default::default()
-        };
-
-        let scale_factor = layout.calc_needed_scaling_around_center_for_bleed(&book_config);
-        let expected_scale_factor = 52.0 / 45.0;
-        assert_relative_eq!(scale_factor, expected_scale_factor, epsilon = 1e-6);
-    }
-
-    #[test]
-    fn test_zoom_to_respect_bleed_cascading_scaling() {
-        let canvas = Canvas::new(100.0, 100.0, 0.0);
-        let placements = vec![PhotoPlacement::new(0, 5.0, 4.0, 92.0, 94.0)];
-        let layout = SolverPageLayout::new(placements.clone(), canvas);
-
-        let book_config = BookConfig {
-            margin_mm: 0.0,
-            bleed_mm: 2.0,
-            bleed_threshold_mm: 2.0,
-            ..Default::default()
-        };
-
-        let zoomed_layout = layout.zoom_to_respect_bleed(&book_config);
-        let exp_scale_factor = 52.0 / 45.0;
-        let (center_x, center_y) = canvas.center();
-
-        // Verify the scaling was applied correctly
-        let p = &zoomed_layout.placements[0];
-
-        // Calculate expected positions after scaling around the center
-        let expected_x = center_x + (placements[0].x - center_x) * exp_scale_factor;
-        let expected_y = center_y + (placements[0].y - center_y) * exp_scale_factor;
-        let expected_w = placements[0].w * exp_scale_factor;
-        let expected_h = placements[0].h * exp_scale_factor;
-
-        assert_relative_eq!(p.x, expected_x, epsilon = 1e-6);
-        assert_relative_eq!(p.y, expected_y, epsilon = 1e-6);
-        assert_relative_eq!(p.w, expected_w, epsilon = 1e-6);
-        assert_relative_eq!(p.h, expected_h, epsilon = 1e-6);
     }
 }

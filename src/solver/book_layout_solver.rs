@@ -12,6 +12,7 @@
 
 mod create_start_solution;
 mod feasibility;
+mod ga_page_evaluator;
 mod local_search;
 mod model;
 mod page_assignment_solver;
@@ -23,8 +24,9 @@ use tracing::{debug, info};
 
 use super::data_models::book_layout::BookLayout;
 use crate::dto_models::BookLayoutSolverConfig;
-use crate::solver::page_layout_solver::{self, GaResult};
+use crate::solver::page_layout_solver::GaResult;
 use crate::solver::prelude::*;
+use ga_page_evaluator::GAPageEvaluator;
 use thiserror::Error;
 
 /// Error type for book layout solver.
@@ -125,24 +127,6 @@ fn evaluate_pages(
             evaluator.evaluate(&photos[range])
         })
         .collect()
-}
-
-/// Evaluator that runs the GA-based page layout solver.
-struct GAPageEvaluator<'a> {
-    canvas: &'a Canvas,
-    ga_config: &'a GaConfig,
-}
-
-impl<'a> GAPageEvaluator<'a> {
-    fn new(canvas: &'a Canvas, ga_config: &'a GaConfig) -> Self {
-        Self { canvas, ga_config }
-    }
-}
-
-impl PageLayoutEvaluator for GAPageEvaluator<'_> {
-    fn evaluate(&self, photos: &[Photo]) -> GaResult {
-        page_layout_solver::run_ga(photos, self.canvas, self.ga_config)
-    }
 }
 
 #[cfg(test)]
