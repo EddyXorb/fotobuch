@@ -1,8 +1,10 @@
 # Lib-Refactoring — Strukturvorschläge für `src/`
 
-> Status: Vorschlagssammlung, noch nicht umgesetzt. Reihenfolge je Abschnitt =
-> Priorität (oben = größte strukturelle Hebelwirkung). Kein fertiger Code, nur
-> Ideen + Signatur-Skizzen. Alle Befunde mit `Datei:Zeile` belegt.
+> Status: teils umgesetzt. Abschnitte 1–3 sind im Kern erledigt (Details in den
+> separaten Plänen `0x-*.md`, siehe Abschnitt 12); Abschnitte 4–11 sind offen.
+> Reihenfolge je Abschnitt = Priorität. Kein fertiger Code, nur Ideen +
+> Signatur-Skizzen. Befunde mit `Datei:Zeile` belegt (offene Abschnitte gegen den
+> aktuellen Stand geprüft).
 
 Leitprinzipien für alle Vorschläge:
 
@@ -31,93 +33,16 @@ Inhalt:
 
 ## 1. Kernproblem: Vielfalt der build-Methoden
 
-### 1.1 Bestandsaufnahme
+**Status: umgesetzt.** Die früheren zwei Einstiegskommandos und sechs
+Orchestratoren (`first_build`/`incremental_build`/`release_build`/`rebuild_*`,
+`multipage_build`) sind ersetzt durch **einen** `build()`-Einstieg plus die
+`BuildPlan`-Pipeline (`Auto`/`All`/`Page`/`Range`/`Release`, dispatcht in
+`plan.rs`). `MultiPageParams`, `BuildOptions`, `RebuildScope` und die separate
+`rebuild()`-Funktion sind weg; `BuildConfig` trägt den `BuildPlan`; `BuildResult`
+ist entschlackt (kein `pages_swapped`/`total_cost` mehr).
 
-**Zwei Einstiegskommandos** mit je eigener Verzweigung und **sechs
-Orchestrierungsfunktionen**, die sich denselben Ablauf teils teilen, teils
-duplizieren:
-
-| Einstieg            | verzweigt zu          | ruft                  |
-|---------------------|-----------------------|-----------------------|
-| `build()`           | `release_build`       | `final_cache` + pdf   |
-|                     | `first_build`         | `multipage_build`     |
-|                     | `incremental_build`   | `rebuild_single_page`×N |
-| `rebuild()`         | `rebuild_single`      | `rebuild_single_page` |
-|                     | `rebuild_range`       | `multipage_build`     |
-|                     | `rebuild_all`         | `multipage_build`     |
-
-Symptome:
-
-- **Geteilter Ablauf, mehrfach kopiert.** Die Invariante *Cache sicherstellen →
-  Layout ändern → renumber → commit → PDF kompilieren → `BuildResult` bauen*
-  steht in `multipage_build`, `incremental_build`, `rebuild_single` und
-  `release_build` jeweils erneut.
-- **Aufgeblähte Signatur.** `MultiPageParams` hat 10 Felder
-  (`multipage_build.rs:17`), mehrere ableitbar (`images_processed`,
-  `always_commit`) oder Strategie-Detail (`commit_message`).
-- **Wiederkehrendes Parameter-Quartett.** `(mgr, project_root, skip_pdf,
-  skip_cache_update)` zieht sich durch `first_build`, `incremental_build`,
-  `rebuild_single`, `rebuild_range`, `rebuild_all`.
-- **Uneinheitliche Namen.** `first_build`/`incremental_build`/`release_build`
-  (Suffix) vs. `rebuild_all`/`rebuild_range`/`rebuild_single` (Präfix) vs.
-  `multipage_build` (nach Solver-Interna benannt).
-- **Dupliziertes Mikro-Muster.** `if skip_pdf { root.join("{}.pdf") } else {
-  compile_… }` steht 4× (`incremental_build.rs:36,88`, `multipage_build.rs:140`,
-  `rebuild.rs:159`).
-
-### 1.2 Zielbild: eine Einstiegsmethode, eine Ebene tiefer pro Situation verzweigen
-
-Trennung in **zwei Schichten**:
-
-**Schicht 1 — Orchestrierung (invariant, genau *eine* Funktion):**
-
-```text
-run_build(mgr, project_root, plan: BuildPlan, opts: BuildOptions)
-    -> CommandOutput<BuildResult>
-```
-
-führt den festen Ablauf aus und delegiert nur den variablen Schritt
-("welche Seiten entstehen neu?") an Schicht 2.
-
-**Schicht 2 — Situations-Handler (je Situationstyp eine Funktion),** modelliert
-als Enum, über das `run_build` *einmal* `match`t:
-
-```text
-enum BuildPlan {
-    Full,                          // erster Build / rebuild ohne Argument
-    Incremental { pages: Option<Vec<usize>> },
-    Page(usize),                   // rebuild --page
-    Range { start, end, flex },    // rebuild --range
-    Release,                       // build --release
-}
-```
-
-Jeder Arm produziert nur die Layout-Änderung (bzw. `Release`: keine) und meldet
-zurück, *welche* Seiten betroffen sind. Damit liegt die Verzweigung genau dort,
-wo du sie willst: eine Ebene unter dem Einstieg, ein Arm pro Situation.
-
-Effekt: `first_build`, `incremental_build`, `rebuild_all`, `rebuild_range`,
-`rebuild_single` verschwinden als eigenständige Orchestratoren — sie werden zu
-schlanken Plan-Konstruktoren. Die CLI-Kommandos `build`/`rebuild` bleiben
-getrennt (eigene UX), bauen aber beide nur einen `BuildPlan` und rufen dasselbe
-`run_build`.
-
-### 1.3 Variantenpunkte als Daten statt Code-Zweige
-
-- **Cache-Art:** Preview vs. Final → ergibt sich aus `BuildPlan` (`Release` ⇒
-  final).
-- **Commit-Art:** `finish` vs. `finish_always` → ein `commit: CommitMode` im
-  Plan statt `always_commit: bool` in `MultiPageParams`.
-- **PDF-Ziel:** `compile_preview`/`compile_final`/keins → ein Helfer
-  `render_pdf(...)`, der das 4×-`skip_pdf`-Muster aufsaugt.
-
-### 1.4 `BuildResult` entschlacken
-
-`pages_swapped` ist überall `vec![]`, `total_cost` überall `0.0` (TODO seit
-`incremental_build.rs:81`) — tote Schnittstelle: entfernen oder ehrlich als
-`Option<…>`. `images_processed` hat je nach Pfad andere Semantik (mal
-`cache_result.created`, mal `max(...)`) — an *einer* Stelle (in `run_build`)
-einheitlich setzen.
+Vollständige Analyse, Zielbild-Skizze und der Conventional-Commit-Plan (inkl. der
+zuletzt umgesetzten Phase E): [`01-build.md`](./01-build.md).
 
 ---
 
@@ -238,8 +163,8 @@ Modul-Docs benennen.
 - **`ProjectState` ist ein Gott-Objekt-Keim** (`state.rs`): Persistence (`load`/
   `save`, Datei-I/O), Validierung (`check_validity`) und Domain-Queries in einem
   Typ. Persistence aus dem Domänentyp herauslösen.
-- **Cover-Geometrie** auf `CoverConfig` (`cover_config.rs:144–173`) → in das
-  Cover-Modul (Abschnitt 2).
+- **Cover-Geometrie** auf `CoverConfig` (`cover_config.rs:144–173`) → in ein
+  eigenes Wertobjekt; ausgearbeitet im Plan [`02-cover.md`](./02-cover.md).
 - **`BookLayoutSolverConfig::validate(total_photos)`** braucht Anwendungszustand
   (Fotoanzahl) → eigener Validator/Service statt Methode auf dem Config-DTO.
 - **`CanvasConfig`-Trait** in `book_config.rs:31` definiert, aber einziger
@@ -277,7 +202,7 @@ Modul-Docs benennen.
   kanalisieren (zumindest schreibend).
 - **`renumber_pages` ist freie `pub`-Funktion** mit ungenutztem `_has_cover`
   (`state_manager.rs:29`, dead param) und wird von Commands direkt importiert
-  (`remove.rs`, `multipage_build.rs:107`) → als Methode auf `ProjectState`/
+  (`remove.rs:252`, `build/plan.rs:72`) → als Methode auf `ProjectState`/
   `[LayoutPage]` kapseln, toten Parameter entfernen.
 - **Zwei Wege zum State:** `StateManager::open` (mit Lifecycle/Auto-Commit) vs.
   freie `load_project_state()` (`state_manager.rs:390`, ohne Garantien) → kein
@@ -387,11 +312,11 @@ gewollte Ausnahme dokumentieren).
 
 Mehrere Laufzeitfehler in der Lib nennen konkrete CLI-Kommandos und -Flags:
 
-- `build.rs:115` „`--pages is not allowed with release`"
-- `place.rs:102` „Run `fotobuch build` first."
-- `rebuild.rs:95,136,187` („`rebuild --page 0`", „`page mode {} a`", …)
-- `build/release_build.rs:43,50` („`fotobuch build release --force`")
-- `project/switch.rs:35` („`fotobuch project list`")
+- `build/build_layout.rs:57,87` / `place.rs:101` „Run `fotobuch build` first."
+- `build/build_layout.rs:70` „`page mode {} a`" und `:123,128` „`rebuild --page 0`"
+- `build/plan.rs:120` „`fotobuch build release --force`"
+- `page/types.rs:176` „`page mode {p} m`"
+- `project/switch.rs:35` „`fotobuch project list`"
 
 Zwei Probleme:
 
@@ -567,20 +492,15 @@ getippte Fehler umstellen; Next-Steps-Ausgaben wie `project/new.rs:78–81` und
 
 ---
 
-## 11. Innerhalb von Methoden (nach Abschnitt 1 großteils erledigt)
+## 11. Innerhalb von Methoden
 
-Falls Abschnitt 1 nicht sofort kommt, lohnen diese lokalen Schnitte:
+Die früheren build-Punkte (`multipage_build`-Zweige, `RenderContext`,
+`incremental_build`, `apply_page_filter`) sind mit Abschnitt 1 **erledigt**.
+Offen bleibt:
 
-- **`multipage_build` Schritt 6** (`:101–116`): Zweige *range* (splice) vs.
-  *full* (assign) unterscheiden sich nur minimal → zusammenführen.
-- **`bleed_mm`/`project_name` „backup vor mgr-Verbrauch"** in 4 Funktionen →
-  kleines `RenderContext`-Struct, einmal vor `finish` erzeugt.
-- **`incremental_build` „nothing to do"-Zweig** (`:34–59`) dupliziert commit +
-  pdf + Result-Aufbau → mit Render-Helfer (1.3) verschmelzen.
-- **`apply_page_filter`** (`incremental_build.rs:110`) ist Einzeiler um `retain`
-  → inlinen.
 - **`execute_move_to`** (`move_cmd.rs:33–248`) hat 6 Frühreturns über mehrere
-  Abstraktionsebenen → Validierung/Dispatch/Mutation trennen.
+  Abstraktionsebenen → Validierung/Dispatch/Mutation trennen (gehört zum noch
+  offenen Commands-Komplex, Abschnitt 7.2).
 
 ---
 
