@@ -1,8 +1,9 @@
+use super::BuildResult;
 use super::build_layout::{build_full_book, build_outdated_pages, build_page, build_page_range};
 use super::helpers::{
-    CommitMode, PdfTarget, RenderContext, refresh_final_cache, refresh_preview_cache, render_pdf,
+    CacheRefresh, CommitMode, PdfTarget, RenderContext, refresh_final_cache, refresh_preview_cache,
+    render_pdf,
 };
-use super::{BuildResult, DpiWarning};
 use crate::commands::CommandOutput;
 use crate::state_manager::{StateManager, renumber_pages};
 use anyhow::Result;
@@ -61,7 +62,7 @@ impl BuildPlan {
         }
 
         // 1. Update image cache
-        let (images_processed, dpi_warnings) = refresh_cache(&self, &mut mgr, skip_cache_update)?;
+        let cache = refresh_cache(&self, &mut mgr, skip_cache_update)?;
 
         // 2. Build layout (pure)
         let changed_pages = self.build_layout(&mut mgr)?;
@@ -91,8 +92,8 @@ impl BuildPlan {
             result: BuildResult {
                 pdf_path,
                 pages_rebuilt: changed_pages.clone(),
-                images_processed,
-                dpi_warnings,
+                images_processed: cache.images_processed,
+                dpi_warnings: cache.dpi_warnings,
                 nothing_to_do: changed_pages.is_empty()
                     && !matches!(self, BuildPlan::Release { .. } | BuildPlan::All),
             },
@@ -128,15 +129,15 @@ fn refresh_cache(
     plan: &BuildPlan,
     mgr: &mut StateManager,
     skip_cache_update: bool,
-) -> Result<(usize, Vec<DpiWarning>)> {
+) -> Result<CacheRefresh> {
     if let BuildPlan::Release { .. } = plan {
         return refresh_final_cache(mgr);
     }
     if skip_cache_update {
-        return Ok((0, vec![]));
+        return Ok(CacheRefresh::images_only(0));
     }
     let result = refresh_preview_cache(mgr)?;
-    Ok((result.created, vec![]))
+    Ok(CacheRefresh::images_only(result.created))
 }
 
 fn commit_mode(plan: &BuildPlan) -> CommitMode {

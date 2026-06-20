@@ -45,9 +45,27 @@ pub fn refresh_preview_cache(
     Ok(cache_result)
 }
 
+/// Outcome of a cache refresh: how many images were (re)generated and any DPI
+/// warnings raised while building the final cache.
+pub struct CacheRefresh {
+    pub images_processed: usize,
+    pub dpi_warnings: Vec<DpiWarning>,
+}
+
+impl CacheRefresh {
+    /// A refresh that only (re)generated images and cannot carry DPI warnings
+    /// (preview builds and skipped refreshes).
+    pub fn images_only(images_processed: usize) -> Self {
+        Self {
+            images_processed,
+            dpi_warnings: Vec::new(),
+        }
+    }
+}
+
 /// Builds the final high-resolution image cache for a release build and logs DPI
-/// warnings. Returns `(images_created, dpi_warnings)`.
-pub fn refresh_final_cache(mgr: &mut StateManager) -> Result<(usize, Vec<DpiWarning>)> {
+/// warnings.
+pub fn refresh_final_cache(mgr: &mut StateManager) -> Result<CacheRefresh> {
     let dpi = mgr.state.config.book.dpi;
     info!("Release build: generating final PDF at {:.0} DPI...", dpi);
 
@@ -62,7 +80,10 @@ pub fn refresh_final_cache(mgr: &mut StateManager) -> Result<(usize, Vec<DpiWarn
     );
     log_dpi_warnings(dpi, &result.dpi_warnings);
 
-    Ok((result.created, result.dpi_warnings))
+    Ok(CacheRefresh {
+        images_processed: result.created,
+        dpi_warnings: result.dpi_warnings,
+    })
 }
 
 /// Logs each photo that will be rendered below the target DPI.
