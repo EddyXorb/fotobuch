@@ -1,13 +1,12 @@
 //! Data model for book layout solver.
 //!
 //! This module defines:
-//! - `Params`: configuration parameters for the book layout solver
+//! - `BookLayoutSolverConfig`: configuration parameters for the book layout solver
 //! - `ValidationError`: parameter validation errors
 //! - `PageAssignment`: partitioning of photos into pages
 //! - `GroupInfo`: information about photo groups
-//! - `PageCost`, `AssignmentCost`: cost structures for evaluating layouts
 
-pub use crate::dto_models::BookLayoutSolverConfig as Params;
+pub use crate::dto_models::BookLayoutSolverConfig;
 use crate::solver::prelude::*;
 use std::ops::Range;
 
@@ -203,7 +202,7 @@ mod tests {
 
     #[test]
     fn test_params_validate_valid() {
-        let params = Params {
+        let params = BookLayoutSolverConfig {
             page_target: 5,
             page_min: 3,
             page_max: 10,
@@ -227,7 +226,7 @@ mod tests {
 
     #[test]
     fn test_params_validate_page_min_max_invalid() {
-        let params = Params {
+        let params = BookLayoutSolverConfig {
             page_min: 10,
             page_max: 5,
             ..default_params()
@@ -244,7 +243,7 @@ mod tests {
 
     #[test]
     fn test_params_validate_page_target_out_of_range() {
-        let params = Params {
+        let params = BookLayoutSolverConfig {
             page_target: 15,
             page_min: 3,
             page_max: 10,
@@ -263,7 +262,7 @@ mod tests {
 
     #[test]
     fn test_params_validate_photos_per_page_min_max_invalid() {
-        let params = Params {
+        let params = BookLayoutSolverConfig {
             photos_per_page_min: 20,
             photos_per_page_max: 10,
             ..default_params()
@@ -280,7 +279,7 @@ mod tests {
 
     #[test]
     fn test_params_validate_photos_per_page_min_too_small() {
-        let params = Params {
+        let params = BookLayoutSolverConfig {
             photos_per_page_min: 2,
             group_min_photos: 5,
             ..default_params()
@@ -297,7 +296,7 @@ mod tests {
 
     #[test]
     fn test_params_validate_group_max_per_page_zero() {
-        let params = Params {
+        let params = BookLayoutSolverConfig {
             group_max_per_page: 0,
             ..default_params()
         };
@@ -310,7 +309,7 @@ mod tests {
 
     #[test]
     fn test_params_validate_negative_weights() {
-        let params = Params {
+        let params = BookLayoutSolverConfig {
             weight_even: -1.0,
             ..default_params()
         };
@@ -327,7 +326,7 @@ mod tests {
 
     #[test]
     fn test_params_validate_max_coverage_cost_invalid() {
-        let params = Params {
+        let params = BookLayoutSolverConfig {
             max_coverage_cost: -0.1,
             enable_local_search: true,
             ..default_params()
@@ -371,8 +370,8 @@ mod tests {
         );
     }
 
-    fn default_params() -> Params {
-        Params {
+    fn default_params() -> BookLayoutSolverConfig {
+        BookLayoutSolverConfig {
             page_target: 5,
             page_min: 3,
             page_max: 10,

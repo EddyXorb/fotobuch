@@ -22,7 +22,7 @@ pub use model::GroupInfo;
 use tracing::{debug, info};
 
 use super::data_models::book_layout::BookLayout;
-use crate::dto_models::BookLayoutSolverConfig as Params;
+use crate::dto_models::BookLayoutSolverConfig;
 use crate::solver::page_layout_solver::{self, GaResult};
 use crate::solver::prelude::*;
 use thiserror::Error;
@@ -48,7 +48,7 @@ pub enum SolverError {
 ///
 pub fn solve_book_layout(
     photos: &[Photo],
-    params: &Params,
+    params: &BookLayoutSolverConfig,
     canvas: &Canvas,
     ga_config: &GaConfig,
 ) -> Result<BookLayout, SolverError> {

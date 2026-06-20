@@ -1,7 +1,7 @@
 //! Improvement algorithm for local search.
 use tracing::debug;
 
-use super::super::model::{GroupInfo, PageAssignment, Params};
+use super::super::model::{BookLayoutSolverConfig, GroupInfo, PageAssignment};
 use super::PageLayoutEvaluator;
 use super::cache::PhotoCombinationCache;
 use super::perturbation::{generate_perturbations, max_perturbation_delta, try_perturbation};
@@ -45,7 +45,7 @@ pub fn improve(
     initial_layouts: Vec<GaResult>,
     photos: &[Photo],
     groups: &GroupInfo,
-    params: &Params,
+    params: &BookLayoutSolverConfig,
     evaluator: &impl PageLayoutEvaluator,
 ) -> LocalSearchResult {
     let mut cache: PhotoCombinationCache<GaResult> = PhotoCombinationCache::new();
@@ -296,8 +296,8 @@ mod tests {
             .collect()
     }
 
-    fn create_test_params() -> Params {
-        Params {
+    fn create_test_params() -> BookLayoutSolverConfig {
+        BookLayoutSolverConfig {
             photos_per_page_min: 4,
             photos_per_page_max: 10,
             page_min: 1,

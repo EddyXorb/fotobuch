@@ -1,7 +1,7 @@
 //! Perturbation operations for local search.
 
 use super::super::feasibility::check_feasibility;
-use super::super::model::{GroupInfo, PageAssignment, Params};
+use super::super::model::{BookLayoutSolverConfig, GroupInfo, PageAssignment};
 
 /// Attempts to apply a perturbation to a page assignment.
 ///
@@ -22,7 +22,7 @@ pub fn try_perturbation(
     cut_index: usize,
     delta: i32,
     groups: &GroupInfo,
-    params: &Params,
+    params: &BookLayoutSolverConfig,
 ) -> Option<PageAssignment> {
     let cuts = assignment.cuts();
 
@@ -70,7 +70,7 @@ pub fn try_perturbation(
 ///
 /// Based on the difference between max and min photos per page.
 /// No point trying perturbations larger than that range.
-pub fn max_perturbation_delta(params: &Params) -> usize {
+pub fn max_perturbation_delta(params: &BookLayoutSolverConfig) -> usize {
     let range = params.photos_per_page_max - params.photos_per_page_min;
     range.clamp(0, 3)
 }
@@ -97,8 +97,8 @@ mod tests {
     use super::*;
     use std::time::Duration;
 
-    fn create_test_params() -> Params {
-        Params {
+    fn create_test_params() -> BookLayoutSolverConfig {
+        BookLayoutSolverConfig {
             photos_per_page_min: 4,
             photos_per_page_max: 10,
             page_min: 1,

@@ -1,5 +1,5 @@
 use super::model::{GroupInfo, PageAssignment};
-use crate::dto_models::BookLayoutSolverConfig as Params;
+use crate::dto_models::BookLayoutSolverConfig;
 use crate::solver::prelude::*;
 
 /// Constructs a valid initial page assignment using a greedy heuristic.
@@ -26,7 +26,7 @@ use crate::solver::prelude::*;
 ///
 /// # Returns
 /// A valid `PageAssignment` distributing photos across pages
-pub fn create_start_solution(params: &Params, photos: &[Photo]) -> PageAssignment {
+pub fn create_start_solution(params: &BookLayoutSolverConfig, photos: &[Photo]) -> PageAssignment {
     // Handle empty input
     if photos.is_empty() {
         return PageAssignment::empty();
@@ -96,8 +96,8 @@ mod tests {
     use super::*;
     use std::time::Duration;
 
-    fn default_params() -> Params {
-        Params {
+    fn default_params() -> BookLayoutSolverConfig {
+        BookLayoutSolverConfig {
             page_target: 5,
             page_min: 1,
             page_max: 10,
@@ -130,7 +130,7 @@ mod tests {
 
     #[test]
     fn test_single_group_single_page() {
-        let params = Params {
+        let params = BookLayoutSolverConfig {
             photos_per_page_min: 2,
             photos_per_page_max: 10,
             ..default_params()
@@ -150,7 +150,7 @@ mod tests {
 
     #[test]
     fn test_single_group_multiple_pages() {
-        let params = Params {
+        let params = BookLayoutSolverConfig {
             photos_per_page_min: 2,
             photos_per_page_max: 4,
             ..default_params()
@@ -181,7 +181,7 @@ mod tests {
 
     #[test]
     fn test_multiple_groups_no_fragmentation() {
-        let params = Params {
+        let params = BookLayoutSolverConfig {
             photos_per_page_min: 2,
             photos_per_page_max: 6,
             group_min_photos: 2,
@@ -213,7 +213,7 @@ mod tests {
 
     #[test]
     fn test_respects_page_min_max() {
-        let params = Params {
+        let params = BookLayoutSolverConfig {
             photos_per_page_min: 3,
             photos_per_page_max: 5,
             ..default_params()
@@ -253,7 +253,7 @@ mod tests {
 
     #[test]
     fn test_groups_sorted() {
-        let params = Params {
+        let params = BookLayoutSolverConfig {
             photos_per_page_min: 1,
             photos_per_page_max: 10,
             group_min_photos: 2,

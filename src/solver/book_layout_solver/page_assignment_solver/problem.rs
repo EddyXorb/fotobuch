@@ -4,7 +4,7 @@
 //! the formal derivation; the symbol names below mirror that document.
 
 use super::super::model::GroupInfo;
-use crate::dto_models::BookLayoutSolverConfig as Params;
+use crate::dto_models::BookLayoutSolverConfig;
 
 /// DP state: `(photos placed, pages used)`.
 pub(super) type State = (usize, usize);
@@ -24,7 +24,7 @@ pub(super) enum RunMode {
 /// Precomputed instance data exposing the Bellman model (actions, cost, terminal
 /// cost) for the page-assignment problem in O(1) per call.
 pub(super) struct PageProblem<'a> {
-    params: &'a Params,
+    params: &'a BookLayoutSolverConfig,
     groups: &'a GroupInfo,
     pub(super) n: usize,
     /// `photo_group[i]` = group index of photo `i` (γ in dp.typ).
@@ -41,7 +41,11 @@ pub(super) struct PageProblem<'a> {
 }
 
 impl<'a> PageProblem<'a> {
-    pub(super) fn new(groups: &'a GroupInfo, params: &'a Params, mode: RunMode) -> Self {
+    pub(super) fn new(
+        groups: &'a GroupInfo,
+        params: &'a BookLayoutSolverConfig,
+        mode: RunMode,
+    ) -> Self {
         let n = groups.total_photos();
         let num_groups = groups.num_groups();
 

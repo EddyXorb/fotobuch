@@ -2,11 +2,11 @@
 
 use super::super::model::GroupInfo;
 use super::{PageAssignmentError, solve_exact};
-use crate::dto_models::BookLayoutSolverConfig as Params;
+use crate::dto_models::BookLayoutSolverConfig;
 use std::time::{Duration, Instant};
 
-fn default_params() -> Params {
-    Params {
+fn default_params() -> BookLayoutSolverConfig {
+    BookLayoutSolverConfig {
         page_target: 2,
         page_min: 1,
         page_max: 5,
@@ -28,7 +28,7 @@ fn default_params() -> Params {
 
 /// Independent reference implementation of the objective Z from dp.typ.
 /// Returns `None` if the cut vector is infeasible.
-fn reference_cost(cuts: &[usize], groups: &GroupInfo, p: &Params) -> Option<f64> {
+fn reference_cost(cuts: &[usize], groups: &GroupInfo, p: &BookLayoutSolverConfig) -> Option<f64> {
     let n = groups.total_photos();
     let m = cuts.len() - 1;
     if m < p.page_min || m > p.page_max {
@@ -68,7 +68,7 @@ fn reference_cost(cuts: &[usize], groups: &GroupInfo, p: &Params) -> Option<f64>
 }
 
 /// Brute-force optimum over all cut vectors (only for small n).
-fn brute_force_min(groups: &GroupInfo, p: &Params) -> Option<f64> {
+fn brute_force_min(groups: &GroupInfo, p: &BookLayoutSolverConfig) -> Option<f64> {
     let n = groups.total_photos();
     assert!(n <= 16, "brute force only for small instances");
     let mut best: Option<f64> = None;
@@ -100,7 +100,7 @@ fn test_solve_simple_two_groups() {
 #[test]
 fn test_solve_three_groups() {
     let groups = GroupInfo::new(&[4, 5, 6]);
-    let params = Params {
+    let params = BookLayoutSolverConfig {
         page_target: 3,
         page_min: 2,
         page_max: 5,
@@ -121,7 +121,7 @@ fn test_solve_three_groups() {
 #[test]
 fn test_solve_respects_page_sizes() {
     let groups = GroupInfo::new(&[8, 2]);
-    let params = Params {
+    let params = BookLayoutSolverConfig {
         page_target: 2,
         page_min: 2,
         page_max: 3,
@@ -147,7 +147,7 @@ fn test_solve_respects_page_sizes() {
 #[test]
 fn test_weight_even_only_produces_equal_pages() {
     let groups = GroupInfo::new(&[3, 3, 3]);
-    let params = Params {
+    let params = BookLayoutSolverConfig {
         page_target: 3,
         page_min: 2,
         page_max: 5,
@@ -172,7 +172,7 @@ fn test_weight_even_only_produces_equal_pages() {
 #[test]
 fn test_weight_even_only_splits_single_group_evenly() {
     let groups = GroupInfo::new(&[9]);
-    let params = Params {
+    let params = BookLayoutSolverConfig {
         page_target: 3,
         page_min: 2,
         page_max: 5,
@@ -197,7 +197,7 @@ fn test_weight_even_only_splits_single_group_evenly() {
 #[test]
 fn test_weight_split_only_keeps_groups_together() {
     let groups = GroupInfo::new(&[5, 4]);
-    let params = Params {
+    let params = BookLayoutSolverConfig {
         page_target: 2,
         page_min: 1,
         page_max: 4,
@@ -226,7 +226,7 @@ fn test_weight_split_only_keeps_groups_together() {
 #[test]
 fn test_weight_pages_only_hits_target_page_count() {
     let groups = GroupInfo::new(&[9]);
-    let params = Params {
+    let params = BookLayoutSolverConfig {
         page_target: 2,
         page_min: 1,
         page_max: 5,
@@ -247,7 +247,7 @@ fn test_weight_pages_only_hits_target_page_count() {
 /// Even-vs-split tradeoff on groups [6, 2], n̄=4, with a small page nudge.
 #[test]
 fn test_weight_even_vs_split_tradeoff() {
-    let base = Params {
+    let base = BookLayoutSolverConfig {
         page_target: 2,
         page_min: 2,
         page_max: 3,
@@ -264,7 +264,7 @@ fn test_weight_even_vs_split_tradeoff() {
     // High w1: split group 1 into [4 | 2+2] → pages [4, 4].
     let even = solve_exact(
         &GroupInfo::new(&[6, 2]),
-        &Params {
+        &BookLayoutSolverConfig {
             weight_even: 1000.0,
             weight_pages: 1.0,
             ..base.clone()
@@ -278,7 +278,7 @@ fn test_weight_even_vs_split_tradeoff() {
     // High w2: keep groups intact → pages [6, 2].
     let split = solve_exact(
         &GroupInfo::new(&[6, 2]),
-        &Params {
+        &BookLayoutSolverConfig {
             weight_split: 1000.0,
             weight_pages: 1.0,
             ..base
@@ -299,7 +299,7 @@ fn test_even_targets_actual_page_count_not_target() {
     // Single group of 15, pages of size 1..=6. Equal-size splits exist only for
     // m ∈ {3, 5} (sizes 5 or 3); m = 6 cannot be made even.
     let groups = GroupInfo::new(&[15]);
-    let base = Params {
+    let base = BookLayoutSolverConfig {
         page_target: 6,
         page_min: 1,
         page_max: 15,
@@ -313,7 +313,7 @@ fn test_even_targets_actual_page_count_not_target() {
     // w1 = 0 → free page count, page term hits the target exactly: 6 pages.
     let by_pages = solve_exact(
         &groups,
-        &Params {
+        &BookLayoutSolverConfig {
             weight_even: 0.0,
             weight_split: 0.0,
             weight_pages: 1000.0,
@@ -327,7 +327,7 @@ fn test_even_targets_actual_page_count_not_target() {
     // page term breaks the tie towards the target 6, selecting m = 5 (not 6).
     let by_even = solve_exact(
         &groups,
-        &Params {
+        &BookLayoutSolverConfig {
             weight_even: 1000.0,
             weight_split: 0.0,
             weight_pages: 1.0,
@@ -345,12 +345,12 @@ fn test_even_targets_actual_page_count_not_target() {
 
 #[test]
 fn test_exactness_against_brute_force() {
-    let cases: Vec<(GroupInfo, Params)> = vec![
+    let cases: Vec<(GroupInfo, BookLayoutSolverConfig)> = vec![
         (GroupInfo::new(&[9]), default_params()),
         (GroupInfo::new(&[4, 5]), default_params()),
         (
             GroupInfo::new(&[3, 3, 3]),
-            Params {
+            BookLayoutSolverConfig {
                 page_target: 3,
                 page_min: 1,
                 page_max: 5,
@@ -366,7 +366,7 @@ fn test_exactness_against_brute_force() {
         ),
         (
             GroupInfo::new(&[6, 2, 4]),
-            Params {
+            BookLayoutSolverConfig {
                 page_target: 3,
                 page_min: 2,
                 page_max: 6,
@@ -398,7 +398,7 @@ fn test_exactness_against_brute_force() {
 fn test_infeasible_unsplittable_oversized_group() {
     // Group of 6 cannot fit (p_max=4) nor split (fragment must be >= g_min=6).
     let groups = GroupInfo::new(&[6]);
-    let params = Params {
+    let params = BookLayoutSolverConfig {
         page_target: 2,
         page_min: 1,
         page_max: 3,
@@ -427,7 +427,7 @@ fn test_infeasible_empty_instance() {
 #[test]
 fn test_determinism() {
     let groups = GroupInfo::new(&[6, 2, 4]);
-    let params = Params {
+    let params = BookLayoutSolverConfig {
         page_target: 3,
         page_min: 2,
         page_max: 6,
@@ -450,7 +450,7 @@ fn test_determinism() {
 #[test]
 fn test_boundary_cut_is_free() {
     let groups = GroupInfo::new(&[4, 4]);
-    let params = Params {
+    let params = BookLayoutSolverConfig {
         page_target: 2,
         page_min: 1,
         page_max: 4,
@@ -482,7 +482,7 @@ fn test_performance_large_instance() {
     let groups = GroupInfo::new(&group_sizes);
     assert_eq!(groups.total_photos(), 1000);
 
-    let params = Params {
+    let params = BookLayoutSolverConfig {
         page_target: 67,
         page_min: 62,
         page_max: 72,

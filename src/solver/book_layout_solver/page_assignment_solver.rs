@@ -38,7 +38,7 @@ mod exact_tests;
 
 use super::create_start_solution;
 use super::model::{GroupInfo, PageAssignment};
-use crate::dto_models::BookLayoutSolverConfig as Params;
+use crate::dto_models::BookLayoutSolverConfig;
 use crate::solver::algorithms::bellman_dp::BellmanSolver;
 use crate::solver::prelude::*;
 use cache::GridCache;
@@ -55,12 +55,12 @@ pub enum PageAssignmentError {
 
 /// Solver for page assignment.
 pub struct PageAssignmentSolver {
-    params: Params,
+    params: BookLayoutSolverConfig,
 }
 
 impl PageAssignmentSolver {
     /// Creates a new page assignment solver with given parameters.
-    pub fn new(params: Params) -> Self {
+    pub fn new(params: BookLayoutSolverConfig) -> Self {
         Self { params }
     }
 
@@ -92,7 +92,10 @@ impl PageAssignmentSolver {
 /// (n̄ = n / b), so the page count is fixed per DP run and enumerated over the
 /// feasible window (see `dp.typ` §4.7). When `weight_even == 0`, n̄ is irrelevant
 /// and a single run with a free page count is exact and equivalent.
-fn solve_exact(groups: &GroupInfo, params: &Params) -> Result<PageAssignment, PageAssignmentError> {
+fn solve_exact(
+    groups: &GroupInfo,
+    params: &BookLayoutSolverConfig,
+) -> Result<PageAssignment, PageAssignmentError> {
     let n = groups.total_photos();
 
     // Fast path: without the even term, a single free-page-count run is exact.
@@ -124,7 +127,10 @@ fn solve_exact(groups: &GroupInfo, params: &Params) -> Result<PageAssignment, Pa
 
 /// Feasible total page counts `B`: bounded by `[page_min, page_max]` and by the
 /// page counts a sequence of `n` photos can actually be partitioned into.
-fn feasible_page_counts(n: usize, params: &Params) -> std::ops::RangeInclusive<usize> {
+fn feasible_page_counts(
+    n: usize,
+    params: &BookLayoutSolverConfig,
+) -> std::ops::RangeInclusive<usize> {
     let p_min = params.photos_per_page_min.max(1);
     let p_max = params.photos_per_page_max.max(1);
     // b·p_max ≥ n  →  b ≥ ⌈n / p_max⌉ ;  b·p_min ≤ n  →  b ≤ ⌊n / p_min⌋.
@@ -135,7 +141,11 @@ fn feasible_page_counts(n: usize, params: &Params) -> std::ops::RangeInclusive<u
 
 /// Runs one inner DP for the given mode and returns its objective and the page
 /// sizes (front to back), or `None` if the run is infeasible.
-fn run_dp(groups: &GroupInfo, params: &Params, mode: RunMode) -> Option<(f64, Vec<usize>)> {
+fn run_dp(
+    groups: &GroupInfo,
+    params: &BookLayoutSolverConfig,
+    mode: RunMode,
+) -> Option<(f64, Vec<usize>)> {
     let ctx = PageProblem::new(groups, params, mode);
     let cache = GridCache::new(ctx.n, ctx.page_limit());
 
@@ -188,8 +198,8 @@ mod tests {
     use super::*;
     use std::time::Duration;
 
-    fn default_params() -> Params {
-        Params {
+    fn default_params() -> BookLayoutSolverConfig {
+        BookLayoutSolverConfig {
             page_target: 2,
             page_min: 1,
             page_max: 5,
@@ -231,7 +241,7 @@ mod tests {
             .map(|i| Photo::new(format!("p{i}"), 1.5, 1.0, "g".to_string()))
             .collect();
         let groups = GroupInfo::from_photos(&photos);
-        let params = Params {
+        let params = BookLayoutSolverConfig {
             page_min: 1,
             page_max: 3,
             photos_per_page_min: 1,
