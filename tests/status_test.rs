@@ -62,9 +62,7 @@ fn create_test_project_with_layout(temp_dir: &TempDir) -> Result<PathBuf> {
 
     // Run initial build to create layout
     let build_config = BuildConfig {
-        release: false,
-        force: false,
-        pages: None,
+        plan: BuildPlan::Auto { pages: None },
         skip_pdf: true,
         skip_cache_update: true,
     };

@@ -3,6 +3,7 @@
 use anyhow::Context;
 use anyhow::Result;
 use fotobuch::commands;
+use fotobuch::commands::build::{BuildConfig, BuildPlan};
 use tracing::info;
 
 pub fn handle(
@@ -14,17 +15,24 @@ pub fn handle(
 ) -> Result<()> {
     let project_root = std::env::current_dir().context("Failed to determine current directory")?;
 
-    let scope = if all {
-        commands::rebuild::RebuildScope::All
+    let plan = if all {
+        BuildPlan::All
     } else if let Some(p) = page {
-        commands::rebuild::RebuildScope::SinglePage(p)
+        BuildPlan::Page(p)
     } else if let (Some(start), Some(end)) = (range_start, range_end) {
-        commands::rebuild::RebuildScope::Range { start, end, flex }
+        BuildPlan::Range { start, end, flex }
     } else {
-        commands::rebuild::RebuildScope::All
+        BuildPlan::All
     };
 
-    let output = commands::rebuild::rebuild(&project_root, scope, false, false)?;
+    let output = commands::build::build(
+        &project_root,
+        &BuildConfig {
+            plan,
+            skip_pdf: false,
+            skip_cache_update: false,
+        },
+    )?;
 
     if !output.result.pages_rebuilt.is_empty() {
         info!(

@@ -7,8 +7,7 @@ use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 use crate::commands::CommandOutput;
-use crate::commands::build::build_photo_index;
-use crate::dto_models::{PhotoFile, ProjectState};
+use crate::dto_models::{PhotoFile, ProjectState, build_photo_index};
 use crate::state_manager::StateManager;
 
 /// Target destination for placing photos.
@@ -531,7 +530,7 @@ mod tests {
             },
         ];
         let state = make_state_with_cover(true, layout, photos);
-        let photo_index = crate::commands::build::build_photo_index(&state.photos);
+        let photo_index = build_photo_index(&state.photos);
         let ranges = compute_page_ranges(&state, &photo_index);
 
         // Cover (page 0) must be absent; only page 1 should appear
@@ -569,7 +568,7 @@ mod tests {
             },
         ];
         let state = make_state_with_cover(false, layout, photos);
-        let photo_index = crate::commands::build::build_photo_index(&state.photos);
+        let photo_index = build_photo_index(&state.photos);
         let ranges = compute_page_ranges(&state, &photo_index);
 
         assert_eq!(ranges.len(), 2);

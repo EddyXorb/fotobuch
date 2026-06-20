@@ -1,12 +1,37 @@
-use tracing::info;
+use anyhow::Result;
+use std::sync::atomic::AtomicUsize;
+use std::{collections::HashMap, path::PathBuf};
+use tracing::{info, warn};
 
-use crate::cache::preview;
-use crate::dto_models::{PhotoFile, PhotoGroup, ProjectState};
+use super::DpiWarning;
+use crate::cache::{final_cache, preview};
+use crate::dto_models::{PhotoFile, PhotoGroup, ProjectState, build_photo_index};
 use crate::output::typst;
 use crate::state_manager::StateManager;
-use std::{collections::HashMap, path::Path};
 
-pub fn update_preview_cache(
+pub enum CommitMode {
+    Auto,
+    Always,
+}
+
+/// Data captured from `StateManager` before it is consumed by `finish`/`finish_always`.
+pub struct RenderContext {
+    pub project_root: PathBuf,
+    pub project_name: String,
+    pub bleed_mm: f64,
+}
+
+impl RenderContext {
+    pub fn capture(mgr: &StateManager) -> Self {
+        Self {
+            project_root: mgr.project_root().to_owned(),
+            project_name: mgr.project_name().to_string(),
+            bleed_mm: mgr.state.config.book.bleed_mm,
+        }
+    }
+}
+
+pub fn refresh_preview_cache(
     mgr: &mut StateManager,
 ) -> Result<preview::PreviewCacheResult, anyhow::Error> {
     let preview_cache_dir = mgr.preview_cache_dir();
@@ -20,27 +45,95 @@ pub fn update_preview_cache(
     Ok(cache_result)
 }
 
-pub fn update_preview_pdf(
-    project_root: &Path,
-    bleed_mm: f64,
-    project_name: &str,
-) -> Result<std::path::PathBuf, anyhow::Error> {
-    let pdf_path = typst::compile_preview(project_root, project_name, bleed_mm)?;
-    info!("PDF updated: {}", pdf_path.display());
-    Ok(pdf_path)
+/// Outcome of a cache refresh: how many images were (re)generated and any DPI
+/// warnings raised while building the final cache.
+pub struct CacheRefresh {
+    pub images_processed: usize,
+    pub dpi_warnings: Vec<DpiWarning>,
 }
 
-/// Maps photo ID to (PhotoFile, group_name).
-pub fn build_photo_index(photos: &[PhotoGroup]) -> HashMap<String, (PhotoFile, String)> {
-    photos
-        .iter()
-        .flat_map(|group| {
-            group
-                .files
-                .iter()
-                .map(move |file| (file.id.clone(), (file.clone(), group.group.clone())))
-        })
-        .collect()
+impl CacheRefresh {
+    /// A refresh that only (re)generated images and cannot carry DPI warnings
+    /// (preview builds and skipped refreshes).
+    pub fn images_only(images_processed: usize) -> Self {
+        Self {
+            images_processed,
+            dpi_warnings: Vec::new(),
+        }
+    }
+}
+
+/// Builds the final high-resolution image cache for a release build and logs DPI
+/// warnings.
+pub fn refresh_final_cache(mgr: &mut StateManager) -> Result<CacheRefresh> {
+    let dpi = mgr.state.config.book.dpi;
+    info!("Release build: generating final PDF at {:.0} DPI...", dpi);
+
+    let progress = AtomicUsize::new(0);
+    let final_cache_dir = mgr.final_cache_dir();
+    let result = final_cache::build_final_cache(&mut mgr.state, &final_cache_dir, &progress)?;
+
+    info!(
+        "Final cache: {} images generated, {} DPI warnings",
+        result.created,
+        result.dpi_warnings.len()
+    );
+    log_dpi_warnings(dpi, &result.dpi_warnings);
+
+    Ok(CacheRefresh {
+        images_processed: result.created,
+        dpi_warnings: result.dpi_warnings,
+    })
+}
+
+/// Logs each photo that will be rendered below the target DPI.
+fn log_dpi_warnings(target_dpi: f64, warnings: &[DpiWarning]) {
+    if warnings.is_empty() {
+        return;
+    }
+    warn!(
+        "\nWARNING: Some photos will be displayed below {:.0} DPI:",
+        target_dpi
+    );
+    for w in warnings {
+        warn!(
+            "  Page {}: {} - {:.2} DPI ({}x{} px in {:.1}x{:.1} mm slot)",
+            w.page,
+            w.photo_id,
+            w.actual_dpi,
+            w.original_px.0,
+            w.original_px.1,
+            w.slot_mm.0,
+            w.slot_mm.1
+        );
+    }
+}
+
+pub enum PdfTarget {
+    Preview,
+    Final,
+}
+
+/// Renders the PDF or returns only the output path when `skip_pdf` is true.
+pub fn render_pdf(ctx: &RenderContext, target: PdfTarget, skip_pdf: bool) -> Result<PathBuf> {
+    let root = &ctx.project_root;
+    let name = &ctx.project_name;
+    let bleed = ctx.bleed_mm;
+    if skip_pdf {
+        return Ok(root.join(format!("{name}.pdf")));
+    }
+    match target {
+        PdfTarget::Preview => {
+            let path = typst::compile_preview(root, name, bleed)?;
+            info!("PDF updated: {}", path.display());
+            Ok(path)
+        }
+        PdfTarget::Final => {
+            let path = typst::compile_final(root, name, bleed)?;
+            info!("Final PDF generated: {}", path.display());
+            Ok(path)
+        }
+    }
 }
 
 /// Sammelt alle Fotos aus dem Seitenbereich und rekonstruiert PhotoGroups.

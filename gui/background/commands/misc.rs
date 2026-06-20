@@ -1,6 +1,5 @@
-use fotobuch::commands::build::{BuildConfig, build};
+use fotobuch::commands::build::{BuildConfig, BuildPlan, build};
 use fotobuch::commands::config::config_set;
-use fotobuch::commands::rebuild::{RebuildScope, rebuild};
 use fotobuch::commands::undo::{redo, undo};
 
 use crate::background::send_command_done;
@@ -56,7 +55,14 @@ pub fn run_rebuild_pages(pages: Vec<usize>, rctx: &mut crate::background::Render
     let mut dirty: Vec<usize> = vec![];
     let mut new_state: Option<fotobuch::dto_models::ProjectState> = None;
     for p in pages {
-        match rebuild(rctx.project_root, RebuildScope::SinglePage(p), false, false) {
+        match build(
+            rctx.project_root,
+            &BuildConfig {
+                plan: BuildPlan::Page(p),
+                skip_pdf: false,
+                skip_cache_update: false,
+            },
+        ) {
             Err(e) => {
                 let _ = rctx.result_tx.send(BackgroundResult::CommandFailed(format!(
                     "rebuild page {p}: {e}"
@@ -75,7 +81,14 @@ pub fn run_rebuild_pages(pages: Vec<usize>, rctx: &mut crate::background::Render
 }
 
 pub fn run_rebuild_all(rctx: &mut crate::background::RenderCtx<'_>) {
-    match rebuild(rctx.project_root, RebuildScope::All, false, false) {
+    match build(
+        rctx.project_root,
+        &BuildConfig {
+            plan: BuildPlan::All,
+            skip_pdf: false,
+            skip_cache_update: false,
+        },
+    ) {
         Err(e) => {
             let _ = rctx
                 .result_tx
@@ -87,9 +100,7 @@ pub fn run_rebuild_all(rctx: &mut crate::background::RenderCtx<'_>) {
 
 pub fn run_release_build(rctx: &mut crate::background::RenderCtx<'_>) {
     let cfg = BuildConfig {
-        release: true,
-        force: false,
-        pages: None,
+        plan: BuildPlan::Release { force: false },
         skip_pdf: false,
         skip_cache_update: false,
     };
