@@ -7,8 +7,9 @@
 
 pub(crate) mod algorithms;
 pub(crate) mod book_layout_solver;
+pub(crate) mod conversion;
 pub mod cover_solver;
-mod data_models;
+pub(crate) mod data_models;
 pub(crate) mod page_layout_solver;
 pub(crate) mod prelude;
 
@@ -46,7 +47,7 @@ pub fn run_solver<C: CanvasConfig>(request: &Request<C>) -> Result<Vec<LayoutPag
         return Ok(vec![]);
     }
 
-    let photos = Photo::from_photo_groups(request.groups);
+    let photos = conversion::photos_from_groups(request.groups);
     let canvas = Canvas::from_canvas_config(request.canvas_config);
 
     match request.request_type {
@@ -61,9 +62,8 @@ fn run_single_page<C: CanvasConfig>(
     request: &Request<C>,
 ) -> Result<Vec<LayoutPage>, SolverError> {
     let ga_result = page_layout_solver::run_ga(photos, canvas, request.ga_config);
-    let layout_page = ga_result
-        .layout
-        .to_layout_page(0, photos, request.canvas_config);
+    let layout_page =
+        conversion::to_layout_page(&ga_result.layout, 0, photos, request.canvas_config);
     Ok(vec![layout_page])
 }
 
@@ -81,7 +81,8 @@ fn run_multi_page<C: CanvasConfig>(
         .iter()
         .enumerate()
         .map(|(i, page)| {
-            let layout_page = page.to_layout_page(
+            let layout_page = conversion::to_layout_page(
+                page,
                 i,
                 &photos[curr_idx..curr_idx + page.placements.len()],
                 request.canvas_config,

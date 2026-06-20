@@ -1,6 +1,5 @@
 use super::canvas::Canvas;
-use super::photo::Photo;
-use crate::dto_models::{CanvasConfig, LayoutPage, PageMode, Slot};
+use crate::dto_models::CanvasConfig;
 
 /// Placement of a single photo on the canvas.
 #[derive(Debug, Clone, Copy)]
@@ -208,50 +207,6 @@ impl SolverPageLayout {
         SolverPageLayout::new(scaled_placements, self.canvas)
     }
 
-    /// Converts internal solver page layout to DTO layout page,
-    /// including bleed/margin adjustments based on BookConfig and centering.
-    ///
-    /// # Arguments
-    ///
-    /// * `page_num` - Page number (0-based index)
-    /// * `photos` - Array of photos to map photo_idx to photo.id
-    ///
-    /// # Returns
-    ///
-    /// A `LayoutPage` containing photo IDs and slot positions, and the coordinates are in
-    /// the coordinates of the PDF's TargetBox (the most inner one, within bleed+margin)
-    pub fn to_layout_page(
-        &self,
-        page_num: usize,
-        photos: &[Photo],
-        canvas_config: &impl CanvasConfig,
-    ) -> LayoutPage {
-        let adapted_layout = self.centered().zoom_to_respect_bleed(canvas_config);
-
-        let photo_ids: Vec<String> = adapted_layout
-            .placements
-            .iter()
-            .map(|p| photos[p.photo_idx as usize].id.clone())
-            .collect();
-
-        let slots: Vec<Slot> = adapted_layout
-            .placements
-            .iter()
-            .map(|p| Slot {
-                x_mm: p.x,
-                y_mm: p.y,
-                width_mm: p.w,
-                height_mm: p.h,
-            })
-            .collect();
-
-        LayoutPage {
-            page: page_num,
-            photos: photo_ids,
-            slots,
-            mode: PageMode::Auto,
-        }
-    }
     /// Calculates the needed scaling factor to add bleed around the page
     /// center if the layout is too close to the print border.
     /// The scaling is meant to be applied to the center of the layout,
@@ -313,7 +268,7 @@ impl SolverPageLayout {
     }
 
     /// This method zooms the layout in around the center (it possibly crops, too), to respect the bleed requirements.
-    fn zoom_to_respect_bleed(&self, book_config: &impl CanvasConfig) -> Self {
+    pub(crate) fn zoom_to_respect_bleed(&self, book_config: &impl CanvasConfig) -> Self {
         let scale_factor = self.calc_needed_scaling_around_center_for_bleed(book_config);
         let (center_x, center_y) = self.canvas.center();
         self.scale_around_fixpoint(scale_factor, center_x, center_y)
@@ -447,108 +402,6 @@ mod tests {
         let centered = layout.centered();
 
         assert!(centered.placements.is_empty());
-    }
-
-    // SolverPageLayout::to_layout_page() tests
-    #[test]
-    fn test_to_layout_page_empty() {
-        let canvas = Canvas::new(200.0, 200.0, 2.0);
-        let layout = SolverPageLayout::new(vec![], canvas);
-        let photos = vec![];
-
-        let dto_page = layout.to_layout_page(1, &photos, &BookConfig::default());
-
-        assert_eq!(dto_page.page, 1);
-        assert!(dto_page.photos.is_empty());
-        assert!(dto_page.slots.is_empty());
-    }
-
-    #[test]
-    fn test_to_layout_page_single_photo() {
-        // Canvas 200×200, placement off-center → centering shifts it to (50, 60)
-        // bleed=0 so no zoom and no bleed offset
-        let canvas = Canvas::new(200.0, 200.0, 0.0);
-        let placements = vec![PhotoPlacement::new(0, 10.0, 20.0, 100.0, 80.0)];
-        let layout = SolverPageLayout::new(placements, canvas);
-
-        let photos = vec![Photo::new(
-            "photo_abc".to_string(),
-            1.5,
-            1.0,
-            "group1".to_string(),
-        )];
-
-        let book_config = BookConfig {
-            bleed_mm: 0.0,
-            ..BookConfig::default()
-        };
-        let dto_page = layout.to_layout_page(2, &photos, &book_config);
-
-        assert_eq!(dto_page.page, 2);
-        assert_eq!(dto_page.photos.len(), 1);
-        assert_eq!(dto_page.photos[0], "photo_abc");
-        assert_eq!(dto_page.slots.len(), 1);
-        // After centering: offset_x = (200-100)/2 - 10 = 40 → x=50; offset_y = (200-80)/2 - 20 = 40 → y=60
-        assert_relative_eq!(dto_page.slots[0].x_mm, 50.0, epsilon = 1e-6);
-        assert_relative_eq!(dto_page.slots[0].y_mm, 60.0, epsilon = 1e-6);
-        assert_relative_eq!(dto_page.slots[0].width_mm, 100.0, epsilon = 1e-6);
-        assert_relative_eq!(dto_page.slots[0].height_mm, 80.0, epsilon = 1e-6);
-    }
-
-    #[test]
-    fn test_to_layout_page_no_bleed_offset_with_margin() {
-        // With margin > 0, canvas origin already maps to content area — no bleed offset applied.
-        let canvas = Canvas::new(200.0, 200.0, 0.0);
-        let placements = vec![PhotoPlacement::new(0, 50.0, 50.0, 100.0, 100.0)];
-        let layout = SolverPageLayout::new(placements, canvas);
-
-        let photos = vec![Photo::new(
-            "photo_abc".to_string(),
-            1.0,
-            1.0,
-            "group1".to_string(),
-        )];
-
-        let book_config = BookConfig {
-            bleed_mm: 5.0,
-            margin_mm: 10.0,
-            bleed_threshold_mm: 5.0,
-            ..BookConfig::default()
-        };
-        let dto_page = layout.to_layout_page(1, &photos, &book_config);
-
-        // margin > 0 → calc_needed_scaling returns 1.0 (no zoom), no bleed offset.
-        // After centering (already centered): x=50, y=50.
-        assert_relative_eq!(dto_page.slots[0].x_mm, 50.0, epsilon = 1e-6);
-        assert_relative_eq!(dto_page.slots[0].y_mm, 50.0, epsilon = 1e-6);
-    }
-
-    #[test]
-    fn test_to_layout_page_multiple_photos() {
-        let canvas = Canvas::new(300.0, 300.0, 0.0);
-        let placements = vec![
-            PhotoPlacement::new(0, 0.0, 0.0, 150.0, 100.0),
-            PhotoPlacement::new(1, 150.0, 0.0, 150.0, 100.0),
-            PhotoPlacement::new(2, 0.0, 100.0, 300.0, 200.0),
-        ];
-        let layout = SolverPageLayout::new(placements, canvas);
-
-        let photos = vec![
-            Photo::new("id_1".to_string(), 1.5, 1.0, "group1".to_string()),
-            Photo::new("id_2".to_string(), 1.5, 1.0, "group1".to_string()),
-            Photo::new("id_3".to_string(), 1.5, 1.0, "group2".to_string()),
-        ];
-
-        // bleed=0 to avoid zoom effects; just verify photo ID mapping and slot count.
-        let book_config = BookConfig {
-            bleed_mm: 0.0,
-            ..BookConfig::default()
-        };
-        let dto_page = layout.to_layout_page(3, &photos, &book_config);
-
-        assert_eq!(dto_page.page, 3);
-        assert_eq!(dto_page.photos, vec!["id_1", "id_2", "id_3"]);
-        assert_eq!(dto_page.slots.len(), 3);
     }
 
     #[test]
