@@ -2,7 +2,8 @@ use super::cover::{build_cover_page, split_cover_photos, update_cover_page};
 use super::helpers::collect_photos_as_groups;
 use super::rebuild_single_page::rebuild_single_page;
 use crate::dto_models::{
-    BookLayoutSolverConfig, LayoutPage, PageMode, PhotoGroup, build_photo_index,
+    BookConfig, BookLayoutSolverConfig, GaConfig, LayoutPage, PageMode, PhotoFile, PhotoGroup,
+    ProjectState, build_photo_index,
 };
 use crate::solver::{Request, RequestType, run_solver};
 use crate::state_manager::StateManager;
@@ -17,10 +18,15 @@ pub(super) fn resolve_whole_book(mgr: &mut StateManager) -> Result<Vec<usize>> {
     if layout_len > 0 && mgr.state.has_cover() {
         let effective_start = skip_cover_if_needed(true, 0, layout_len - 1)?;
         let groups = collect_photos_as_groups(&mgr.state, effective_start, layout_len);
-        return solve_multipage_layout(mgr, &groups, Some((effective_start, layout_len)), None);
+        return solve_multipage_layout(
+            &mut mgr.state,
+            &groups,
+            Some((effective_start, layout_len)),
+            None,
+        );
     }
-    let groups = mgr.state.photos.clone();
-    solve_multipage_layout(mgr, &groups, None, None)
+    let groups: Vec<PhotoGroup> = mgr.state.photos.clone();
+    solve_multipage_layout(&mut mgr.state, &groups, None, None)
 }
 
 pub(super) fn resolve_outdated_pages(
@@ -93,7 +99,7 @@ pub(super) fn resolve_range(
         ..mgr.state.config.book_layout_solver.clone()
     };
     solve_multipage_layout(
-        mgr,
+        &mut mgr.state,
         &groups,
         Some((effective_start, end + 1)),
         Some(custom_config),
@@ -120,70 +126,114 @@ pub(super) fn skip_cover_if_needed(has_cover: bool, start: usize, end: usize) ->
 }
 
 fn solve_multipage_layout(
-    mgr: &mut StateManager,
+    state: &mut ProjectState,
     groups: &[PhotoGroup],
     range: Option<(usize, usize)>,
     custom_config: Option<BookLayoutSolverConfig>,
 ) -> Result<Vec<usize>> {
-    let solver_config =
-        custom_config.unwrap_or_else(|| mgr.state.config.book_layout_solver.clone());
-    let ga_config = mgr.state.config.page_layout_solver.clone();
-    let book_config = mgr.state.config.book.clone();
-    let cover_cfg = &book_config.cover;
+    let mut plan = SolverPlan::build(state, groups, range, custom_config);
+    let solved = run_solver(&plan.request())?;
+    let pages = plan.assemble(solved)?;
+    plan.apply(state, pages)
+}
 
-    let is_structured_cover = range.is_none() && cover_cfg.active && !cover_cfg.mode.is_free();
-    let (cover_files_opt, inner_groups) = if is_structured_cover {
-        let n = cover_cfg.mode.required_slots().unwrap();
-        let (cover_files, remaining) = split_cover_photos(groups, n);
-        (Some(cover_files), remaining)
-    } else {
-        (None, groups.to_vec())
-    };
+/// Everything the multi-page solver needs, plus the pieces carved out of `groups`
+/// *before* solving (a structured cover, manual pages) that have to be merged back
+/// into the result *after* solving.
+struct SolverPlan {
+    groups: Vec<PhotoGroup>,
+    solver_config: BookLayoutSolverConfig,
+    ga_config: GaConfig,
+    book_config: BookConfig,
+    /// Structured-cover photos split off the front (full-book solve only).
+    cover_files: Option<Vec<PhotoFile>>,
+    /// Manual pages held back, keyed by their original absolute layout index.
+    manual_snapshots: Vec<(usize, LayoutPage)>,
+    range: Option<(usize, usize)>,
+}
 
-    let (manual_snapshots, filtered_groups) =
-        extract_manual_pages(&mgr.state.layout, &inner_groups, range);
+impl SolverPlan {
+    /// Input generation: choose the config, carve out structured cover and manual pages.
+    fn build(
+        state: &ProjectState,
+        groups: &[PhotoGroup],
+        range: Option<(usize, usize)>,
+        custom_config: Option<BookLayoutSolverConfig>,
+    ) -> Self {
+        let solver_config =
+            custom_config.unwrap_or_else(|| state.config.book_layout_solver.clone());
+        let book_config = state.config.book.clone();
 
-    let mut new_pages = run_solver(&Request {
-        request_type: RequestType::MultiPage,
-        groups: &filtered_groups,
-        config: &solver_config,
-        ga_config: &ga_config,
-        canvas_config: &book_config,
-    })?;
+        let cover = &book_config.cover;
+        let is_structured_cover = range.is_none() && cover.active && !cover.mode.is_free();
+        let (cover_files, inner_groups) = if is_structured_cover {
+            let n = cover.mode.required_slots().unwrap();
+            let (files, remaining) = split_cover_photos(groups, n);
+            (Some(files), remaining)
+        } else {
+            (None, groups.to_vec())
+        };
 
-    if let Some(cover_files) = cover_files_opt {
-        let inner_count = new_pages.len();
-        let cover_page = build_cover_page(cover_cfg, cover_files, inner_count)?;
-        new_pages.insert(0, cover_page);
+        let (manual_snapshots, groups) = extract_manual_pages(&state.layout, &inner_groups, range);
+
+        Self {
+            groups,
+            solver_config,
+            ga_config: state.config.page_layout_solver.clone(),
+            book_config,
+            cover_files,
+            manual_snapshots,
+            range,
+        }
     }
 
-    let range_start = range.map(|(s, _)| s).unwrap_or(0);
-    for (orig_abs_idx, manual_page) in manual_snapshots {
-        let insert_at = orig_abs_idx
-            .saturating_sub(range_start)
-            .min(new_pages.len());
-        new_pages.insert(insert_at, manual_page);
+    /// The solver request, borrowing this plan's owned inputs.
+    fn request(&self) -> Request<'_, BookConfig> {
+        Request {
+            request_type: RequestType::MultiPage,
+            groups: &self.groups,
+            config: &self.solver_config,
+            ga_config: &self.ga_config,
+            canvas_config: &self.book_config,
+        }
     }
 
-    let affected = if let Some((start, end)) = range {
-        let indices: Vec<usize> = (start..start + new_pages.len()).collect();
-        mgr.state.layout.splice(start..end, new_pages);
-        indices
-    } else {
-        let indices: Vec<usize> = (0..new_pages.len()).collect();
-        mgr.state.layout = new_pages;
-        indices
-    };
+    /// Merges the carved-out cover and manual pages back into the solver output.
+    fn assemble(&mut self, mut pages: Vec<LayoutPage>) -> Result<Vec<LayoutPage>> {
+        if let Some(cover_files) = self.cover_files.take() {
+            let cover_page = build_cover_page(&self.book_config.cover, cover_files, pages.len())?;
+            pages.insert(0, cover_page);
+        }
 
-    if range.is_none_or(|r| r.0 == 0)
-        && book_config.cover.active
-        && book_config.cover.mode.is_free()
-    {
-        let photo_index = build_photo_index(&mgr.state.photos);
-        update_cover_page(&mut mgr.state, &photo_index)?;
+        let range_start = self.range.map_or(0, |(s, _)| s);
+        for (orig_abs_idx, manual_page) in std::mem::take(&mut self.manual_snapshots) {
+            let insert_at = orig_abs_idx.saturating_sub(range_start).min(pages.len());
+            pages.insert(insert_at, manual_page);
+        }
+        Ok(pages)
     }
 
-    Ok(affected)
+    /// Writes the assembled pages into `state.layout`, refreshes a free-mode cover,
+    /// and returns the affected 0-based layout indices.
+    fn apply(&self, state: &mut ProjectState, pages: Vec<LayoutPage>) -> Result<Vec<usize>> {
+        let affected: Vec<usize> = if let Some((start, end)) = self.range {
+            let indices = (start..start + pages.len()).collect();
+            state.layout.splice(start..end, pages);
+            indices
+        } else {
+            let indices = (0..pages.len()).collect();
+            state.layout = pages;
+            indices
+        };
+
+        let cover = &self.book_config.cover;
+        if self.range.is_none_or(|r| r.0 == 0) && cover.active && cover.mode.is_free() {
+            let photo_index = build_photo_index(&state.photos);
+            update_cover_page(state, &photo_index)?;
+        }
+
+        Ok(affected)
+    }
 }
 
 /// Extracts manual pages from the layout range and filters their photos from the groups.
