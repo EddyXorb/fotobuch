@@ -1,7 +1,6 @@
 //! `fotobuch build` command
-pub(super) mod cover;
-mod helpers;
 mod build_layout;
+mod helpers;
 pub mod plan;
 mod solve;
 

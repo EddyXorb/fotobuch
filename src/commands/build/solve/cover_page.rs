@@ -6,7 +6,7 @@ use anyhow::Result;
 use std::collections::HashMap;
 
 /// Creates a new cover `LayoutPage` using the deterministic cover solver (structured mode only).
-pub fn build_cover_page(
+pub(super) fn build_cover_page(
     cover: &CoverConfig,
     files: Vec<PhotoFile>,
     inner_page_count: usize,
@@ -24,7 +24,7 @@ pub fn build_cover_page(
 
 /// Updates the existing cover page (index 0) in `state.layout`.
 /// Dispatches to the GA solver (free mode) or the deterministic cover solver (structured mode).
-pub fn update_cover_page(
+pub(super) fn update_cover_page(
     state: &mut crate::dto_models::ProjectState,
     photo_index: &HashMap<String, (PhotoFile, String)>,
 ) -> Result<()> {
@@ -96,7 +96,10 @@ fn update_cover_structured(
 
 /// Splits the first `n` photos (flattened across groups) into cover files, returning
 /// the cover files and the rebuilt remaining groups in their original order.
-pub fn split_cover_photos(groups: &[PhotoGroup], n: usize) -> (Vec<PhotoFile>, Vec<PhotoGroup>) {
+pub(super) fn split_cover_photos(
+    groups: &[PhotoGroup],
+    n: usize,
+) -> (Vec<PhotoFile>, Vec<PhotoGroup>) {
     let mut flat: Vec<(PhotoFile, &str, &str)> = groups
         .iter()
         .flat_map(|g| {
@@ -122,6 +125,33 @@ pub fn split_cover_photos(groups: &[PhotoGroup], n: usize) -> (Vec<PhotoFile>, V
     }
 
     (cover_files, remaining)
+}
+
+/// Presents the full cover spread (front + back + spine) as `page_width_mm` to the GA solver.
+struct CoverCanvasConfig<'a> {
+    cover: &'a CoverConfig,
+    inner_page_count: usize,
+}
+
+impl CanvasConfig for CoverCanvasConfig<'_> {
+    fn page_width_mm(&self) -> f64 {
+        self.cover.spread_width_mm(self.inner_page_count)
+    }
+    fn page_height_mm(&self) -> f64 {
+        self.cover.height_mm
+    }
+    fn bleed_mm(&self) -> f64 {
+        self.cover.bleed_mm
+    }
+    fn margin_mm(&self) -> f64 {
+        self.cover.margin_mm
+    }
+    fn gap_mm(&self) -> f64 {
+        self.cover.gap_mm
+    }
+    fn bleed_threshold_mm(&self) -> f64 {
+        self.cover.bleed_threshold_mm
+    }
 }
 
 // ── tests ─────────────────────────────────────────────────────────────────────
@@ -205,32 +235,5 @@ mod tests {
         assert_eq!(remaining.len(), 1);
         assert_eq!(remaining[0].group, "b_group");
         assert_eq!(remaining[0].sort_key, "b_group");
-    }
-}
-
-/// Presents the full cover spread (front + back + spine) as `page_width_mm` to the GA solver.
-pub struct CoverCanvasConfig<'a> {
-    pub cover: &'a CoverConfig,
-    pub inner_page_count: usize,
-}
-
-impl CanvasConfig for CoverCanvasConfig<'_> {
-    fn page_width_mm(&self) -> f64 {
-        self.cover.spread_width_mm(self.inner_page_count)
-    }
-    fn page_height_mm(&self) -> f64 {
-        self.cover.height_mm
-    }
-    fn bleed_mm(&self) -> f64 {
-        self.cover.bleed_mm
-    }
-    fn margin_mm(&self) -> f64 {
-        self.cover.margin_mm
-    }
-    fn gap_mm(&self) -> f64 {
-        self.cover.gap_mm
-    }
-    fn bleed_threshold_mm(&self) -> f64 {
-        self.cover.bleed_threshold_mm
     }
 }

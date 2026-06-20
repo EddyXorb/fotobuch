@@ -1,5 +1,4 @@
 /// This is an abstraction layer over the solver engines in solve/ and below plan.rs.
-
 use super::helpers::collect_photos_as_groups;
 use super::solve::multi_page::solve_multipage;
 use super::solve::single_page::solve_single_page;
