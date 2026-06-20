@@ -2,8 +2,8 @@
 pub(super) mod cover;
 mod helpers;
 pub mod plan;
-mod rebuild_single_page;
 mod resolve;
+mod solve;
 
 pub use plan::BuildPlan;
 

@@ -1,18 +1,18 @@
-use super::cover::update_cover_page;
-use crate::dto_models::{PhotoFile, PhotoGroup};
+use super::super::cover::update_cover_page;
+use crate::dto_models::{LayoutPage, PhotoFile, PhotoGroup, ProjectState};
 use crate::run_solver;
 use crate::solver::{Request, RequestType};
 use anyhow::Result;
 use std::collections::HashMap;
 
-/// Rebuilds a single page using either the deterministic cover solver (page 0,
+/// Solves a single page using either the deterministic cover solver (page 0,
 /// non-`Free` mode) or the GA solver (all other cases).
 ///
 /// # Arguments
 /// * `page_idx` - **0-based** index into `state.layout` (e.g., 0 = first page, 1 = second page).
 ///   This does NOT consider the `page_nr` field in the layout.
-pub fn rebuild_single_page(
-    state: &mut crate::dto_models::ProjectState,
+pub(crate) fn solve_single_page(
+    state: &mut ProjectState,
     page_idx: usize,
     photo_index: &HashMap<String, (PhotoFile, String)>,
 ) -> Result<()> {
@@ -39,14 +39,14 @@ pub fn rebuild_single_page(
     if page_idx == 0 && state.has_cover() {
         update_cover_page(state, photo_index)
     } else {
-        rebuild_inner_page(state, page_idx, files)
+        solve_inner_page(state, page_idx, files)
     }
 }
 
 // ── inner pages ───────────────────────────────────────────────────────────────
 
-fn rebuild_inner_page(
-    state: &mut crate::dto_models::ProjectState,
+fn solve_inner_page(
+    state: &mut ProjectState,
     page_idx: usize,
     files: Vec<PhotoFile>,
 ) -> Result<()> {
@@ -72,11 +72,7 @@ fn photo_group_for_page(page_idx: usize, files: Vec<PhotoFile>) -> PhotoGroup {
     }
 }
 
-fn apply_result(
-    state: &mut crate::dto_models::ProjectState,
-    page_idx: usize,
-    result: Vec<crate::dto_models::LayoutPage>,
-) -> Result<()> {
+fn apply_result(state: &mut ProjectState, page_idx: usize, result: Vec<LayoutPage>) -> Result<()> {
     if result.is_empty() {
         anyhow::bail!("Solver returned no result for page {}", page_idx);
     }
