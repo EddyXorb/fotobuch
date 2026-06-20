@@ -36,35 +36,30 @@ pub fn run_ga(photos: &[Photo], canvas: &Canvas, ga_config: &GaConfig) -> GaResu
 
     let start_time = std::time::Instant::now();
 
-    // Create evaluation context
     let context = evolution::EvaluationContext::new(
         photos,
         canvas,
         &ga_config.weights,
         ga_config.enforce_order,
-        42,
+        ga_config.seed,
     );
 
-    // Create initial population
     let initial_pop = create_initial_population(&context, ga_config.population_size);
 
-    // Create GA configuration
     let config = Config {
         population: ga_config.population_size,
         generations: ga_config.max_generations,
         elitism_ratio: ga_config.elite_count as f64 / ga_config.population_size as f64,
-        timeout: None, // TODO: Add timeout to dto_models::GaConfig
+        timeout: ga_config.timeout(),
         no_improvement_limit: ga_config.no_improvement_limit,
         islands: ga_config.islands_nr,
         migration_interval: ga_config.islands_migration_interval,
         migrants: ga_config.islands_nr_migrants,
     };
 
-    // Create evolution dynamics
-    let tournament_size = 3; // TODO: Add tournament_size to dto_models::GaConfig
     let evolution = LayoutEvolution::new(
         context,
-        tournament_size,
+        ga_config.tournament_size,
         ga_config.crossover_rate,
         ga_config.mutation_rate,
     );

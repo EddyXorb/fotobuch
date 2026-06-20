@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use serde::{Deserialize, Serialize};
 
 use super::fitness_weights::FitnessWeights;
@@ -37,6 +39,14 @@ pub struct GaConfig {
     /// Enable deterministic in-page photo ordering via DFS-preorder assignment.
     #[serde(default = "default_enforce_order")]
     pub enforce_order: bool,
+
+    /// Tournament size for selection (number of candidates per tournament).
+    #[serde(default = "default_tournament_size")]
+    pub tournament_size: usize,
+
+    /// Per-page layout timeout in milliseconds; absent means unlimited.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub timeout_ms: Option<u64>,
 }
 
 impl Default for GaConfig {
@@ -54,7 +64,15 @@ impl Default for GaConfig {
             no_improvement_limit: default_no_improvement_limit(),
             weights: FitnessWeights::default(),
             enforce_order: default_enforce_order(),
+            tournament_size: default_tournament_size(),
+            timeout_ms: None,
         }
+    }
+}
+
+impl GaConfig {
+    pub fn timeout(&self) -> Option<Duration> {
+        self.timeout_ms.map(Duration::from_millis)
     }
 }
 
@@ -102,6 +120,10 @@ fn default_no_improvement_limit() -> Option<usize> {
 
 fn default_enforce_order() -> bool {
     true
+}
+
+fn default_tournament_size() -> usize {
+    3
 }
 
 #[cfg(test)]
