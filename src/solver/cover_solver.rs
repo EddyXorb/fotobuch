@@ -26,7 +26,7 @@
 use anyhow::{Result, bail};
 use tracing::warn;
 
-use crate::dto_models::{CoverConfig, CoverMode, Slot};
+use crate::dto_models::{CoverConfig, CoverGeometry, CoverMode, Slot};
 
 // ── public entry point ───────────────────────────────────────────────────────
 
@@ -116,7 +116,7 @@ fn cover_areas(cover: &CoverConfig, inner_page_count: usize) -> Result<CoverArea
     let clearance = cover.spine_clearance_mm;
     let canvas_h = cover.height_mm - 2.0 * margin;
     let half_fb = cover.front_back_width_mm / 2.0;
-    let spine_w = cover.spine_width_mm(inner_page_count);
+    let spine_w = CoverGeometry::new(cover, inner_page_count).spine_width_mm();
 
     if canvas_h <= 0.0 || cover.front_back_width_mm <= 0.0 {
         bail!(
