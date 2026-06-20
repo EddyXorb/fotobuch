@@ -2,7 +2,6 @@
 mod build_layout;
 mod helpers;
 pub mod plan;
-mod solve;
 
 pub use plan::BuildPlan;
 

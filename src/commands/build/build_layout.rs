@@ -1,11 +1,17 @@
 //! Layout builders: translate a `BuildPlan` scope into solver-engine calls.
 //!
-//! This is the abstraction layer over the solver engines in `solve/` and below
-//! `plan.rs`.
+//! This is the abstraction layer below `plan.rs`. The solver engines it drives
+//! live in the child modules below and turn a set of photos into laid-out pages:
+//! `single_page` and `multi_page` are the GA engines, `cover_page` the
+//! deterministic cover engine. They are private to this layer.
 
+mod cover_page;
+mod multi_page;
+mod single_page;
+
+use self::multi_page::solve_multipage;
+use self::single_page::solve_single_page;
 use super::helpers::collect_photos_as_groups;
-use super::solve::multi_page::solve_multipage;
-use super::solve::single_page::solve_single_page;
 use crate::dto_models::{BookLayoutSolverConfig, PageMode, PhotoGroup, build_photo_index};
 use crate::state_manager::StateManager;
 use anyhow::Result;

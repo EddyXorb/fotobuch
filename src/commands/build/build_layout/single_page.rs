@@ -11,7 +11,7 @@ use std::collections::HashMap;
 /// # Arguments
 /// * `page_idx` - **0-based** index into `state.layout` (e.g., 0 = first page, 1 = second page).
 ///   This does NOT consider the `page_nr` field in the layout.
-pub(crate) fn solve_single_page(
+pub(super) fn solve_single_page(
     state: &mut ProjectState,
     page_idx: usize,
     photo_index: &HashMap<String, (PhotoFile, String)>,

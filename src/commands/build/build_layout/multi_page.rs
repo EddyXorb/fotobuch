@@ -11,7 +11,7 @@ use std::collections::HashSet;
 ///
 /// `range` is the half-open `[start, end)` layout slice being replaced, or `None`
 /// for a full-book solve. Returns the affected 0-based layout indices.
-pub(crate) fn solve_multipage(
+pub(super) fn solve_multipage(
     state: &mut ProjectState,
     groups: &[PhotoGroup],
     range: Option<(usize, usize)>,
