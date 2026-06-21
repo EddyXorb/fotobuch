@@ -131,7 +131,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_ga_config_default() {
+    fn test_default() {
         let config = PageLayoutSolverConfig::default();
         assert_eq!(config.population_size, 750);
         assert_eq!(config.max_generations, 100);

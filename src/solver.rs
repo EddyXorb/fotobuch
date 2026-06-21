@@ -60,10 +60,8 @@ fn run_single_page<C: CanvasConfig>(
     canvas: &Canvas,
     request: &Request<C>,
 ) -> Result<Vec<LayoutPage>, SolverError> {
-    let ga_result =
-        page_layout_solver::solve_page_layout(photos, canvas, request.page_layout_config);
-    let layout_page =
-        conversion::to_layout_page(&ga_result.layout, 0, photos, request.canvas_config);
+    let result = page_layout_solver::solve_page_layout(photos, canvas, request.page_layout_config);
+    let layout_page = conversion::to_layout_page(&result.layout, 0, photos, request.canvas_config);
     Ok(vec![layout_page])
 }
 
