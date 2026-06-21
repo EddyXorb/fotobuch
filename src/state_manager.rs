@@ -194,9 +194,9 @@ impl StateManager {
     ///
     /// Use this for commands like `release_build` that need a git marker commit
     /// even when no state changes occur.
-    /// Returns `Some(state)` always (a commit is always created).
-    pub fn finish_always(self, message: &str) -> Result<Option<ProjectState>> {
+    pub fn finish_always(self, message: &str) -> Result<ProjectState> {
         self.finish_internal(message, true)
+            .map(|opt| opt.expect("finish_always guarantees a commit"))
     }
 
     // ── private helpers ───────────────────────────────────────────────────────

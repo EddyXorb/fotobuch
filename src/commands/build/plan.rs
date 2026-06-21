@@ -74,7 +74,7 @@ impl BuildPlan {
         // 4. Commit
         let msg = commit_message(&self, &changed_pages, page_count, total_photos);
         let changed_state = match commit_mode(&self) {
-            CommitMode::Always => mgr.finish_always(&msg)?,
+            CommitMode::Always => Some(mgr.finish_always(&msg)?),
             CommitMode::Auto => mgr.finish(&msg)?,
         };
 
