@@ -353,9 +353,8 @@ fn default_manual_slot_size(state: &crate::models::ProjectState, dst_idx: usize)
 }
 
 /// Pixel dimensions of a photo by id, looked up across all photo groups.
-fn photo_pixel_size(state: &crate::models::ProjectState, id: &str) -> Option<(u32, u32)> {
-    state
-        .photos
+fn photo_pixel_size(photos: &[crate::models::PhotoGroup], id: &str) -> Option<(u32, u32)> {
+    photos
         .iter()
         .flat_map(|g| g.files.iter())
         .find(|f| f.id == id)
@@ -366,25 +365,26 @@ fn photo_pixel_size(state: &crate::models::ProjectState, id: &str) -> Option<(u3
 /// `[start, start + count)` to `width * photo_height / photo_width`, keeping the
 /// slot's top-left and width. No-op on Auto pages (their slots are recomputed).
 fn adapt_manual_slot_ratios(
-    state: &mut crate::models::ProjectState,
+    layout: &mut [crate::models::LayoutPage],
+    photos: &[crate::models::PhotoGroup],
     page_idx: usize,
     start: usize,
     count: usize,
 ) {
-    if state.layout[page_idx].mode != PageMode::Manual {
+    if layout[page_idx].mode != PageMode::Manual {
         return;
     }
     for i in start..start + count {
-        let Some(photo_id) = state.layout[page_idx].photos.get(i).cloned() else {
+        let Some(photo_id) = layout[page_idx].photos.get(i).cloned() else {
             continue;
         };
-        if state.layout[page_idx].slots.get(i).is_none() {
+        if layout[page_idx].slots.get(i).is_none() {
             continue;
         }
-        if let Some((w_px, h_px)) = photo_pixel_size(state, &photo_id)
+        if let Some((w_px, h_px)) = photo_pixel_size(photos, &photo_id)
             && w_px > 0
         {
-            let slot = &mut state.layout[page_idx].slots[i];
+            let slot = &mut layout[page_idx].slots[i];
             slot.height_mm = slot.width_mm * (h_px as f64 / w_px as f64);
         }
     }
@@ -471,8 +471,21 @@ fn execute_swap(
         let right_recv = left_photos.len();
         let left_start = left_slot_indices.iter().min().copied().unwrap_or(0);
         let right_start = right_slot_indices.iter().min().copied().unwrap_or(0);
-        adapt_manual_slot_ratios(&mut mgr.state, left_page_idx, left_start, left_recv);
-        adapt_manual_slot_ratios(&mut mgr.state, right_page_idx, right_start, right_recv);
+        let photos = mgr.state().photos.clone();
+        adapt_manual_slot_ratios(
+            mgr.layout_mut(),
+            &photos,
+            left_page_idx,
+            left_start,
+            left_recv,
+        );
+        adapt_manual_slot_ratios(
+            mgr.layout_mut(),
+            &photos,
+            right_page_idx,
+            right_start,
+            right_recv,
+        );
     }
 
     let mut modified_pages = vec![left_page_idx as u32, right_page_idx as u32];
