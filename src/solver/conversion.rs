@@ -5,6 +5,7 @@
 
 use crate::dto_models::{CanvasConfig, LayoutPage, PageMode, PhotoGroup, Slot};
 use crate::solver::data_models::{Photo, PhotoPlacement, SolverPageLayout};
+use crate::solver::output_transform;
 
 /// Converts photo groups to a flat, timestamp-sorted list of Photos.
 ///
@@ -36,7 +37,8 @@ pub(crate) fn to_layout_page(
     photos: &[Photo],
     canvas_config: &impl CanvasConfig,
 ) -> LayoutPage {
-    let adapted = layout.centered().zoom_to_respect_bleed(canvas_config);
+    let centered = layout.centered();
+    let adapted = output_transform::zoom_to_respect_bleed(&centered, canvas_config);
 
     let photo_ids: Vec<String> = adapted
         .placements

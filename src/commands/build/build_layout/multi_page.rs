@@ -80,7 +80,7 @@ impl SolverPlan {
                 config: &self.solver_config,
             },
             groups: &self.groups,
-            ga_config: &self.ga_config,
+            page_layout_config: &self.ga_config,
             canvas_config: &self.book_config,
         }
     }

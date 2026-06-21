@@ -10,6 +10,7 @@ pub(crate) mod book_layout_solver;
 pub(crate) mod conversion;
 pub mod cover_solver;
 pub(crate) mod data_models;
+pub(crate) mod output_transform;
 pub(crate) mod page_layout_solver;
 pub(crate) mod prelude;
 
@@ -33,8 +34,8 @@ pub struct Request<'a, C: CanvasConfig> {
     pub request_type: RequestType<'a>,
     /// Photo groups (for both single and multi-page requests).
     pub groups: &'a [PhotoGroup],
-    /// Genetic algorithm configuration.
-    pub ga_config: &'a PageLayoutSolverConfig,
+    /// Page layout solver configuration.
+    pub page_layout_config: &'a PageLayoutSolverConfig,
     /// Canvas configuration (page size, margins, bleed, gap).
     pub canvas_config: &'a C,
 }
@@ -59,7 +60,8 @@ fn run_single_page<C: CanvasConfig>(
     canvas: &Canvas,
     request: &Request<C>,
 ) -> Result<Vec<LayoutPage>, SolverError> {
-    let ga_result = page_layout_solver::run_ga(photos, canvas, request.ga_config);
+    let ga_result =
+        page_layout_solver::solve_page_layout(photos, canvas, request.page_layout_config);
     let layout_page =
         conversion::to_layout_page(&ga_result.layout, 0, photos, request.canvas_config);
     Ok(vec![layout_page])
@@ -72,7 +74,7 @@ fn run_multi_page<C: CanvasConfig>(
     config: &BookLayoutSolverConfig,
 ) -> Result<Vec<LayoutPage>, SolverError> {
     let book_layout =
-        book_layout_solver::solve_book_layout(photos, config, canvas, request.ga_config)?;
+        book_layout_solver::solve_book_layout(photos, config, canvas, request.page_layout_config)?;
 
     let mut curr_idx = 0;
     let layout_pages: Vec<LayoutPage> = book_layout

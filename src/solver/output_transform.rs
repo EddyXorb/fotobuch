@@ -1,84 +1,88 @@
-//! Bleed-aware output transforms for page layouts.
-//!
-//! This module extends [`SolverPageLayout`] with scaling operations that ensure
-//! the layout respects print bleed requirements.
-
-use super::layout::{PhotoPlacement, SolverPageLayout};
 use crate::dto_models::CanvasConfig;
+use crate::solver::data_models::layout::{PhotoPlacement, SolverPageLayout};
 
-impl SolverPageLayout {
-    fn scale_around_fixpoint(&self, factor: f64, fixpoint_x: f64, fixpoint_y: f64) -> Self {
-        let scaled_placements: Vec<PhotoPlacement> = self
-            .placements
+fn scale_around_fixpoint(
+    layout: &SolverPageLayout,
+    factor: f64,
+    fixpoint_x: f64,
+    fixpoint_y: f64,
+) -> SolverPageLayout {
+    let scaled_placements: Vec<PhotoPlacement> = layout
+        .placements
+        .iter()
+        .map(|p| {
+            let new_x = fixpoint_x + (p.x - fixpoint_x) * factor;
+            let new_y = fixpoint_y + (p.y - fixpoint_y) * factor;
+            PhotoPlacement::new(p.photo_idx, new_x, new_y, p.w * factor, p.h * factor)
+        })
+        .collect();
+
+    SolverPageLayout::new(scaled_placements, layout.canvas)
+}
+
+fn calc_needed_scaling_around_center_for_bleed(
+    layout: &SolverPageLayout,
+    book_config: &impl CanvasConfig,
+) -> f64 {
+    if book_config.margin_mm() > 0.0 || book_config.bleed_mm() == 0.0 {
+        return 1.0;
+    }
+    let mut bleed_scale_factor = 1.0;
+    let mut scale_factor_increase_last_iteration = 1.0;
+    let mut bb = layout.bounding_box();
+    let (center_width, center_height) = layout.canvas.center();
+
+    loop {
+        bb[0] = center_width + (bb[0] - center_width) * scale_factor_increase_last_iteration;
+        bb[1] = center_height + (bb[1] - center_height) * scale_factor_increase_last_iteration;
+        bb[2] = center_width + (bb[2] - center_width) * scale_factor_increase_last_iteration;
+        bb[3] = center_height + (bb[3] - center_height) * scale_factor_increase_last_iteration;
+
+        let border_distances = [
+            bb[0],                        // left
+            bb[1],                        // top
+            layout.canvas.width - bb[2],  // right
+            layout.canvas.height - bb[3], // bottom
+        ];
+
+        let needed_increase = border_distances
             .iter()
-            .map(|p| {
-                let new_x = fixpoint_x + (p.x - fixpoint_x) * factor;
-                let new_y = fixpoint_y + (p.y - fixpoint_y) * factor;
-                PhotoPlacement::new(p.photo_idx, new_x, new_y, p.w * factor, p.h * factor)
+            .enumerate()
+            .filter(|&(_, d)| {
+                d <= &book_config.bleed_threshold_mm() && d >= &-book_config.bleed_mm()
             })
-            .collect();
+            .map(|(i, d)| (i, f64::abs(-book_config.bleed_mm() - d)))
+            .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
 
-        SolverPageLayout::new(scaled_placements, self.canvas)
-    }
-
-    fn calc_needed_scaling_around_center_for_bleed(&self, book_config: &impl CanvasConfig) -> f64 {
-        if book_config.margin_mm() > 0.0 || book_config.bleed_mm() == 0.0 {
-            return 1.0;
+        if needed_increase.is_none() || needed_increase.unwrap().1 <= 0.001 {
+            break;
         }
-        let mut bleed_scale_factor = 1.0;
-        let mut scale_factor_increase_last_iteration = 1.0;
-        let mut bb = self.bounding_box();
-        let (center_width, center_height) = self.canvas.center();
+        let idx_with_max = needed_increase.unwrap().0;
 
-        loop {
-            bb[0] = center_width + (bb[0] - center_width) * scale_factor_increase_last_iteration;
-            bb[1] = center_height + (bb[1] - center_height) * scale_factor_increase_last_iteration;
-            bb[2] = center_width + (bb[2] - center_width) * scale_factor_increase_last_iteration;
-            bb[3] = center_height + (bb[3] - center_height) * scale_factor_increase_last_iteration;
-
-            let border_distances = [
-                bb[0],                      // left
-                bb[1],                      // top
-                self.canvas.width - bb[2],  // right
-                self.canvas.height - bb[3], // bottom
-            ];
-
-            let needed_increase = border_distances
-                .iter()
-                .enumerate()
-                .filter(|&(_, d)| {
-                    d <= &book_config.bleed_threshold_mm() && d >= &-book_config.bleed_mm()
-                })
-                .map(|(i, d)| (i, f64::abs(-book_config.bleed_mm() - d)))
-                .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
-
-            if needed_increase.is_none() || needed_increase.unwrap().1 <= 0.001 {
-                break;
-            }
-            let idx_with_max = needed_increase.unwrap().0;
-
-            if idx_with_max % 2 == 0 {
-                let distance_to_center = f64::abs(center_width - bb[idx_with_max]);
-                scale_factor_increase_last_iteration =
-                    (distance_to_center + needed_increase.unwrap().1) / distance_to_center;
-                bleed_scale_factor *= scale_factor_increase_last_iteration;
-            } else {
-                let distance_to_center = f64::abs(center_height - bb[idx_with_max]);
-                scale_factor_increase_last_iteration =
-                    (distance_to_center + needed_increase.unwrap().1) / distance_to_center;
-                bleed_scale_factor *= scale_factor_increase_last_iteration;
-            }
+        if idx_with_max % 2 == 0 {
+            let distance_to_center = f64::abs(center_width - bb[idx_with_max]);
+            scale_factor_increase_last_iteration =
+                (distance_to_center + needed_increase.unwrap().1) / distance_to_center;
+            bleed_scale_factor *= scale_factor_increase_last_iteration;
+        } else {
+            let distance_to_center = f64::abs(center_height - bb[idx_with_max]);
+            scale_factor_increase_last_iteration =
+                (distance_to_center + needed_increase.unwrap().1) / distance_to_center;
+            bleed_scale_factor *= scale_factor_increase_last_iteration;
         }
-
-        bleed_scale_factor
     }
 
-    /// Zooms the layout in around the center to respect print bleed requirements.
-    pub(crate) fn zoom_to_respect_bleed(&self, book_config: &impl CanvasConfig) -> Self {
-        let scale_factor = self.calc_needed_scaling_around_center_for_bleed(book_config);
-        let (center_x, center_y) = self.canvas.center();
-        self.scale_around_fixpoint(scale_factor, center_x, center_y)
-    }
+    bleed_scale_factor
+}
+
+/// Zooms the layout in around the center to respect print bleed requirements.
+pub(crate) fn zoom_to_respect_bleed(
+    layout: &SolverPageLayout,
+    book_config: &impl CanvasConfig,
+) -> SolverPageLayout {
+    let scale_factor = calc_needed_scaling_around_center_for_bleed(layout, book_config);
+    let (center_x, center_y) = layout.canvas.center();
+    scale_around_fixpoint(layout, scale_factor, center_x, center_y)
 }
 
 #[cfg(test)]
@@ -101,7 +105,7 @@ mod tests {
             ..Default::default()
         };
 
-        let scale_factor = layout.calc_needed_scaling_around_center_for_bleed(&book_config);
+        let scale_factor = calc_needed_scaling_around_center_for_bleed(&layout, &book_config);
         assert_relative_eq!(scale_factor, 1.0, epsilon = 1e-6);
     }
 
@@ -118,7 +122,7 @@ mod tests {
             ..Default::default()
         };
 
-        let scale_factor = layout.calc_needed_scaling_around_center_for_bleed(&book_config);
+        let scale_factor = calc_needed_scaling_around_center_for_bleed(&layout, &book_config);
         assert_relative_eq!(scale_factor, 1.0, epsilon = 1e-6);
     }
 
@@ -135,7 +139,7 @@ mod tests {
             ..Default::default()
         };
 
-        let scale_factor = layout.calc_needed_scaling_around_center_for_bleed(&book_config);
+        let scale_factor = calc_needed_scaling_around_center_for_bleed(&layout, &book_config);
         assert_relative_eq!(scale_factor, 105.0 / 95.0, epsilon = 1e-6);
     }
 
@@ -152,7 +156,7 @@ mod tests {
             ..Default::default()
         };
 
-        let scale_factor = layout.calc_needed_scaling_around_center_for_bleed(&book_config);
+        let scale_factor = calc_needed_scaling_around_center_for_bleed(&layout, &book_config);
         assert_relative_eq!(scale_factor, 105.0 / 95.0, epsilon = 1e-6);
     }
 
@@ -169,7 +173,7 @@ mod tests {
             ..Default::default()
         };
 
-        let scale_factor = layout.calc_needed_scaling_around_center_for_bleed(&book_config);
+        let scale_factor = calc_needed_scaling_around_center_for_bleed(&layout, &book_config);
         assert_relative_eq!(
             canvas.center().1
                 + (canvas.center().1 - placements[0].y) * scale_factor
@@ -192,7 +196,7 @@ mod tests {
             ..Default::default()
         };
 
-        let scale_factor = layout.calc_needed_scaling_around_center_for_bleed(&book_config);
+        let scale_factor = calc_needed_scaling_around_center_for_bleed(&layout, &book_config);
         let expected_scale_factor = 52.0 / 45.0;
         assert_relative_eq!(scale_factor, expected_scale_factor, epsilon = 1e-6);
     }
@@ -210,7 +214,7 @@ mod tests {
             ..Default::default()
         };
 
-        let zoomed_layout = layout.zoom_to_respect_bleed(&book_config);
+        let zoomed_layout = zoom_to_respect_bleed(&layout, &book_config);
         let exp_scale_factor = 52.0 / 45.0;
         let (center_x, center_y) = canvas.center();
 

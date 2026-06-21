@@ -8,7 +8,7 @@ mod book_config;
 mod book_layout_solver_config;
 mod cover_config;
 mod fitness_weights;
-mod ga_config;
+mod page_layout_solver_config;
 mod preview_config;
 mod project_config;
 
@@ -17,6 +17,6 @@ pub use book_config::{BookConfig, CanvasConfig};
 pub use book_layout_solver_config::{BookLayoutSolverConfig, ValidationError};
 pub use cover_config::{CoverConfig, CoverMode, SpineConfig};
 pub use fitness_weights::FitnessWeights;
-pub use ga_config::PageLayoutSolverConfig;
+pub use page_layout_solver_config::PageLayoutSolverConfig;
 pub use preview_config::PreviewConfig;
 pub use project_config::ProjectConfig;

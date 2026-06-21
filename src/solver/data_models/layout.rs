@@ -165,7 +165,7 @@ impl SolverPageLayout {
         SolverPageLayout::new(centered_placements, self.canvas)
     }
 
-    pub(super) fn bounding_box(&self) -> [f64; 4] {
+    pub(crate) fn bounding_box(&self) -> [f64; 4] {
         let mut min_x = f64::MAX;
         let mut min_y = f64::MAX;
         let mut max_x = f64::MIN;

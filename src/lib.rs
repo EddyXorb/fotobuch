@@ -37,8 +37,8 @@
 //! // Define solver parameters (use defaults for simplicity)
 //! let solver_config = BookLayoutSolverConfig::default();
 //!
-//! // Define GA configuration
-//! let ga_config = PageLayoutSolverConfig::default();
+//! // Define page layout configuration
+//! let page_layout_config = PageLayoutSolverConfig::default();
 //!
 //! // Load photo groups (from directory or other source)
 //! let photo_groups: Vec<PhotoGroup> = vec![/* ... */];
@@ -47,7 +47,7 @@
 //! let request = Request {
 //!     request_type: RequestType::MultiPage { config: &solver_config },
 //!     groups: &photo_groups,
-//!     ga_config: &ga_config,
+//!     page_layout_config: &page_layout_config,
 //!     canvas_config: &book_config,
 //! };
 //!
