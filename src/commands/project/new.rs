@@ -15,7 +15,7 @@ use std::path::{Path, PathBuf};
 pub use validation::validate_project_name;
 
 use crate::commands::CommandOutput;
-use crate::dto_models::ProjectState;
+use crate::dto_models::{ProjectState, read_state_yaml};
 use crate::git;
 
 /// Configuration for creating a new project
@@ -124,7 +124,7 @@ pub fn project_new(
 }
 
 fn load_new_project_state(result: &NewResult) -> Result<ProjectState> {
-    ProjectState::load(&result.yaml_path)
+    read_state_yaml(&result.yaml_path)
 }
 
 #[derive(Debug, Clone, Copy)]

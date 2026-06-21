@@ -1,8 +1,7 @@
 //! Project state structures for fotobuch.yaml
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use std::path::Path;
 
 use crate::dto_models::*;
 
@@ -19,28 +18,6 @@ pub struct ProjectState {
 }
 
 impl ProjectState {
-    /// Load project state from fotobuch.yaml
-    pub fn load(path: &Path) -> Result<Self> {
-        let contents = std::fs::read_to_string(path)
-            .with_context(|| format!("Failed to read {}", path.display()))?;
-
-        let state: ProjectState = serde_yaml::from_str(&contents)
-            .with_context(|| format!("Failed to parse YAML from {}", path.display()))?;
-
-        Ok(state)
-    }
-
-    /// Save project state to fotobuch.yaml
-    pub fn save(&self, path: &Path) -> Result<()> {
-        let yaml =
-            serde_yaml::to_string(self).context("Failed to serialize project state to YAML")?;
-
-        std::fs::write(path, yaml)
-            .with_context(|| format!("Failed to write {}", path.display()))?;
-
-        Ok(())
-    }
-
     /// Returns true if the cover page is configured and active.
     pub fn has_cover(&self) -> bool {
         self.config.book.cover.active
@@ -148,6 +125,7 @@ impl ProjectState {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::dto_models::{read_state_yaml, write_state_yaml};
     use tempfile::TempDir;
 
     fn make_photo(id: &str) -> PhotoFile {
@@ -313,11 +291,11 @@ mod tests {
         };
 
         // Save
-        state.save(&yaml_path).unwrap();
+        write_state_yaml(&state, &yaml_path).unwrap();
         assert!(yaml_path.exists());
 
         // Load
-        let loaded = ProjectState::load(&yaml_path).unwrap();
+        let loaded = read_state_yaml(&yaml_path).unwrap();
         assert_eq!(loaded.config.book.page_width_mm, 420.0);
     }
 

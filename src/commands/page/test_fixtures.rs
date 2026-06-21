@@ -2,7 +2,7 @@
 
 use crate::dto_models::{
     BookConfig, BookLayoutSolverConfig, LayoutPage, PageMode, PhotoFile, PhotoGroup, ProjectConfig,
-    ProjectState, Slot,
+    ProjectState, Slot, write_state_yaml,
 };
 use crate::git;
 use tempfile::TempDir;
@@ -73,7 +73,7 @@ pub fn setup_repo(tmp: &TempDir, state: &ProjectState) {
     drop(config);
 
     std::fs::write(tmp.path().join(".gitignore"), ".fotobuch/\n*.pdf\nlog*\n").unwrap();
-    state.save(&tmp.path().join("urlaub.yaml")).unwrap();
+    write_state_yaml(state, &tmp.path().join("urlaub.yaml")).unwrap();
     git::stage_and_commit(&repo, &[".gitignore", "urlaub.yaml"], "init").unwrap();
     git::create_branch(&repo, "fotobuch/urlaub").unwrap();
 }

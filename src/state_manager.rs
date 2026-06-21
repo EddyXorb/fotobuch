@@ -18,7 +18,7 @@ use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 use tracing::{debug, warn};
 
-use crate::dto_models::{LayoutPage, ProjectState};
+use crate::dto_models::{LayoutPage, ProjectState, read_state_yaml, write_state_yaml};
 use crate::git;
 use crate::state_manager::state_diff::StateDiff;
 
@@ -88,7 +88,7 @@ impl StateManager {
             .to_owned();
 
         let yaml_path = project_root.join(format!("{project_name}.yaml"));
-        let mut state = ProjectState::load(&yaml_path)
+        let mut state = read_state_yaml(&yaml_path)
             .with_context(|| format!("Failed to load {}", yaml_path.display()))?;
 
         // Resolve any relative photo source paths stored by older CLI invocations.
@@ -229,8 +229,7 @@ impl StateManager {
 
         let yaml_name = format!("{}.yaml", self.project_name);
         let typst_name = format!("{}.typ", self.project_name);
-        self.state
-            .save(&self.project_root.join(&yaml_name))
+        write_state_yaml(&self.state, &self.project_root.join(&yaml_name))
             .context("Failed to save YAML")?;
 
         let commit_msg = if diff.is_empty() {
@@ -402,7 +401,7 @@ pub fn load_project_state(project_root: &Path) -> Result<ProjectState> {
         )
     })?;
     let yaml_path = project_root.join(format!("{project_name}.yaml"));
-    ProjectState::load(&yaml_path)
+    read_state_yaml(&yaml_path)
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -427,7 +426,7 @@ mod tests {
     use super::*;
     use crate::dto_models::{
         BookConfig, BookLayoutSolverConfig, LayoutPage, PageMode, PhotoFile, PhotoGroup,
-        ProjectConfig, ProjectState, Slot,
+        ProjectConfig, ProjectState, Slot, write_state_yaml,
     };
     use tempfile::TempDir;
 
@@ -591,7 +590,7 @@ mod tests {
         )
         .unwrap();
         let state = make_state("Urlaub");
-        state.save(&tmp.path().join("urlaub.yaml")).unwrap();
+        write_state_yaml(&state, &tmp.path().join("urlaub.yaml")).unwrap();
 
         // Initial commit on master, then create fotobuch/urlaub branch
         git::stage_and_commit(&repo, &[".gitignore", "urlaub.yaml"], "init").unwrap();
@@ -723,7 +722,7 @@ mod tests {
         {
             let mut state = make_state("Urlaub");
             state.config.book.title = "ManualEdit".to_owned();
-            state.save(&tmp.path().join("urlaub.yaml")).unwrap();
+            write_state_yaml(&state, &tmp.path().join("urlaub.yaml")).unwrap();
         }
 
         // open() should detect the diff vs HEAD and auto-commit
