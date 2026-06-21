@@ -100,46 +100,18 @@ in Kürze:
 
 ## 5. Domänenmodell (`dto_models`)
 
-### 5.1 Name `dto_models` irreführend
+**Status: offen** (Teil 5.2 Cover-Geometrie bereits erledigt, siehe
+[`02-cover.md`](./02-cover.md)). Vollständiger Plan:
+[`05-dto-models.md`](./05-dto-models.md). Befunde in Kürze:
 
-"DTO" suggeriert logiklose Transporthüllen; das Modul enthält aber Domänenlogik:
-`ProjectState::check_validity()` (`state.rs:91–145`), `page_dimensions_mm()`,
-`auto_page_indices()`, `BookLayoutSolverConfig::validate()`
-(`book_layout_solver_config.rs:184–252`). Besser `models` / `domain`.
-
-### 5.2 Logik liegt auf Config-/State-DTOs
-
-- **`ProjectState` ist ein Gott-Objekt-Keim** (`state.rs`): Persistence (`load`/
-  `save`, Datei-I/O), Validierung (`check_validity`) und Domain-Queries in einem
-  Typ. Persistence aus dem Domänentyp herauslösen.
-- **Cover-Geometrie** auf `CoverConfig` (`cover_config.rs:144–173`) → in ein
-  eigenes Wertobjekt; ausgearbeitet im Plan [`02-cover.md`](./02-cover.md).
-- **`BookLayoutSolverConfig::validate(total_photos)`** braucht Anwendungszustand
-  (Fotoanzahl) → eigener Validator/Service statt Methode auf dem Config-DTO.
-- **`CanvasConfig`-Trait** in `book_config.rs:31` definiert, aber einziger
-  Konsument ist der Solver (`canvas.rs:48`) → näher an `solver` oder in ein
-  `traits`-Modul.
-
-### 5.3 Redundanz & schwache Typen
-
-- **`aspect_ratio()` 3× identisch** (`photo_file.rs:31`, `canvas.rs:42`,
-  `layout.rs:74`) → gemeinsames Trait/Helfer.
-- **`LayoutPage.page` denormalisierte Index-Invariante** (`layout_page.rs:24`,
-  muss `== layout[i]`-Index sein, wird von `renumber_pages`/`check_validity`
-  bewacht). Wenn das Array kanonisch ordnet, ist das Feld redundanter Bug-Boden —
-  Wegfall erwägen.
-- **`PhotoGroup.sort_key: String`** (`photo_group.rs:11`) ist faktisch immer ein
-  ISO-8601-Timestamp → `DateTime<Utc>`/`NaiveDate` (analog `PhotoFile.timestamp`),
-  schwacher Name → `group_timestamp`.
-- **`CoverMode`-Default-Falle:** Enum-`#[default]` ist `Free`
-  (`cover_config.rs:15`), `CoverConfig::default().mode` aber `Split` (`:130`) —
-  je nach Aufruf unterschiedliches Default. Vereinheitlichen.
-- **Deprecated-Felder** im aktiven DTO (`book_layout_solver_config.rs:51–66`:
-  `mip_rel_gap` u. a., "nur für Deserialisierung") → Migrationsschritt oder
-  separater Legacy-Typ.
-- **`BookConfig` enthält `cover`/`appendix` als Kinder** (`book_config.rs:7`) →
-  vierstellige Zugriffspfade; flachere `ProjectConfig`-Struktur mit
-  `Option<CoverConfig>` erwägen.
+- **Name `dto_models`** suggeriert Logiklosigkeit, ist aber Domänenmodell.
+- **Logik auf DTOs:** `ProjectState` als Gott-Objekt-Keim (Persistence +
+  Queries + Validierung), `BookLayoutSolverConfig::validate(total_photos)` auf
+  dem Config-DTO, `CanvasConfig`-Trait in einer spezifischen Config-Datei.
+- **Schwache Typen/Redundanz:** `aspect_ratio()` 3×, `PhotoGroup.sort_key: String`
+  (eigentlich Timestamp), `CoverMode`-Default-Falle (`Free` vs. `Split`),
+  Deprecated-Felder im aktiven Config, `BookConfig` mit Pflicht-Kindern,
+  denormalisiertes `LayoutPage.page`.
 
 ---
 
@@ -465,6 +437,8 @@ Themenblock in eigenen Dateien neben diesem Dokument:
 - [`03-build-structure.md`](./03-build-structure.md) — Benennung & Kohäsion im
   build-Pfad (Abschnitt 3; Strukturbefunde bereits erledigt).
 - [`04-solver.md`](./04-solver.md) — Modul-/Namensstruktur des Solvers
-  (Abschnitt 4; offen).
+  (Abschnitt 4; umgesetzt).
+- [`05-dto-models.md`](./05-dto-models.md) — Domänenmodell entlogiken & Typen
+  stärken (Abschnitt 5; offen).
 
-Weitere Pläne (`dto_models`, Commands …) folgen demselben Schema.
+Weitere Pläne (Commands …) folgen demselben Schema.
