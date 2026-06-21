@@ -79,13 +79,13 @@ impl StateDiff {
 
 /// Count differing leaf values in the config section by serialising both states
 /// to `serde_yaml::Value` and recursively comparing leaves.
-pub fn count_config_changes(old: &ProjectState, new: &ProjectState) -> usize {
+fn count_config_changes(old: &ProjectState, new: &ProjectState) -> usize {
     let old_val = serde_yaml::to_value(&old.config).unwrap_or(Value::Null);
     let new_val = serde_yaml::to_value(&new.config).unwrap_or(Value::Null);
     count_value_diffs(&old_val, &new_val)
 }
 
-pub fn count_value_diffs(a: &Value, b: &Value) -> usize {
+fn count_value_diffs(a: &Value, b: &Value) -> usize {
     match (a, b) {
         (Value::Mapping(ma), Value::Mapping(mb)) => {
             let keys: HashSet<_> = ma.keys().chain(mb.keys()).collect();
@@ -105,7 +105,7 @@ pub fn count_value_diffs(a: &Value, b: &Value) -> usize {
 /// Returns (added, removed, modified) photo counts.
 ///
 /// Modified = same photo ID but different `area_weight` or pixel dimensions.
-pub fn diff_photos(old: &[PhotoGroup], new: &[PhotoGroup]) -> (usize, usize, usize) {
+fn diff_photos(old: &[PhotoGroup], new: &[PhotoGroup]) -> (usize, usize, usize) {
     let old_map: std::collections::HashMap<&str, &crate::models::PhotoFile> = old
         .iter()
         .flat_map(|g| g.files.iter().map(|f| (f.id.as_str(), f)))
@@ -135,7 +135,7 @@ pub fn diff_photos(old: &[PhotoGroup], new: &[PhotoGroup]) -> (usize, usize, usi
 /// Returns (pages_added, pages_removed, pages_modified).
 ///
 /// Modified = a page that exists in both old and new but has different slots.
-pub fn diff_pages(old: &[LayoutPage], new: &[LayoutPage]) -> (usize, usize, usize) {
+fn diff_pages(old: &[LayoutPage], new: &[LayoutPage]) -> (usize, usize, usize) {
     let old_map: std::collections::HashMap<usize, &LayoutPage> = old.iter().enumerate().collect();
     let new_map: std::collections::HashMap<usize, &LayoutPage> = new.iter().enumerate().collect();
 
