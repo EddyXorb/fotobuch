@@ -279,7 +279,7 @@ impl StateManager {
         }
     }
 
-    /// Resolves `build_baseline` from `Pending` to either `Loaded` or `NoBuildCommit`.
+    /// Resolves `build_baseline` from `Pending` to either `Loaded` or `Failed`.
     /// No-op when already resolved.
     fn ensure_build_baseline(&self) {
         if matches!(*self.build_baseline.borrow(), LazyLoad::Pending) {
