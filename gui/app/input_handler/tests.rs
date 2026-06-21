@@ -190,7 +190,6 @@ fn nav_drag_complete_noop_when_same_page() {
 fn layout_page_with_slots(page: usize, n_slots: usize) -> fotobuch::models::LayoutPage {
     use fotobuch::models::{LayoutPage, PageMode, Slot};
     LayoutPage {
-        page,
         photos: vec![],
         slots: (0..n_slots)
             .map(|_| Slot {

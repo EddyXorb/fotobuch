@@ -104,7 +104,6 @@ mod tests {
     fn layout_page(slots: Vec<Slot>) -> LayoutPage {
         let photos = vec!["x".to_string(); slots.len()];
         LayoutPage {
-            page: 0,
             photos,
             slots,
             mode: PageMode::Auto,
