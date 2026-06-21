@@ -1,10 +1,12 @@
+use std::time::Duration;
+
 use serde::{Deserialize, Serialize};
 
 use super::fitness_weights::FitnessWeights;
 
-/// Genetic algorithm configuration (persisted in YAML, mirrors internal GaConfig)
+/// Genetic algorithm configuration (persisted in YAML, mirrors internal PageLayoutSolverConfig)
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GaConfig {
+pub struct PageLayoutSolverConfig {
     #[serde(default = "default_seed")]
     pub seed: u64,
     #[serde(default = "default_population_size")]
@@ -37,9 +39,17 @@ pub struct GaConfig {
     /// Enable deterministic in-page photo ordering via DFS-preorder assignment.
     #[serde(default = "default_enforce_order")]
     pub enforce_order: bool,
+
+    /// Tournament size for selection (number of candidates per tournament).
+    #[serde(default = "default_tournament_size")]
+    pub tournament_size: usize,
+
+    /// Per-page layout timeout in milliseconds; absent means unlimited.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub timeout_ms: Option<u64>,
 }
 
-impl Default for GaConfig {
+impl Default for PageLayoutSolverConfig {
     fn default() -> Self {
         Self {
             islands_nr: default_islands_nr(),
@@ -54,7 +64,15 @@ impl Default for GaConfig {
             no_improvement_limit: default_no_improvement_limit(),
             weights: FitnessWeights::default(),
             enforce_order: default_enforce_order(),
+            tournament_size: default_tournament_size(),
+            timeout_ms: None,
         }
+    }
+}
+
+impl PageLayoutSolverConfig {
+    pub fn timeout(&self) -> Option<Duration> {
+        self.timeout_ms.map(Duration::from_millis)
     }
 }
 
@@ -104,13 +122,17 @@ fn default_enforce_order() -> bool {
     true
 }
 
+fn default_tournament_size() -> usize {
+    3
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_ga_config_default() {
-        let config = GaConfig::default();
+    fn test_default() {
+        let config = PageLayoutSolverConfig::default();
         assert_eq!(config.population_size, 750);
         assert_eq!(config.max_generations, 100);
         assert!(config.islands_nr >= 1);

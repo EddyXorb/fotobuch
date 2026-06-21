@@ -1,11 +1,11 @@
 //! Improvement algorithm for local search.
 use tracing::debug;
 
-use super::super::model::{GroupInfo, PageAssignment, Params};
+use super::super::model::{BookLayoutSolverConfig, GroupInfo, PageAssignment};
 use super::PageLayoutEvaluator;
 use super::cache::PhotoCombinationCache;
 use super::perturbation::{generate_perturbations, max_perturbation_delta, try_perturbation};
-use crate::solver::page_layout_solver::{CostBreakdown, GaResult};
+use crate::solver::page_layout_solver::{CostBreakdown, PageLayoutResult};
 use crate::solver::prelude::*;
 use std::time::Instant;
 
@@ -29,7 +29,7 @@ pub struct LocalSearchResult {
 
 /// Improves a page assignment using variable neighborhood search.
 ///
-/// `initial_layouts` holds the already-computed [`GaResult`] for each page of the
+/// `initial_layouts` holds the already-computed [`PageLayoutResult`] for each page of the
 /// starting `assignment` (page order). They seed the layout cache, so the search
 /// starts from precomputed layouts and never re-evaluates the initial pages.
 ///
@@ -42,13 +42,13 @@ pub struct LocalSearchResult {
 /// 3. Return best assignment, its per-page layouts, worst total cost, and iteration count
 pub fn improve(
     mut assignment: PageAssignment,
-    initial_layouts: Vec<GaResult>,
+    initial_layouts: Vec<PageLayoutResult>,
     photos: &[Photo],
     groups: &GroupInfo,
-    params: &Params,
+    params: &BookLayoutSolverConfig,
     evaluator: &impl PageLayoutEvaluator,
 ) -> LocalSearchResult {
-    let mut cache: PhotoCombinationCache<GaResult> = PhotoCombinationCache::new();
+    let mut cache: PhotoCombinationCache<PageLayoutResult> = PhotoCombinationCache::new();
     seed_cache(&mut cache, &assignment, photos, initial_layouts);
     let deadline = Instant::now() + params.search_timeout;
     let max_delta = max_perturbation_delta(params);
@@ -146,13 +146,13 @@ pub fn improve(
 
 /// Seeds the layout cache with the precomputed layouts of the initial pages.
 ///
-/// `layouts[page_idx]` is the [`GaResult`] for page `page_idx` of `assignment`,
+/// `layouts[page_idx]` is the [`PageLayoutResult`] for page `page_idx` of `assignment`,
 /// so the search reuses these instead of re-running the page layout solver.
 fn seed_cache(
-    cache: &mut PhotoCombinationCache<GaResult>,
+    cache: &mut PhotoCombinationCache<PageLayoutResult>,
     assignment: &PageAssignment,
     photos: &[Photo],
-    layouts: Vec<GaResult>,
+    layouts: Vec<PageLayoutResult>,
 ) {
     for (page_idx, result) in layouts.into_iter().enumerate() {
         let range = assignment.page_range(page_idx);
@@ -168,7 +168,7 @@ fn seed_cache(
 fn extract_page_layouts(
     assignment: &PageAssignment,
     photos: &[Photo],
-    cache: &PhotoCombinationCache<GaResult>,
+    cache: &PhotoCombinationCache<PageLayoutResult>,
 ) -> Vec<SolverPageLayout> {
     (0..assignment.num_pages())
         .map(|page_idx| {
@@ -187,7 +187,7 @@ fn compute_worst_fitness_across_pages(
     pages_to_check: impl IntoIterator<Item = usize>,
     assignment: &PageAssignment,
     photos: &[Photo],
-    cache: &mut PhotoCombinationCache<GaResult>,
+    cache: &mut PhotoCombinationCache<PageLayoutResult>,
     evaluator: &impl PageLayoutEvaluator,
 ) -> f64 {
     pages_to_check
@@ -200,12 +200,12 @@ fn compute_worst_fitness_across_pages(
         .unwrap_or(0.0)
 }
 
-/// Evaluates a single page using the evaluator, caching the full GaResult.
+/// Evaluates a single page using the evaluator, caching the full PageLayoutResult.
 ///
 /// Returns the `CostBreakdown` for use by the search algorithm.
 fn evaluate_page(
     evaluator: &impl PageLayoutEvaluator,
-    cache: &mut PhotoCombinationCache<GaResult>,
+    cache: &mut PhotoCombinationCache<PageLayoutResult>,
     photos: &[Photo],
 ) -> CostBreakdown {
     if let Some(result) = cache.get(photos) {
@@ -224,7 +224,7 @@ fn evaluate_page(
 fn find_candidate_cuts(
     assignment: &PageAssignment,
     photos: &[Photo],
-    cache: &mut PhotoCombinationCache<GaResult>,
+    cache: &mut PhotoCombinationCache<PageLayoutResult>,
     evaluator: &impl PageLayoutEvaluator,
 ) -> Vec<usize> {
     let num_pages = assignment.num_pages();
@@ -257,7 +257,7 @@ mod tests {
 
     use super::*;
     use crate::solver::data_models::Canvas;
-    use crate::solver::page_layout_solver::{CostBreakdown, GaResult};
+    use crate::solver::page_layout_solver::{CostBreakdown, PageLayoutResult};
     use std::time::Duration;
 
     struct MockEvaluator {
@@ -265,7 +265,7 @@ mod tests {
     }
 
     impl PageLayoutEvaluator for MockEvaluator {
-        fn evaluate(&self, photos: &[Photo]) -> GaResult {
+        fn evaluate(&self, photos: &[Photo]) -> PageLayoutResult {
             let count = photos.len();
             let deviation = (count as i32 - self.ideal_count as i32).abs() as f64;
             let total = deviation * 0.2;
@@ -275,7 +275,7 @@ mod tests {
                 coverage: 0.1,
                 barycenter: 0.01,
             };
-            GaResult {
+            PageLayoutResult {
                 layout: SolverPageLayout::new(vec![], Canvas::new(297.0, 210.0, 5.0)),
                 fitness: breakdown.total,
                 cost_breakdown: breakdown,
@@ -296,8 +296,8 @@ mod tests {
             .collect()
     }
 
-    fn create_test_params() -> Params {
-        Params {
+    fn create_test_params() -> BookLayoutSolverConfig {
+        BookLayoutSolverConfig {
             photos_per_page_min: 4,
             photos_per_page_max: 10,
             page_min: 1,
@@ -321,13 +321,13 @@ mod tests {
         GroupInfo::new(&[12])
     }
 
-    /// Precomputes the per-page `GaResult` for an assignment, as the caller does
+    /// Precomputes the per-page `PageLayoutResult` for an assignment, as the caller does
     /// before handing the assignment to `improve`.
     fn eval_pages(
         assignment: &PageAssignment,
         photos: &[Photo],
         evaluator: &impl PageLayoutEvaluator,
-    ) -> Vec<GaResult> {
+    ) -> Vec<PageLayoutResult> {
         (0..assignment.num_pages())
             .map(|page_idx| evaluator.evaluate(&photos[assignment.page_range(page_idx)]))
             .collect()
@@ -434,7 +434,7 @@ mod tests {
     fn test_find_candidate_cuts_returns_all_movable_cuts() {
         let photos = create_test_photos(12);
         let mut evaluator = MockEvaluator { ideal_count: 6 };
-        let mut cache: PhotoCombinationCache<GaResult> = PhotoCombinationCache::new();
+        let mut cache: PhotoCombinationCache<PageLayoutResult> = PhotoCombinationCache::new();
 
         // [0, 4, 8, 12] → 4 cuts, index 0 is immutable → 3 candidates
         let assignment = PageAssignment::new(vec![0, 4, 8, 12]);
@@ -451,7 +451,7 @@ mod tests {
         // ideal=4: pages [0..4]=0, [4..8]=0, [8..12]=0 → all zero
         // Use asymmetric assignment to get different coverages
         let mut evaluator = MockEvaluator { ideal_count: 10 };
-        let mut cache: PhotoCombinationCache<GaResult> = PhotoCombinationCache::new();
+        let mut cache: PhotoCombinationCache<PageLayoutResult> = PhotoCombinationCache::new();
 
         // [0, 4, 8, 12] → pages of 4, 4, 4 (all deviation=6 from ideal 10)
         let assignment = PageAssignment::new(vec![0, 4, 8, 12]);

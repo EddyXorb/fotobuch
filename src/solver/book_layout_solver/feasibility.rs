@@ -2,7 +2,7 @@
 //!
 //! Validates that a `PageAssignment` satisfies all hard constraints.
 
-use super::model::{GroupInfo, PageAssignment, Params};
+use super::model::{BookLayoutSolverConfig, GroupInfo, PageAssignment};
 use thiserror::Error;
 
 /// Constraint violation error.
@@ -58,7 +58,7 @@ pub enum ConstraintViolation {
 pub fn check_feasibility(
     assignment: &PageAssignment,
     groups: &GroupInfo,
-    params: &Params,
+    params: &BookLayoutSolverConfig,
 ) -> Result<(), ConstraintViolation> {
     // 1. Check page count
     let page_count = assignment.num_pages();
@@ -163,8 +163,8 @@ mod tests {
     use super::*;
     use std::time::Duration;
 
-    fn default_params() -> Params {
-        Params {
+    fn default_params() -> BookLayoutSolverConfig {
+        BookLayoutSolverConfig {
             page_target: 2,
             page_min: 1,
             page_max: 5,
@@ -202,7 +202,7 @@ mod tests {
     fn test_feasibility_page_count_too_small() {
         let groups = GroupInfo::new(&[5, 5]);
         let assignment = PageAssignment::new(vec![0, 10]); // 1 page
-        let params = Params {
+        let params = BookLayoutSolverConfig {
             page_min: 2,
             ..default_params()
         };
@@ -221,7 +221,7 @@ mod tests {
     fn test_feasibility_page_count_too_large() {
         let groups = GroupInfo::new(&[3, 3, 3, 3, 3, 3]);
         let assignment = PageAssignment::new(vec![0, 3, 6, 9, 12, 15, 18]); // 6 pages
-        let params = Params {
+        let params = BookLayoutSolverConfig {
             page_max: 5,
             ..default_params()
         };
@@ -240,7 +240,7 @@ mod tests {
     fn test_feasibility_page_size_too_small() {
         let groups = GroupInfo::new(&[5, 5]);
         let assignment = PageAssignment::new(vec![0, 2, 10]); // page 0 has 2 photos
-        let params = Params {
+        let params = BookLayoutSolverConfig {
             photos_per_page_min: 3,
             ..default_params()
         };
@@ -260,7 +260,7 @@ mod tests {
     fn test_feasibility_page_size_too_large() {
         let groups = GroupInfo::new(&[15]);
         let assignment = PageAssignment::new(vec![0, 15]); // page 0 has 15 photos
-        let params = Params {
+        let params = BookLayoutSolverConfig {
             photos_per_page_max: 10,
             ..default_params()
         };
@@ -280,7 +280,7 @@ mod tests {
     fn test_feasibility_too_many_groups() {
         let groups = GroupInfo::new(&[2, 2, 2, 2]);
         let assignment = PageAssignment::new(vec![0, 8]); // 4 groups on one page
-        let params = Params {
+        let params = BookLayoutSolverConfig {
             group_max_per_page: 3,
             photos_per_page_max: 10,
             ..default_params()
@@ -302,7 +302,7 @@ mod tests {
         // Split group 0: 2 photos on page 0, 3 photos on page 1
         // Group size (5) >= g_min (3), but portion (2) < g_min
         let assignment = PageAssignment::new(vec![0, 2, 10]);
-        let params = Params {
+        let params = BookLayoutSolverConfig {
             photos_per_page_min: 2,
             group_min_photos: 3,
             ..default_params()
@@ -325,7 +325,7 @@ mod tests {
         let groups = GroupInfo::new(&[2, 2]);
         // Split small groups (size < g_min) is allowed
         let assignment = PageAssignment::new(vec![0, 1, 4]);
-        let params = Params {
+        let params = BookLayoutSolverConfig {
             photos_per_page_min: 1,
             group_min_photos: 3,
             ..default_params()

@@ -7,10 +7,10 @@
 //! - `individual`: LayoutIndividual implementing Individual trait
 //! - `evolution`: Evolution dynamics for photo layouts
 
-mod affine_solver;
 mod evolution;
 mod fitness;
 mod individual;
+mod placer;
 mod tree;
 
 use crate::solver::prelude::*;
@@ -19,9 +19,9 @@ pub use fitness::CostBreakdown;
 pub use individual::LayoutIndividual;
 use tracing::debug;
 
-/// Result of a genetic algorithm run for a single page layout.
+/// Result of solving a single page layout.
 #[derive(Debug, Clone)]
-pub struct GaResult {
+pub struct PageLayoutResult {
     /// The corresponding page layout with photo placements.
     pub layout: SolverPageLayout,
     /// The raw fitness value (lower is better).
@@ -31,46 +31,45 @@ pub struct GaResult {
 }
 
 /// Entry point for running GA on a single page layout.
-pub fn run_ga(photos: &[Photo], canvas: &Canvas, ga_config: &GaConfig) -> GaResult {
-    use crate::solver::ga_solver::{Config, GeneticAlgorithm, Individual};
+pub fn solve_page_layout(
+    photos: &[Photo],
+    canvas: &Canvas,
+    config: &PageLayoutSolverConfig,
+) -> PageLayoutResult {
+    use crate::solver::algorithms::genetic_algorithm::{Config, GeneticAlgorithm, Individual};
 
     let start_time = std::time::Instant::now();
 
-    // Create evaluation context
     let context = evolution::EvaluationContext::new(
         photos,
         canvas,
-        &ga_config.weights,
-        ga_config.enforce_order,
-        42,
+        &config.weights,
+        config.enforce_order,
+        config.seed,
     );
 
-    // Create initial population
-    let initial_pop = create_initial_population(&context, ga_config.population_size);
+    let initial_pop = create_initial_population(&context, config.population_size);
 
-    // Create GA configuration
-    let config = Config {
-        population: ga_config.population_size,
-        generations: ga_config.max_generations,
-        elitism_ratio: ga_config.elite_count as f64 / ga_config.population_size as f64,
-        timeout: None, // TODO: Add timeout to dto_models::GaConfig
-        no_improvement_limit: ga_config.no_improvement_limit,
-        islands: ga_config.islands_nr,
-        migration_interval: ga_config.islands_migration_interval,
-        migrants: ga_config.islands_nr_migrants,
+    let ga_config = Config {
+        population: config.population_size,
+        generations: config.max_generations,
+        elitism_ratio: config.elite_count as f64 / config.population_size as f64,
+        timeout: config.timeout(),
+        no_improvement_limit: config.no_improvement_limit,
+        islands: config.islands_nr,
+        migration_interval: config.islands_migration_interval,
+        migrants: config.islands_nr_migrants,
     };
 
-    // Create evolution dynamics
-    let tournament_size = 3; // TODO: Add tournament_size to dto_models::GaConfig
     let evolution = LayoutEvolution::new(
         context,
-        tournament_size,
-        ga_config.crossover_rate,
-        ga_config.mutation_rate,
+        config.tournament_size,
+        config.crossover_rate,
+        config.mutation_rate,
     );
 
     // Run GA
-    let mut ga = GeneticAlgorithm::new(config, evolution);
+    let mut ga = GeneticAlgorithm::new(ga_config, evolution);
     let best = ga.solve(initial_pop).expect("GA returned no solution");
 
     // Extract results
@@ -79,7 +78,7 @@ pub fn run_ga(photos: &[Photo], canvas: &Canvas, ga_config: &GaConfig) -> GaResu
     let fitness = best.fitness();
 
     // Log cost breakdown
-    let cost_breakdown = fitness::cost_breakdown(&layout, photos, canvas, &ga_config.weights);
+    let cost_breakdown = fitness::cost_breakdown(&layout, photos, canvas, &config.weights);
     debug!(
         "Finished layout for one page after {}ms. Fitness: total={:.4}  size={:.4}  coverage={:.4}  bary={:.4}",
         start_time.elapsed().as_millis(),
@@ -89,7 +88,7 @@ pub fn run_ga(photos: &[Photo], canvas: &Canvas, ga_config: &GaConfig) -> GaResu
         cost_breakdown.barycenter,
     );
 
-    GaResult {
+    PageLayoutResult {
         layout,
         fitness,
         cost_breakdown,

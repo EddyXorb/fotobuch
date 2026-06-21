@@ -1,7 +1,7 @@
 use super::cover_page::{build_cover_page, split_cover_photos, update_cover_page};
 use crate::dto_models::{
-    BookConfig, BookLayoutSolverConfig, GaConfig, LayoutPage, PageMode, PhotoFile, PhotoGroup,
-    ProjectState, build_photo_index,
+    BookConfig, BookLayoutSolverConfig, LayoutPage, PageLayoutSolverConfig, PageMode, PhotoFile,
+    PhotoGroup, ProjectState, build_photo_index,
 };
 use crate::solver::{Request, RequestType, run_solver};
 use anyhow::Result;
@@ -29,7 +29,7 @@ pub(super) fn solve_multipage(
 struct SolverPlan {
     groups: Vec<PhotoGroup>,
     solver_config: BookLayoutSolverConfig,
-    ga_config: GaConfig,
+    page_layout_solver_config: PageLayoutSolverConfig,
     book_config: BookConfig,
     /// Structured-cover photos split off the front (full-book solve only).
     cover_files: Option<Vec<PhotoFile>>,
@@ -65,7 +65,7 @@ impl SolverPlan {
         Self {
             groups,
             solver_config,
-            ga_config: state.config.page_layout_solver.clone(),
+            page_layout_solver_config: state.config.page_layout_solver.clone(),
             book_config,
             cover_files,
             manual_snapshots,
@@ -76,10 +76,11 @@ impl SolverPlan {
     /// The solver request, borrowing this plan's owned inputs.
     fn request(&self) -> Request<'_, BookConfig> {
         Request {
-            request_type: RequestType::MultiPage,
+            request_type: RequestType::MultiPage {
+                config: &self.solver_config,
+            },
             groups: &self.groups,
-            config: &self.solver_config,
-            ga_config: &self.ga_config,
+            page_layout_config: &self.page_layout_solver_config,
             canvas_config: &self.book_config,
         }
     }

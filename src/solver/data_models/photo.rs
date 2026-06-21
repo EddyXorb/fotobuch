@@ -1,4 +1,4 @@
-use crate::dto_models::{PhotoFile, PhotoGroup};
+use crate::dto_models::PhotoFile;
 
 /// Photo model for the layout solver with optimization metadata.
 #[derive(Debug, Clone)]
@@ -61,34 +61,6 @@ impl Photo {
             area_weight: file.area_weight,
             group: group.to_string(),
         }
-    }
-
-    /// Converts a slice of PhotoGroups to a Vec of Photos.
-    ///
-    /// Flattens all PhotoFiles from all groups into a single vector.
-    /// Each photo gets its group name from the containing PhotoGroup.
-    ///
-    /// # Arguments
-    ///
-    /// * `groups` - Slice of PhotoGroups to convert
-    ///
-    /// # Returns
-    ///
-    /// A vector of Photos with proper group assignments
-    pub fn from_photo_groups(groups: &[PhotoGroup]) -> Vec<Self> {
-        let mut groups_copy = groups.to_vec();
-        for group in &mut groups_copy {
-            group.files.sort_by_key(|a| a.timestamp);
-        }
-        groups_copy
-            .iter()
-            .flat_map(|group| {
-                group
-                    .files
-                    .iter()
-                    .map(|file| Self::from_photo_file(file, &group.group))
-            })
-            .collect()
     }
 }
 
@@ -157,123 +129,5 @@ mod tests {
         let portrait = portrait_photo("test");
         assert!(portrait.is_portrait());
         assert!(!portrait.is_landscape());
-    }
-
-    // Converter tests
-    mod converter_tests {
-        use super::*;
-        use chrono::Utc;
-
-        fn create_photo_file(id: &str, width: u32, height: u32) -> PhotoFile {
-            PhotoFile {
-                id: id.to_string(),
-                source: format!("test/{}.jpg", id),
-                width_px: width,
-                height_px: height,
-                area_weight: 1.0,
-                timestamp: Utc::now(),
-                hash: String::new(),
-            }
-        }
-
-        #[test]
-        fn test_from_photo_file() {
-            let file = create_photo_file("photo1", 1500, 1000);
-            let photo = Photo::from_photo_file(&file, "vacation");
-
-            assert_eq!(photo.id, "photo1");
-            assert_eq!(photo.aspect_ratio, 1.5);
-            assert_eq!(photo.area_weight, 1.0);
-            assert_eq!(photo.group, "vacation");
-        }
-
-        #[test]
-        fn test_from_photo_file_portrait() {
-            let file = create_photo_file("photo2", 1000, 1500);
-            let photo = Photo::from_photo_file(&file, "portraits");
-
-            assert_eq!(photo.id, "photo2");
-            assert_eq!(photo.aspect_ratio, 1000.0 / 1500.0);
-            assert!(photo.is_portrait());
-        }
-
-        #[test]
-        fn test_from_photo_groups_empty() {
-            let groups: Vec<PhotoGroup> = vec![];
-            let photos = Photo::from_photo_groups(&groups);
-
-            assert_eq!(photos.len(), 0);
-        }
-
-        #[test]
-        fn test_from_photo_groups_single_group() {
-            let group = PhotoGroup {
-                group: "vacation".to_string(),
-                sort_key: "2024-01-01".to_string(),
-                files: vec![
-                    create_photo_file("p1", 1500, 1000),
-                    create_photo_file("p2", 1000, 1500),
-                ],
-            };
-
-            let photos = Photo::from_photo_groups(&[group]);
-
-            assert_eq!(photos.len(), 2);
-            assert_eq!(photos[0].id, "p1");
-            assert_eq!(photos[0].group, "vacation");
-            assert_eq!(photos[1].id, "p2");
-            assert_eq!(photos[1].group, "vacation");
-        }
-
-        #[test]
-        fn test_from_photo_groups_multiple_groups() {
-            let groups = vec![
-                PhotoGroup {
-                    group: "group1".to_string(),
-                    sort_key: "2024-01-01".to_string(),
-                    files: vec![
-                        create_photo_file("g1p1", 1500, 1000),
-                        create_photo_file("g1p2", 1500, 1000),
-                    ],
-                },
-                PhotoGroup {
-                    group: "group2".to_string(),
-                    sort_key: "2024-01-02".to_string(),
-                    files: vec![create_photo_file("g2p1", 1000, 1500)],
-                },
-            ];
-
-            let photos = Photo::from_photo_groups(&groups);
-
-            assert_eq!(photos.len(), 3);
-            assert_eq!(photos[0].id, "g1p1");
-            assert_eq!(photos[0].group, "group1");
-            assert_eq!(photos[1].id, "g1p2");
-            assert_eq!(photos[1].group, "group1");
-            assert_eq!(photos[2].id, "g2p1");
-            assert_eq!(photos[2].group, "group2");
-        }
-
-        #[test]
-        fn test_from_photo_groups_preserves_order() {
-            let groups = vec![
-                PhotoGroup {
-                    group: "first".to_string(),
-                    sort_key: "2024-01-01".to_string(),
-                    files: vec![create_photo_file("p1", 1500, 1000)],
-                },
-                PhotoGroup {
-                    group: "second".to_string(),
-                    sort_key: "2024-01-02".to_string(),
-                    files: vec![create_photo_file("p2", 1000, 1500)],
-                },
-            ];
-
-            let photos = Photo::from_photo_groups(&groups);
-
-            // Verify order is preserved: group1 before group2
-            assert_eq!(photos[0].group, "first");
-            assert_eq!(photos[1].group, "second");
-        }
     }
 }
