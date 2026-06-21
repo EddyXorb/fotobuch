@@ -1,7 +1,7 @@
 use anyhow::Result;
 
 use fotobuch::commands::page;
-use fotobuch::dto_models::PageMode;
+use fotobuch::models::PageMode;
 
 use super::common::{format_page_list, project_root};
 use crate::cli::page::parse_api::parse_pages_expr;

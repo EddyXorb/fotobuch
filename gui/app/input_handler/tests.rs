@@ -1,5 +1,5 @@
 use fotobuch::commands::PlaceDst;
-use fotobuch::dto_models::ProjectState;
+use fotobuch::models::ProjectState;
 
 use super::drag::{
     complete_nav_drag, complete_pool_drag, complete_slot_drag, dispatch_move, dispatch_swap,
@@ -187,8 +187,8 @@ fn nav_drag_complete_noop_when_same_page() {
     assert!(cmds.is_empty(), "same page → no-op");
 }
 
-fn layout_page_with_slots(page: usize, n_slots: usize) -> fotobuch::dto_models::LayoutPage {
-    use fotobuch::dto_models::{LayoutPage, PageMode, Slot};
+fn layout_page_with_slots(page: usize, n_slots: usize) -> fotobuch::models::LayoutPage {
+    use fotobuch::models::{LayoutPage, PageMode, Slot};
     LayoutPage {
         page,
         photos: vec![],
@@ -271,7 +271,7 @@ fn cross_page_move_with_selection_moves_all_selected_slots() {
     assert_eq!(*src_slots, vec![0, 2]);
 }
 
-fn data_with_layout(layout: Vec<fotobuch::dto_models::LayoutPage>) -> crate::state::DataState {
+fn data_with_layout(layout: Vec<fotobuch::models::LayoutPage>) -> crate::state::DataState {
     let mut project = ProjectState::default();
     project.layout = layout;
     crate::state::DataState {
@@ -452,7 +452,7 @@ fn handle_delete_prefers_slot_selection_over_hovered_page() {
 
 #[test]
 fn handle_delete_noop_on_cover_when_active() {
-    use fotobuch::dto_models::{BookConfig, CoverConfig, ProjectConfig};
+    use fotobuch::models::{BookConfig, CoverConfig, ProjectConfig};
     let mut project = ProjectState::default();
     project.config = ProjectConfig {
         book: BookConfig {
@@ -490,9 +490,9 @@ fn rebuild_without_selection_opens_confirm_path() {
     ));
 }
 
-fn manual_layout_page(page: usize, n_slots: usize) -> fotobuch::dto_models::LayoutPage {
+fn manual_layout_page(page: usize, n_slots: usize) -> fotobuch::models::LayoutPage {
     let mut p = layout_page_with_slots(page, n_slots);
-    p.mode = fotobuch::dto_models::PageMode::Manual;
+    p.mode = fotobuch::models::PageMode::Manual;
     p
 }
 

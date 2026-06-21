@@ -5,7 +5,7 @@ use tracing::{info, warn};
 
 use super::DpiWarning;
 use crate::cache::{final_cache, preview_cache};
-use crate::dto_models::{PhotoFile, PhotoGroup, ProjectState, build_photo_index};
+use crate::models::{PhotoFile, PhotoGroup, ProjectState, build_photo_index};
 use crate::output::typst;
 use crate::state_manager::StateManager;
 

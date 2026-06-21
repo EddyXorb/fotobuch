@@ -4,7 +4,7 @@
 //! and DTO ↔ solver-model bridges live. Data models themselves stay logic-free.
 mod output_transform;
 
-use crate::dto_models::{CanvasConfig, LayoutPage, PageMode, PhotoGroup, Slot};
+use crate::models::{CanvasConfig, LayoutPage, PageMode, PhotoGroup, Slot};
 use crate::solver::data_models::{Photo, PhotoPlacement, SolverPageLayout};
 
 /// Converts photo groups to a flat, timestamp-sorted list of Photos.
@@ -66,7 +66,7 @@ fn slot_from_placement(p: &PhotoPlacement) -> Slot {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::dto_models::BookConfig;
+    use crate::models::BookConfig;
     use crate::solver::data_models::{Canvas, PhotoPlacement, SolverPageLayout};
     use approx::assert_relative_eq;
 

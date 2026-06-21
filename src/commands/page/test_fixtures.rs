@@ -1,10 +1,10 @@
 //! Shared test fixtures for page command tests.
 
-use crate::dto_models::{
+use crate::git;
+use crate::models::{
     BookConfig, BookLayoutSolverConfig, LayoutPage, PageMode, PhotoFile, PhotoGroup, ProjectConfig,
     ProjectState, Slot, write_state_yaml,
 };
-use crate::git;
 use tempfile::TempDir;
 
 pub fn make_slot() -> Slot {

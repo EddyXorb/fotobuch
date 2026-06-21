@@ -1,5 +1,5 @@
 use super::model::{GroupInfo, PageAssignment};
-use crate::dto_models::BookLayoutSolverConfig;
+use crate::models::BookLayoutSolverConfig;
 use crate::solver::prelude::*;
 
 /// Constructs a valid initial page assignment using a greedy heuristic.

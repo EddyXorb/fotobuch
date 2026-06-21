@@ -23,7 +23,7 @@ pub use model::GroupInfo;
 use tracing::{debug, info};
 
 use super::data_models::book_layout::BookLayout;
-use crate::dto_models::{BookLayoutSolverConfig, validate_book_layout_solver_config};
+use crate::models::{BookLayoutSolverConfig, validate_book_layout_solver_config};
 use crate::solver::page_layout_solver::PageLayoutResult;
 use crate::solver::prelude::*;
 use page_evaluator::PageEvaluator;
@@ -33,7 +33,7 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum SolverError {
     #[error("Parameter validation failed: {0}")]
-    InvalidParams(#[from] crate::dto_models::ValidationError),
+    InvalidParams(#[from] crate::models::ValidationError),
 
     #[error("page assignment failed: {0}")]
     AssignmentFailed(#[from] page_assignment_solver::PageAssignmentError),
@@ -131,7 +131,7 @@ fn evaluate_pages(
 
 #[cfg(test)]
 mod tests {
-    use crate::dto_models::BookLayoutSolverConfig;
+    use crate::models::BookLayoutSolverConfig;
 
     use super::*;
 

@@ -4,7 +4,7 @@ use anyhow::Result;
 use fotobuch::commands::project::new::{NewConfig, project_new};
 use fotobuch::commands::remove::RemoveTarget;
 use fotobuch::commands::{AddConfig, add, build::*, remove::*};
-use fotobuch::dto_models::ProjectState;
+use fotobuch::models::ProjectState;
 use std::path::PathBuf;
 use tempfile::TempDir;
 

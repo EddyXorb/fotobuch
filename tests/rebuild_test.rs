@@ -5,7 +5,7 @@ use anyhow::Result;
 use fotobuch::commands::build::{BuildConfig, BuildPlan, build};
 use fotobuch::commands::project::new::{NewConfig, project_new};
 use fotobuch::commands::{AddConfig, add};
-use fotobuch::dto_models::ProjectState;
+use fotobuch::models::ProjectState;
 use std::path::PathBuf;
 use tempfile::TempDir;
 

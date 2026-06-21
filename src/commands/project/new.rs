@@ -15,8 +15,8 @@ use std::path::{Path, PathBuf};
 pub use validation::validate_project_name;
 
 use crate::commands::CommandOutput;
-use crate::dto_models::{ProjectState, read_state_yaml};
 use crate::git;
+use crate::models::{ProjectState, read_state_yaml};
 
 /// Configuration for creating a new project
 #[derive(Debug, Clone)]
@@ -46,7 +46,7 @@ pub struct NewConfig {
     /// Optional base config used as starting point. The dimension, cover and
     /// title fields below are overwritten on top of it. If `None`, defaults
     /// are used.
-    pub base_config: Option<crate::dto_models::ProjectConfig>,
+    pub base_config: Option<crate::models::ProjectConfig>,
 }
 
 /// Result of project creation

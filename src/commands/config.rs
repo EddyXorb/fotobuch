@@ -9,7 +9,7 @@ use serde_yaml::Value;
 use std::path::Path;
 
 use crate::commands::CommandOutput;
-use crate::dto_models::ProjectConfig;
+use crate::models::ProjectConfig;
 use crate::state_manager::StateManager;
 
 /// Configuration result with resolved values and raw YAML for default detection

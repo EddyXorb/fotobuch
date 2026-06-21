@@ -1,7 +1,7 @@
 use crate::state::{InteractionState, NewProjectDialogState};
 use crate::task::BackgroundTask;
 use fotobuch::commands::project::new::{NewConfig, validate_project_name};
-use fotobuch::dto_models::{PreviewConfig, ProjectConfig};
+use fotobuch::models::{PreviewConfig, ProjectConfig};
 
 pub fn show(
     ctx: &egui::Context,

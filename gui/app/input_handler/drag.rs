@@ -5,7 +5,7 @@ use crate::state::{
     PhotoSelection,
 };
 use fotobuch::commands::PlaceDst;
-use fotobuch::dto_models::{LayoutPage, PageMode};
+use fotobuch::models::{LayoutPage, PageMode};
 
 pub(super) fn handle_drag_start(interaction: &mut InteractionState, ctx: &egui::Context) {
     if !ctx.input(|i| i.pointer.secondary_pressed()) {

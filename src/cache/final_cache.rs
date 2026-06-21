@@ -2,7 +2,7 @@
 
 use crate::cache::preview_cache::ensure_previews;
 use crate::commands::build::DpiWarning;
-use crate::dto_models::ProjectState;
+use crate::models::ProjectState;
 use anyhow::Result;
 use rayon::prelude::*;
 use std::collections::HashMap;
@@ -35,7 +35,7 @@ pub fn build_final_cache(
     let target_dpi = state.config.book.dpi;
 
     // Build photo lookup map: photo_id -> PhotoFile
-    let photo_map: HashMap<&str, &crate::dto_models::PhotoFile> = state
+    let photo_map: HashMap<&str, &crate::models::PhotoFile> = state
         .photos
         .iter()
         .flat_map(|g| g.files.iter().map(|f| (f.id.as_str(), f)))
@@ -98,7 +98,7 @@ pub fn build_final_cache(
 /// Calculates target pixel dimensions from slot size (mm) and DPI.
 ///
 /// Formula: pixels = (mm / 25.4) * dpi
-fn target_pixels(slot: &crate::dto_models::Slot, dpi: f64) -> (u32, u32) {
+fn target_pixels(slot: &crate::models::Slot, dpi: f64) -> (u32, u32) {
     let w = (slot.width_mm / 25.4 * dpi).round() as u32;
     let h = (slot.height_mm / 25.4 * dpi).round() as u32;
     (w, h)
@@ -107,7 +107,7 @@ fn target_pixels(slot: &crate::dto_models::Slot, dpi: f64) -> (u32, u32) {
 /// Calculates the actual DPI a photo will be displayed at in a slot.
 ///
 /// Returns the minimum of horizontal and vertical DPI (limiting factor).
-fn actual_dpi(photo_width_px: u32, photo_height_px: u32, slot: &crate::dto_models::Slot) -> f64 {
+fn actual_dpi(photo_width_px: u32, photo_height_px: u32, slot: &crate::models::Slot) -> f64 {
     let dpi_w = photo_width_px as f64 / (slot.width_mm / 25.4);
     let dpi_h = photo_height_px as f64 / (slot.height_mm / 25.4);
     dpi_w.min(dpi_h)
@@ -116,7 +116,7 @@ fn actual_dpi(photo_width_px: u32, photo_height_px: u32, slot: &crate::dto_model
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::dto_models::Slot;
+    use crate::models::Slot;
 
     #[test]
     fn test_target_pixels_at_300dpi() {

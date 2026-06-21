@@ -71,7 +71,7 @@ impl PhotoPlacement {
     /// Returns the aspect ratio of the photo (width / height).
     #[allow(dead_code)]
     pub fn aspect_ratio(&self) -> f64 {
-        crate::dto_models::aspect_ratio(self.w, self.h)
+        crate::models::aspect_ratio(self.w, self.h)
     }
 
     /// Returns the right edge x-coordinate.

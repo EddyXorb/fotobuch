@@ -38,7 +38,7 @@ mod exact_tests;
 
 use super::create_start_solution;
 use super::model::{GroupInfo, PageAssignment};
-use crate::dto_models::BookLayoutSolverConfig;
+use crate::models::BookLayoutSolverConfig;
 use crate::solver::algorithms::bellman_dp::BellmanSolver;
 use crate::solver::prelude::*;
 use cache::GridCache;

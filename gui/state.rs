@@ -40,7 +40,7 @@ use std::path::PathBuf;
 use egui::{ColorImage, Context, TextureHandle, TextureOptions};
 use fotobuch::commands::history::HistoryEntry;
 use fotobuch::commands::project::ProjectInfo;
-use fotobuch::dto_models::ProjectState;
+use fotobuch::models::ProjectState;
 use fotobuch::output::typst::RenderedPage;
 
 pub struct DataState {
@@ -193,11 +193,11 @@ mod tests {
     fn apply_rendered_sets_slot_and_clears_dirty() {
         let ctx = egui::Context::default();
         let mut project = minimal_project();
-        project.layout = vec![fotobuch::dto_models::LayoutPage {
+        project.layout = vec![fotobuch::models::LayoutPage {
             page: 0,
             photos: vec![],
             slots: vec![],
-            mode: fotobuch::dto_models::PageMode::Auto,
+            mode: fotobuch::models::PageMode::Auto,
         }];
         let mut state = GuiState::new(project, PathBuf::new(), vec![], false);
         state.data.pages.dirty[0] = true;

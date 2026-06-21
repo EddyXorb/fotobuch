@@ -213,7 +213,7 @@ pub fn add(project_root: &Path, config: &AddConfig) -> Result<CommandOutput<AddR
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::dto_models::PhotoFile;
+    use crate::models::PhotoFile;
     use chrono::Utc;
 
     fn make_photo(id: &str, source: &str) -> PhotoFile {

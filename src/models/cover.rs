@@ -1,4 +1,4 @@
-use crate::dto_models::config::{CanvasConfig, CoverConfig, SpineConfig};
+use crate::models::config::{CanvasConfig, CoverConfig, SpineConfig};
 
 /// Geometry value object: binds a `CoverConfig` to a concrete `inner_page_count`
 /// and owns all dimension calculations.
@@ -65,7 +65,7 @@ impl CanvasConfig for CoverGeometry<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::dto_models::config::{CoverMode, SpineConfig};
+    use crate::models::config::{CoverMode, SpineConfig};
 
     fn cfg_auto(front_back: f64, spine_per_10: f64) -> CoverConfig {
         CoverConfig {

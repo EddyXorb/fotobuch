@@ -6,7 +6,7 @@ use anyhow::Result;
 use fotobuch::commands::build::{BuildConfig, BuildPlan, build};
 use fotobuch::commands::project::new::{NewConfig, project_new};
 use fotobuch::commands::{AddConfig, add};
-use fotobuch::dto_models::ProjectState;
+use fotobuch::models::ProjectState;
 use fotobuch::state_manager::StateManager;
 use std::path::PathBuf;
 use tempfile::TempDir;
@@ -816,7 +816,7 @@ fn incremental_build_skips_manual_page() -> Result<()> {
     let yaml_path = project_root.join("testbuild.yaml");
     let mut state = ProjectState::load(&yaml_path)?;
     assert!(!state.layout.is_empty(), "need at least one page");
-    state.layout[0].mode = fotobuch::dto_models::PageMode::Manual;
+    state.layout[0].mode = fotobuch::models::PageMode::Manual;
     let slots_before = state.layout[0].slots.clone();
     state.save(&yaml_path)?;
     // commit so StateManager doesn't see dirty files

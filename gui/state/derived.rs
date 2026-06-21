@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use fotobuch::dto_models::{LayoutPage, PhotoFile, ProjectState};
+use fotobuch::models::{LayoutPage, PhotoFile, ProjectState};
 
 /// Derived lookup tables computed from [`ProjectState`] on startup and after each command.
 ///
@@ -124,7 +124,7 @@ fn build_unplaced_photos(
 
 #[cfg(test)]
 mod tests {
-    use fotobuch::dto_models::{
+    use fotobuch::models::{
         LayoutPage, PageMode, PhotoFile, PhotoGroup, ProjectConfig, ProjectState, Slot,
     };
 

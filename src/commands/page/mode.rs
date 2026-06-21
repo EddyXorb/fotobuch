@@ -3,7 +3,7 @@
 use std::path::Path;
 
 use crate::commands::CommandOutput;
-use crate::{dto_models::PageMode, state_manager::StateManager};
+use crate::{models::PageMode, state_manager::StateManager};
 
 use super::{
     helpers::{format_pages_list, page_idx},
@@ -61,7 +61,7 @@ mod tests {
 
     #[test]
     fn test_layout_page_serialization() {
-        use crate::dto_models::LayoutPage;
+        use crate::models::LayoutPage;
 
         // Manual is serialized, Auto (incl. default) is skipped.
         let page_manual = LayoutPage {

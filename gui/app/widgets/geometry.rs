@@ -1,4 +1,4 @@
-use fotobuch::dto_models::{LayoutPage, Slot};
+use fotobuch::models::{LayoutPage, Slot};
 
 /// Fallback aspect ratio (height/width) used when no texture size is available. Approximates A4 (√2).
 pub const A4_ASPECT: f32 = std::f32::consts::SQRT_2;
@@ -84,7 +84,7 @@ pub fn hit_test_slot(
 
 #[cfg(test)]
 mod tests {
-    use fotobuch::dto_models::{LayoutPage, PageMode, Slot};
+    use fotobuch::models::{LayoutPage, PageMode, Slot};
 
     use super::*;
 

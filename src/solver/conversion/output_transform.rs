@@ -1,4 +1,4 @@
-use crate::dto_models::CanvasConfig;
+use crate::models::CanvasConfig;
 use crate::solver::data_models::layout::{PhotoPlacement, SolverPageLayout};
 
 fn scale_around_fixpoint(
@@ -88,7 +88,7 @@ pub(crate) fn zoom_to_respect_bleed(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::dto_models::BookConfig;
+    use crate::models::BookConfig;
     use crate::solver::data_models::canvas::Canvas;
     use approx::assert_relative_eq;
 

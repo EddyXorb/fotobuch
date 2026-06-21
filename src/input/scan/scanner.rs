@@ -3,8 +3,8 @@ use chrono::{DateTime, Utc};
 use std::path::Path;
 use tracing::{debug, warn};
 
-use crate::dto_models::{PhotoFile, PhotoGroup};
 use crate::input::xmp;
+use crate::models::{PhotoFile, PhotoGroup};
 
 use super::helper::{
     get_all_dirs_recursive, is_supported_image, naive_to_utc, parse_timestamp_from_name,

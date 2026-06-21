@@ -18,7 +18,7 @@
 //!
 //! ```rust,no_run
 //! use fotobuch::solver::{run_solver, Request, RequestType};
-//! use fotobuch::dto_models::*;
+//! use fotobuch::models::*;
 //!
 //! // Define book configuration
 //! let book_config = BookConfig {
@@ -88,9 +88,9 @@
 pub mod app_settings;
 pub mod cache;
 pub mod commands;
-pub mod dto_models;
 pub mod git;
 pub mod input;
+pub mod models;
 pub mod output;
 pub mod solver;
 pub mod state_manager;
@@ -98,5 +98,5 @@ pub mod undo_stack;
 pub mod vault;
 
 // Re-export core API types for convenience
-pub use dto_models::{FitnessWeights, PageLayoutSolverConfig};
+pub use models::{FitnessWeights, PageLayoutSolverConfig};
 pub use solver::run_solver;

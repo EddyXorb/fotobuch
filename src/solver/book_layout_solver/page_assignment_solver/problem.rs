@@ -4,7 +4,7 @@
 //! the formal derivation; the symbol names below mirror that document.
 
 use super::super::model::GroupInfo;
-use crate::dto_models::BookLayoutSolverConfig;
+use crate::models::BookLayoutSolverConfig;
 
 /// DP state: `(photos placed, pages used)`.
 pub(super) type State = (usize, usize);

@@ -83,7 +83,7 @@ fn show_entries(
                 interaction.context_menu = None;
             }
             if let Some(lp) = data.project.layout.get(*page) {
-                use fotobuch::dto_models::PageMode;
+                use fotobuch::models::PageMode;
                 let (label, new_mode) = match lp.mode {
                     PageMode::Auto => ("Set Manual", PageMode::Manual),
                     PageMode::Manual => ("Set Auto", PageMode::Auto),
@@ -108,7 +108,7 @@ fn show_entries(
 
             if target_pages.len() == 1 {
                 if let Some(lp) = data.project.layout.get(*page) {
-                    use fotobuch::dto_models::PageMode;
+                    use fotobuch::models::PageMode;
                     let (label, new_mode) = match lp.mode {
                         PageMode::Auto => ("Set Manual", PageMode::Manual),
                         PageMode::Manual => ("Set Auto", PageMode::Auto),

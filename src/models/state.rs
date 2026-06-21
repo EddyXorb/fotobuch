@@ -3,7 +3,7 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
-use crate::dto_models::*;
+use crate::models::*;
 
 /// Complete project state as persisted in fotobuch.yaml
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -29,7 +29,7 @@ impl ProjectState {
         self.layout
             .iter()
             .enumerate()
-            .filter(|(_, p)| p.mode == crate::dto_models::PageMode::Auto)
+            .filter(|(_, p)| p.mode == crate::models::PageMode::Auto)
             .map(|(i, _)| i)
     }
 
@@ -116,7 +116,7 @@ impl ProjectState {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::dto_models::{read_state_yaml, write_state_yaml};
+    use crate::models::{read_state_yaml, write_state_yaml};
     use tempfile::TempDir;
 
     fn make_photo(id: &str) -> PhotoFile {
@@ -201,7 +201,7 @@ mod tests {
     fn test_serialize_deserialize() {
         let state = ProjectState {
             config: ProjectConfig {
-                book: crate::dto_models::BookConfig {
+                book: crate::models::BookConfig {
                     title: "Test".into(),
                     page_width_mm: 420.0,
                     page_height_mm: 297.0,
@@ -252,7 +252,7 @@ mod tests {
 
         let state = ProjectState {
             config: ProjectConfig {
-                book: crate::dto_models::BookConfig {
+                book: crate::models::BookConfig {
                     title: "Test".into(),
                     page_width_mm: 420.0,
                     page_height_mm: 297.0,

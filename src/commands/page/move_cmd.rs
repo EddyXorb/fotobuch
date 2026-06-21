@@ -3,7 +3,7 @@
 use std::path::Path;
 
 use crate::commands::CommandOutput;
-use crate::dto_models::{LayoutPage, PageMode, Slot};
+use crate::models::{LayoutPage, PageMode, Slot};
 use crate::state_manager::StateManager;
 
 use super::helpers::{
@@ -347,13 +347,13 @@ fn execute_move_to_manual(
 
 /// Fallback slot size when a source slot has no computed geometry yet
 /// (e.g. an Auto page that was never built): 30 % of the destination page.
-fn default_manual_slot_size(state: &crate::dto_models::ProjectState, dst_idx: usize) -> (f64, f64) {
+fn default_manual_slot_size(state: &crate::models::ProjectState, dst_idx: usize) -> (f64, f64) {
     let (pw, ph) = state.page_dimensions_mm(dst_idx);
     (pw * 0.3, ph * 0.3)
 }
 
 /// Pixel dimensions of a photo by id, looked up across all photo groups.
-fn photo_pixel_size(state: &crate::dto_models::ProjectState, id: &str) -> Option<(u32, u32)> {
+fn photo_pixel_size(state: &crate::models::ProjectState, id: &str) -> Option<(u32, u32)> {
     state
         .photos
         .iter()
@@ -366,7 +366,7 @@ fn photo_pixel_size(state: &crate::dto_models::ProjectState, id: &str) -> Option
 /// `[start, start + count)` to `width * photo_height / photo_width`, keeping the
 /// slot's top-left and width. No-op on Auto pages (their slots are recomputed).
 fn adapt_manual_slot_ratios(
-    state: &mut crate::dto_models::ProjectState,
+    state: &mut crate::models::ProjectState,
     page_idx: usize,
     start: usize,
     count: usize,
@@ -938,7 +938,7 @@ mod tests {
     #[test]
     fn move_slot_into_manual_page_creates_positioned_slot() {
         use super::super::mode::execute_mode;
-        use crate::dto_models::PageMode;
+        use crate::models::PageMode;
 
         let state = make_state_with_layout(vec![vec!["p0.jpg", "p1.jpg"], vec!["p2.jpg"]]);
         let tmp = TempDir::new().unwrap();
@@ -997,7 +997,7 @@ mod tests {
     fn swap_into_manual_page_adapts_slot_height_to_photo_ratio() {
         use super::super::mode::execute_mode;
         use super::super::types::DstSwap;
-        use crate::dto_models::PageMode;
+        use crate::models::PageMode;
 
         // Fixture photos are 4000 x 3000 (4:3).
         let state = make_state_with_layout(vec![vec!["p0.jpg"], vec!["p1.jpg"]]);
@@ -1045,7 +1045,7 @@ mod tests {
 
     #[test]
     fn execute_move_pages_unplace_rejects_cover_when_active() {
-        use crate::dto_models::{BookConfig, CoverConfig, ProjectConfig};
+        use crate::models::{BookConfig, CoverConfig, ProjectConfig};
         let mut state = make_state_with_layout(vec![vec!["cover.jpg"], vec!["a.jpg"]]);
         state.config = ProjectConfig {
             book: BookConfig {

@@ -8,7 +8,7 @@ mod improve;
 mod perturbation;
 
 use super::model::{GroupInfo, PageAssignment};
-use crate::dto_models::BookLayoutSolverConfig;
+use crate::models::BookLayoutSolverConfig;
 use crate::solver::page_layout_solver::PageLayoutResult;
 use crate::solver::prelude::*;
 

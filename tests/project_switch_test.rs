@@ -1,7 +1,7 @@
 //! Integration tests for `fotobuch project switch` command
 
 use anyhow::Result;
-use fotobuch::dto_models::ProjectState;
+use fotobuch::models::ProjectState;
 use std::process::Command;
 use tempfile::TempDir;
 

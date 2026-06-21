@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use crate::commands::CommandOutput;
-use crate::dto_models::{CoverGeometry, PhotoFile, ProjectState};
+use crate::models::{CoverGeometry, PhotoFile, ProjectState};
 
 use super::helpers::{page_idx, resolve_slots};
 use super::types::{InfoFilter, PageInfoResult, PageMoveError, SlotInfo, Src};

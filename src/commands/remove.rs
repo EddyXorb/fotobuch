@@ -6,7 +6,7 @@ use std::collections::HashSet;
 use std::path::Path;
 
 use crate::commands::CommandOutput;
-use crate::dto_models::{LayoutPage, PhotoGroup, ProjectState};
+use crate::models::{LayoutPage, PhotoGroup, ProjectState};
 use crate::state_manager::{StateManager, renumber_pages};
 
 /// Determines which photos to remove.
@@ -286,7 +286,7 @@ pub fn remove(project_root: &Path, config: &RemoveConfig) -> Result<CommandOutpu
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::dto_models::{LayoutPage, PageMode, PhotoFile, Slot};
+    use crate::models::{LayoutPage, PageMode, PhotoFile, Slot};
     use chrono::Utc;
 
     fn make_photo(id: &str, source: &str) -> PhotoFile {

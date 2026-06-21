@@ -48,7 +48,7 @@ pub(super) fn draw_manual_handles_and_overlay(
 
 fn try_start_manual_drag(
     interaction: &mut InteractionState,
-    layout_page: &fotobuch::dto_models::LayoutPage,
+    layout_page: &fotobuch::models::LayoutPage,
     page_idx: usize,
     page_rect: egui::Rect,
     dims: PageDimensions,
@@ -91,7 +91,7 @@ fn try_start_manual_drag(
 fn draw_resize_handles(
     ui: &mut egui::Ui,
     interaction: &InteractionState,
-    layout_page: &fotobuch::dto_models::LayoutPage,
+    layout_page: &fotobuch::models::LayoutPage,
     page_idx: usize,
     page_rect: egui::Rect,
     dims: PageDimensions,
@@ -118,7 +118,7 @@ fn draw_resize_handles(
 fn draw_manual_drag_preview(
     ui: &mut egui::Ui,
     interaction: &InteractionState,
-    layout_page: &fotobuch::dto_models::LayoutPage,
+    layout_page: &fotobuch::models::LayoutPage,
     page_idx: usize,
     page_rect: egui::Rect,
     dims: PageDimensions,
@@ -136,7 +136,7 @@ fn draw_manual_drag_preview(
             let dx_mm = delta_px.x as f64 / ppm;
             let dy_mm = delta_px.y as f64 / ppm;
             if let Some(slot_data) = layout_page.slots.get(*slot) {
-                let preview = fotobuch::dto_models::Slot {
+                let preview = fotobuch::models::Slot {
                     x_mm: slot_origin_mm.0 + dx_mm,
                     y_mm: slot_origin_mm.1 + dy_mm,
                     width_mm: slot_data.width_mm,
@@ -161,7 +161,7 @@ fn draw_manual_drag_preview(
             let delta_px = cursor - *pointer_origin;
             let (_, _, new_w, new_h) = manual_resize::compute_se(*slot_origin_mm, delta_px, *ppm);
             if let Some(slot_data) = layout_page.slots.get(*slot) {
-                let preview = fotobuch::dto_models::Slot {
+                let preview = fotobuch::models::Slot {
                     x_mm: slot_origin_mm.0,
                     y_mm: slot_origin_mm.1,
                     width_mm: new_w,

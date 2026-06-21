@@ -18,8 +18,8 @@ use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 use tracing::{debug, warn};
 
-use crate::dto_models::{LayoutPage, ProjectState, read_state_yaml, write_state_yaml};
 use crate::git;
+use crate::models::{LayoutPage, ProjectState, read_state_yaml, write_state_yaml};
 use crate::state_manager::state_diff::StateDiff;
 
 /// No-op kept for call-site compatibility. `LayoutPage` no longer carries a
@@ -418,7 +418,7 @@ fn load_raw_config(yaml_path: &Path) -> Result<Value> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::dto_models::{
+    use crate::models::{
         BookConfig, BookLayoutSolverConfig, LayoutPage, PageMode, PhotoFile, PhotoGroup,
         ProjectConfig, ProjectState, Slot, write_state_yaml,
     };

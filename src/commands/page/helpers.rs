@@ -1,6 +1,6 @@
 //! Internal helpers shared by all page-command executors.
 
-use crate::dto_models::LayoutPage;
+use crate::models::LayoutPage;
 
 use super::types::{DstSwap, SlotExpr, SlotItem, Src, ValidationError};
 

@@ -13,7 +13,7 @@ pub(crate) mod data_models;
 pub(crate) mod page_layout_solver;
 pub(crate) mod prelude;
 
-use crate::dto_models::{BookLayoutSolverConfig, CanvasConfig, LayoutPage, PhotoGroup};
+use crate::models::{BookLayoutSolverConfig, CanvasConfig, LayoutPage, PhotoGroup};
 pub use book_layout_solver::SolverError;
 use prelude::*;
 

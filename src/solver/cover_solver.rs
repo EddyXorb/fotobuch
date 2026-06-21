@@ -26,7 +26,7 @@
 use anyhow::{Result, bail};
 use tracing::warn;
 
-use crate::dto_models::{CoverConfig, CoverGeometry, CoverMode, Slot};
+use crate::models::{CoverConfig, CoverGeometry, CoverMode, Slot};
 
 // ── public entry point ───────────────────────────────────────────────────────
 
@@ -129,7 +129,7 @@ fn cover_areas(cover: &CoverConfig, inner_page_count: usize) -> Result<CoverArea
 
     let (back, front) = match &cover.spine {
         // Canvas width = front_back + spine. The spine sits between the two panels.
-        crate::dto_models::SpineConfig::Auto { .. } => {
+        crate::models::SpineConfig::Auto { .. } => {
             let canvas_w = cover.front_back_width_mm + spine_w - 2.0 * margin;
             let spine_start = half_fb - margin; // canvas-x where spine begins
             let back = Rect {
@@ -148,7 +148,7 @@ fn cover_areas(cover: &CoverConfig, inner_page_count: usize) -> Result<CoverArea
         }
 
         // Canvas width = front_back only. Spine is a visual overlay at the centre.
-        crate::dto_models::SpineConfig::Fixed { .. } => {
+        crate::models::SpineConfig::Fixed { .. } => {
             let canvas_w = cover.front_back_width_mm - 2.0 * margin;
             let spine_center = canvas_w / 2.0;
             let spine_half = spine_w / 2.0;
@@ -170,10 +170,10 @@ fn cover_areas(cover: &CoverConfig, inner_page_count: usize) -> Result<CoverArea
 
     // Spread covers the full canvas; no spine avoidance.
     let spread_w = match &cover.spine {
-        crate::dto_models::SpineConfig::Auto { .. } => {
+        crate::models::SpineConfig::Auto { .. } => {
             cover.front_back_width_mm + spine_w - 2.0 * margin
         }
-        crate::dto_models::SpineConfig::Fixed { .. } => cover.front_back_width_mm - 2.0 * margin,
+        crate::models::SpineConfig::Fixed { .. } => cover.front_back_width_mm - 2.0 * margin,
     };
     let spread = Rect {
         x: 0.0,
@@ -235,7 +235,7 @@ fn photo_ratio(ratios: &[f64], index: usize) -> Result<f64> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::dto_models::{CoverMode, SpineConfig};
+    use crate::models::{CoverMode, SpineConfig};
 
     fn base_cover(mode: CoverMode) -> CoverConfig {
         CoverConfig {

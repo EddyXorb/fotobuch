@@ -2,7 +2,7 @@
 
 use super::super::model::GroupInfo;
 use super::{PageAssignmentError, solve_exact};
-use crate::dto_models::BookLayoutSolverConfig;
+use crate::models::BookLayoutSolverConfig;
 use std::time::{Duration, Instant};
 
 fn default_params() -> BookLayoutSolverConfig {

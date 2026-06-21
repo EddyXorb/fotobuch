@@ -1,5 +1,5 @@
 use super::cover_page::update_cover_page;
-use crate::dto_models::{LayoutPage, PhotoFile, PhotoGroup, ProjectState};
+use crate::models::{LayoutPage, PhotoFile, PhotoGroup, ProjectState};
 use crate::run_solver;
 use crate::solver::{Request, RequestType};
 use anyhow::Result;

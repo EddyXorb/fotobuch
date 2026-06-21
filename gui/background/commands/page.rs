@@ -7,7 +7,7 @@ use crate::background::send_command_done;
 use crate::task::BackgroundResult;
 
 pub fn build_after_command(
-    cmd_changed_state: Option<fotobuch::dto_models::ProjectState>,
+    cmd_changed_state: Option<fotobuch::models::ProjectState>,
     cmd_dirty: Vec<usize>,
     rctx: &mut crate::background::RenderCtx<'_>,
 ) {
@@ -222,11 +222,11 @@ pub fn run_move_page(
 
 pub fn run_set_page_mode(
     page: usize,
-    mode: fotobuch::dto_models::PageMode,
+    mode: fotobuch::models::PageMode,
     rctx: &mut crate::background::RenderCtx<'_>,
 ) {
     use fotobuch::commands::page::{PagesExpr, execute_mode};
-    use fotobuch::dto_models::PageMode;
+    use fotobuch::models::PageMode;
     match execute_mode(rctx.project_root, PagesExpr::single(page as u32), mode) {
         Err(e) => {
             let _ = rctx

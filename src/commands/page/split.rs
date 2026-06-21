@@ -3,7 +3,7 @@
 use std::path::Path;
 
 use crate::commands::CommandOutput;
-use crate::dto_models::{LayoutPage, PageMode};
+use crate::models::{LayoutPage, PageMode};
 use crate::state_manager::StateManager;
 
 use super::helpers::page_idx;

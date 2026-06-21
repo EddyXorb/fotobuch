@@ -1,5 +1,5 @@
 use super::cover_page::{build_cover_page, split_cover_photos, update_cover_page};
-use crate::dto_models::{
+use crate::models::{
     BookConfig, BookLayoutSolverConfig, LayoutPage, PageLayoutSolverConfig, PageMode, PhotoFile,
     PhotoGroup, ProjectState, build_photo_index,
 };

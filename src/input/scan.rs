@@ -6,7 +6,7 @@ mod types;
 use anyhow::{Context, Result};
 use std::path::Path;
 
-use crate::dto_models::PhotoGroup;
+use crate::models::PhotoGroup;
 
 use scanner::Scanner;
 
@@ -65,7 +65,7 @@ pub fn scan_photo_group_dirs(root: &Path) -> Result<Vec<PhotoGroup>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::dto_models::PhotoFile;
+    use crate::models::PhotoFile;
 
     #[test]
     fn test_parse_timestamp_basic() {

@@ -1,8 +1,8 @@
 //! Preview image cache generation
 
 use crate::cache::common::{is_cache_fresh, preview_path, resize_and_save};
-use crate::dto_models::{PhotoFile, ProjectState};
 use crate::input::scan::enrich_photo_metadata;
+use crate::models::{PhotoFile, ProjectState};
 use anyhow::Result;
 use rayon::prelude::*;
 use std::path::Path;
@@ -90,7 +90,7 @@ fn fit_dimensions(width: u32, height: u32, max_px: u32) -> (u32, u32) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::dto_models::*;
+    use crate::models::*;
     use chrono::Utc;
     use image::ImageFormat;
     use std::time::Duration;

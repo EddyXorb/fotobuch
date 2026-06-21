@@ -6,7 +6,7 @@
 //! - `PageAssignment`: partitioning of photos into pages
 //! - `GroupInfo`: information about photo groups
 
-pub use crate::dto_models::BookLayoutSolverConfig;
+pub use crate::models::BookLayoutSolverConfig;
 use crate::solver::prelude::*;
 use std::ops::Range;
 
@@ -195,7 +195,7 @@ impl PageAssignment {
 
 #[cfg(test)]
 mod tests {
-    use crate::dto_models::{ValidationError, validate_book_layout_solver_config};
+    use crate::models::{ValidationError, validate_book_layout_solver_config};
 
     use super::*;
     use std::time::Duration;

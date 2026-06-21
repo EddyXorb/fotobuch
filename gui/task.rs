@@ -4,7 +4,7 @@ use std::time::Duration;
 use fotobuch::commands::PlaceDst;
 use fotobuch::commands::history::HistoryEntry;
 use fotobuch::commands::project::{NewConfig, ProjectInfo};
-use fotobuch::dto_models::ProjectState;
+use fotobuch::models::ProjectState;
 use fotobuch::output::typst::RenderedPage;
 
 pub enum BackgroundTask {
@@ -92,7 +92,7 @@ pub enum BackgroundTask {
     },
     SetPageMode {
         page: usize,
-        mode: fotobuch::dto_models::PageMode,
+        mode: fotobuch::models::PageMode,
     },
     PagePos {
         page: usize,
