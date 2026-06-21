@@ -378,9 +378,30 @@ impl Drop for StateManager {
     }
 }
 
-/// Load the current project's state from disk (no StateManager overhead).
-/// Used by commands that do not use StateManager::finish() (undo, redo, project_switch).
-pub fn load_project_state(project_root: &Path) -> Result<ProjectState> {
+// ── ReadHandle ────────────────────────────────────────────────────────────────
+
+/// Lightweight read-only view of a project loaded from disk.
+///
+/// Created by [`open_readonly`]. Has no auto-commit, no `finish`, no Drop warning.
+pub struct ReadHandle {
+    state: ProjectState,
+}
+
+impl ReadHandle {
+    pub fn state(&self) -> &ProjectState {
+        &self.state
+    }
+
+    pub fn into_state(self) -> ProjectState {
+        self.state
+    }
+}
+
+/// Open the current project read-only — branch → YAML, no git overhead.
+///
+/// Use for commands that only need to read state after a git operation
+/// (undo, redo, project switch).
+pub fn open_readonly(project_root: &Path) -> Result<ReadHandle> {
     let repo = git::open_repo(project_root)?;
     let branch = git::current_branch(&repo)?;
     let project_name = branch.strip_prefix("fotobuch/").with_context(|| {
@@ -390,7 +411,8 @@ pub fn load_project_state(project_root: &Path) -> Result<ProjectState> {
         )
     })?;
     let yaml_path = project_root.join(format!("{project_name}.yaml"));
-    read_state_yaml(&yaml_path)
+    let state = read_state_yaml(&yaml_path)?;
+    Ok(ReadHandle { state })
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────

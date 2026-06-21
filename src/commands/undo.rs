@@ -4,7 +4,7 @@ use anyhow::{Context, Result, bail};
 use git2::{Repository, ResetType, Status};
 use std::path::Path;
 
-use crate::{commands::CommandOutput, git, state_manager::load_project_state, undo_stack};
+use crate::{commands::CommandOutput, git, state_manager::open_readonly, undo_stack};
 
 #[derive(Debug)]
 pub struct UndoResult {
@@ -48,7 +48,11 @@ pub fn undo(project_root: &Path, steps: usize) -> Result<CommandOutput<UndoResul
 
     let current_message = target.summary().unwrap_or("").to_string();
 
-    let changed_state = Some(load_project_state(project_root).unwrap_or_default());
+    let changed_state = Some(
+        open_readonly(project_root)
+            .map(|h| h.into_state())
+            .unwrap_or_default(),
+    );
 
     Ok(CommandOutput {
         result: UndoResult {
@@ -102,7 +106,11 @@ pub fn redo(project_root: &Path, steps: usize) -> Result<CommandOutput<UndoResul
 
     let current_message = commit.summary().unwrap_or("").to_string();
 
-    let changed_state = Some(load_project_state(project_root).unwrap_or_default());
+    let changed_state = Some(
+        open_readonly(project_root)
+            .map(|h| h.into_state())
+            .unwrap_or_default(),
+    );
 
     Ok(CommandOutput {
         result: UndoResult {

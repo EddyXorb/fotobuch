@@ -4,7 +4,7 @@ use anyhow::{Result, bail};
 use std::path::Path;
 
 use crate::commands::CommandOutput;
-use crate::state_manager::load_project_state;
+use crate::state_manager::open_readonly;
 
 /// Switch to another photobook project
 ///
@@ -66,7 +66,7 @@ pub fn project_switch(project_root: &Path, name: &str) -> Result<CommandOutput<(
 
     if is_already_on_branch {
         // Already on this branch - this is fine, just return
-        let changed_state = Some(load_project_state(project_root)?);
+        let changed_state = Some(open_readonly(project_root)?.into_state());
         return Ok(CommandOutput {
             result: (),
             changed_state,
@@ -78,7 +78,7 @@ pub fn project_switch(project_root: &Path, name: &str) -> Result<CommandOutput<(
     repo.checkout_tree(&object, None)?;
     repo.set_head(&format!("refs/heads/{}", branch_name))?;
 
-    let changed_state = Some(load_project_state(project_root)?);
+    let changed_state = Some(open_readonly(project_root)?.into_state());
     Ok(CommandOutput {
         result: (),
         changed_state,
