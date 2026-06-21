@@ -23,7 +23,7 @@ pub use model::GroupInfo;
 use tracing::{debug, info};
 
 use super::data_models::book_layout::BookLayout;
-use crate::dto_models::BookLayoutSolverConfig;
+use crate::dto_models::{BookLayoutSolverConfig, validate_book_layout_solver_config};
 use crate::solver::page_layout_solver::PageLayoutResult;
 use crate::solver::prelude::*;
 use page_evaluator::PageEvaluator;
@@ -60,7 +60,7 @@ pub fn solve_book_layout(
     }
 
     // Validate parameters
-    params.validate(photos.len())?;
+    validate_book_layout_solver_config(params, photos.len())?;
 
     // Build group information from photos
     let groups = GroupInfo::from_photos(photos);

@@ -195,7 +195,7 @@ impl PageAssignment {
 
 #[cfg(test)]
 mod tests {
-    use crate::dto_models::ValidationError;
+    use crate::dto_models::{ValidationError, validate_book_layout_solver_config};
 
     use super::*;
     use std::time::Duration;
@@ -221,7 +221,7 @@ mod tests {
             split_group_boundary_slack: None,
         };
 
-        assert!(params.validate(50).is_ok());
+        assert!(validate_book_layout_solver_config(&params, 50).is_ok());
     }
 
     #[test]
@@ -233,7 +233,7 @@ mod tests {
         };
 
         assert_eq!(
-            params.validate(50),
+            validate_book_layout_solver_config(&params, 50),
             Err(ValidationError::PageMinMaxInvalid {
                 page_min: 10,
                 page_max: 5
@@ -251,7 +251,7 @@ mod tests {
         };
 
         assert_eq!(
-            params.validate(50),
+            validate_book_layout_solver_config(&params, 50),
             Err(ValidationError::PageTargetOutOfRange {
                 page_target: 15,
                 page_min: 3,
@@ -269,7 +269,7 @@ mod tests {
         };
 
         assert_eq!(
-            params.validate(50),
+            validate_book_layout_solver_config(&params, 50),
             Err(ValidationError::PhotosPerPageMinMaxInvalid {
                 photos_per_page_min: 20,
                 photos_per_page_max: 10
@@ -286,7 +286,7 @@ mod tests {
         };
 
         assert_eq!(
-            params.validate(50),
+            validate_book_layout_solver_config(&params, 50),
             Err(ValidationError::PhotosPerPageMinTooSmall {
                 photos_per_page_min: 2,
                 group_min_photos: 5
@@ -302,7 +302,7 @@ mod tests {
         };
 
         assert_eq!(
-            params.validate(50),
+            validate_book_layout_solver_config(&params, 50),
             Err(ValidationError::GroupMaxPerPageZero)
         );
     }
@@ -315,7 +315,7 @@ mod tests {
         };
 
         assert_eq!(
-            params.validate(50),
+            validate_book_layout_solver_config(&params, 50),
             Err(ValidationError::NegativeWeights {
                 weight_even: -1.0,
                 weight_split: 2.0,
@@ -333,7 +333,7 @@ mod tests {
         };
 
         assert_eq!(
-            params.validate(50),
+            validate_book_layout_solver_config(&params, 50),
             Err(ValidationError::MaxCoverageCostInvalid {
                 max_coverage_cost: -0.1
             })
@@ -346,7 +346,7 @@ mod tests {
         // min capacity = 3 * 5 = 15, max capacity = 10 * 15 = 150
         // 10 photos is too few
         assert_eq!(
-            params.validate(10),
+            validate_book_layout_solver_config(&params, 10),
             Err(ValidationError::PhotoCountInfeasible {
                 total_photos: 10,
                 min_capacity: 15,
@@ -361,7 +361,7 @@ mod tests {
         // max capacity = 10 * 15 = 150
         // 200 photos is too many
         assert_eq!(
-            params.validate(200),
+            validate_book_layout_solver_config(&params, 200),
             Err(ValidationError::PhotoCountInfeasible {
                 total_photos: 200,
                 min_capacity: 15,
