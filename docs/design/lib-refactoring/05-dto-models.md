@@ -68,53 +68,33 @@ Verschiebung.
 ### Logik von den DTOs lösen
 
 **I4 · `refactor(models): move BookLayoutSolverConfig::validate out of the DTO`**
-Die Validierung braucht `total_photos` (Anwendungszustand) → freie Funktion bzw.
-Validator-Modul statt Methode auf dem Config-DTO; der DTO bleibt reine Daten.
+Die Validierung braucht `total_photos` (Anwendungszustand) → Validator-Modul statt Methode auf dem Config-DTO; der DTO bleibt reine Daten.
 *Verify:* gleiche Fehlerfälle; Tests grün.
 
 **I5 · `refactor(models): separate ProjectState persistence from the domain type`**
-`load`/`save` (Datei-I/O) aus `ProjectState` in ein Repository-/IO-Modul (z. B.
-`dto_models/persistence.rs` oder beim `state_manager`). `ProjectState` behält die
+`load`/`save` (Datei-I/O) aus `ProjectState` in ein Repository-/IO-Modul (z.B. beim `state_manager`). `ProjectState` behält die
 Domain-Queries; `check_validity` ggf. in einen Validator. Ziel: ein Typ, eine
 Verantwortung.
 *Verify:* Laden/Speichern unverändert (Round-Trip-Test); Tests grün.
 
 ### Schema-berührende Schritte (serde-Vorsicht)
 
-**I6 · `refactor(models): type PhotoGroup.sort_key as a timestamp`**
-`sort_key: String` → `DateTime<Utc>` (analog `PhotoFile.timestamp`) und in
-`group_timestamp` umbenennen. Sortierung wird typsicher. **`#[serde(alias =
-"sort_key")]`** für bestehende YAML; Parsing der Altwerte absichern.
-*Verify:* alte YAML lädt; Sortierung identisch; Tests grün.
-
-**I7 · `refactor(models): drop deprecated BookLayoutSolverConfig fields`**
+**I6 · `refactor(models): drop deprecated BookLayoutSolverConfig fields`**
 `mip_rel_gap` u. a. entfernen. Serde ignoriert unbekannte Felder bestehender YAML
 beim Laden, daher kein Migrationsschritt nötig (Round-Trip-Test als Absicherung).
 *Verify:* alte YAML lädt ohne Fehler; Tests grün.
 
-### Strukturell (hohe Streuung / optional)
+### LayoutPage.page` entfernen
+
+**I7 `LayoutPage.page` entfernen.** Denormalisierter Index; das Array ordnet bereits
+  kanonisch. Aber: `page` wird serialisiert und als Identität in Diffs genutzt —
+  Wegfall berührt `renumber_pages`, `check_validity`, `state_diff` und das
+  YAML-Schema.
+
+### Strukturell (hohe Streuung)
 
 **I8 · `refactor: rename module dto_models → models`**
 Crate-weite, mechanische Umbenennung (71 Importstellen, inkl. `cli`/`gui`) plus
 Re-Export-Pfade. Rein kosmetisch, hoher Diff — bewusst als letzter Schritt, damit
 die inhaltlichen Commits klein bleiben.
 *Verify:* alles kompiliert; Tests grün.
-
-## Zu evaluieren (größere Eingriffe, nicht ohne Designentscheidung)
-
-- **`LayoutPage.page` entfernen.** Denormalisierter Index; das Array ordnet bereits
-  kanonisch. Aber: `page` wird serialisiert und als Identität in Diffs genutzt —
-  Wegfall berührt `renumber_pages`, `check_validity`, `state_diff` und das
-  YAML-Schema. Erst Nutzen/Risiko abwägen.
-- **`BookConfig` verflachen** (`cover`/`appendix` als `Option<…>` direkt in
-  `ProjectConfig`). Ausdrucksstärker, aber spürbare YAML-Schema-Änderung →
-  separater Migrationsplan.
-
-## Reihenfolge & Risiko
-
-- I1–I5 sind lokal/verhaltensneutral → zuerst, je einzeln reviewbar.
-- I6 ändert das YAML-Schema (Feld-Typ + -Name) → `serde(alias)` zwingend.
-- I7 ist schema-tolerant (serde ignoriert unbekannte Felder), Round-Trip-Test
-  genügt.
-- I8 ist reine Umbenennung mit hohem Diff → zuletzt.
-- Die „Zu evaluieren"-Punkte erst nach Designentscheidung angehen.
