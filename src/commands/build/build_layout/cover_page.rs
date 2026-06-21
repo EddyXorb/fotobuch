@@ -1,4 +1,7 @@
-use crate::models::{CoverConfig, CoverGeometry, LayoutPage, PageMode, PhotoFile, PhotoGroup};
+use crate::models::{
+    BookConfig, CoverConfig, CoverGeometry, LayoutPage, PageLayoutSolverConfig, PageMode,
+    PhotoFile, PhotoGroup,
+};
 use crate::run_solver;
 use crate::solver::cover_solver::{compute_cover_slots, warn_slot_count_mismatch};
 use crate::solver::{Request, RequestType};
@@ -21,28 +24,35 @@ pub(super) fn build_cover_page(
     })
 }
 
-/// Updates the existing cover page (index 0) in `state.layout`.
+/// Updates the existing cover page (index 0) in `layout`.
 /// Dispatches to the GA solver (free mode) or the deterministic cover solver (structured mode).
 pub(super) fn update_cover_page(
-    state: &mut crate::models::ProjectState,
+    layout: &mut [LayoutPage],
+    book_config: &BookConfig,
+    page_layout_config: &PageLayoutSolverConfig,
     photo_index: &HashMap<String, (PhotoFile, String)>,
 ) -> Result<()> {
-    let files: Vec<PhotoFile> = state.layout[0]
+    let files: Vec<PhotoFile> = layout[0]
         .photos
         .iter()
         .filter_map(|id| photo_index.get(id).map(|(f, _)| f.clone()))
         .collect();
 
-    if state.config.book.cover.mode.is_free() {
-        update_cover_free(state, files)
+    if book_config.cover.mode.is_free() {
+        update_cover_free(layout, book_config, page_layout_config, files)
     } else {
-        update_cover_structured(state, files, photo_index)
+        update_cover_structured(layout, book_config, files, photo_index)
     }
 }
 
-fn update_cover_free(state: &mut crate::models::ProjectState, files: Vec<PhotoFile>) -> Result<()> {
-    let cover = &state.config.book.cover;
-    let inner_page_count = state.layout.len() - 1;
+fn update_cover_free(
+    layout: &mut [LayoutPage],
+    book_config: &BookConfig,
+    page_layout_config: &PageLayoutSolverConfig,
+    files: Vec<PhotoFile>,
+) -> Result<()> {
+    let cover = &book_config.cover;
+    let inner_page_count = layout.len() - 1;
     let spread_config = CoverGeometry::new(cover, inner_page_count);
     let group = PhotoGroup {
         group: "page_0".to_string(),
@@ -52,37 +62,38 @@ fn update_cover_free(state: &mut crate::models::ProjectState, files: Vec<PhotoFi
     let request = Request {
         request_type: RequestType::SinglePage,
         groups: &[group],
-        page_layout_config: &state.config.page_layout_solver,
+        page_layout_config,
         canvas_config: &spread_config,
     };
     let result = run_solver(&request)?;
     if result.is_empty() {
         anyhow::bail!("Solver returned no result for cover page");
     }
-    state.layout[0].slots = result[0].slots.clone();
-    state.layout[0].photos = result[0].photos.clone();
+    layout[0].slots = result[0].slots.clone();
+    layout[0].photos = result[0].photos.clone();
     Ok(())
 }
 
 fn update_cover_structured(
-    state: &mut crate::models::ProjectState,
+    layout: &mut [LayoutPage],
+    book_config: &BookConfig,
     files: Vec<PhotoFile>,
     photo_index: &HashMap<String, (PhotoFile, String)>,
 ) -> Result<()> {
-    let cover = &state.config.book.cover;
+    let cover = &book_config.cover;
     let mode = cover.mode;
-    let inner_page_count = state.layout.len() - 1;
+    let inner_page_count = layout.len() - 1;
 
     warn_slot_count_mismatch(mode, files.len());
 
-    let ratios: Vec<f64> = state.layout[0]
+    let ratios: Vec<f64> = layout[0]
         .photos
         .iter()
         .filter_map(|id| photo_index.get(id))
         .map(|(f, _)| f.aspect_ratio())
         .collect();
 
-    state.layout[0].slots = compute_cover_slots(cover, &ratios, inner_page_count)?;
+    layout[0].slots = compute_cover_slots(cover, &ratios, inner_page_count)?;
     Ok(())
 }
 
