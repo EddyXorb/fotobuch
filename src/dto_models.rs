@@ -11,6 +11,11 @@ mod layout;
 mod photos;
 mod state;
 
+/// Returns `width / height`. Single source of truth for all aspect-ratio calculations.
+pub fn aspect_ratio(width: f64, height: f64) -> f64 {
+    width / height
+}
+
 pub use config::{
     AppendixConfig, BookConfig, BookLayoutSolverConfig, CanvasConfig, CoverConfig, CoverMode,
     FitnessWeights, PageLayoutSolverConfig, PreviewConfig, ProjectConfig, SpineConfig,

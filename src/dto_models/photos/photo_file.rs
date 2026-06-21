@@ -29,6 +29,6 @@ fn default_area_weight() -> f64 {
 impl PhotoFile {
     /// Returns the aspect ratio (width / height) of the photo.
     pub fn aspect_ratio(&self) -> f64 {
-        self.width_px as f64 / self.height_px as f64
+        crate::dto_models::aspect_ratio(self.width_px as f64, self.height_px as f64)
     }
 }
