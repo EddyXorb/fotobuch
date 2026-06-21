@@ -74,11 +74,7 @@ fn photo_group_for_page(page_idx: usize, files: Vec<PhotoFile>) -> PhotoGroup {
     }
 }
 
-fn apply_result(
-    layout: &mut [LayoutPage],
-    page_idx: usize,
-    result: Vec<LayoutPage>,
-) -> Result<()> {
+fn apply_result(layout: &mut [LayoutPage], page_idx: usize, result: Vec<LayoutPage>) -> Result<()> {
     if result.is_empty() {
         anyhow::bail!("Solver returned no result for page {}", page_idx);
     }
