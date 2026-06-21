@@ -19,12 +19,9 @@ use std::path::{Path, PathBuf};
 use tracing::{debug, warn};
 
 use crate::git;
-use crate::models::{LayoutPage, ProjectState, read_state_yaml, write_state_yaml};
+use crate::models::{ProjectState, read_state_yaml, write_state_yaml};
 use crate::state_manager::state_diff::StateDiff;
 
-/// No-op kept for call-site compatibility. `LayoutPage` no longer carries a
-/// redundant `page` index field — the array position is the canonical identity.
-pub fn renumber_pages(_layout: &mut [LayoutPage], _has_cover: bool) {}
 // ── BuildBaseline ─────────────────────────────────────────────────────────────
 
 /// Lazy reference state from the last `build:` or `rebuild:` git commit.
@@ -212,8 +209,6 @@ impl StateManager {
         if let Err(e) = self.state.check_validity() {
             warn!("State is not clean before commit! Reason(s): {e}");
         }
-        let has_cover = self.state.config.book.cover.active;
-        renumber_pages(&mut self.state.layout, has_cover);
         let diff = StateDiff::compute(&self.baseline, &self.state);
 
         if diff.is_empty() && !always_commit {

@@ -5,7 +5,7 @@ use super::helpers::{
     render_pdf,
 };
 use crate::commands::CommandOutput;
-use crate::state_manager::{StateManager, renumber_pages};
+use crate::state_manager::StateManager;
 use anyhow::Result;
 
 /// Describes the layout-change strategy for one build or rebuild invocation.
@@ -66,10 +66,6 @@ impl BuildPlan {
 
         // 2. Build layout (pure)
         let changed_pages = self.build_layout(&mut mgr)?;
-
-        // 3. Renumber pages
-        let has_cover = mgr.state.has_cover();
-        renumber_pages(&mut mgr.state.layout, has_cover);
 
         let ctx = RenderContext::capture(&mgr);
         let page_count = mgr.state.layout.len();
