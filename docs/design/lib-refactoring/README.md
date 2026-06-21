@@ -28,6 +28,7 @@ Inhalt:
 10. Fehlermeldungen: CLI-Begriffe aus dem Lib-Code verbannen
 11. Innerhalb von Methoden
 12. Umsetzungspläne (separate Dokumente) → [`01-build.md`](./01-build.md)
+13. Edit-Commands: Layout-Konsistenz & optionaler Rebuild
 
 ---
 
@@ -442,3 +443,85 @@ Themenblock in eigenen Dateien neben diesem Dokument:
   stärken (Abschnitt 5; offen).
 
 Weitere Pläne (Commands …) folgen demselben Schema.
+
+---
+
+## 13. Edit-Commands: Layout-Konsistenz & optionaler Rebuild
+
+**Hintergrund.** Editier-Commands (`move`, `place`, `remove`, `combine`, `split`,
+`unplace`) ändern die **Fotos** einer Seite, lassen die **Slots** von Auto-Seiten
+aber bewusst veraltet — Slots sind ein Cache des letzten Solver-Laufs und werden
+beim nächsten `build` neu berechnet (`page_change_detection.rs:49` überspringt
+Manual-Seiten, alles andere wird bei count-/Struktur-Abweichung als *outdated*
+neu gelöst). Die GUI versteckt das, weil sie nach jeder Mutation einen
+inkrementellen Build (`BuildPlan::Auto`) fährt. Die CLI committet dagegen den
+Zwischenstand `photos ≠ slots` direkt.
+
+`check_validity` erzwingt die Gleichheit `photos.len() == slots.len()` daher nur
+noch auf **Manual**-Seiten (dort sind Slots autoritativ); auf Auto-Seiten ist ein
+Mismatch ein legaler „needs rebuild"-Zustand. Verwandt: §6 (`state_manager`,
+Invarianten), §7.1 (`run_command`-Wrapper), §1 (`BuildPlan`).
+
+### 13.1 Manual-Ziel beim `move` braucht einen Slot (Bug, umzusetzen)
+
+`execute_move_to` pusht beim Ziel `DstMove::Page` Fotos ohne Slot
+(`move_cmd.rs:188–190` für die Slots-Variante, `:225–227` für die Pages-Variante).
+Für Auto-Ziele ist das korrekt (der Rebuild regeneriert die Slots). Ist das
+**Ziel aber eine Manual-Seite**, entsteht eine echte, dauerhafte Inkonsistenz:
+Manual-Seiten werden nie neu gelöst, also bleibt `photos > slots` bestehen — und
+`check_validity` meldet das nach dem Fix nun zu Recht.
+
+**Fix:** Beim Verschieben auf eine Manual-Seite je Foto einen Slot erzeugen,
+analog zu `execute_move_to_manual` (`move_cmd.rs:316–326`), das Foto + Slot bereits
+paarweise anhängt. Slot-Größe aus der Quell-Seite übernehmen bzw. `default_manual_
+slot_size` (`move_cmd.rs:350`) als Fallback. Alternativ den Move auf ein
+Manual-Ziel über `DstMove::Page` ablehnen und auf `DstMove::ManualAt` verweisen.
+Empfehlung: Slot erzeugen (deckt CLI- und GUI-Pfad gleich ab).
+
+### 13.2 CLI-Rückmeldung: welche Seiten einen Rebuild brauchen (umzusetzen)
+
+Nach einem Edit sieht der CLI-Nutzer nicht deutlich, dass betroffene Seiten neu
+gebaut werden müssen. Die Information liegt vor — `outdated_pages_indices()`
+(`state_manager.rs:178`) liefert sie, `status` nutzt sie —, ist aber zu
+unauffällig.
+
+**Vorschlag:**
+- Editier-Commands geben die betroffenen Seiten im Result zurück und die CLI
+  hängt einen Hinweis an (z. B. „pages 2,3 need rebuild — run `fotobuch build`";
+  Hinweistext oberflächenspezifisch, siehe §10).
+- `status` hebt outdated-Seiten klar hervor (eigene Zeile/Markierung statt nur im
+  Detail).
+- In der Nutzer-Doku (`docs/book`) erklären: Auto-Slots sind ein Cache; nach
+  einem Edit ist ein `build` nötig, damit Layout/PDF stimmen.
+
+### 13.3 Idee: `move` + `rebuild` in einem (Entscheidung offen)
+
+> **Status: noch nicht entschieden.** Ob und wie das umgesetzt wird, muss der
+> Eigentümer abnehmen. Dieser Abschnitt sammelt nur Optionen.
+
+Heute zwei Schritte (Edit, dann `build`); die GUI verbindet beides automatisch.
+Optionen, um das auch in der CLI zu bekommen:
+
+- **A — Flag pro Command** (`page move … --build`): einfach, aber Flag + Build-
+  Verdrahtung dupliziert sich über ~6 Commands.
+- **B — gemeinsame Orchestrierungs-Stufe:** Edit-Command liefert „betroffene
+  Seiten", ein Wrapper fährt danach optional `BuildPlan::Auto { pages }`. Das ist
+  der `run_command`-Wrapper aus §7.1 — eine Stelle, konsistent für alle Edits.
+- **C — Config-Flag** (z. B. `config.preview.autobuild_after_edit`): wird nach
+  jeder Mutation abgefragt; ist es gesetzt, baut die CLI automatisch (GUI-Verhalten
+  als Default), `--no-build` zum einmaligen Abschalten. Macht die persistierte YAML
+  immer konsistent, kostet aber bei jedem Edit Zeit und erschwert Batch-Workflows
+  (mehrere Moves, dann ein Build).
+
+**Knackpunkt Commit-/Baseline-Semantik:** `find_last_build_state`
+(`state_manager.rs:327`) erkennt den Build-Baseline nur am Commit-Präfix
+`build:`/`rebuild:`. Ein kombinierter Commit `"page move …"` wäre **kein**
+erkannter Baseline → `outdated_pages_indices()` vergliche gegen einen älteren
+Build und hielte die gerade neu gelösten Seiten evtl. weiter für veraltet. Ein
+kombinierter Schritt muss daher entweder **zwei Commits** erzeugen (Edit +
+`build:`) oder eine build-erkennbare Message tragen, oder die Baseline-Erkennung
+wird vom Präfix entkoppelt.
+
+**Tendenz (zur Diskussion):** Option B oder C, Rebuild opt-in bzw. config-
+gesteuert (Default aus, damit Batch-Edits möglich bleiben), mit zwei Commits.
+Endgültige Entscheidung steht aus.
