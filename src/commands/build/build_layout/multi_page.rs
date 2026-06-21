@@ -29,7 +29,7 @@ pub(super) fn solve_multipage(
 struct SolverPlan {
     groups: Vec<PhotoGroup>,
     solver_config: BookLayoutSolverConfig,
-    ga_config: PageLayoutSolverConfig,
+    page_layout_solver_config: PageLayoutSolverConfig,
     book_config: BookConfig,
     /// Structured-cover photos split off the front (full-book solve only).
     cover_files: Option<Vec<PhotoFile>>,
@@ -65,7 +65,7 @@ impl SolverPlan {
         Self {
             groups,
             solver_config,
-            ga_config: state.config.page_layout_solver.clone(),
+            page_layout_solver_config: state.config.page_layout_solver.clone(),
             book_config,
             cover_files,
             manual_snapshots,
@@ -80,7 +80,7 @@ impl SolverPlan {
                 config: &self.solver_config,
             },
             groups: &self.groups,
-            page_layout_config: &self.ga_config,
+            page_layout_config: &self.page_layout_solver_config,
             canvas_config: &self.book_config,
         }
     }
