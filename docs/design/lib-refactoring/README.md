@@ -15,6 +15,9 @@ Leitprinzipien für alle Vorschläge:
 - **Konsistente Namensschemata.** Gleiche Rolle ⇒ gleiches Suffix/Präfix.
 - **Eine Wahrheit pro Konzept.** Gleiche Logik nicht mehrfach implementieren.
 
+Verbindliche, ausdiskutierte Regeln (State-Zugriff u. a.) stehen in
+[`../RULES.md`](../RULES.md).
+
 Inhalt:
 1. Kernproblem: Vielfalt der build-Methoden
 2. Cover-Logik konsolidieren
@@ -127,9 +130,25 @@ Befunde in Kürze:
 - **Doc-Drift** (`ensure_build_baseline` nennt `"NoBuildCommit"` statt `Failed`),
   übergroße `pub`-Sichtbarkeit der `state_diff`-Helfer, Test-lastiges
   `page_change_detection.rs`.
-- **Strukturell (Designentscheidung):** `mgr.state: pub` (bewusst für disjunkte
-  Borrows, 186 Zugriffe) → Schreibzugriff kanalisieren; zwei Ladewege
-  (`open` vs. freie `load_project_state`) ohne Typschutz vereinheitlichen.
+- **Kernthema Kapselung:** `mgr.state: pub` (186 Zugriffe) öffnet beliebiges
+  Mutieren; Footprint von Änderungen ist „von weitem" unsichtbar.
+
+**Designentscheidungen** (ausdiskutiert, festgehalten in [`../RULES.md`](../RULES.md)):
+
+- **Trichotomie:** Domänen-Lesen über *ein* breites `state() -> &ProjectState`;
+  Manager-Lesen (git-Baseline, Pfade) über `mgr`-Methoden nur an der Spitze;
+  Domänen-Schreiben nur über schmale `layout_mut()`/`photos_mut()`/`config_mut()`.
+  `&mut ProjectState` und ein `state_mut()` entfallen.
+- **Wirbelsäulen-Regel:** `mgr` lebt nur auf der Orchestrierungs-Spitze (Pipeline
+  + direkte Schritt-Helfer) und wird **nie eine Schicht tiefer** gereicht; schmale
+  Borrows gehen nach unten (*narrow early*, Muster Lesen→entscheiden→schreiben).
+- **Read-only** als eigener Typ: `open_readonly()` liefert einen schmalen
+  Lese-Handle (kein `finish`/`*_mut`) und ersetzt das freie `load_project_state`.
+- **Validität** bleibt zentral in `finish()` (Drop warnt); kein Per-Edit-Check.
+
+Kontrolliert: Edit-Commands erfüllen die Wirbelsäulen-Regel bereits; nur der
+build-Pfad reicht `mgr` eine Schicht zu tief (`build_layout` → `build_full_book`)
+und die Solver-Engines nehmen noch `&mut ProjectState` — beides löst der Plan auf.
 
 ---
 

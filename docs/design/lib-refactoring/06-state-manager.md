@@ -1,105 +1,110 @@
 # Umsetzungsplan 6 — `state_manager`
 
 > Konkretisiert Abschnitt 6 des [Hauptdokuments](./README.md).
+> Setzt die State-Zugriffsregeln aus [`../RULES.md`](../RULES.md) um.
 > Stand: gegen den aktuellen Code geprüft.
 
 ## Worum es geht
 
-`StateManager` ist die zentrale Schnittstelle zwischen Commands und dem
-persistierten Zustand. Die meisten Befunde sind kleine, verhaltensneutrale
-Aufräumarbeiten (Toter Code, Sichtbarkeit, Doc-Drift). Zwei Punkte sind
-strukturell größer (Kapselung von `state`, zwei Ladewege) und brauchen eine
-Designentscheidung.
+Zwei Stränge: (a) **kleine Aufräumarbeiten** (toter Code, Sichtbarkeit,
+Doc-Drift) und (b) das **Kernthema Kapselung** — `mgr.state: pub` (186 Zugriffe)
+erlaubt beliebiges Mutieren, und der Footprint einer Änderung ist „von weitem"
+unsichtbar. (b) setzt die in `RULES.md` festgehaltenen Regeln R1–R6 um.
 
-## Was sich seit der Skizze geändert hat
+## Designentscheidungen (Kurzform, Details in `RULES.md`)
 
-- **`renumber_pages` ist jetzt ein No-Op** (`state_manager.rs:27`): seit das
-  Feld `LayoutPage.page` in #48 entfernt wurde, ist die Array-Position die
-  kanonische Identität. Die Funktion tut nichts mehr — aus „kapseln" wird
-  „löschen".
-- `dto_models` heißt jetzt `models` (Import in `state_manager.rs:22`).
+- **R1 Trichotomie:** `state() -> &ProjectState` (Domänen-Lesen) · Manager-Lesen
+  (git/Pfade) nur an der Spitze · schmale `*_mut()` zum Schreiben. Kein
+  `&mut ProjectState`, kein `state_mut()`.
+- **R3 Wirbelsäule:** `mgr` nur auf der Orchestrierungs-Spitze; nie eine Schicht
+  tiefer; schmale Borrows nach unten.
+- **R4 Narrow early:** Orchestrator-Muster Lesen→entscheiden→schreiben; Lese-
+  Abgeleitetes vorher als *owned* ziehen.
+- **R5 Read-only** als eigener Typ via `open_readonly()`.
 
 ## Was offen ist (verifiziert)
 
-- **Toter No-Op `renumber_pages`** mit drei Aufrufstellen, die nur dafür je ein
-  `has_cover` berechnen (`state_manager.rs:216`, `commands/remove.rs:252`,
-  `commands/build/plan.rs:72`) + zwei Importe.
-- **`finish_always` gibt `Result<Option<ProjectState>>`** (`:201`), committet
-  aber laut Logik (`finish_internal`, `always_commit = true`) **immer** → das
-  `Option` ist hier strukturell überflüssig.
-- **Doc-Drift:** `ensure_build_baseline` (`:287`) nennt im Doc den Zustand
-  `"NoBuildCommit"`, die reale Variante heißt `LazyLoad::Failed`.
-- **Übergroße Sichtbarkeit in `state_diff.rs`:** `count_config_changes`,
-  `count_value_diffs`, `diff_photos`, `diff_pages` (`:82,88,108,138`) sind `pub`,
-  werden aber nur von `StateDiff::compute` im selben Modul genutzt.
-- **`page_change_detection.rs`** (1021 Z.) ist zu ~75 % Tests (`mod tests` ab
-  `:252`); nur `compute_outdated_pages` ist öffentlich. Inhaltlich ok,
-  Test-Fixtures extrahierbar.
-
-### Strukturell größer (Designentscheidung nötig)
-
-- **`mgr.state: pub`** (`state_manager.rs:54`) — 186 schreibende/lesende
-  `mgr.state.*`-Zugriffe crate-weit. Das `pub` ist **bewusst** gesetzt (Doc
-  `:45`): Commands brauchen *disjunkte* Borrows auf `state.photos` und
-  `state.layout` zugleich. Eine naive Kapselung (privat + Getter) bricht genau
-  das. Invarianten (Validität, Numerierung) sind dadurch ungeschützt.
-- **Zwei Ladewege ohne Typschutz:** `StateManager::open` (Lifecycle,
-  Auto-Commit, Drop-Warnung) vs. freie `load_project_state` (`:388`, ohne
-  Garantien), genutzt von `undo`/`switch`. Nichts verhindert die falsche Wahl.
-  `open()` hat zudem einen kaum sichtbaren Seiteneffekt
-  (`auto_commit_manual_edits`, `:119`).
+- **Toter No-Op `renumber_pages`** (`:27`) + 3 Aufrufstellen (`:216`,
+  `remove.rs:252`, `build/plan.rs:72`) + 2 Importe.
+- **`finish_always`** gibt `Result<Option<ProjectState>>` (`:201`), committet aber
+  immer.
+- **Doc-Drift** `ensure_build_baseline` (`:287`): nennt `"NoBuildCommit"`, real
+  `LazyLoad::Failed`.
+- **`state_diff.rs`-Helfer `pub`** (`:82,88,108,138`), nur modulintern genutzt.
+- **`page_change_detection.rs`** (1021 Z.) zu ~75 % Tests (`mod tests` ab `:252`).
+- **`mgr.state: pub`** (`:54`) + freie `load_project_state` (`:388`, von
+  undo/redo/switch genutzt) ohne Typschutz.
+- **Wirbelsäulen-Verstoß build-Pfad:** `build_layout` reicht `mgr` an
+  `build_full_book`/`build_page`/`build_outdated_pages`/`build_page_range` weiter;
+  Solver-Engines `solve_multipage`/`solve_single_page` nehmen `&mut ProjectState`.
 
 ## Commit-Portionen
 
-### Verhaltensneutrale Aufräumarbeiten
+### Aufräumen (verhaltensneutral, vorab)
 
 **J1 · `refactor(state): remove dead renumber_pages no-op`**
-Funktion (`:27`) und alle drei Aufrufstellen löschen, samt der nur dafür
-berechneten `has_cover`-Locals und der zwei Importe (`remove.rs:10`,
-`plan.rs:8`). Reine Streichung — die Funktion tut nichts.
-*Verify:* kompiliert ohne die Importe; Tests grün.
+Funktion + 3 Aufrufstellen + die nur dafür berechneten `has_cover`-Locals + 2
+Importe löschen.
 
 **J2 · `refactor(state): drop the redundant Option from finish_always`**
-`finish_always` → `Result<ProjectState>` (committet immer). `finish` behält
-`Option` (echter No-Op-Fall). Internen Helfer ggf. aufteilen oder Rückgabe am
-`always_commit`-Zweig auspacken. Aufrufer von `finish_always` mitziehen.
-*Verify:* Aufrufer kompilieren; `finish`-No-Op-Test bleibt grün.
+`finish_always` → `Result<ProjectState>`; `finish` behält `Option` (echter
+No-Op-Fall). Aufrufer mitziehen.
 
 **J3 · `refactor(state): tighten state_diff helper visibility`**
-Die vier nur intern genutzten Helfer von `pub` auf modulprivat setzen.
-*Verify:* kompiliert; Tests grün.
+Die vier nur intern genutzten Helfer auf modulprivat setzen.
 
 **J4 · `docs(state): fix ensure_build_baseline doc drift`**
-`"NoBuildCommit"` → `Failed` im Doc-Kommentar.
+`"NoBuildCommit"` → `Failed`.
 
-### Optional / niedrige Priorität
+### Kapselung (setzt R1–R5 um)
 
-**J5 · `test(state): extract page_change_detection fixtures`**
-Die ~770 Test-Zeilen in ein `tests/`-Fixture-/Helper-Modul ziehen, damit die
-Logik-Datei lesbar bleibt. Reine Testumstrukturierung.
-*Verify:* Tests unverändert grün.
+> Reihenfolge so gewählt, dass jeder Schritt für sich kompiliert und testbar ist.
 
-## Zu evaluieren (größere Eingriffe, nicht ohne Designentscheidung)
+**J5 · `refactor(state): add read surface + open_readonly handle`**
+Lese-Oberfläche (`state()`, Pfade, `outdated_pages_indices()`) in einen geteilten
+Lese-Kern ziehen, den `StateManager` enthält. `open_readonly() -> ReadHandle`
+ohne `finish`/`*_mut`/Auto-Commit/Drop-Warnung. `load_project_state` entfällt;
+`undo`/`redo`/`project switch` migrieren auf `open_readonly`.
+*Verify:* read-only-Konsumenten kompilieren; kein Verhaltenswechsel; Tests grün.
 
-- **Schreibzugriff auf `state` kanalisieren.** Ziel: Invarianten an einer Stelle
-  durchsetzen, ohne disjunkte Borrows zu verlieren. Optionen:
-  - Ein borrow-freundlicher Accessor `state_mut() -> (&mut Vec<PhotoGroup>, &mut
-    Vec<LayoutPage>, …)`, der die heute nötigen Doppel-Borrows abdeckt, und
-    `state` danach auf `pub(crate)`/privat ziehen.
-  - Schreibende Sammeloperationen als Methoden auf `StateManager` mit
-    anschließendem `check_validity` (z. B. „Seiten entfernen", „Foto platzieren").
-  - Mindestens: `state` auf `pub(crate)` einschränken (GUI/CLI greifen dann nur
-    über Commands zu). Nutzen/Aufwand bei 186 Stellen abwägen.
-- **Zwei Ladewege vereinheitlichen.** `load_project_state` ist ein bewusster
-  Read-only-Pfad ohne Lifecycle (undo/redo/switch). Entweder klar als solcher
-  benennen/dokumentieren (`read_state_readonly`) oder hinter einen schlanken
-  Read-only-Typ legen, sodass die Wahl typsicher wird. `open()`s Auto-Commit-
-  Seiteneffekt explizit dokumentieren oder benennen.
+**J6 · `refactor(state): channel writes through narrow field accessors`**
+`layout_mut()`/`photos_mut()`/`config_mut()` einführen; `state` von `pub` auf
+`pub(crate)`/privat (Lesen über `state()`). Vorhandene `&mut mgr.state.<feld>`-
+Stellen (~17) darauf umstellen. **Kein** `state_mut()`.
+*Verify:* nichts mutiert mehr `state` direkt von außen; Tests grün.
+
+**J7 · `refactor(solver): narrow solve engines off &mut ProjectState`** (R1)
+`solve_multipage`/`solve_single_page`: `&mut ProjectState` → `&mut Vec<LayoutPage>`
+(write) + `&BookConfig`/`&BookLayoutSolverConfig`/`&[PhotoGroup]` (read). `SolverPlan`
+entsprechend mit schmalen Borrows speisen.
+*Verify:* gleiche Layout-Ausgabe (Solver-/Snapshot-Tests); Tests grün.
+
+**J8 · `refactor(build): keep mgr on the spine, pass narrow borrows down`** (R3/R4)
+- `outdated_pages_indices()` aus `build_outdated_pages` in `build_layout`/`run`
+  heben (Manager-Lesen an der Spitze), owned `Vec<usize>` nach unten (B1).
+- `build_full_book`/`build_page`/`build_page_range`/`build_outdated_pages`
+  verlieren `&mut StateManager`, nehmen schmale Borrows; `build_layout` macht die
+  `state()`-Reads + `layout_mut()`-Griffe (B3).
+*Verify:* build/rebuild-Tests grün; `mgr` nirgends unterhalb der Spitze.
+
+**J9 · `refactor(commands): read→decide→write orchestrators for edit commands`** (R4)
+Edit-Helfer (`place_chronologically`, `place_into_*`, `remove_from_*`, …) von
+`&mut ProjectState` auf das geschriebene Feld + owned Lese-Args verengen; die
+Command-Orchestratoren in Lese-/Schreibphase gliedern (Footprint oben sichtbar).
+*Verify:* unverändertes Verhalten; Tests grün.
+
+### Optional
+
+**J10 · `test(state): extract page_change_detection fixtures`**
+Die ~770 Testzeilen in ein Fixture-Modul ziehen.
 
 ## Reihenfolge & Risiko
 
-- J1–J4 sind verhaltensneutral und einzeln reviewbar → zuerst; durch die
-  bestehenden StateManager-/Diff-Tests abgedeckt.
-- J5 ist reine Testumstrukturierung.
-- Die „Zu evaluieren"-Punkte berühren viele Aufrufer (186 `state`-Zugriffe) →
-  erst nach Designentscheidung, ggf. eigener Plan.
+- **J1–J4** verhaltensneutral, einzeln reviewbar → zuerst.
+- **J5/J6** sind das Fundament der Kapselung (Lese-Kern, Accessoren); danach
+  greifen R1–R5 mechanisch.
+- **J7** ist der einzige inhaltlich sensible Schritt (Solver-Signaturen) → durch
+  Snapshot-Tests absichern.
+- **J8/J9** sind Anwendungen der Wirbelsäulen-/Narrow-early-Regel, durch die
+  bestehenden build-/command-Tests gedeckt.
+- **J10** rein kosmetisch.
