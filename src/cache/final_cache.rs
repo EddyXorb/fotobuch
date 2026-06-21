@@ -1,6 +1,6 @@
 //! Final cache generation for high-quality PDF output
 
-use crate::cache::preview::ensure_previews;
+use crate::cache::preview_cache::ensure_previews;
 use crate::commands::build::DpiWarning;
 use crate::dto_models::ProjectState;
 use anyhow::Result;

@@ -4,7 +4,7 @@ use std::{collections::HashMap, path::PathBuf};
 use tracing::{info, warn};
 
 use super::DpiWarning;
-use crate::cache::{final_cache, preview};
+use crate::cache::{final_cache, preview_cache};
 use crate::dto_models::{PhotoFile, PhotoGroup, ProjectState, build_photo_index};
 use crate::output::typst;
 use crate::state_manager::StateManager;
@@ -33,9 +33,9 @@ impl RenderContext {
 
 pub fn refresh_preview_cache(
     mgr: &mut StateManager,
-) -> Result<preview::PreviewCacheResult, anyhow::Error> {
+) -> Result<preview_cache::PreviewCacheResult, anyhow::Error> {
     let preview_cache_dir = mgr.preview_cache_dir();
-    let cache_result = preview::ensure_previews(&mut mgr.state, &preview_cache_dir)?;
+    let cache_result = preview_cache::ensure_previews(&mut mgr.state, &preview_cache_dir)?;
     if cache_result.created > 0 {
         info!(
             "Preview cache: {} created, {} skipped",
