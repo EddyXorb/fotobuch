@@ -47,22 +47,6 @@ pub struct BookLayoutSolverConfig {
     /// Whether to run local search after the DP to improve page assignments.
     #[serde(default = "default_enable_local_search")]
     pub enable_local_search: bool,
-
-    // --- Deprecated MIP-era fields ---
-    //
-    // The MIP solver was replaced by an exact dynamic program, so these are no
-    // longer read by the solver. They are kept (optional, `None` by default) so
-    // that existing config files referencing them still deserialize. They are
-    // omitted from serialized output once unset.
-    /// Deprecated: relative MIP optimality gap. Ignored by the DP solver.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub mip_rel_gap: Option<f64>,
-    /// Deprecated: photo-count threshold for problem splitting. Ignored by the DP solver.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub max_photos_for_split: Option<usize>,
-    /// Deprecated: split-point slack to group boundaries. Ignored by the DP solver.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub split_group_boundary_slack: Option<usize>,
 }
 
 // Default functions for serde
@@ -188,9 +172,6 @@ impl Default for BookLayoutSolverConfig {
             search_timeout: default_search_timeout(),
             max_coverage_cost: default_max_coverage_cost(),
             enable_local_search: default_enable_local_search(),
-            mip_rel_gap: None,
-            max_photos_for_split: None,
-            split_group_boundary_slack: None,
         }
     }
 }
@@ -246,16 +227,8 @@ weight_even: 2.0
     }
 
     #[test]
-    fn test_deprecated_mip_fields_default_to_none() {
-        let config = BookLayoutSolverConfig::default();
-        assert_eq!(config.mip_rel_gap, None);
-        assert_eq!(config.max_photos_for_split, None);
-        assert_eq!(config.split_group_boundary_slack, None);
-    }
-
-    #[test]
-    fn test_legacy_config_with_deprecated_mip_fields_still_loads() {
-        // Old config files set the now-removed MIP fields; they must still parse.
+    fn test_legacy_config_with_mip_fields_still_loads() {
+        // Old YAML files with removed MIP fields must still parse (serde ignores unknown fields).
         let yaml = r#"
 page_target: 20
 mip_rel_gap: 0.0001
@@ -263,18 +236,6 @@ max_photos_for_split: 300
 split_group_boundary_slack: 5
 "#;
         let config: BookLayoutSolverConfig = serde_yaml::from_str(yaml).unwrap();
-
         assert_eq!(config.page_target, 20);
-        assert_eq!(config.mip_rel_gap, Some(0.0001));
-        assert_eq!(config.max_photos_for_split, Some(300));
-        assert_eq!(config.split_group_boundary_slack, Some(5));
-    }
-
-    #[test]
-    fn test_unset_deprecated_fields_are_not_serialized() {
-        let yaml = serde_yaml::to_string(&BookLayoutSolverConfig::default()).unwrap();
-        assert!(!yaml.contains("mip_rel_gap"));
-        assert!(!yaml.contains("max_photos_for_split"));
-        assert!(!yaml.contains("split_group_boundary_slack"));
     }
 }

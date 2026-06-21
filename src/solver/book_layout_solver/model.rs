@@ -216,9 +216,6 @@ mod tests {
             search_timeout: Duration::from_secs(10),
             max_coverage_cost: 0.1,
             enable_local_search: true,
-            mip_rel_gap: None,
-            max_photos_for_split: None,
-            split_group_boundary_slack: None,
         };
 
         assert!(validate_book_layout_solver_config(&params, 50).is_ok());
@@ -385,9 +382,6 @@ mod tests {
             search_timeout: Duration::from_secs(10),
             max_coverage_cost: 0.1,
             enable_local_search: true,
-            mip_rel_gap: None,
-            max_photos_for_split: None,
-            split_group_boundary_slack: None,
         }
     }
 
