@@ -12,85 +12,85 @@ mod single_page;
 use self::multi_page::solve_multipage;
 use self::single_page::solve_single_page;
 use super::helpers::collect_photos_as_groups;
-use crate::models::{BookLayoutSolverConfig, PageMode, PhotoGroup, build_photo_index};
-use crate::state_manager::StateManager;
+use crate::models::{
+    BookConfig, BookLayoutSolverConfig, LayoutPage, PageLayoutSolverConfig, PageMode, PhotoGroup,
+    build_photo_index,
+};
 use anyhow::Result;
 use tracing::warn;
 
-pub(super) fn build_full_book(mgr: &mut StateManager) -> Result<Vec<usize>> {
-    let layout_len = mgr.state().layout.len();
-    if layout_len > 0 && mgr.state().has_cover() {
+#[allow(clippy::ptr_arg)]
+pub(super) fn build_full_book(
+    layout: &mut Vec<LayoutPage>,
+    book_config: &BookConfig,
+    solver_config: &BookLayoutSolverConfig,
+    page_layout_config: &PageLayoutSolverConfig,
+    photos: &[PhotoGroup],
+) -> Result<Vec<usize>> {
+    let layout_len = layout.len();
+    if layout_len > 0 && book_config.cover.active {
         let effective_start = skip_cover_if_needed(true, 0, layout_len - 1)?;
-        let groups = collect_photos_as_groups(mgr.state(), effective_start, layout_len);
-        let book_config = mgr.state().config.book.clone();
-        let solver_config = mgr.state().config.book_layout_solver.clone();
-        let page_layout_config = mgr.state().config.page_layout_solver.clone();
-        let photos: Vec<PhotoGroup> = mgr.state().photos.clone();
+        let groups = collect_photos_as_groups(layout, photos, effective_start, layout_len);
         return solve_multipage(
-            mgr.layout_mut(),
-            &book_config,
-            &solver_config,
-            &page_layout_config,
-            &photos,
+            layout,
+            book_config,
+            solver_config,
+            page_layout_config,
+            photos,
             &groups,
             Some((effective_start, layout_len)),
             None,
         );
     }
-    let book_config = mgr.state().config.book.clone();
-    let solver_config = mgr.state().config.book_layout_solver.clone();
-    let page_layout_config = mgr.state().config.page_layout_solver.clone();
-    let photos: Vec<PhotoGroup> = mgr.state().photos.clone();
     solve_multipage(
-        mgr.layout_mut(),
-        &book_config,
-        &solver_config,
-        &page_layout_config,
-        &photos,
-        &photos,
+        layout,
+        book_config,
+        solver_config,
+        page_layout_config,
+        photos,
+        photos,
         None,
         None,
     )
 }
 
+#[allow(clippy::ptr_arg)]
 pub(super) fn build_outdated_pages(
-    mgr: &mut StateManager,
-    page_filter: Option<&[usize]>,
+    layout: &mut Vec<LayoutPage>,
+    pages: &[usize],
+    book_config: &BookConfig,
+    page_layout_config: &PageLayoutSolverConfig,
+    photos: &[PhotoGroup],
 ) -> Result<Vec<usize>> {
-    let mut pages = mgr.outdated_pages_indices();
-    if let Some(filter) = page_filter {
-        pages.retain(|p| filter.contains(p));
-    }
-    let photo_index = build_photo_index(&mgr.state().photos);
-    let book_config = mgr.state().config.book.clone();
-    let page_layout_config = mgr.state().config.page_layout_solver.clone();
-    for &idx in &pages {
-        if mgr.state().layout[idx].mode != PageMode::Manual {
-            solve_single_page(
-                mgr.layout_mut(),
-                idx,
-                &book_config,
-                &page_layout_config,
-                &photo_index,
-            )?;
+    let photo_index = build_photo_index(photos);
+    for &idx in pages {
+        if layout[idx].mode != PageMode::Manual {
+            solve_single_page(layout, idx, book_config, page_layout_config, &photo_index)?;
         }
     }
-    Ok(pages)
+    Ok(pages.to_vec())
 }
 
-pub(super) fn build_page(mgr: &mut StateManager, idx: usize) -> Result<Vec<usize>> {
-    if mgr.state().layout.is_empty() {
+#[allow(clippy::ptr_arg)]
+pub(super) fn build_page(
+    layout: &mut Vec<LayoutPage>,
+    idx: usize,
+    book_config: &BookConfig,
+    page_layout_config: &PageLayoutSolverConfig,
+    photos: &[PhotoGroup],
+) -> Result<Vec<usize>> {
+    if layout.is_empty() {
         anyhow::bail!("No layout exists. Run `fotobuch build` first.");
     }
-    if idx >= mgr.state().layout.len() {
+    if idx >= layout.len() {
         anyhow::bail!(
             "Invalid page index {} (layout has {} pages, indices 0..{})",
             idx,
-            mgr.state().layout.len(),
-            mgr.state().layout.len().saturating_sub(1),
+            layout.len(),
+            layout.len().saturating_sub(1),
         );
     }
-    if mgr.state().layout[idx].mode == PageMode::Manual {
+    if layout[idx].mode == PageMode::Manual {
         anyhow::bail!(
             "Cannot rebuild page {}: page is in manual mode. \
              Use `page mode {} a` to switch to auto mode first.",
@@ -98,56 +98,49 @@ pub(super) fn build_page(mgr: &mut StateManager, idx: usize) -> Result<Vec<usize
             idx
         );
     }
-    let photo_index = build_photo_index(&mgr.state().photos);
-    let book_config = mgr.state().config.book.clone();
-    let page_layout_config = mgr.state().config.page_layout_solver.clone();
-    solve_single_page(
-        mgr.layout_mut(),
-        idx,
-        &book_config,
-        &page_layout_config,
-        &photo_index,
-    )?;
+    let photo_index = build_photo_index(photos);
+    solve_single_page(layout, idx, book_config, page_layout_config, &photo_index)?;
     Ok(vec![idx])
 }
 
+#[allow(clippy::ptr_arg, clippy::too_many_arguments)]
 pub(super) fn build_page_range(
-    mgr: &mut StateManager,
+    layout: &mut Vec<LayoutPage>,
     start: usize,
     end: usize,
     flex: usize,
+    book_config: &BookConfig,
+    solver_config: &BookLayoutSolverConfig,
+    page_layout_config: &PageLayoutSolverConfig,
+    photos: &[PhotoGroup],
 ) -> Result<Vec<usize>> {
-    if mgr.state().layout.is_empty() {
+    if layout.is_empty() {
         anyhow::bail!("No layout exists. Run `fotobuch build` first.");
     }
-    if start > end || end >= mgr.state().layout.len() {
+    if start > end || end >= layout.len() {
         anyhow::bail!(
             "Invalid page range {}-{} (layout has {} pages, indices 0..{})",
             start,
             end,
-            mgr.state().layout.len(),
-            mgr.state().layout.len().saturating_sub(1),
+            layout.len(),
+            layout.len().saturating_sub(1),
         );
     }
-    let effective_start = skip_cover_if_needed(mgr.state().has_cover(), start, end)?;
-    let groups = collect_photos_as_groups(mgr.state(), effective_start, end + 1);
+    let effective_start = skip_cover_if_needed(book_config.cover.active, start, end)?;
+    let groups = collect_photos_as_groups(layout, photos, effective_start, end + 1);
     let n = end - effective_start + 1;
     let custom_config = BookLayoutSolverConfig {
         page_min: n.saturating_sub(flex).max(1),
         page_max: n + flex,
         page_target: n,
-        ..mgr.state().config.book_layout_solver.clone()
+        ..solver_config.clone()
     };
-    let book_config = mgr.state().config.book.clone();
-    let solver_config = mgr.state().config.book_layout_solver.clone();
-    let page_layout_config = mgr.state().config.page_layout_solver.clone();
-    let photos: Vec<PhotoGroup> = mgr.state().photos.clone();
     solve_multipage(
-        mgr.layout_mut(),
-        &book_config,
-        &solver_config,
-        &page_layout_config,
-        &photos,
+        layout,
+        book_config,
+        solver_config,
+        page_layout_config,
+        photos,
         &groups,
         Some((effective_start, end + 1)),
         Some(custom_config),

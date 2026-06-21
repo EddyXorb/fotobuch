@@ -5,6 +5,7 @@ use super::helpers::{
     render_pdf,
 };
 use crate::commands::CommandOutput;
+use crate::models::{BookConfig, BookLayoutSolverConfig, PageLayoutSolverConfig, PhotoGroup};
 use crate::state_manager::StateManager;
 use anyhow::Result;
 
@@ -35,15 +36,66 @@ impl BuildPlan {
     pub fn build_layout(&self, mgr: &mut StateManager) -> Result<Vec<usize>> {
         match self {
             BuildPlan::Auto { pages } => {
-                if mgr.state.layout.is_empty() {
-                    build_full_book(mgr)
+                if mgr.state().layout.is_empty() {
+                    let (book_config, solver_config, page_layout_config, photos) =
+                        extract_solver_inputs(mgr);
+                    build_full_book(
+                        mgr.layout_mut(),
+                        &book_config,
+                        &solver_config,
+                        &page_layout_config,
+                        &photos,
+                    )
                 } else {
-                    build_outdated_pages(mgr, pages.as_deref())
+                    let mut outdated = mgr.outdated_pages_indices();
+                    if let Some(filter) = pages.as_deref() {
+                        outdated.retain(|p| filter.contains(p));
+                    }
+                    let (book_config, _, page_layout_config, photos) = extract_solver_inputs(mgr);
+                    build_outdated_pages(
+                        mgr.layout_mut(),
+                        &outdated,
+                        &book_config,
+                        &page_layout_config,
+                        &photos,
+                    )
                 }
             }
-            BuildPlan::All => build_full_book(mgr),
-            BuildPlan::Page(idx) => build_page(mgr, *idx),
-            BuildPlan::Range { start, end, flex } => build_page_range(mgr, *start, *end, *flex),
+            BuildPlan::All => {
+                let (book_config, solver_config, page_layout_config, photos) =
+                    extract_solver_inputs(mgr);
+                build_full_book(
+                    mgr.layout_mut(),
+                    &book_config,
+                    &solver_config,
+                    &page_layout_config,
+                    &photos,
+                )
+            }
+            BuildPlan::Page(idx) => {
+                let (book_config, _, page_layout_config, photos) = extract_solver_inputs(mgr);
+                build_page(
+                    mgr.layout_mut(),
+                    *idx,
+                    &book_config,
+                    &page_layout_config,
+                    &photos,
+                )
+            }
+            BuildPlan::Range { start, end, flex } => {
+                let (book_config, solver_config, page_layout_config, photos) =
+                    extract_solver_inputs(mgr);
+                build_page_range(
+                    mgr.layout_mut(),
+                    *start,
+                    *end,
+                    *flex,
+                    &book_config,
+                    &solver_config,
+                    &page_layout_config,
+                    &photos,
+                )
+            }
             BuildPlan::Release { .. } => Ok(Vec::new()),
         }
     }
@@ -68,8 +120,8 @@ impl BuildPlan {
         let changed_pages = self.build_layout(&mut mgr)?;
 
         let ctx = RenderContext::capture(&mgr);
-        let page_count = mgr.state.layout.len();
-        let total_photos: usize = mgr.state.layout.iter().map(|p| p.photos.len()).sum();
+        let page_count = mgr.state().layout.len();
+        let total_photos: usize = mgr.state().layout.iter().map(|p| p.photos.len()).sum();
 
         // 4. Commit
         let msg = commit_message(&self, &changed_pages, page_count, total_photos);
@@ -101,14 +153,14 @@ impl BuildPlan {
 // ── pipeline helpers ─────────────────────────────────────────────────────────
 
 fn validate_release(mgr: &StateManager, force: bool) -> Result<()> {
-    if mgr.state.layout.is_empty() {
+    if mgr.state().layout.is_empty() {
         anyhow::bail!("No layout found. Run `fotobuch build` first to generate layout.");
     }
     if !force {
         let changed: Vec<_> = mgr
             .outdated_pages_indices()
             .into_iter()
-            .filter(|i| !mgr.state.config.book.cover.active || *i != 0)
+            .filter(|i| !mgr.state().config.book.cover.active || *i != 0)
             .collect();
         if !changed.is_empty() {
             anyhow::bail!(
@@ -175,6 +227,23 @@ fn commit_message(
             format!("release: {} pages, {} photos", page_count, total_photos)
         }
     }
+}
+
+fn extract_solver_inputs(
+    mgr: &StateManager,
+) -> (
+    BookConfig,
+    BookLayoutSolverConfig,
+    PageLayoutSolverConfig,
+    Vec<PhotoGroup>,
+) {
+    let s = mgr.state();
+    (
+        s.config.book.clone(),
+        s.config.book_layout_solver.clone(),
+        s.config.page_layout_solver.clone(),
+        s.photos.clone(),
+    )
 }
 
 // ── tests ─────────────────────────────────────────────────────────────────────
