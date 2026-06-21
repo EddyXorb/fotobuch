@@ -2,10 +2,10 @@
 //!
 //! This module is the single place where domain-ordering logic (sort by timestamp)
 //! and DTO ↔ solver-model bridges live. Data models themselves stay logic-free.
+mod output_transform;
 
 use crate::dto_models::{CanvasConfig, LayoutPage, PageMode, PhotoGroup, Slot};
 use crate::solver::data_models::{Photo, PhotoPlacement, SolverPageLayout};
-use crate::solver::output_transform;
 
 /// Converts photo groups to a flat, timestamp-sorted list of Photos.
 ///

@@ -10,7 +10,6 @@ pub(crate) mod book_layout_solver;
 pub(crate) mod conversion;
 pub mod cover_solver;
 pub(crate) mod data_models;
-pub(crate) mod output_transform;
 pub(crate) mod page_layout_solver;
 pub(crate) mod prelude;
 
