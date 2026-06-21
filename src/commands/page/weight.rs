@@ -39,7 +39,7 @@ pub fn execute_weight(
         .collect();
 
     for photo_id in &photo_ids {
-        for group in &mut mgr.state.photos {
+        for group in mgr.photos_mut() {
             for file in &mut group.files {
                 if file.id == *photo_id {
                     file.area_weight = weight;

@@ -31,9 +31,9 @@ pub fn execute_mode(
 
     let mut pages_changed = Vec::new();
     for &page_num in &pages.pages {
-        let idx = page_idx(page_num, &mgr.state.layout)?;
+        let idx = page_idx(page_num, mgr.layout_mut())?;
         // Auto is skipped at serialization time; see LayoutPage::mode.
-        mgr.state.layout[idx].mode = mode;
+        mgr.layout_mut()[idx].mode = mode;
         pages_changed.push(page_num);
     }
 

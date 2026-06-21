@@ -32,7 +32,7 @@ pub fn config_set(
 
     let mut mgr = StateManager::open(project_root)?;
 
-    let mut config_value = serde_yaml::to_value(&mgr.state.config)
+    let mut config_value = serde_yaml::to_value(mgr.state().config.clone())
         .map_err(|e| anyhow!("Failed to serialize config: {e}"))?;
 
     let parts: Vec<&str> = key.split('.').collect();
@@ -67,7 +67,7 @@ pub fn config_set(
     let new_config: ProjectConfig = serde_yaml::from_value(config_value)
         .map_err(|e| anyhow!("Cannot set '{key}' to '{value}': {e}"))?;
 
-    mgr.state.config = new_config;
+    *mgr.config_mut() = new_config;
     let changed_state = mgr.finish(&format!("config set {key}: {value}"))?;
 
     Ok(CommandOutput {

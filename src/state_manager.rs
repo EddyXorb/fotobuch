@@ -38,17 +38,13 @@ enum LazyLoad {
 // ── StateManager ─────────────────────────────────────────────────────────────
 
 /// Central project state manager.
-///
-/// `state` is intentionally `pub` so commands can take disjoint borrows on
-/// `mgr.state.photos` and `mgr.state.layout` simultaneously without borrowing
-/// the whole manager.
 pub struct StateManager {
     project_root: PathBuf,
     project_name: String,
     repo: git2::Repository,
 
     /// Current (potentially mutated) project state.
-    pub state: ProjectState,
+    pub(crate) state: ProjectState,
     /// Snapshot of state after `open()` (after any auto-commit).
     /// Used by `finish()` and `Drop` to detect programmatic changes.
     baseline: ProjectState,
@@ -128,6 +124,26 @@ impl StateManager {
     /// Root directory of the project (the path passed to `StateManager::open`).
     pub fn project_root(&self) -> &Path {
         &self.project_root
+    }
+
+    /// Current project state (read-only).
+    pub fn state(&self) -> &ProjectState {
+        &self.state
+    }
+
+    /// Mutable access to the layout pages.
+    pub fn layout_mut(&mut self) -> &mut Vec<crate::models::LayoutPage> {
+        &mut self.state.layout
+    }
+
+    /// Mutable access to the photo groups.
+    pub fn photos_mut(&mut self) -> &mut Vec<crate::models::PhotoGroup> {
+        &mut self.state.photos
+    }
+
+    /// Mutable access to the project config.
+    pub fn config_mut(&mut self) -> &mut crate::models::ProjectConfig {
+        &mut self.state.config
     }
 
     /// Path to `{project_root}/.fotobuch/cache/{project_name}/`.

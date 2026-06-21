@@ -34,9 +34,9 @@ pub fn execute_unplace(
         });
     }
 
-    let page_idx_val = page_idx(page, &mgr.state.layout)?;
-    remove_slots(&mut mgr.state.layout, page_idx_val, slot_indices);
-    let deleted = delete_empty_pages(&mut mgr.state.layout);
+    let page_idx_val = page_idx(page, mgr.layout_mut())?;
+    remove_slots(mgr.layout_mut(), page_idx_val, slot_indices);
+    let deleted = delete_empty_pages(mgr.layout_mut());
     let modified = if deleted.contains(&page) {
         vec![]
     } else {

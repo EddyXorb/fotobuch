@@ -30,18 +30,18 @@ pub fn execute_split(
     }
 
     let split_at = slot as usize;
-    let moved_photos: Vec<String> = mgr.state.layout[idx].photos[split_at..].to_vec();
-    let moved_slots: Vec<_> = if split_at < mgr.state.layout[idx].slots.len() {
-        mgr.state.layout[idx].slots[split_at..].to_vec()
+    let moved_photos: Vec<String> = mgr.layout_mut()[idx].photos[split_at..].to_vec();
+    let moved_slots: Vec<_> = if split_at < mgr.layout_mut()[idx].slots.len() {
+        mgr.layout_mut()[idx].slots[split_at..].to_vec()
     } else {
         vec![]
     };
 
-    mgr.state.layout[idx].photos.truncate(split_at);
-    mgr.state.layout[idx].slots.truncate(split_at);
+    mgr.layout_mut()[idx].photos.truncate(split_at);
+    mgr.layout_mut()[idx].slots.truncate(split_at);
 
     let new_idx = idx + 1;
-    mgr.state.layout.insert(
+    mgr.layout_mut().insert(
         new_idx,
         LayoutPage {
             photos: moved_photos,

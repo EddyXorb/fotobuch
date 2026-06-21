@@ -146,7 +146,7 @@ pub fn add(project_root: &Path, config: &AddConfig) -> Result<CommandOutput<AddR
             // Apply in-place updates to existing photos
             for updated_file in &updated_files {
                 let source = &updated_file.source;
-                for group in &mut mgr.state.photos {
+                for group in mgr.photos_mut() {
                     if let Some(existing) = group.files.iter_mut().find(|f| f.source == *source) {
                         *existing = updated_file.clone();
                         break;
@@ -173,7 +173,7 @@ pub fn add(project_root: &Path, config: &AddConfig) -> Result<CommandOutput<AddR
 
         if !config.dry_run {
             scanned_group.files = kept_files;
-            merge_group(&mut mgr.state.photos, scanned_group);
+            merge_group(mgr.photos_mut(), scanned_group);
         }
 
         groups_added.push(GroupSummary {
@@ -184,7 +184,7 @@ pub fn add(project_root: &Path, config: &AddConfig) -> Result<CommandOutput<AddR
     }
 
     let changed_state = if !config.dry_run {
-        mgr.state.photos.sort_by(|a, b| a.sort_key.cmp(&b.sort_key));
+        mgr.photos_mut().sort_by(|a, b| a.sort_key.cmp(&b.sort_key));
 
         let total_photos: usize = groups_added.iter().map(|g| g.photo_count).sum();
         mgr.finish(&format!(

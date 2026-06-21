@@ -23,29 +23,29 @@ pub fn execute_combine(
     }
 
     for &p in &pages_expr.pages {
-        page_idx(p, &mgr.state.layout)?;
+        page_idx(p, mgr.layout_mut())?;
     }
 
     let first_page = pages_expr.pages[0];
-    let first_idx = page_idx(first_page, &mgr.state.layout)?;
+    let first_idx = page_idx(first_page, mgr.layout_mut())?;
 
     let mut extra_photos: Vec<String> = Vec::new();
     let other_pages: Vec<u32> = pages_expr.pages[1..].to_vec();
     for &p in &other_pages {
-        let idx = page_idx(p, &mgr.state.layout)?;
-        extra_photos.extend(mgr.state.layout[idx].photos.clone());
+        let idx = page_idx(p, mgr.layout_mut())?;
+        extra_photos.extend(mgr.layout_mut()[idx].photos.clone());
     }
 
-    mgr.state.layout[first_idx].photos.extend(extra_photos);
-    mgr.state.layout[first_idx].slots.clear(); // needs rebuild
+    mgr.layout_mut()[first_idx].photos.extend(extra_photos);
+    mgr.layout_mut()[first_idx].slots.clear(); // needs rebuild
 
     let mut delete_indices: Vec<usize> = other_pages
         .iter()
-        .map(|&p| page_idx(p, &mgr.state.layout).unwrap())
+        .map(|&p| page_idx(p, mgr.layout_mut()).unwrap())
         .collect();
     delete_indices.sort_unstable_by(|a, b| b.cmp(a));
     for idx in &delete_indices {
-        mgr.state.layout.remove(*idx);
+        mgr.layout_mut().remove(*idx);
     }
 
     let pages_str = format_pages_list(&pages_expr.pages);

@@ -106,7 +106,7 @@ pub fn execute_pos(
             new.height_mm *= s;
         }
 
-        mgr.state.layout[idx].slots[slot_idx] = new.clone();
+        mgr.layout_mut()[idx].slots[slot_idx] = new.clone();
         slots_changed.push(SlotChange {
             slot: slot_idx,
             old,

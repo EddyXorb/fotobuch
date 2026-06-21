@@ -244,17 +244,17 @@ pub fn remove(project_root: &Path, config: &RemoveConfig) -> Result<CommandOutpu
     }
 
     // 2. Aus Layout entfernen (immer, auch bei --keep-files)
-    let layout_result = remove_from_layout(&mut mgr.state.layout, &matched_ids);
+    let layout_result = remove_from_layout(mgr.layout_mut(), &matched_ids);
 
     // 3. Leere Seiten entfernen
-    remove_empty_pages(&mut mgr.state.layout);
+    remove_empty_pages(mgr.layout_mut());
 
     // 4. Aus Photos entfernen (nur ohne --keep-files)
     let mut groups_removed = matched_groups;
     let photos_removed = if config.keep_files {
         0
     } else {
-        remove_from_photos(&mut mgr.state.photos, &matched_ids, &mut groups_removed)
+        remove_from_photos(mgr.photos_mut(), &matched_ids, &mut groups_removed)
     };
 
     // 5. Speichern + Git commit
