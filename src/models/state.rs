@@ -83,7 +83,15 @@ impl ProjectState {
             std::collections::HashSet::new();
 
         for (i, page) in self.layout.iter().enumerate() {
-            if page.photos.len() != page.slots.len() {
+            // Slots are authoritative only on Manual pages, where the user pins each
+            // photo to an explicit slot. On Auto pages (including structured covers)
+            // the slots are a cache of the last solver run and get regenerated on the
+            // next build; editing commands (move/place/remove/…) intentionally leave
+            // them stale until then, so a count mismatch there means "needs rebuild",
+            // not "invalid". Enforcing equality on Auto pages would flag that normal
+            // intermediate state as an error.
+            if page.mode == crate::models::PageMode::Manual && page.photos.len() != page.slots.len()
+            {
                 return Err(anyhow::anyhow!(
                     "Page {}: {} photo(s) but {} slot(s)",
                     i,
@@ -174,11 +182,23 @@ mod tests {
     }
 
     #[test]
-    fn test_validity_photos_slots_count_mismatch() {
+    fn test_validity_manual_page_photos_slots_count_mismatch() {
+        // On a Manual page the slots are authoritative, so a count mismatch is invalid.
         let mut state = minimal_state();
+        state.layout[0].mode = PageMode::Manual;
         state.layout[0].slots.pop();
         let err = state.check_validity().unwrap_err();
         assert!(err.to_string().contains("slot(s)"));
+    }
+
+    #[test]
+    fn test_validity_auto_page_slot_mismatch_is_ok() {
+        // On an Auto page the slots are a regenerable cache; after an edit they are
+        // stale ("needs rebuild") and a count mismatch must not be flagged as invalid.
+        let mut state = minimal_state();
+        assert_eq!(state.layout[0].mode, PageMode::Auto);
+        state.layout[0].slots.pop();
+        assert!(state.check_validity().is_ok());
     }
 
     #[test]
