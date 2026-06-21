@@ -3,7 +3,7 @@
 use anyhow::Result;
 use fotobuch::commands::project::new::{NewConfig, project_new};
 use fotobuch::commands::{AddConfig, add};
-use fotobuch::models::ProjectState;
+use fotobuch::models::{ProjectState, read_state_yaml};
 use regex::Regex;
 use std::fs;
 use std::path::PathBuf;
@@ -67,7 +67,7 @@ fn test_add_single_directory_creates_groups() -> Result<()> {
 
     // Load YAML and verify photos were added
     let yaml_path = project_root.join("testproject.yaml");
-    let state = ProjectState::load(&yaml_path)?;
+    let state = read_state_yaml(&yaml_path)?;
 
     assert!(!state.photos.is_empty(), "Photos should be in YAML");
 
@@ -172,7 +172,7 @@ fn test_add_merges_existing_group() -> Result<()> {
     let result1 = add(&project_root, &add_config1)?;
 
     let yaml_path = project_root.join("testproject.yaml");
-    let state1 = ProjectState::load(&yaml_path)?;
+    let state1 = read_state_yaml(&yaml_path)?;
     let initial_group_count = state1.photos.len();
     let initial_photo_count: usize = state1.photos.iter().map(|g| g.files.len()).sum();
 
@@ -190,7 +190,7 @@ fn test_add_merges_existing_group() -> Result<()> {
     };
     let _result2 = add(&project_root, &add_config2)?;
 
-    let state2 = ProjectState::load(&yaml_path)?;
+    let state2 = read_state_yaml(&yaml_path)?;
     let final_group_count = state2.photos.len();
     let final_photo_count: usize = state2.photos.iter().map(|g| g.files.len()).sum();
 
@@ -336,7 +336,7 @@ fn test_add_sorts_groups_by_sort_key() -> Result<()> {
 
     // Load YAML and verify groups are sorted
     let yaml_path = project_root.join("testproject.yaml");
-    let state = ProjectState::load(&yaml_path)?;
+    let state = read_state_yaml(&yaml_path)?;
 
     assert!(!state.photos.is_empty(), "Should have photos");
 
@@ -357,7 +357,7 @@ fn test_dry_run_does_not_write_state() -> Result<()> {
     let project_root = create_test_project(&temp_dir)?;
 
     let yaml_path = project_root.join("testproject.yaml");
-    let state_before = ProjectState::load(&yaml_path)?;
+    let state_before = read_state_yaml(&yaml_path)?;
 
     let add_config = AddConfig {
         paths: vec![test_photos_path()],
@@ -377,7 +377,7 @@ fn test_dry_run_does_not_write_state() -> Result<()> {
         "Dry run should still report what would be added"
     );
 
-    let state_after = ProjectState::load(&yaml_path)?;
+    let state_after = read_state_yaml(&yaml_path)?;
     assert_eq!(
         state_before.photos.len(),
         state_after.photos.len(),
@@ -488,7 +488,7 @@ fn test_xmp_filter_matches_modified_description() -> Result<()> {
 
     // Load YAML and verify only the modified photo was added
     let yaml_path = project_root.join("testproject.yaml");
-    let state = ProjectState::load(&yaml_path)?;
+    let state = read_state_yaml(&yaml_path)?;
 
     assert_eq!(
         state.photos.len(),
@@ -588,7 +588,7 @@ fn test_add_hashes_are_persisted() -> Result<()> {
     let result = add(&project_root, &add_config)?;
 
     let yaml_path = project_root.join("testproject.yaml");
-    let state = ProjectState::load(&yaml_path)?;
+    let state = read_state_yaml(&yaml_path)?;
 
     // Verify all photos are persisted
     let total_photos: usize = state.photos.iter().map(|g| g.files.len()).sum();
@@ -643,7 +643,7 @@ fn test_add_weight_is_applied_to_all_photos() -> Result<()> {
     add(&project_root, &add_config)?;
 
     let yaml_path = project_root.join("testproject.yaml");
-    let state = ProjectState::load(&yaml_path)?;
+    let state = read_state_yaml(&yaml_path)?;
 
     for group in &state.photos {
         for photo in &group.files {

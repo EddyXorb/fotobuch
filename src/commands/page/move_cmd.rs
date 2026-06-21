@@ -642,6 +642,7 @@ mod tests {
 
         let cmd = PageMoveCmd::Move {
             src: Src::Slots {
+                page: 0,
                 slots: SlotExpr::from_range(0, 1),
             },
             dst: DstMove::Unplace,
@@ -663,6 +664,7 @@ mod tests {
 
         let cmd = PageMoveCmd::Move {
             src: Src::Slots {
+                page: 0,
                 slots: SlotExpr::single(0),
             },
             dst: DstMove::NewPageAt(1),
@@ -686,6 +688,7 @@ mod tests {
 
         let cmd = PageMoveCmd::Move {
             src: Src::Slots {
+                page: 1,
                 slots: SlotExpr::single(0),
             },
             dst: DstMove::NewPageAt(1),
@@ -711,6 +714,7 @@ mod tests {
         // Move the only slot from page 0 to page 1 → page 0 becomes empty → deleted
         let cmd = PageMoveCmd::Move {
             src: Src::Slots {
+                page: 0,
                 slots: SlotExpr::single(0),
             },
             dst: DstMove::Page(1),
@@ -733,6 +737,7 @@ mod tests {
         // Unplace all slots from page 0 → page 0 becomes empty → deleted
         let cmd = PageMoveCmd::Move {
             src: Src::Slots {
+                page: 0,
                 slots: SlotExpr::from_range(0, 1),
             },
             dst: DstMove::Unplace,
@@ -858,9 +863,11 @@ mod tests {
 
         let cmd = PageMoveCmd::Swap {
             left: Src::Slots {
+                page: 0,
                 slots: SlotExpr::single(0),
             },
             right: super::super::types::DstSwap::Slots {
+                page: 0,
                 slots: SlotExpr::single(2),
             },
         };
@@ -879,9 +886,11 @@ mod tests {
 
         let cmd = PageMoveCmd::Swap {
             left: Src::Slots {
+                page: 0,
                 slots: SlotExpr::from_range(0, 1),
             },
             right: super::super::types::DstSwap::Slots {
+                page: 0,
                 slots: SlotExpr::from_range(1, 2),
             },
         };
@@ -901,6 +910,7 @@ mod tests {
 
         let cmd = PageMoveCmd::Move {
             src: Src::Slots {
+                page: 1,
                 slots: SlotExpr::single(0),
             },
             dst: DstMove::NewPageAt(0),
@@ -923,6 +933,7 @@ mod tests {
 
         let cmd = PageMoveCmd::Move {
             src: Src::Slots {
+                page: 0,
                 slots: SlotExpr::single(0),
             },
             dst: DstMove::NewPageAt(1),
@@ -948,9 +959,11 @@ mod tests {
 
         let cmd = PageMoveCmd::Move {
             src: Src::Slots {
+                page: 0,
                 slots: SlotExpr::single(0),
             },
             dst: DstMove::ManualAt {
+                page: 1,
                 x_mm: 50.0,
                 y_mm: 60.0,
             },
@@ -979,9 +992,11 @@ mod tests {
 
         let cmd = PageMoveCmd::Move {
             src: Src::Slots {
+                page: 0,
                 slots: SlotExpr::single(0),
             },
             dst: DstMove::ManualAt {
+                page: 1,
                 x_mm: 0.0,
                 y_mm: 0.0,
             },
@@ -1007,9 +1022,11 @@ mod tests {
 
         let cmd = PageMoveCmd::Swap {
             left: Src::Slots {
+                page: 0,
                 slots: SlotExpr::single(0),
             },
             right: DstSwap::Slots {
+                page: 1,
                 slots: SlotExpr::single(0),
             },
         };
@@ -1032,6 +1049,7 @@ mod tests {
 
         let cmd = PageMoveCmd::Move {
             src: Src::Slots {
+                page: 0,
                 slots: SlotExpr::single(0),
             },
             dst: DstMove::NewPageAt(99),

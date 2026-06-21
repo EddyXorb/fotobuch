@@ -4,7 +4,7 @@ use anyhow::Result;
 use fotobuch::commands::project::new::{NewConfig, project_new};
 use fotobuch::commands::remove::RemoveTarget;
 use fotobuch::commands::{AddConfig, add, build::*, remove::*};
-use fotobuch::models::ProjectState;
+use fotobuch::models::{read_state_yaml, write_state_yaml};
 use std::path::PathBuf;
 use tempfile::TempDir;
 
@@ -30,14 +30,14 @@ fn create_test_project_with_layout(temp_dir: &TempDir) -> Result<PathBuf> {
 
     // Configure solver for fast tests
     let yaml_path = project_root.join("testremove.yaml");
-    let mut state = ProjectState::load(&yaml_path)?;
+    let mut state = read_state_yaml(&yaml_path)?;
     state.config.book_layout_solver.page_max = 5;
     state.config.book_layout_solver.page_target = 3;
     state.config.book_layout_solver.enable_local_search = false;
     state.config.page_layout_solver.population_size = 20;
     state.config.page_layout_solver.max_generations = 10;
     state.config.page_layout_solver.islands_nr = 1;
-    state.save(&yaml_path)?;
+    write_state_yaml(&state, &yaml_path)?;
 
     // Add test photos
     let photos_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -92,7 +92,7 @@ fn test_remove_single_photo_by_pattern() -> Result<()> {
     let project_root = create_test_project_with_layout(&temp_dir)?;
 
     let yaml_path = project_root.join("testremove.yaml");
-    let state_before = ProjectState::load(&yaml_path)?;
+    let state_before = read_state_yaml(&yaml_path)?;
 
     // Get first photo to match
     let first_photo_id = state_before
@@ -126,7 +126,7 @@ fn test_remove_single_photo_by_pattern() -> Result<()> {
     );
 
     // Verify state was saved
-    let state_after = ProjectState::load(&yaml_path)?;
+    let state_after = read_state_yaml(&yaml_path)?;
     assert!(
         state_after.photos.iter().all(|g| !g.files.is_empty()),
         "Should not have empty groups"
@@ -141,7 +141,7 @@ fn test_remove_entire_group() -> Result<()> {
     let project_root = create_test_project_with_layout(&temp_dir)?;
 
     let yaml_path = project_root.join("testremove.yaml");
-    let state_before = ProjectState::load(&yaml_path)?;
+    let state_before = read_state_yaml(&yaml_path)?;
 
     // Get first group name
     let group_name = state_before
@@ -161,7 +161,7 @@ fn test_remove_entire_group() -> Result<()> {
     assert!(result.result.photos_removed > 0);
 
     // Verify group is removed
-    let state_after = ProjectState::load(&yaml_path)?;
+    let state_after = read_state_yaml(&yaml_path)?;
     assert!(
         !state_after.photos.iter().any(|g| g.group == group_name),
         "Group should be removed"
@@ -176,7 +176,7 @@ fn test_remove_with_keep_files() -> Result<()> {
     let project_root = create_test_project_with_layout(&temp_dir)?;
 
     let yaml_path = project_root.join("testremove.yaml");
-    let state_before = ProjectState::load(&yaml_path)?;
+    let state_before = read_state_yaml(&yaml_path)?;
 
     let initial_photos = state_before
         .photos
@@ -202,7 +202,7 @@ fn test_remove_with_keep_files() -> Result<()> {
     );
 
     // Verify photos still exist but are unplaced
-    let state_after = ProjectState::load(&yaml_path)?;
+    let state_after = read_state_yaml(&yaml_path)?;
     let remaining_photos = state_after
         .photos
         .iter()
@@ -276,7 +276,7 @@ fn test_remove_empty_pages_are_deleted() -> Result<()> {
     let project_root = create_test_project_with_layout(&temp_dir)?;
 
     let yaml_path = project_root.join("testremove.yaml");
-    let _state_before = ProjectState::load(&yaml_path)?;
+    let _state_before = read_state_yaml(&yaml_path)?;
 
     let initial_page_count = _state_before.layout.len();
     assert!(initial_page_count > 0, "Should have at least one page");
@@ -295,17 +295,9 @@ fn test_remove_empty_pages_are_deleted() -> Result<()> {
         };
         let _result = remove(&project_root, &config)?;
 
-        let state_after = ProjectState::load(&yaml_path)?;
+        let state_after = read_state_yaml(&yaml_path)?;
         // Page count might be reduced if last page became empty and was removed
         assert!(state_after.layout.len() <= initial_page_count);
-
-        // Verify pages are renumbered sequentially
-        for (i, page) in state_after.layout.iter().enumerate() {
-            assert_eq!(
-                page.page, i,
-                "Pages should be renumbered by array index (0-based)"
-            );
-        }
     }
 
     Ok(())

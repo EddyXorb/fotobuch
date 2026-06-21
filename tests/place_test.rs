@@ -3,7 +3,7 @@
 use anyhow::Result;
 use fotobuch::commands::project::new::{NewConfig, project_new};
 use fotobuch::commands::{AddConfig, add, build::*, place::*};
-use fotobuch::models::ProjectState;
+use fotobuch::models::{read_state_yaml, write_state_yaml};
 use std::path::PathBuf;
 use tempfile::TempDir;
 
@@ -29,14 +29,14 @@ fn create_test_project_with_layout(temp_dir: &TempDir) -> Result<PathBuf> {
 
     // Configure solver for fast tests
     let yaml_path = project_root.join("testplace.yaml");
-    let mut state = ProjectState::load(&yaml_path)?;
+    let mut state = read_state_yaml(&yaml_path)?;
     state.config.book_layout_solver.page_max = 5;
     state.config.book_layout_solver.page_target = 3;
     state.config.book_layout_solver.enable_local_search = false;
     state.config.page_layout_solver.population_size = 20;
     state.config.page_layout_solver.max_generations = 10;
     state.config.page_layout_solver.islands_nr = 1;
-    state.save(&yaml_path)?;
+    write_state_yaml(&state, &yaml_path)?;
 
     // Add test photos
     let photos_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -147,7 +147,7 @@ fn test_place_with_invalid_page_number() -> Result<()> {
 
     // Load state to see how many pages exist
     let yaml_path = project_root.join("testplace.yaml");
-    let state = ProjectState::load(&yaml_path)?;
+    let state = read_state_yaml(&yaml_path)?;
     let page_count = state.layout.len();
     assert!(page_count > 0);
 
@@ -179,7 +179,7 @@ fn test_place_into_specific_page() -> Result<()> {
 
     // Load initial state
     let yaml_path = project_root.join("testplace.yaml");
-    let state_before = ProjectState::load(&yaml_path)?;
+    let state_before = read_state_yaml(&yaml_path)?;
 
     // Remove first photo and first slot from first page to create an unplaced photo
     let mut state_modified = state_before.clone();
@@ -192,7 +192,7 @@ fn test_place_into_specific_page() -> Result<()> {
     if !state_modified.layout[0].slots.is_empty() {
         state_modified.layout[0].slots.remove(0);
     }
-    state_modified.save(&yaml_path)?;
+    write_state_yaml(&state_modified, &yaml_path)?;
 
     // Now place the unplaced photo into page 0 (0-based first page)
     let config = PlaceConfig {
@@ -213,7 +213,7 @@ fn test_place_into_specific_page() -> Result<()> {
     );
 
     // Verify state was saved and photo is back on page 0
-    let state_after = ProjectState::load(&yaml_path)?;
+    let state_after = read_state_yaml(&yaml_path)?;
     assert!(
         state_after.layout[0].photos.contains(&removed_photo),
         "Removed photo should be on page 0"
@@ -239,7 +239,7 @@ fn test_place_filter_by_pattern() -> Result<()> {
     let project_root = create_test_project_with_layout(&temp_dir)?;
 
     let yaml_path = project_root.join("testplace.yaml");
-    let state_before = ProjectState::load(&yaml_path)?;
+    let state_before = read_state_yaml(&yaml_path)?;
 
     // Remove first photo and slot from first page to create an unplaced photo
     let mut state_modified = state_before.clone();
@@ -249,7 +249,7 @@ fn test_place_filter_by_pattern() -> Result<()> {
             state_modified.layout[0].slots.remove(0);
         }
     }
-    state_modified.save(&yaml_path)?;
+    write_state_yaml(&state_modified, &yaml_path)?;
 
     // Place with a pattern that matches the test fixture path
     let config = PlaceConfig {
@@ -293,7 +293,7 @@ fn test_place_invalid_filter_pattern() -> Result<()> {
     let project_root = create_test_project_with_layout(&temp_dir)?;
 
     let yaml_path = project_root.join("testplace.yaml");
-    let state_before = ProjectState::load(&yaml_path)?;
+    let state_before = read_state_yaml(&yaml_path)?;
 
     // Remove first photo and slot to create an unplaced photo
     let mut state_modified = state_before;
@@ -303,7 +303,7 @@ fn test_place_invalid_filter_pattern() -> Result<()> {
             state_modified.layout[0].slots.remove(0);
         }
     }
-    state_modified.save(&yaml_path)?;
+    write_state_yaml(&state_modified, &yaml_path)?;
 
     // Use invalid regex pattern
     let config = PlaceConfig {
@@ -331,7 +331,7 @@ fn test_place_ids_filter_restricts_to_selected_photos() -> Result<()> {
     let project_root = create_test_project_with_layout(&temp_dir)?;
 
     let yaml_path = project_root.join("testplace.yaml");
-    let mut state = ProjectState::load(&yaml_path)?;
+    let mut state = read_state_yaml(&yaml_path)?;
 
     // Remove first two photos from page 0 to create two unplaced photos.
     if state.layout.is_empty() || state.layout[0].photos.len() < 2 {
@@ -343,7 +343,7 @@ fn test_place_ids_filter_restricts_to_selected_photos() -> Result<()> {
         state.layout[0].slots.remove(0);
         state.layout[0].slots.remove(0);
     }
-    state.save(&yaml_path)?;
+    write_state_yaml(&state, &yaml_path)?;
 
     // Place only id_a via ids filter.
     let config = PlaceConfig {
@@ -358,7 +358,7 @@ fn test_place_ids_filter_restricts_to_selected_photos() -> Result<()> {
         "only 1 of 2 unplaced photos should be placed"
     );
 
-    let state_after = ProjectState::load(&yaml_path)?;
+    let state_after = read_state_yaml(&yaml_path)?;
     assert!(
         state_after.layout[0].photos.contains(&id_a),
         "id_a should be placed"
@@ -380,7 +380,7 @@ fn test_place_into_new_page_at() -> Result<()> {
     let project_root = create_test_project_with_layout(&temp_dir)?;
 
     let yaml_path = project_root.join("testplace.yaml");
-    let state_before = ProjectState::load(&yaml_path)?;
+    let state_before = read_state_yaml(&yaml_path)?;
     let pages_before = state_before.layout.len();
 
     // Remove a photo from page 0 to create an unplaced photo
@@ -393,7 +393,7 @@ fn test_place_into_new_page_at() -> Result<()> {
     if !state_modified.layout[0].slots.is_empty() {
         state_modified.layout[0].slots.remove(0);
     }
-    state_modified.save(&yaml_path)?;
+    write_state_yaml(&state_modified, &yaml_path)?;
 
     // Place the unplaced photo into a new page at position 1
     let config = PlaceConfig {
@@ -408,14 +408,9 @@ fn test_place_into_new_page_at() -> Result<()> {
     assert_eq!(result.result.pages_inserted, vec![1]);
 
     // Verify state: one more page, photo is on page 1
-    let state_after = ProjectState::load(&yaml_path)?;
+    let state_after = read_state_yaml(&yaml_path)?;
     assert_eq!(state_after.layout.len(), pages_before + 1);
     assert!(state_after.layout[1].photos.contains(&removed_photo));
-
-    // Verify page numbering invariant: layout[i].page == i
-    for (i, page) in state_after.layout.iter().enumerate() {
-        assert_eq!(page.page, i, "page numbering invariant broken at index {i}");
-    }
 
     Ok(())
 }
@@ -426,7 +421,7 @@ fn test_place_into_new_page_at_invalid_position() -> Result<()> {
     let project_root = create_test_project_with_layout(&temp_dir)?;
 
     let yaml_path = project_root.join("testplace.yaml");
-    let state = ProjectState::load(&yaml_path)?;
+    let state = read_state_yaml(&yaml_path)?;
     let pages_count = state.layout.len();
 
     // Remove a photo to create an unplaced one
@@ -435,7 +430,7 @@ fn test_place_into_new_page_at_invalid_position() -> Result<()> {
     if !state_modified.layout[0].slots.is_empty() {
         state_modified.layout[0].slots.remove(0);
     }
-    state_modified.save(&yaml_path)?;
+    write_state_yaml(&state_modified, &yaml_path)?;
 
     // Try position beyond layout.len() (invalid)
     let config = PlaceConfig {
