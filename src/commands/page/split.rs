@@ -44,7 +44,6 @@ pub fn execute_split(
     mgr.state.layout.insert(
         new_idx,
         LayoutPage {
-            page: new_idx, // will be renumbered by finish()
             photos: moved_photos,
             slots: moved_slots,
             mode: PageMode::Auto,

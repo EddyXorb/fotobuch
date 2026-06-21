@@ -106,7 +106,6 @@ mod tests {
         assert!(matches!(
             result,
             Err(PageMoveError::Validation(ValidationError::SlotNotFound {
-                page: 0,
                 slot: 5
             }))
         ));

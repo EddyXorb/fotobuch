@@ -91,7 +91,6 @@ mod tests {
         execute_weight(
             tmp.path(),
             WeightAddress::Slots {
-                page: 0,
                 slots: SlotExpr::from_range(0, 1),
             },
             3.0,

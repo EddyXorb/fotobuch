@@ -83,15 +83,6 @@ impl ProjectState {
             std::collections::HashSet::new();
 
         for (i, page) in self.layout.iter().enumerate() {
-            if page.page != i {
-                return Err(anyhow::anyhow!(
-                    "Page at position {} has index {}, expected {}",
-                    i,
-                    page.page,
-                    i
-                ));
-            }
-
             if page.photos.len() != page.slots.len() {
                 return Err(anyhow::anyhow!(
                     "Page {}: {} photo(s) but {} slot(s)",
@@ -149,9 +140,8 @@ mod tests {
         }
     }
 
-    fn make_page(page: usize, photo_ids: &[&str]) -> LayoutPage {
+    fn make_page(_page: usize, photo_ids: &[&str]) -> LayoutPage {
         LayoutPage {
-            page,
             photos: photo_ids.iter().map(|s| s.to_string()).collect(),
             slots: photo_ids.iter().map(|_| make_slot()).collect(),
             mode: PageMode::Auto,
@@ -189,14 +179,6 @@ mod tests {
         state.layout[0].slots.pop();
         let err = state.check_validity().unwrap_err();
         assert!(err.to_string().contains("slot(s)"));
-    }
-
-    #[test]
-    fn test_validity_page_index_mismatch() {
-        let mut state = minimal_state();
-        state.layout[0].page = 1;
-        let err = state.check_validity().unwrap_err();
-        assert!(err.to_string().contains("expected 0"));
     }
 
     #[test]

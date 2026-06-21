@@ -308,7 +308,6 @@ fn place_into_new_page(
     state.layout.insert(
         position,
         LayoutPage {
-            page: position, // will be renumbered by StateManager::finish()
             photos: photo_ids,
             slots: vec![],
             mode: PageMode::Auto,
@@ -370,7 +369,6 @@ mod tests {
                 files: vec![photo1, photo2],
             }],
             layout: vec![LayoutPage {
-                page: 1,
                 photos: vec!["a.jpg".to_string()],
                 slots: vec![],
 
@@ -515,14 +513,12 @@ mod tests {
         }];
         let layout = vec![
             LayoutPage {
-                page: 0,
                 photos: vec!["cover.jpg".into()],
                 slots: vec![],
 
                 mode: PageMode::Auto,
             },
             LayoutPage {
-                page: 1,
                 photos: vec!["content.jpg".into()],
                 slots: vec![],
 
@@ -553,14 +549,12 @@ mod tests {
         }];
         let layout = vec![
             LayoutPage {
-                page: 0,
                 photos: vec!["p0.jpg".into()],
                 slots: vec![],
 
                 mode: PageMode::Auto,
             },
             LayoutPage {
-                page: 1,
                 photos: vec!["p1.jpg".into()],
                 slots: vec![],
 
@@ -593,14 +587,12 @@ mod tests {
         }];
         let layout = vec![
             LayoutPage {
-                page: 0,
                 photos: vec!["cover.jpg".into()],
                 slots: vec![],
 
                 mode: PageMode::Auto,
             },
             LayoutPage {
-                page: 1,
                 photos: vec!["content.jpg".into()],
                 slots: vec![],
 

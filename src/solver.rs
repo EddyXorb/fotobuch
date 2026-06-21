@@ -60,7 +60,7 @@ fn run_single_page<C: CanvasConfig>(
     request: &Request<C>,
 ) -> Result<Vec<LayoutPage>, SolverError> {
     let result = page_layout_solver::solve_page_layout(photos, canvas, request.page_layout_config);
-    let layout_page = conversion::to_layout_page(&result.layout, 0, photos, request.canvas_config);
+    let layout_page = conversion::to_layout_page(&result.layout, photos, request.canvas_config);
     Ok(vec![layout_page])
 }
 
@@ -77,11 +77,9 @@ fn run_multi_page<C: CanvasConfig>(
     let layout_pages: Vec<LayoutPage> = book_layout
         .pages
         .iter()
-        .enumerate()
-        .map(|(i, page)| {
+        .map(|page| {
             let layout_page = conversion::to_layout_page(
                 page,
-                i,
                 &photos[curr_idx..curr_idx + page.placements.len()],
                 request.canvas_config,
             );

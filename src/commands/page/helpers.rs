@@ -60,7 +60,7 @@ pub(super) fn photos_at_slots(
     for &i in slot_indices {
         if i >= layout[page_idx].photos.len() {
             return Err(ValidationError::SlotEmpty {
-                page: layout[page_idx].page as u32,
+                page: page_idx as u32,
                 slot: i as u32,
             });
         }
@@ -76,7 +76,7 @@ pub(crate) fn delete_empty_pages(layout: &mut Vec<LayoutPage>) -> Vec<u32> {
     let mut i = 0;
     while i < layout.len() {
         if layout[i].photos.is_empty() {
-            deleted.push(layout[i].page as u32);
+            deleted.push(i as u32);
             layout.remove(i);
         } else {
             i += 1;

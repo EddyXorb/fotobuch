@@ -83,7 +83,7 @@ fn match_photos(state: &ProjectState, patterns: &[String]) -> Result<MatchResult
 /// Result of removing from layout
 struct LayoutRemoveResult {
     placements_removed: usize,
-    pages_affected: Vec<usize>, // 1-basiert
+    pages_affected: Vec<usize>,
 }
 
 /// Entfernt gematchte Fotos aus allen Layout-Seiten.
@@ -95,7 +95,7 @@ fn remove_from_layout(
     let mut placements_removed = 0;
     let mut pages_affected = Vec::new();
 
-    for page in layout.iter_mut() {
+    for (page_idx, page) in layout.iter_mut().enumerate() {
         let before = page.photos.len();
 
         // Photos und Slots parallel filtern (index-gekoppelt)
@@ -128,7 +128,7 @@ fn remove_from_layout(
 
         let removed = before - new_photos.len();
         if removed > 0 {
-            pages_affected.push(page.page);
+            pages_affected.push(page_idx);
             placements_removed += removed;
         }
 
@@ -366,10 +366,8 @@ mod tests {
         };
 
         let mut layout = vec![LayoutPage {
-            page: 1,
             photos: vec!["a.jpg".to_string(), "b.jpg".to_string()],
             slots: vec![slot1.clone(), slot2.clone()],
-
             mode: PageMode::Auto,
         }];
 
@@ -388,87 +386,25 @@ mod tests {
     fn test_remove_empty_pages() {
         let mut layout = vec![
             LayoutPage {
-                page: 1,
                 photos: vec![],
                 slots: vec![],
-
                 mode: PageMode::Auto,
             },
             LayoutPage {
-                page: 2,
                 photos: vec!["a.jpg".to_string()],
                 slots: vec![],
-
                 mode: PageMode::Auto,
             },
             LayoutPage {
-                page: 3,
                 photos: vec![],
                 slots: vec![],
-
                 mode: PageMode::Auto,
             },
         ];
 
         remove_empty_pages(&mut layout);
         assert_eq!(layout.len(), 1);
-        assert_eq!(layout[0].page, 2);
-    }
-
-    #[test]
-    fn test_renumber_pages() {
-        let mut layout = vec![
-            LayoutPage {
-                page: 5,
-                photos: vec!["a.jpg".to_string()],
-                slots: vec![],
-
-                mode: PageMode::Auto,
-            },
-            LayoutPage {
-                page: 7,
-                photos: vec!["b.jpg".to_string()],
-                slots: vec![],
-
-                mode: PageMode::Auto,
-            },
-        ];
-
-        renumber_pages(&mut layout, false);
-        assert_eq!(layout[0].page, 0);
-        assert_eq!(layout[1].page, 1);
-    }
-
-    #[test]
-    fn test_renumber_pages_with_cover() {
-        let mut layout = vec![
-            LayoutPage {
-                page: 99,
-                photos: vec!["cover.jpg".to_string()],
-                slots: vec![],
-
-                mode: PageMode::Auto,
-            },
-            LayoutPage {
-                page: 99,
-                photos: vec!["a.jpg".to_string()],
-                slots: vec![],
-
-                mode: PageMode::Auto,
-            },
-            LayoutPage {
-                page: 99,
-                photos: vec!["b.jpg".to_string()],
-                slots: vec![],
-
-                mode: PageMode::Auto,
-            },
-        ];
-
-        renumber_pages(&mut layout, true);
-        assert_eq!(layout[0].page, 0); // cover
-        assert_eq!(layout[1].page, 1);
-        assert_eq!(layout[2].page, 2);
+        assert_eq!(layout[0].photos[0], "a.jpg");
     }
 
     #[test]
@@ -527,10 +463,8 @@ mod tests {
                 ],
             }],
             layout: vec![LayoutPage {
-                page: 1,
                 photos: vec!["a.jpg".to_string()],
                 slots: vec![],
-
                 mode: PageMode::Auto,
             }],
         };
@@ -551,10 +485,8 @@ mod tests {
                 files: vec![make_photo("a.jpg", "/path/a.jpg")],
             }],
             layout: vec![LayoutPage {
-                page: 1,
                 photos: vec!["a.jpg".to_string()],
                 slots: vec![],
-
                 mode: PageMode::Auto,
             }],
         };
@@ -599,7 +531,6 @@ mod tests {
             },
         ];
         let layout = vec![LayoutPage {
-            page: 0,
             photos: vec!["id-aaa".to_string(), "id-bbb".to_string()],
             slots: vec![],
             mode: PageMode::Auto,

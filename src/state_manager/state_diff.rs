@@ -136,10 +136,8 @@ pub fn diff_photos(old: &[PhotoGroup], new: &[PhotoGroup]) -> (usize, usize, usi
 ///
 /// Modified = a page that exists in both old and new but has different slots.
 pub fn diff_pages(old: &[LayoutPage], new: &[LayoutPage]) -> (usize, usize, usize) {
-    let old_map: std::collections::HashMap<usize, &LayoutPage> =
-        old.iter().map(|p| (p.page, p)).collect();
-    let new_map: std::collections::HashMap<usize, &LayoutPage> =
-        new.iter().map(|p| (p.page, p)).collect();
+    let old_map: std::collections::HashMap<usize, &LayoutPage> = old.iter().enumerate().collect();
+    let new_map: std::collections::HashMap<usize, &LayoutPage> = new.iter().enumerate().collect();
 
     let added = new_map.keys().filter(|k| !old_map.contains_key(k)).count();
     let removed = old_map.keys().filter(|k| !new_map.contains_key(k)).count();

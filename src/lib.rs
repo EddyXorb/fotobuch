@@ -56,8 +56,8 @@
 //!     .expect("Solver failed");
 //!
 //! // Process results
-//! for page in layout_pages {
-//!     println!("Page {}: {} photos", page.page, page.photos.len());
+//! for (i, page) in layout_pages.iter().enumerate() {
+//!     println!("Page {}: {} photos", i, page.photos.len());
 //! }
 //! ```
 //!

@@ -65,7 +65,6 @@ mod tests {
 
         // Manual is serialized, Auto (incl. default) is skipped.
         let page_manual = LayoutPage {
-            page: 0,
             photos: vec![],
             slots: vec![],
             mode: PageMode::Manual,
@@ -78,7 +77,6 @@ mod tests {
         assert!(yaml.contains("manual"), "Mode should serialize as 'manual'");
 
         let page_auto = LayoutPage {
-            page: 0,
             photos: vec![],
             slots: vec![],
             mode: PageMode::Auto,

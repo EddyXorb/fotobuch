@@ -22,15 +22,9 @@ use crate::dto_models::{LayoutPage, ProjectState, read_state_yaml, write_state_y
 use crate::git;
 use crate::state_manager::state_diff::StateDiff;
 
-/// Nummeriert alle LayoutPage.page Felder auf den Array-Index (0-basiert).
-///
-/// `layout[i].page = i` — immer, unabhängig davon ob ein Cover vorhanden ist.
-/// Der Parameter `_has_cover` ist für zukünftige Erweiterungen reserviert.
-pub fn renumber_pages(layout: &mut [LayoutPage], _has_cover: bool) {
-    for (i, page) in layout.iter_mut().enumerate() {
-        page.page = i;
-    }
-}
+/// No-op kept for call-site compatibility. `LayoutPage` no longer carries a
+/// redundant `page` index field — the array position is the canonical identity.
+pub fn renumber_pages(_layout: &mut [LayoutPage], _has_cover: bool) {}
 // ── BuildBaseline ─────────────────────────────────────────────────────────────
 
 /// Lazy reference state from the last `build:` or `rebuild:` git commit.
@@ -519,10 +513,8 @@ mod tests {
         let old = make_state("T");
         let mut new = old.clone();
         new.layout.push(LayoutPage {
-            page: 1,
             photos: vec![],
             slots: vec![],
-
             mode: PageMode::Auto,
         });
         let diff = StateDiff::compute(&old, &new);
@@ -535,7 +527,6 @@ mod tests {
     fn test_statediff_pages_modified() {
         let mut old = make_state("T");
         old.layout.push(LayoutPage {
-            page: 1,
             photos: vec!["p1".to_owned()],
             slots: vec![Slot {
                 x_mm: 0.0,

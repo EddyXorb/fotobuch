@@ -203,18 +203,16 @@ mod tests {
         }
     }
 
-    fn make_auto_page(idx: usize, ids: &[&str]) -> LayoutPage {
+    fn make_auto_page(_idx: usize, ids: &[&str]) -> LayoutPage {
         LayoutPage {
-            page: idx,
             photos: ids.iter().map(|s| s.to_string()).collect(),
             slots: vec![],
             mode: PageMode::Auto,
         }
     }
 
-    fn make_manual_page(idx: usize, ids: &[&str]) -> LayoutPage {
+    fn make_manual_page(_idx: usize, ids: &[&str]) -> LayoutPage {
         LayoutPage {
-            page: idx,
             photos: ids.iter().map(|s| s.to_string()).collect(),
             slots: vec![],
             mode: PageMode::Manual,

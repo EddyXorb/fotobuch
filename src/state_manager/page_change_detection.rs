@@ -304,12 +304,10 @@ mod tests {
         }
     }
 
-    fn make_page(page_num: usize, photos: Vec<String>, slots: Vec<Slot>) -> LayoutPage {
+    fn make_page(_page_num: usize, photos: Vec<String>, slots: Vec<Slot>) -> LayoutPage {
         LayoutPage {
-            page: page_num,
             photos,
             slots,
-
             mode: PageMode::Auto,
         }
     }

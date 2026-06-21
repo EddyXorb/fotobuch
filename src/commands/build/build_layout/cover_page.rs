@@ -15,7 +15,6 @@ pub(super) fn build_cover_page(
     warn_slot_count_mismatch(cover.mode, files.len());
     let slots = compute_cover_slots(cover, &ratios, inner_page_count)?;
     Ok(LayoutPage {
-        page: 0,
         photos: files.into_iter().map(|f| f.id).collect(),
         slots,
         mode: PageMode::Auto,

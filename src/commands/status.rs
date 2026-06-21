@@ -107,11 +107,11 @@ fn check_consistency(state: &ProjectState) -> Vec<String> {
     // Find orphaned placements (in layout but not in photos)
     let orphaned: Vec<&str> = placed_ids.difference(&all_ids).copied().collect();
     for id in &orphaned {
-        for page in &state.layout {
+        for (idx, page) in state.layout.iter().enumerate() {
             if page.photos.iter().any(|p| p == id) {
                 warnings.push(format!(
                     "Orphaned placement: {} on page {} (not in photos)",
-                    id, page.page
+                    id, idx
                 ));
             }
         }
@@ -300,7 +300,6 @@ mod tests {
                 }],
             }],
             layout: vec![crate::dto_models::LayoutPage {
-                page: 1,
                 photos: vec!["a.jpg".to_string()],
                 slots: vec![],
 
@@ -340,7 +339,6 @@ mod tests {
                 ],
             }],
             layout: vec![crate::dto_models::LayoutPage {
-                page: 1,
                 photos: vec!["a.jpg".to_string()],
                 slots: vec![],
 
@@ -402,7 +400,6 @@ mod tests {
                 }],
             }],
             layout: vec![crate::dto_models::LayoutPage {
-                page: 1,
                 photos: vec!["a.jpg".to_string()],
                 slots: vec![],
 
@@ -424,7 +421,6 @@ mod tests {
                 files: vec![],
             }],
             layout: vec![crate::dto_models::LayoutPage {
-                page: 1,
                 photos: vec!["orphan.jpg".to_string()],
                 slots: vec![],
 

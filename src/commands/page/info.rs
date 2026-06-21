@@ -148,7 +148,6 @@ mod tests {
         let result = execute_info(
             tmp.path(),
             Src::Slots {
-                page: 0,
                 slots: SlotExpr::from_range(0, 1),
             },
             InfoFilter::default(),

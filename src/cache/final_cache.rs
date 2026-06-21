@@ -43,12 +43,12 @@ pub fn build_final_cache(
 
     // Collect all (page_num, slot_index, photo_id) tuples
     let mut tasks = Vec::new();
-    for page in &state.layout {
+    for (page_num, page) in state.layout.iter().enumerate() {
         for (idx, photo_id) in page.photos.iter().enumerate() {
             if let Some(slot) = page.slots.get(idx)
                 && let Some(&photo) = photo_map.get(photo_id.as_str())
             {
-                tasks.push((page.page, slot.clone(), photo, photo_id.clone()));
+                tasks.push((page_num, slot.clone(), photo, photo_id.clone()));
             }
         }
     }
