@@ -4,7 +4,7 @@ use std::path::Path;
 
 use crate::{
     commands::CommandOutput,
-    dto_models::{LayoutPage, PageMode, Slot},
+    models::{LayoutPage, PageMode, Slot},
     state_manager::StateManager,
 };
 
@@ -136,7 +136,7 @@ mod tests {
     use super::super::types::SlotExpr;
     use super::*;
     use crate::{
-        commands::page::mode::execute_mode, dto_models::PageMode, state_manager::StateManager,
+        commands::page::mode::execute_mode, models::PageMode, state_manager::StateManager,
     };
 
     fn make_manual_state() -> (ProjectState, tempfile::TempDir) {
@@ -149,7 +149,7 @@ mod tests {
         (state, tmp)
     }
 
-    use crate::dto_models::ProjectState;
+    use crate::models::ProjectState;
 
     #[test]
     fn test_relative_move() {

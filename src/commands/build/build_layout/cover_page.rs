@@ -1,4 +1,4 @@
-use crate::dto_models::{CoverConfig, CoverGeometry, LayoutPage, PageMode, PhotoFile, PhotoGroup};
+use crate::models::{CoverConfig, CoverGeometry, LayoutPage, PageMode, PhotoFile, PhotoGroup};
 use crate::run_solver;
 use crate::solver::cover_solver::{compute_cover_slots, warn_slot_count_mismatch};
 use crate::solver::{Request, RequestType};
@@ -15,7 +15,6 @@ pub(super) fn build_cover_page(
     warn_slot_count_mismatch(cover.mode, files.len());
     let slots = compute_cover_slots(cover, &ratios, inner_page_count)?;
     Ok(LayoutPage {
-        page: 0,
         photos: files.into_iter().map(|f| f.id).collect(),
         slots,
         mode: PageMode::Auto,
@@ -25,7 +24,7 @@ pub(super) fn build_cover_page(
 /// Updates the existing cover page (index 0) in `state.layout`.
 /// Dispatches to the GA solver (free mode) or the deterministic cover solver (structured mode).
 pub(super) fn update_cover_page(
-    state: &mut crate::dto_models::ProjectState,
+    state: &mut crate::models::ProjectState,
     photo_index: &HashMap<String, (PhotoFile, String)>,
 ) -> Result<()> {
     let files: Vec<PhotoFile> = state.layout[0]
@@ -41,10 +40,7 @@ pub(super) fn update_cover_page(
     }
 }
 
-fn update_cover_free(
-    state: &mut crate::dto_models::ProjectState,
-    files: Vec<PhotoFile>,
-) -> Result<()> {
+fn update_cover_free(state: &mut crate::models::ProjectState, files: Vec<PhotoFile>) -> Result<()> {
     let cover = &state.config.book.cover;
     let inner_page_count = state.layout.len() - 1;
     let spread_config = CoverGeometry::new(cover, inner_page_count);
@@ -69,7 +65,7 @@ fn update_cover_free(
 }
 
 fn update_cover_structured(
-    state: &mut crate::dto_models::ProjectState,
+    state: &mut crate::models::ProjectState,
     files: Vec<PhotoFile>,
     photo_index: &HashMap<String, (PhotoFile, String)>,
 ) -> Result<()> {
@@ -128,7 +124,7 @@ pub(super) fn split_cover_photos(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::dto_models::PhotoFile;
+    use crate::models::PhotoFile;
     use chrono::Utc;
 
     fn make_file(id: &str, w: u32, h: u32) -> PhotoFile {

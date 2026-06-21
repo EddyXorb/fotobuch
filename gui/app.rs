@@ -12,7 +12,7 @@ use fotobuch::state_manager::StateManager;
 use crate::state::{self, GuiState};
 use crate::task::{BackgroundResult, BackgroundTask};
 use fotobuch::commands::PlaceDst;
-use fotobuch::dto_models::ProjectState;
+use fotobuch::models::ProjectState;
 use fotobuch::output::typst::RenderedPage;
 use std::time::Duration;
 

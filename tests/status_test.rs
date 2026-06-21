@@ -3,7 +3,7 @@
 use anyhow::Result;
 use fotobuch::commands::project::new::{NewConfig, project_new};
 use fotobuch::commands::{AddConfig, add, build::*, status::*};
-use fotobuch::dto_models::ProjectState;
+use fotobuch::models::{read_state_yaml, write_state_yaml};
 use std::path::PathBuf;
 use tempfile::TempDir;
 
@@ -33,14 +33,14 @@ fn create_test_project_with_layout(temp_dir: &TempDir) -> Result<PathBuf> {
 
     // Configure solver for fast tests
     let yaml_path = project_root.join("teststatus.yaml");
-    let mut state = ProjectState::load(&yaml_path)?;
+    let mut state = read_state_yaml(&yaml_path)?;
     state.config.book_layout_solver.page_max = 5;
     state.config.book_layout_solver.page_target = 3;
     state.config.book_layout_solver.enable_local_search = false;
     state.config.page_layout_solver.population_size = 20;
     state.config.page_layout_solver.max_generations = 10;
     state.config.page_layout_solver.islands_nr = 1;
-    state.save(&yaml_path)?;
+    write_state_yaml(&state, &yaml_path)?;
 
     // Add test photos
     let photos_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -111,12 +111,12 @@ fn test_status_with_unplaced() -> Result<()> {
 
     // Manually edit the YAML to move a photo from layout to unplaced
     let yaml_path = project_root.join("teststatus.yaml");
-    let mut state = ProjectState::load(&yaml_path)?;
+    let mut state = read_state_yaml(&yaml_path)?;
 
     if !state.layout.is_empty() && !state.layout[0].photos.is_empty() {
         // Remove a photo from layout but keep it in photos
         state.layout[0].photos.remove(0);
-        state.save(&yaml_path)?;
+        write_state_yaml(&state, &yaml_path)?;
 
         let config = StatusConfig { page: None };
         let report = status(&project_root, &config)?.result;
@@ -234,12 +234,12 @@ fn test_status_modified_after_manual_edit() -> Result<()> {
 
     // Manually edit the YAML to simulate a change
     let yaml_path = project_root.join("teststatus.yaml");
-    let mut state = ProjectState::load(&yaml_path)?;
+    let mut state = read_state_yaml(&yaml_path)?;
 
     // Modify the layout (e.g., remove a photo from a page)
     if !state.layout.is_empty() && !state.layout[0].photos.is_empty() {
         state.layout[0].photos.remove(0);
-        state.save(&yaml_path)?;
+        write_state_yaml(&state, &yaml_path)?;
 
         let config = StatusConfig { page: None };
         let report = status(&project_root, &config)?.result;

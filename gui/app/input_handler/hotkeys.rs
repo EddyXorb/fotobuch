@@ -252,7 +252,7 @@ pub(super) fn handle_mode_toggle(
     let Some(lp) = data.project.layout.get(page) else {
         return;
     };
-    use fotobuch::dto_models::PageMode;
+    use fotobuch::models::PageMode;
     let new_mode = match lp.mode {
         PageMode::Auto => PageMode::Manual,
         PageMode::Manual => PageMode::Auto,

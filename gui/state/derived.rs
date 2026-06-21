@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use fotobuch::dto_models::{LayoutPage, PhotoFile, ProjectState};
+use fotobuch::models::{LayoutPage, PhotoFile, ProjectState};
 
 /// Derived lookup tables computed from [`ProjectState`] on startup and after each command.
 ///
@@ -86,16 +86,16 @@ fn build_placement_maps(
     let mut placed_per_group: HashMap<String, usize> = HashMap::new();
     let mut placed_locations: HashMap<String, Vec<(usize, usize)>> = HashMap::new();
 
-    for layout_page in layout {
+    for (page_nr, layout_page) in layout.iter().enumerate() {
         for (slot_idx, photo_id) in layout_page.photos.iter().enumerate() {
             // placement_of_photo stores only the *first* occurrence (legacy behaviour).
             placement_of_photo
                 .entry(photo_id.clone())
-                .or_insert((layout_page.page, slot_idx));
+                .or_insert((page_nr, slot_idx));
             placed_locations
                 .entry(photo_id.clone())
                 .or_default()
-                .push((layout_page.page, slot_idx));
+                .push((page_nr, slot_idx));
             if let Some(group) = group_of_photo.get(photo_id) {
                 *placed_per_group.entry(group.clone()).or_insert(0) += 1;
             }
@@ -124,7 +124,7 @@ fn build_unplaced_photos(
 
 #[cfg(test)]
 mod tests {
-    use fotobuch::dto_models::{
+    use fotobuch::models::{
         LayoutPage, PageMode, PhotoFile, PhotoGroup, ProjectConfig, ProjectState, Slot,
     };
 
@@ -175,7 +175,6 @@ mod tests {
                 },
             ],
             layout: vec![LayoutPage {
-                page: 0,
                 photos: vec!["A/1.jpg".into(), "B/3.jpg".into()],
                 slots: vec![slot(), slot()],
                 mode: PageMode::Auto,
@@ -231,13 +230,11 @@ mod tests {
             }],
             layout: vec![
                 LayoutPage {
-                    page: 0,
                     photos: vec!["A/1.jpg".into()],
                     slots: vec![slot()],
                     mode: PageMode::Auto,
                 },
                 LayoutPage {
-                    page: 1,
                     photos: vec!["A/1.jpg".into(), "A/2.jpg".into()],
                     slots: vec![slot(), slot()],
                     mode: PageMode::Auto,

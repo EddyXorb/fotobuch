@@ -47,22 +47,6 @@ pub struct BookLayoutSolverConfig {
     /// Whether to run local search after the DP to improve page assignments.
     #[serde(default = "default_enable_local_search")]
     pub enable_local_search: bool,
-
-    // --- Deprecated MIP-era fields ---
-    //
-    // The MIP solver was replaced by an exact dynamic program, so these are no
-    // longer read by the solver. They are kept (optional, `None` by default) so
-    // that existing config files referencing them still deserialize. They are
-    // omitted from serialized output once unset.
-    /// Deprecated: relative MIP optimality gap. Ignored by the DP solver.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub mip_rel_gap: Option<f64>,
-    /// Deprecated: photo-count threshold for problem splitting. Ignored by the DP solver.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub max_photos_for_split: Option<usize>,
-    /// Deprecated: split-point slack to group boundaries. Ignored by the DP solver.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub split_group_boundary_slack: Option<usize>,
 }
 
 // Default functions for serde
@@ -172,86 +156,6 @@ pub enum ValidationError {
     },
 }
 
-impl BookLayoutSolverConfig {
-    /// Validates the parameters.
-    ///
-    /// Returns `Ok(())` if all parameters are consistent and feasible,
-    /// or an error describing the first validation failure.
-    ///
-    /// # Arguments
-    ///
-    /// * `total_photos` - Total number of photos to be laid out
-    pub fn validate(&self, total_photos: usize) -> Result<(), ValidationError> {
-        // Check page bounds
-        if self.page_min > self.page_max {
-            return Err(ValidationError::PageMinMaxInvalid {
-                page_min: self.page_min,
-                page_max: self.page_max,
-            });
-        }
-
-        // Check page target is in range
-        if self.page_target < self.page_min || self.page_target > self.page_max {
-            return Err(ValidationError::PageTargetOutOfRange {
-                page_target: self.page_target,
-                page_min: self.page_min,
-                page_max: self.page_max,
-            });
-        }
-
-        // Check photos per page bounds
-        if self.photos_per_page_min > self.photos_per_page_max {
-            return Err(ValidationError::PhotosPerPageMinMaxInvalid {
-                photos_per_page_min: self.photos_per_page_min,
-                photos_per_page_max: self.photos_per_page_max,
-            });
-        }
-
-        // Check photos per page minimum vs. group minimum
-        if self.photos_per_page_min < self.group_min_photos {
-            return Err(ValidationError::PhotosPerPageMinTooSmall {
-                photos_per_page_min: self.photos_per_page_min,
-                group_min_photos: self.group_min_photos,
-            });
-        }
-
-        // Check group max per page
-        if self.group_max_per_page == 0 {
-            return Err(ValidationError::GroupMaxPerPageZero);
-        }
-
-        // Check weights are non-negative
-        if self.weight_even < 0.0 || self.weight_split < 0.0 || self.weight_pages < 0.0 {
-            return Err(ValidationError::NegativeWeights {
-                weight_even: self.weight_even,
-                weight_split: self.weight_split,
-                weight_pages: self.weight_pages,
-            });
-        }
-
-        // Check max coverage cost
-        if self.max_coverage_cost <= 0.0 {
-            return Err(ValidationError::MaxCoverageCostInvalid {
-                max_coverage_cost: self.max_coverage_cost,
-            });
-        }
-
-        // Check that total photos can fit in page constraints
-        let min_capacity = self.page_min * self.photos_per_page_min;
-        let max_capacity = self.page_max * self.photos_per_page_max;
-
-        if total_photos < min_capacity || total_photos > max_capacity {
-            return Err(ValidationError::PhotoCountInfeasible {
-                total_photos,
-                min_capacity,
-                max_capacity,
-            });
-        }
-
-        Ok(())
-    }
-}
-
 impl Default for BookLayoutSolverConfig {
     fn default() -> Self {
         Self {
@@ -268,9 +172,6 @@ impl Default for BookLayoutSolverConfig {
             search_timeout: default_search_timeout(),
             max_coverage_cost: default_max_coverage_cost(),
             enable_local_search: default_enable_local_search(),
-            mip_rel_gap: None,
-            max_photos_for_split: None,
-            split_group_boundary_slack: None,
         }
     }
 }
@@ -326,16 +227,8 @@ weight_even: 2.0
     }
 
     #[test]
-    fn test_deprecated_mip_fields_default_to_none() {
-        let config = BookLayoutSolverConfig::default();
-        assert_eq!(config.mip_rel_gap, None);
-        assert_eq!(config.max_photos_for_split, None);
-        assert_eq!(config.split_group_boundary_slack, None);
-    }
-
-    #[test]
-    fn test_legacy_config_with_deprecated_mip_fields_still_loads() {
-        // Old config files set the now-removed MIP fields; they must still parse.
+    fn test_legacy_config_with_mip_fields_still_loads() {
+        // Old YAML files with removed MIP fields must still parse (serde ignores unknown fields).
         let yaml = r#"
 page_target: 20
 mip_rel_gap: 0.0001
@@ -343,18 +236,6 @@ max_photos_for_split: 300
 split_group_boundary_slack: 5
 "#;
         let config: BookLayoutSolverConfig = serde_yaml::from_str(yaml).unwrap();
-
         assert_eq!(config.page_target, 20);
-        assert_eq!(config.mip_rel_gap, Some(0.0001));
-        assert_eq!(config.max_photos_for_split, Some(300));
-        assert_eq!(config.split_group_boundary_slack, Some(5));
-    }
-
-    #[test]
-    fn test_unset_deprecated_fields_are_not_serialized() {
-        let yaml = serde_yaml::to_string(&BookLayoutSolverConfig::default()).unwrap();
-        assert!(!yaml.contains("mip_rel_gap"));
-        assert!(!yaml.contains("max_photos_for_split"));
-        assert!(!yaml.contains("split_group_boundary_slack"));
     }
 }

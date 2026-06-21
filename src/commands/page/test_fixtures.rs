@@ -1,10 +1,10 @@
 //! Shared test fixtures for page command tests.
 
-use crate::dto_models::{
-    BookConfig, BookLayoutSolverConfig, LayoutPage, PageMode, PhotoFile, PhotoGroup, ProjectConfig,
-    ProjectState, Slot,
-};
 use crate::git;
+use crate::models::{
+    BookConfig, BookLayoutSolverConfig, LayoutPage, PageMode, PhotoFile, PhotoGroup, ProjectConfig,
+    ProjectState, Slot, write_state_yaml,
+};
 use tempfile::TempDir;
 
 pub fn make_slot() -> Slot {
@@ -20,8 +20,7 @@ pub fn make_state_with_layout(pages: Vec<Vec<&str>>) -> ProjectState {
     let layout: Vec<LayoutPage> = pages
         .into_iter()
         .enumerate()
-        .map(|(i, photos)| LayoutPage {
-            page: i,
+        .map(|(_i, photos)| LayoutPage {
             photos: photos.iter().map(|s| s.to_string()).collect(),
             slots: (0..photos.len()).map(|_| make_slot()).collect(),
             mode: PageMode::Auto,
@@ -73,7 +72,7 @@ pub fn setup_repo(tmp: &TempDir, state: &ProjectState) {
     drop(config);
 
     std::fs::write(tmp.path().join(".gitignore"), ".fotobuch/\n*.pdf\nlog*\n").unwrap();
-    state.save(&tmp.path().join("urlaub.yaml")).unwrap();
+    write_state_yaml(state, &tmp.path().join("urlaub.yaml")).unwrap();
     git::stage_and_commit(&repo, &[".gitignore", "urlaub.yaml"], "init").unwrap();
     git::create_branch(&repo, "fotobuch/urlaub").unwrap();
 }

@@ -25,7 +25,7 @@ pub(super) fn draw_drag_ghosts(
     };
 
     // No ghosts for manual pages in swap mode — swap is disabled there.
-    use fotobuch::dto_models::PageMode;
+    use fotobuch::models::PageMode;
     if interaction.drag.mode == DragMode::Swap
         && data
             .project
@@ -124,7 +124,7 @@ pub(super) fn draw_drag_ghosts(
 fn calc_primary_ghost_rect(
     page_rect: egui::Rect,
     scale: &PageScale,
-    slot: &fotobuch::dto_models::Slot,
+    slot: &fotobuch::models::Slot,
     cursor: egui::Pos2,
     cursor_at_drag_start: egui::Pos2,
 ) -> egui::Rect {

@@ -7,7 +7,7 @@ use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 use crate::commands::CommandOutput;
-use crate::dto_models::{PhotoFile, ProjectState, build_photo_index};
+use crate::models::{PhotoFile, ProjectState, build_photo_index};
 use crate::state_manager::StateManager;
 
 /// Target destination for placing photos.
@@ -302,13 +302,12 @@ fn place_into_new_page(
     photos: &[&UnplacedPhoto],
     position: usize,
 ) -> (Vec<usize>, Vec<usize>) {
-    use crate::dto_models::{LayoutPage, PageMode};
+    use crate::models::{LayoutPage, PageMode};
 
     let photo_ids: Vec<String> = photos.iter().map(|p| p.id.clone()).collect();
     state.layout.insert(
         position,
         LayoutPage {
-            page: position, // will be renumbered by StateManager::finish()
             photos: photo_ids,
             slots: vec![],
             mode: PageMode::Auto,
@@ -330,7 +329,7 @@ fn format_page_list(pages: &[usize]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::dto_models::{LayoutPage, PageMode, PhotoGroup, ProjectState};
+    use crate::models::{LayoutPage, PageMode, PhotoGroup, ProjectState};
     use chrono::TimeZone;
 
     fn make_unplaced(id: &str, source: &str, ts: DateTime<Utc>) -> UnplacedPhoto {
@@ -370,7 +369,6 @@ mod tests {
                 files: vec![photo1, photo2],
             }],
             layout: vec![LayoutPage {
-                page: 1,
                 photos: vec!["a.jpg".to_string()],
                 slots: vec![],
 
@@ -474,7 +472,7 @@ mod tests {
         layout: Vec<LayoutPage>,
         photos: Vec<PhotoGroup>,
     ) -> ProjectState {
-        use crate::dto_models::{BookConfig, CoverConfig, ProjectConfig};
+        use crate::models::{BookConfig, CoverConfig, ProjectConfig};
         ProjectState {
             config: ProjectConfig {
                 book: BookConfig {
@@ -515,14 +513,12 @@ mod tests {
         }];
         let layout = vec![
             LayoutPage {
-                page: 0,
                 photos: vec!["cover.jpg".into()],
                 slots: vec![],
 
                 mode: PageMode::Auto,
             },
             LayoutPage {
-                page: 1,
                 photos: vec!["content.jpg".into()],
                 slots: vec![],
 
@@ -553,14 +549,12 @@ mod tests {
         }];
         let layout = vec![
             LayoutPage {
-                page: 0,
                 photos: vec!["p0.jpg".into()],
                 slots: vec![],
 
                 mode: PageMode::Auto,
             },
             LayoutPage {
-                page: 1,
                 photos: vec!["p1.jpg".into()],
                 slots: vec![],
 
@@ -593,14 +587,12 @@ mod tests {
         }];
         let layout = vec![
             LayoutPage {
-                page: 0,
                 photos: vec!["cover.jpg".into()],
                 slots: vec![],
 
                 mode: PageMode::Auto,
             },
             LayoutPage {
-                page: 1,
                 photos: vec!["content.jpg".into()],
                 slots: vec![],
 

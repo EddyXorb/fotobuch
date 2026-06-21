@@ -23,7 +23,7 @@ pub use model::GroupInfo;
 use tracing::{debug, info};
 
 use super::data_models::book_layout::BookLayout;
-use crate::dto_models::BookLayoutSolverConfig;
+use crate::models::{BookLayoutSolverConfig, validate_book_layout_solver_config};
 use crate::solver::page_layout_solver::PageLayoutResult;
 use crate::solver::prelude::*;
 use page_evaluator::PageEvaluator;
@@ -33,7 +33,7 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum SolverError {
     #[error("Parameter validation failed: {0}")]
-    InvalidParams(#[from] crate::dto_models::ValidationError),
+    InvalidParams(#[from] crate::models::ValidationError),
 
     #[error("page assignment failed: {0}")]
     AssignmentFailed(#[from] page_assignment_solver::PageAssignmentError),
@@ -60,7 +60,7 @@ pub fn solve_book_layout(
     }
 
     // Validate parameters
-    params.validate(photos.len())?;
+    validate_book_layout_solver_config(params, photos.len())?;
 
     // Build group information from photos
     let groups = GroupInfo::from_photos(photos);
@@ -131,7 +131,7 @@ fn evaluate_pages(
 
 #[cfg(test)]
 mod tests {
-    use crate::dto_models::BookLayoutSolverConfig;
+    use crate::models::BookLayoutSolverConfig;
 
     use super::*;
 
@@ -194,9 +194,6 @@ mod tests {
                 search_timeout: Duration::from_millis(100),
                 max_coverage_cost: 0.5,
                 enable_local_search: true,
-                mip_rel_gap: None,
-                max_photos_for_split: None,
-                split_group_boundary_slack: None,
             }
         }
 

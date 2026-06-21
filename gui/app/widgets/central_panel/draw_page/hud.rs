@@ -1,5 +1,5 @@
 use crate::task::BackgroundTask;
-use fotobuch::dto_models::PageMode;
+use fotobuch::models::PageMode;
 
 use super::super::theme::FbTheme;
 

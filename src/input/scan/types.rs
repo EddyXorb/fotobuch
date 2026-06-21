@@ -1,7 +1,7 @@
 use regex::Regex;
 use std::path::PathBuf;
 
-use crate::dto_models::PhotoGroup;
+use crate::models::PhotoGroup;
 
 /// Input parameters for scanning photos.
 #[derive(Debug)]

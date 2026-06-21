@@ -59,7 +59,7 @@ pub(super) fn draw_page(
     overlays::draw_pool_drag_overlay(ui, interaction, page_idx, page_rect);
     draw_drag_ghosts::draw_drag_ghosts(ui, data, interaction, page_idx, page_rect, dims);
 
-    use fotobuch::dto_models::PageMode;
+    use fotobuch::models::PageMode;
     if layout_page.mode == PageMode::Manual {
         let full_w_mm = dims.width_mm + 2.0 * dims.bleed_mm;
         let pixel_per_mm = if full_w_mm > 0.0 {
@@ -133,7 +133,7 @@ fn render_page_image(
 fn hit_test_pointer(
     ui: &mut egui::Ui,
     page_rect: egui::Rect,
-    layout_page: &fotobuch::dto_models::LayoutPage,
+    layout_page: &fotobuch::models::LayoutPage,
     dims: PageDimensions,
 ) -> (Option<usize>, bool, (f32, f32)) {
     use super::super::geometry;

@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use tracing::warn;
 
 use super::helper::{naive_to_utc, parse_timestamp_from_name};
-use crate::dto_models::PhotoFile;
+use crate::models::PhotoFile;
 
 /// Tries to read EXIF metadata from a photo to get timestamp and dimensions.
 /// Returns true if a real timestamp was found (EXIF or filename), false if only placeholder.

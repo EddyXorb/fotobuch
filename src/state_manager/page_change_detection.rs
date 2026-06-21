@@ -2,7 +2,7 @@
 
 use tracing::debug;
 
-use crate::dto_models::{ProjectState, SpineConfig};
+use crate::models::{ProjectState, SpineConfig};
 use std::collections::{BTreeSet, HashMap, HashSet};
 
 const ASPECT_RATIO_THRESHOLD: f64 = 0.005;
@@ -46,7 +46,7 @@ pub fn compute_outdated_pages(reference: &ProjectState, new: &ProjectState) -> V
     // Phase 2: Evaluate each new page
     for (page_index, new_page) in new.layout.iter().enumerate() {
         // Skip manual pages - they keep their manual layout and don't need rebuilding
-        if new_page.mode == crate::dto_models::PageMode::Manual {
+        if new_page.mode == crate::models::PageMode::Manual {
             debug!("page {page_index} is manual, skipping rebuild");
             continue;
         }
@@ -90,14 +90,14 @@ pub fn compute_outdated_pages(reference: &ProjectState, new: &ProjectState) -> V
 
 fn page_is_outdated_by_metadata(
     changed_photos: &HashSet<String>,
-    new_page: &crate::dto_models::LayoutPage,
+    new_page: &crate::models::LayoutPage,
 ) -> bool {
     new_page.photos.iter().any(|id| changed_photos.contains(id))
 }
 
 fn page_is_outdated_by_slot_structure(
-    new_page: &crate::dto_models::LayoutPage,
-    reference_layout: &[crate::dto_models::LayoutPage],
+    new_page: &crate::models::LayoutPage,
+    reference_layout: &[crate::models::LayoutPage],
     page_hashes: &HashMap<BTreeSet<String>, Vec<usize>>,
     skip_slot_count_check: bool,
 ) -> bool {
@@ -119,7 +119,7 @@ fn page_is_outdated_by_slot_structure(
 }
 
 fn page_is_outdated_by_aspect_ratio_violation(
-    new_page: &crate::dto_models::LayoutPage,
+    new_page: &crate::models::LayoutPage,
     ref_photo_metadata: &HashMap<String, PhotoMetadata>,
 ) -> bool {
     new_page.photos.iter().enumerate().any(|(i, photo_id)| {
@@ -132,9 +132,7 @@ fn page_is_outdated_by_aspect_ratio_violation(
 }
 
 /// Build a map of photo ID -> metadata from a photo collection.
-fn build_photo_metadata(
-    photos: &[crate::dto_models::PhotoGroup],
-) -> HashMap<String, PhotoMetadata> {
+fn build_photo_metadata(photos: &[crate::models::PhotoGroup]) -> HashMap<String, PhotoMetadata> {
     photos
         .iter()
         .flat_map(|group| {
@@ -153,7 +151,7 @@ fn build_photo_metadata(
 
 /// Build page_hashes: BTreeSet of photo IDs -> Vec of indices in layout where this set appears.
 fn build_page_hashes(
-    layout: &[crate::dto_models::LayoutPage],
+    layout: &[crate::models::LayoutPage],
 ) -> HashMap<BTreeSet<String>, Vec<usize>> {
     let mut map: HashMap<BTreeSet<String>, Vec<usize>> = HashMap::new();
     for (idx, page) in layout.iter().enumerate() {
@@ -253,11 +251,11 @@ fn spine_changed(r: &SpineConfig, n: &SpineConfig, inner_count_changed: bool) ->
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::dto_models::{
+    use crate::models::{
         BookConfig, BookLayoutSolverConfig, LayoutPage, PageMode, PhotoFile, PhotoGroup,
         ProjectConfig, ProjectState, Slot,
     };
-    use crate::dto_models::{CoverConfig, CoverMode};
+    use crate::models::{CoverConfig, CoverMode};
 
     fn make_state(title: &str, pages: Vec<LayoutPage>) -> ProjectState {
         ProjectState {
@@ -304,12 +302,10 @@ mod tests {
         }
     }
 
-    fn make_page(page_num: usize, photos: Vec<String>, slots: Vec<Slot>) -> LayoutPage {
+    fn make_page(_page_num: usize, photos: Vec<String>, slots: Vec<Slot>) -> LayoutPage {
         LayoutPage {
-            page: page_num,
             photos,
             slots,
-
             mode: PageMode::Auto,
         }
     }
@@ -861,7 +857,7 @@ mod tests {
 
     #[test]
     fn test_spine_rate_change_marks_cover_outdated() {
-        use crate::dto_models::SpineConfig;
+        use crate::models::SpineConfig;
         let slot = make_slot(0.0, 0.0, 100.0, 100.0);
         let cover_page = make_page(0, vec!["A".to_string()], vec![slot.clone()]);
 
@@ -884,7 +880,7 @@ mod tests {
     #[test]
     fn test_inner_page_count_change_marks_cover_outdated_in_auto_spine() {
         // Auto spine: more inner pages → wider spine → cover canvas changed.
-        use crate::dto_models::SpineConfig;
+        use crate::models::SpineConfig;
         let slot = make_slot(0.0, 0.0, 100.0, 100.0);
         let cover_page = make_page(0, vec!["A".to_string()], vec![slot.clone()]);
         let inner1 = make_page(1, vec!["B".to_string()], vec![slot.clone()]);
@@ -925,7 +921,7 @@ mod tests {
     #[test]
     fn test_inner_page_count_change_does_not_affect_fixed_spine() {
         // Fixed spine: page count is irrelevant, cover width stays the same.
-        use crate::dto_models::SpineConfig;
+        use crate::models::SpineConfig;
         let slot = make_slot(0.0, 0.0, 150.0, 100.0); // AR=1.5 — FrontFull crops, so AR skip applies
         let cover_page = make_page(0, vec!["A".to_string()], vec![slot.clone()]);
         let inner1 = make_page(1, vec!["B".to_string()], vec![slot.clone()]);

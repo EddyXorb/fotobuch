@@ -1,6 +1,6 @@
 //! Group merging logic for photo groups
 
-use crate::dto_models::PhotoGroup;
+use crate::models::PhotoGroup;
 
 /// Merges a scanned group into the project photos.
 ///
@@ -21,7 +21,7 @@ pub fn merge_group(photos: &mut Vec<PhotoGroup>, scanned: PhotoGroup) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::dto_models::{PhotoFile, PhotoGroup};
+    use crate::models::{PhotoFile, PhotoGroup};
     use chrono::Utc;
 
     fn create_test_photo(id: &str, source: &str) -> PhotoFile {

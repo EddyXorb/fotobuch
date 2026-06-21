@@ -1,4 +1,4 @@
-use crate::dto_models::CanvasConfig;
+use crate::models::CanvasConfig;
 
 /// Canvas dimensions and spacing parameters for the photobook layout.
 /// Equivalent of the TargetBox/ArtBox in PDF, so we ignore margins/bleed here.
@@ -40,7 +40,7 @@ impl Canvas {
     /// Returns the aspect ratio of the canvas (width / height).
     #[allow(dead_code)]
     pub fn aspect_ratio(&self) -> f64 {
-        self.width / self.height
+        crate::models::aspect_ratio(self.width, self.height)
     }
 
     /// Creates a Canvas from any CanvasConfig (BookConfig or CoverConfig).
@@ -67,7 +67,7 @@ impl Default for Canvas {
 mod tests {
     use super::super::test_fixtures::*;
     use super::*;
-    use crate::dto_models::BookConfig;
+    use crate::models::BookConfig;
     use approx::assert_relative_eq;
 
     #[test]

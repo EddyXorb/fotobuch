@@ -18,7 +18,7 @@ pub fn selected_pages_for_rebuild(interaction: &InteractionState) -> PagesForReb
 
 #[cfg(test)]
 mod tests {
-    use fotobuch::dto_models::ProjectState;
+    use fotobuch::models::ProjectState;
 
     use super::*;
     use crate::state::{GuiState, SlotSelection};

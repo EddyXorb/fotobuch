@@ -20,11 +20,11 @@ fn is_auto(mode: &PageMode) -> bool {
 /// so they are absolute coordinates respecting those.
 /// The photos are placed within the box (the Trimbox in the PDF sense):
 /// (bleed+margin,bleed+margin,page_width-bleed-margin,page_height-bleed-margin).
+///
+/// The page's index in `layout[]` is its canonical identity — no redundant
+/// `page` field is stored.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LayoutPage {
-    /// Page number. Always equal to the array index in `layout[]` (0-based).
-    /// `layout[i].page == i` invariant, regardless of whether a cover is present.
-    pub page: usize,
     /// Photo IDs on this page (sorted by ratio)
     pub photos: Vec<String>,
     /// Calculated slot positions (index-coupled to photos)

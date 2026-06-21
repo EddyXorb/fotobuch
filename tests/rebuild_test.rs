@@ -5,7 +5,7 @@ use anyhow::Result;
 use fotobuch::commands::build::{BuildConfig, BuildPlan, build};
 use fotobuch::commands::project::new::{NewConfig, project_new};
 use fotobuch::commands::{AddConfig, add};
-use fotobuch::dto_models::ProjectState;
+use fotobuch::models::{read_state_yaml, write_state_yaml};
 use std::path::PathBuf;
 use tempfile::TempDir;
 
@@ -31,7 +31,7 @@ fn create_test_project_with_build(temp_dir: &TempDir) -> Result<PathBuf> {
 
     // Restrict book layout solver to force multiple pages with few photos
     let yaml_path = project_root.join("testrebuild.yaml");
-    let mut state = ProjectState::load(&yaml_path)?;
+    let mut state = read_state_yaml(&yaml_path)?;
     state.config.book_layout_solver.page_max = 5;
     state.config.book_layout_solver.page_target = 5;
     state.config.book_layout_solver.photos_per_page_max = 2;
@@ -41,7 +41,7 @@ fn create_test_project_with_build(temp_dir: &TempDir) -> Result<PathBuf> {
     state.config.page_layout_solver.population_size = 20;
     state.config.page_layout_solver.max_generations = 10;
     state.config.page_layout_solver.islands_nr = 1;
-    state.save(&yaml_path)?;
+    write_state_yaml(&state, &yaml_path)?;
 
     // Add test photos (use only 5 photos for fast tests)
     let photos_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -78,7 +78,7 @@ fn test_rebuild_single_page_only_changes_slots() -> Result<()> {
     let project_root = create_test_project_with_build(&temp_dir)?;
 
     let yaml_path = project_root.join("testrebuild.yaml");
-    let state_before = ProjectState::load(&yaml_path)?;
+    let state_before = read_state_yaml(&yaml_path)?;
 
     // Ensure we have at least 2 pages
     assert!(
@@ -114,7 +114,7 @@ fn test_rebuild_single_page_only_changes_slots() -> Result<()> {
     assert_eq!(result.result.pages_rebuilt[0], page_idx_to_rebuild);
 
     // Load state after rebuild
-    let state_after = ProjectState::load(&yaml_path)?;
+    let state_after = read_state_yaml(&yaml_path)?;
 
     // Verify page count unchanged
     assert_eq!(state_after.layout.len(), state_before.layout.len());
@@ -164,7 +164,7 @@ fn test_rebuild_single_page_invalid_page_index() -> Result<()> {
     let project_root = create_test_project_with_build(&temp_dir)?;
 
     let yaml_path = project_root.join("testrebuild.yaml");
-    let state = ProjectState::load(&yaml_path)?;
+    let state = read_state_yaml(&yaml_path)?;
     let page_count = state.layout.len();
 
     // Test index >= len (invalid — 0-based, so len is out of bounds)
@@ -208,7 +208,7 @@ fn test_rebuild_range_replaces_pages() -> Result<()> {
     let project_root = create_test_project_with_build(&temp_dir)?;
 
     let yaml_path = project_root.join("testrebuild.yaml");
-    let state_before = ProjectState::load(&yaml_path)?;
+    let state_before = read_state_yaml(&yaml_path)?;
 
     // Ensure we have at least 3 pages
     assert!(
@@ -242,7 +242,7 @@ fn test_rebuild_range_replaces_pages() -> Result<()> {
     assert!(!result.result.pages_rebuilt.is_empty());
 
     // Load state after rebuild
-    let state_after = ProjectState::load(&yaml_path)?;
+    let state_after = read_state_yaml(&yaml_path)?;
 
     // With flex=0, page count should be the same
     assert_eq!(state_after.layout.len(), state_before.layout.len());
@@ -280,7 +280,7 @@ fn test_rebuild_range_flex_allows_page_variation() -> Result<()> {
     let project_root = create_test_project_with_build(&temp_dir)?;
 
     let yaml_path = project_root.join("testrebuild.yaml");
-    let state_before = ProjectState::load(&yaml_path)?;
+    let state_before = read_state_yaml(&yaml_path)?;
 
     // Ensure we have at least 3 pages
     assert!(
@@ -305,7 +305,7 @@ fn test_rebuild_range_flex_allows_page_variation() -> Result<()> {
     )?;
 
     // Load state after rebuild
-    let state_after = ProjectState::load(&yaml_path)?;
+    let state_after = read_state_yaml(&yaml_path)?;
 
     let new_range_size = result.result.pages_rebuilt.len();
     assert!(
@@ -319,11 +319,6 @@ fn test_rebuild_range_flex_allows_page_variation() -> Result<()> {
         original_range_size + flex
     );
 
-    // Verify pages are correctly renumbered (0-based, sequential = index)
-    for (i, page) in state_after.layout.iter().enumerate() {
-        assert_eq!(page.page, i, "page.page should equal array index");
-    }
-
     Ok(())
 }
 
@@ -333,7 +328,7 @@ fn test_rebuild_range_preserves_groups() -> Result<()> {
     let project_root = create_test_project_with_build(&temp_dir)?;
 
     let yaml_path = project_root.join("testrebuild.yaml");
-    let state_before = ProjectState::load(&yaml_path)?;
+    let state_before = read_state_yaml(&yaml_path)?;
 
     // Ensure we have at least 3 pages
     assert!(
@@ -366,7 +361,7 @@ fn test_rebuild_range_preserves_groups() -> Result<()> {
     )?;
 
     // Load state after rebuild
-    let state_after = ProjectState::load(&yaml_path)?;
+    let state_after = read_state_yaml(&yaml_path)?;
 
     let result_pages_len = result.result.pages_rebuilt.len();
     assert_eq!(
@@ -401,7 +396,7 @@ fn test_rebuild_all_redistributes_everything() -> Result<()> {
     let project_root = create_test_project_with_build(&temp_dir)?;
 
     let yaml_path = project_root.join("testrebuild.yaml");
-    let state_before = ProjectState::load(&yaml_path)?;
+    let state_before = read_state_yaml(&yaml_path)?;
 
     // Count total photos
     let total_photos: usize = state_before.photos.iter().map(|g| g.files.len()).sum();
@@ -425,7 +420,7 @@ fn test_rebuild_all_redistributes_everything() -> Result<()> {
     assert!(!result.result.pages_rebuilt.is_empty());
 
     // Load state after rebuild
-    let state_after = ProjectState::load(&yaml_path)?;
+    let state_after = read_state_yaml(&yaml_path)?;
 
     // All photos from state.photos should be distributed
     let photos_in_layout: usize = state_after.layout.iter().map(|p| p.photos.len()).sum();
@@ -439,11 +434,6 @@ fn test_rebuild_all_redistributes_everything() -> Result<()> {
         !state_after.layout.is_empty(),
         "Should have at least one page"
     );
-
-    // Verify pages are numbered correctly (0-based = index)
-    for (i, page) in state_after.layout.iter().enumerate() {
-        assert_eq!(page.page, i, "page.page should equal array index");
-    }
 
     // Verify git commit message
     let repo = git2::Repository::open(&project_root)?;
@@ -513,7 +503,7 @@ fn test_rebuild_without_layout_fails_except_all() -> Result<()> {
 
     // Verify no layout exists
     let yaml_path = project_root.join("testrebuild.yaml");
-    let state = ProjectState::load(&yaml_path)?;
+    let state = read_state_yaml(&yaml_path)?;
     assert!(state.layout.is_empty(), "Layout should be empty");
 
     // SinglePage should fail (no layout)
@@ -570,7 +560,7 @@ fn test_rebuild_without_layout_fails_except_all() -> Result<()> {
     assert!(!result.result.pages_rebuilt.is_empty());
 
     // Verify layout was created
-    let state_after = ProjectState::load(&yaml_path)?;
+    let state_after = read_state_yaml(&yaml_path)?;
     assert!(!state_after.layout.is_empty(), "Layout should be created");
 
     Ok(())
@@ -582,7 +572,7 @@ fn test_rebuild_range_invalid_range() -> Result<()> {
     let project_root = create_test_project_with_build(&temp_dir)?;
 
     let yaml_path = project_root.join("testrebuild.yaml");
-    let state = ProjectState::load(&yaml_path)?;
+    let state = read_state_yaml(&yaml_path)?;
     let page_count = state.layout.len();
 
     // Test start > end (invalid)

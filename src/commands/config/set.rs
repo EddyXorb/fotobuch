@@ -5,7 +5,7 @@ use std::path::Path;
 use anyhow::{Result, anyhow};
 use serde_yaml::Value;
 
-use crate::{commands::CommandOutput, dto_models::ProjectConfig, state_manager::StateManager};
+use crate::{commands::CommandOutput, models::ProjectConfig, state_manager::StateManager};
 
 /// Result of a successful `config set` call.
 #[derive(Debug, Clone)]

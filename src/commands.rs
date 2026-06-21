@@ -19,7 +19,7 @@ pub mod status;
 pub mod undo;
 pub mod unplace;
 
-use crate::dto_models::ProjectState;
+use crate::models::ProjectState;
 
 /// Wraps a command result with an optional post-command state snapshot.
 ///

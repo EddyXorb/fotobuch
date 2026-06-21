@@ -4,7 +4,7 @@
 //! and DTO ↔ solver-model bridges live. Data models themselves stay logic-free.
 mod output_transform;
 
-use crate::dto_models::{CanvasConfig, LayoutPage, PageMode, PhotoGroup, Slot};
+use crate::models::{CanvasConfig, LayoutPage, PageMode, PhotoGroup, Slot};
 use crate::solver::data_models::{Photo, PhotoPlacement, SolverPageLayout};
 
 /// Converts photo groups to a flat, timestamp-sorted list of Photos.
@@ -33,7 +33,6 @@ pub(crate) fn photos_from_groups(groups: &[PhotoGroup]) -> Vec<Photo> {
 /// photo indices to IDs and positions to [`Slot`]s.
 pub(crate) fn to_layout_page(
     layout: &SolverPageLayout,
-    page_num: usize,
     photos: &[Photo],
     canvas_config: &impl CanvasConfig,
 ) -> LayoutPage {
@@ -49,7 +48,6 @@ pub(crate) fn to_layout_page(
     let slots: Vec<Slot> = adapted.placements.iter().map(slot_from_placement).collect();
 
     LayoutPage {
-        page: page_num,
         photos: photo_ids,
         slots,
         mode: PageMode::Auto,
@@ -68,7 +66,7 @@ fn slot_from_placement(p: &PhotoPlacement) -> Slot {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::dto_models::BookConfig;
+    use crate::models::BookConfig;
     use crate::solver::data_models::{Canvas, PhotoPlacement, SolverPageLayout};
     use approx::assert_relative_eq;
 
@@ -80,8 +78,7 @@ mod tests {
     fn to_layout_page_empty() {
         let canvas = Canvas::new(200.0, 200.0, 2.0);
         let layout = SolverPageLayout::new(vec![], canvas);
-        let dto = to_layout_page(&layout, 1, &[], &BookConfig::default());
-        assert_eq!(dto.page, 1);
+        let dto = to_layout_page(&layout, &[], &BookConfig::default());
         assert!(dto.photos.is_empty());
         assert!(dto.slots.is_empty());
     }
@@ -97,9 +94,8 @@ mod tests {
             bleed_mm: 0.0,
             ..BookConfig::default()
         };
-        let dto = to_layout_page(&layout, 2, &photos, &book_config);
+        let dto = to_layout_page(&layout, &photos, &book_config);
 
-        assert_eq!(dto.page, 2);
         assert_eq!(dto.photos, vec!["photo_abc"]);
         // After centering: offset_x = (200-100)/2 - 10 = 40 → x=50; offset_y = (200-80)/2 - 20 = 40 → y=60
         assert_relative_eq!(dto.slots[0].x_mm, 50.0, epsilon = 1e-6);
@@ -121,7 +117,7 @@ mod tests {
             bleed_threshold_mm: 5.0,
             ..BookConfig::default()
         };
-        let dto = to_layout_page(&layout, 1, &photos, &book_config);
+        let dto = to_layout_page(&layout, &photos, &book_config);
 
         assert_relative_eq!(dto.slots[0].x_mm, 50.0, epsilon = 1e-6);
         assert_relative_eq!(dto.slots[0].y_mm, 50.0, epsilon = 1e-6);

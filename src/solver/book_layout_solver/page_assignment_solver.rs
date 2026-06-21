@@ -38,7 +38,7 @@ mod exact_tests;
 
 use super::create_start_solution;
 use super::model::{GroupInfo, PageAssignment};
-use crate::dto_models::BookLayoutSolverConfig;
+use crate::models::BookLayoutSolverConfig;
 use crate::solver::algorithms::bellman_dp::BellmanSolver;
 use crate::solver::prelude::*;
 use cache::GridCache;
@@ -213,9 +213,6 @@ mod tests {
             search_timeout: Duration::from_secs(10),
             max_coverage_cost: 0.1,
             enable_local_search: true,
-            mip_rel_gap: None,
-            max_photos_for_split: None,
-            split_group_boundary_slack: None,
         }
     }
 

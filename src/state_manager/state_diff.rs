@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use serde_yaml::Value;
 
-use crate::dto_models::{LayoutPage, PhotoGroup, ProjectState};
+use crate::models::{LayoutPage, PhotoGroup, ProjectState};
 
 /// Summary of differences between two [`ProjectState`] snapshots.
 #[derive(Debug, Default, PartialEq)]
@@ -106,11 +106,11 @@ pub fn count_value_diffs(a: &Value, b: &Value) -> usize {
 ///
 /// Modified = same photo ID but different `area_weight` or pixel dimensions.
 pub fn diff_photos(old: &[PhotoGroup], new: &[PhotoGroup]) -> (usize, usize, usize) {
-    let old_map: std::collections::HashMap<&str, &crate::dto_models::PhotoFile> = old
+    let old_map: std::collections::HashMap<&str, &crate::models::PhotoFile> = old
         .iter()
         .flat_map(|g| g.files.iter().map(|f| (f.id.as_str(), f)))
         .collect();
-    let new_map: std::collections::HashMap<&str, &crate::dto_models::PhotoFile> = new
+    let new_map: std::collections::HashMap<&str, &crate::models::PhotoFile> = new
         .iter()
         .flat_map(|g| g.files.iter().map(|f| (f.id.as_str(), f)))
         .collect();
@@ -136,10 +136,8 @@ pub fn diff_photos(old: &[PhotoGroup], new: &[PhotoGroup]) -> (usize, usize, usi
 ///
 /// Modified = a page that exists in both old and new but has different slots.
 pub fn diff_pages(old: &[LayoutPage], new: &[LayoutPage]) -> (usize, usize, usize) {
-    let old_map: std::collections::HashMap<usize, &LayoutPage> =
-        old.iter().map(|p| (p.page, p)).collect();
-    let new_map: std::collections::HashMap<usize, &LayoutPage> =
-        new.iter().map(|p| (p.page, p)).collect();
+    let old_map: std::collections::HashMap<usize, &LayoutPage> = old.iter().enumerate().collect();
+    let new_map: std::collections::HashMap<usize, &LayoutPage> = new.iter().enumerate().collect();
 
     let added = new_map.keys().filter(|k| !old_map.contains_key(k)).count();
     let removed = old_map.keys().filter(|k| !new_map.contains_key(k)).count();

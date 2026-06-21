@@ -258,7 +258,7 @@ pub struct SlotInfo {
     pub height_px: u32,
     pub area_weight: f64,
     /// Placement box; `None` when the page has not been built yet.
-    pub placement: Option<crate::dto_models::Slot>,
+    pub placement: Option<crate::models::Slot>,
     /// Total number of slots on this page (for `N/total` header).
     pub total_page_slots: usize,
     /// Whether this page is the cover page.

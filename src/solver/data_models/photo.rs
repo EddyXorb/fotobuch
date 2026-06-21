@@ -1,4 +1,4 @@
-use crate::dto_models::PhotoFile;
+use crate::models::PhotoFile;
 
 /// Photo model for the layout solver with optimization metadata.
 #[derive(Debug, Clone)]

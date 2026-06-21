@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use std::fs;
 use std::path::Path;
 
-use crate::dto_models::{BookConfig, CoverConfig, ProjectConfig, ProjectState, SpineConfig};
+use crate::models::{BookConfig, CoverConfig, ProjectConfig, ProjectState, SpineConfig};
 use tracing::warn;
 
 use super::NewConfig;
@@ -132,7 +132,7 @@ mod tests {
 
     #[test]
     fn test_base_config_preserves_non_dimension_fields() {
-        use crate::dto_models::{BookConfig, PreviewConfig, ProjectConfig};
+        use crate::models::{BookConfig, PreviewConfig, ProjectConfig};
 
         let base = ProjectConfig {
             book: BookConfig {

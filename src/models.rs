@@ -10,13 +10,20 @@ mod cover;
 mod layout;
 mod photos;
 mod state;
+mod state_io;
+
+/// Returns `width / height`. Single source of truth for all aspect-ratio calculations.
+pub fn aspect_ratio(width: f64, height: f64) -> f64 {
+    width / height
+}
 
 pub use config::{
     AppendixConfig, BookConfig, BookLayoutSolverConfig, CanvasConfig, CoverConfig, CoverMode,
     FitnessWeights, PageLayoutSolverConfig, PreviewConfig, ProjectConfig, SpineConfig,
-    ValidationError,
+    ValidationError, validate_book_layout_solver_config,
 };
 pub use cover::CoverGeometry;
 pub use layout::{LayoutPage, PageMode, Slot};
 pub use photos::{PhotoFile, PhotoGroup, build_photo_index};
 pub use state::ProjectState;
+pub use state_io::{read_state_yaml, write_state_yaml};

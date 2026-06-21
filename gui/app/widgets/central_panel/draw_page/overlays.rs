@@ -21,7 +21,7 @@ pub(super) fn draw_slot_overlays(
     );
     let is_swap_drag = is_slot_drag && interaction.drag.mode == DragMode::Swap;
 
-    use fotobuch::dto_models::PageMode;
+    use fotobuch::models::PageMode;
     let src_is_manual =
         if let ActiveDrag::Dragging(DragSource::Slot { src_page, .. }) = &interaction.drag.active {
             data.project

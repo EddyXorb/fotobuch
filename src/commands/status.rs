@@ -5,7 +5,7 @@ use std::collections::HashSet;
 use std::path::Path;
 
 use crate::commands::CommandOutput;
-use crate::dto_models::{ProjectState, build_photo_index};
+use crate::models::{ProjectState, build_photo_index};
 use crate::state_manager::StateManager;
 
 /// Configuration for status command
@@ -107,11 +107,11 @@ fn check_consistency(state: &ProjectState) -> Vec<String> {
     // Find orphaned placements (in layout but not in photos)
     let orphaned: Vec<&str> = placed_ids.difference(&all_ids).copied().collect();
     for id in &orphaned {
-        for page in &state.layout {
+        for (idx, page) in state.layout.iter().enumerate() {
             if page.photos.iter().any(|p| p == id) {
                 warnings.push(format!(
                     "Orphaned placement: {} on page {} (not in photos)",
-                    id, page.page
+                    id, idx
                 ));
             }
         }
@@ -186,7 +186,7 @@ fn build_page_detail(
         .map(|id| {
             photo_index
                 .get(id.as_str())
-                .map(|(pf, _): &(crate::dto_models::PhotoFile, String)| pf.aspect_ratio())
+                .map(|(pf, _): &(crate::models::PhotoFile, String)| pf.aspect_ratio())
                 .unwrap_or(1.0)
         })
         .collect();
@@ -280,16 +280,16 @@ pub fn status(project_root: &Path, config: &StatusConfig) -> Result<CommandOutpu
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::dto_models::PageMode;
+    use crate::models::PageMode;
 
     #[test]
     fn test_count_unplaced_all_placed() {
         let state = ProjectState {
             config: Default::default(),
-            photos: vec![crate::dto_models::PhotoGroup {
+            photos: vec![crate::models::PhotoGroup {
                 group: "Test".to_string(),
                 sort_key: "2024-01-01".to_string(),
-                files: vec![crate::dto_models::PhotoFile {
+                files: vec![crate::models::PhotoFile {
                     id: "a.jpg".to_string(),
                     source: "/path/a.jpg".to_string(),
                     width_px: 1920,
@@ -299,8 +299,7 @@ mod tests {
                     hash: "test".to_string(),
                 }],
             }],
-            layout: vec![crate::dto_models::LayoutPage {
-                page: 1,
+            layout: vec![crate::models::LayoutPage {
                 photos: vec!["a.jpg".to_string()],
                 slots: vec![],
 
@@ -315,11 +314,11 @@ mod tests {
     fn test_count_unplaced_some_unplaced() {
         let state = ProjectState {
             config: Default::default(),
-            photos: vec![crate::dto_models::PhotoGroup {
+            photos: vec![crate::models::PhotoGroup {
                 group: "Test".to_string(),
                 sort_key: "2024-01-01".to_string(),
                 files: vec![
-                    crate::dto_models::PhotoFile {
+                    crate::models::PhotoFile {
                         id: "a.jpg".to_string(),
                         source: "/path/a.jpg".to_string(),
                         width_px: 1920,
@@ -328,7 +327,7 @@ mod tests {
                         timestamp: chrono::Utc::now(),
                         hash: "test".to_string(),
                     },
-                    crate::dto_models::PhotoFile {
+                    crate::models::PhotoFile {
                         id: "b.jpg".to_string(),
                         source: "/path/b.jpg".to_string(),
                         width_px: 1920,
@@ -339,8 +338,7 @@ mod tests {
                     },
                 ],
             }],
-            layout: vec![crate::dto_models::LayoutPage {
-                page: 1,
+            layout: vec![crate::models::LayoutPage {
                 photos: vec!["a.jpg".to_string()],
                 slots: vec![],
 
@@ -388,10 +386,10 @@ mod tests {
     fn test_check_consistency_no_orphans() {
         let state = ProjectState {
             config: Default::default(),
-            photos: vec![crate::dto_models::PhotoGroup {
+            photos: vec![crate::models::PhotoGroup {
                 group: "Test".to_string(),
                 sort_key: "2024-01-01".to_string(),
-                files: vec![crate::dto_models::PhotoFile {
+                files: vec![crate::models::PhotoFile {
                     id: "a.jpg".to_string(),
                     source: "/path/a.jpg".to_string(),
                     width_px: 1920,
@@ -401,8 +399,7 @@ mod tests {
                     hash: "test".to_string(),
                 }],
             }],
-            layout: vec![crate::dto_models::LayoutPage {
-                page: 1,
+            layout: vec![crate::models::LayoutPage {
                 photos: vec!["a.jpg".to_string()],
                 slots: vec![],
 
@@ -418,13 +415,12 @@ mod tests {
     fn test_check_consistency_orphaned() {
         let state = ProjectState {
             config: Default::default(),
-            photos: vec![crate::dto_models::PhotoGroup {
+            photos: vec![crate::models::PhotoGroup {
                 group: "Test".to_string(),
                 sort_key: "2024-01-01".to_string(),
                 files: vec![],
             }],
-            layout: vec![crate::dto_models::LayoutPage {
-                page: 1,
+            layout: vec![crate::models::LayoutPage {
                 photos: vec!["orphan.jpg".to_string()],
                 slots: vec![],
 

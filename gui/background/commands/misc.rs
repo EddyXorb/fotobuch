@@ -53,7 +53,7 @@ pub fn run_config_set(key: &str, value: &str, rctx: &mut crate::background::Rend
 
 pub fn run_rebuild_pages(pages: Vec<usize>, rctx: &mut crate::background::RenderCtx<'_>) {
     let mut dirty: Vec<usize> = vec![];
-    let mut new_state: Option<fotobuch::dto_models::ProjectState> = None;
+    let mut new_state: Option<fotobuch::models::ProjectState> = None;
     for p in pages {
         match build(
             rctx.project_root,

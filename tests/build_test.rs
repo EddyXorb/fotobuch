@@ -6,7 +6,7 @@ use anyhow::Result;
 use fotobuch::commands::build::{BuildConfig, BuildPlan, build};
 use fotobuch::commands::project::new::{NewConfig, project_new};
 use fotobuch::commands::{AddConfig, add};
-use fotobuch::dto_models::ProjectState;
+use fotobuch::models::{read_state_yaml, write_state_yaml};
 use fotobuch::state_manager::StateManager;
 use std::path::PathBuf;
 use tempfile::TempDir;
@@ -127,7 +127,7 @@ fn test_first_build_creates_layout_and_pdf() -> Result<()> {
 
     // Load initial state - should have photos but no layout
     let yaml_path = project_root.join("testbuild.yaml");
-    let state_before = ProjectState::load(&yaml_path)?;
+    let state_before = read_state_yaml(&yaml_path)?;
     assert!(!state_before.photos.is_empty(), "Should have photos");
     assert!(
         state_before.layout.is_empty(),
@@ -164,7 +164,7 @@ fn test_first_build_creates_layout_and_pdf() -> Result<()> {
     );
 
     // Load state after build - should have layout now
-    let state_after = ProjectState::load(&yaml_path)?;
+    let state_after = read_state_yaml(&yaml_path)?;
     assert!(!state_after.layout.is_empty(), "Layout should be populated");
 
     // Verify layout has photos assigned
@@ -262,13 +262,13 @@ fn test_release_requires_clean_state() -> Result<()> {
 
     // Manually modify layout in YAML (simulating uncommitted changes)
     let yaml_path = project_root.join("testbuild.yaml");
-    let mut state = ProjectState::load(&yaml_path)?;
+    let mut state = read_state_yaml(&yaml_path)?;
 
     // Change area_weight of first photo to create a modification
     if let Some(photo) = state.photos.first_mut().and_then(|g| g.files.first_mut()) {
         photo.area_weight += 0.1;
     }
-    state.save(&yaml_path)?;
+    write_state_yaml(&state, &yaml_path)?;
 
     // Try release build (should fail because layout is not clean)
     let release_config = BuildConfig {
@@ -374,11 +374,11 @@ fn test_pages_filter_limits_scope() -> Result<()> {
 
     // Modify a photo to trigger rebuild
     let yaml_path = project_root.join("testbuild.yaml");
-    let mut state = ProjectState::load(&yaml_path)?;
+    let mut state = read_state_yaml(&yaml_path)?;
     if let Some(photo) = state.photos.first_mut().and_then(|g| g.files.first_mut()) {
         photo.area_weight += 0.2;
     }
-    state.save(&yaml_path)?;
+    write_state_yaml(&state, &yaml_path)?;
 
     // Build with page filter (only first page that was created)
     let first_page = *result1.result.pages_rebuilt.first().unwrap_or(&0);
@@ -465,7 +465,7 @@ fn test_max_groups_per_page_limits_to_one_group() -> Result<()> {
 
     // Load initial state
     let yaml_path = project_root.join("testbuild.yaml");
-    let mut state = ProjectState::load(&yaml_path)?;
+    let mut state = read_state_yaml(&yaml_path)?;
 
     // Verify we have 2 groups with photos
     assert_eq!(
@@ -483,7 +483,7 @@ fn test_max_groups_per_page_limits_to_one_group() -> Result<()> {
     state.config.book_layout_solver.group_max_per_page = 1;
     state.config.book_layout_solver.group_min_photos = 1;
     state.config.book_layout_solver.photos_per_page_min = 1;
-    state.save(&yaml_path)?;
+    write_state_yaml(&state, &yaml_path)?;
 
     // Build with the constraint
     let build_config = BuildConfig {
@@ -500,11 +500,11 @@ fn test_max_groups_per_page_limits_to_one_group() -> Result<()> {
     );
 
     // Load state after build
-    let state_after = ProjectState::load(&yaml_path)?;
+    let state_after = read_state_yaml(&yaml_path)?;
     assert_eq!(state_after.layout.len(), 2, "Should have exactly 2 pages");
 
     // Verify each page contains photos from only one group
-    for page in state_after.layout.iter() {
+    for (page_num, page) in state_after.layout.iter().enumerate() {
         let page_groups: std::collections::HashSet<String> = page
             .photos
             .iter()
@@ -518,7 +518,7 @@ fn test_max_groups_per_page_limits_to_one_group() -> Result<()> {
             page_groups.len(),
             1,
             "Page {} should contain photos from only 1 group, but has {}",
-            page.page,
+            page_num,
             page_groups.len()
         );
     }
@@ -553,7 +553,7 @@ fn test_build_from_scratch_with_max_groups_per_page_one() -> Result<()> {
 
     // Now clear the layout and reconfigure with max_groups_per_page = 1
     let yaml_path = project_root.join("testbuild.yaml");
-    let mut state = ProjectState::load(&yaml_path)?;
+    let mut state = read_state_yaml(&yaml_path)?;
 
     // Verify we have 2 groups
     assert_eq!(
@@ -569,7 +569,7 @@ fn test_build_from_scratch_with_max_groups_per_page_one() -> Result<()> {
     state.config.book_layout_solver.group_max_per_page = 1;
     state.config.book_layout_solver.group_min_photos = 1;
     state.config.book_layout_solver.photos_per_page_min = 1;
-    state.save(&yaml_path)?;
+    write_state_yaml(&state, &yaml_path)?;
 
     // Build from scratch with the constraint
     let result = build(&project_root, &build_config)?;
@@ -581,7 +581,7 @@ fn test_build_from_scratch_with_max_groups_per_page_one() -> Result<()> {
     );
 
     // Load state after build
-    let state_after = ProjectState::load(&yaml_path)?;
+    let state_after = read_state_yaml(&yaml_path)?;
     let num_pages = state_after.layout.len();
     assert!(
         num_pages >= 2,
@@ -613,8 +613,8 @@ fn test_build_from_scratch_with_max_groups_per_page_one() -> Result<()> {
     assert!(
         intersection.is_empty(),
         "Page {} and Page {} should have disjunct photos, but found overlap: {:?}",
-        state_after.layout[0].page,
-        state_after.layout[1].page,
+        0,
+        1,
         intersection
     );
 
@@ -645,7 +645,7 @@ fn test_incremental_build_detects_no_changes_when_swapping_page_order() -> Resul
 
     // Load state and capture layout before swap
     let yaml_path = project_root.join("testbuild.yaml");
-    let mut state = ProjectState::load(&yaml_path)?;
+    let mut state = read_state_yaml(&yaml_path)?;
 
     // Verify we have at least 2 pages
     assert!(
@@ -660,7 +660,7 @@ fn test_incremental_build_detects_no_changes_when_swapping_page_order() -> Resul
     state.layout[0] = page_b;
     state.layout[1] = page_a;
 
-    state.save(&yaml_path)?;
+    write_state_yaml(&state, &yaml_path)?;
 
     // Second build after page swap
     let result2 = build(&project_root, &build_config)?;
@@ -701,7 +701,7 @@ fn test_incremental_rebuild_after_swapping_photos_on_same_page() -> Result<()> {
 
     // Load state and find a page with 2+ photos
     let yaml_path = project_root.join("testbuild.yaml");
-    let mut state = ProjectState::load(&yaml_path)?;
+    let mut state = read_state_yaml(&yaml_path)?;
 
     // Find a page with at least 2 photos
     let page_with_multiple_photos = state.layout.iter().position(|page| page.photos.len() >= 2);
@@ -725,7 +725,7 @@ fn test_incremental_rebuild_after_swapping_photos_on_same_page() -> Result<()> {
 
     println!(
         "Before photo swap on page {}: photos={:?}",
-        page.page, page.photos
+        page_idx, page.photos
     );
 
     // Swap two photos on this page (they have different aspect ratios)
@@ -735,10 +735,10 @@ fn test_incremental_rebuild_after_swapping_photos_on_same_page() -> Result<()> {
 
     println!(
         "After photo swap on page {}: photos={:?}",
-        page.page, page.photos
+        page_idx, page.photos
     );
 
-    state.save(&yaml_path)?;
+    write_state_yaml(&state, &yaml_path)?;
 
     // Second build after photo swap on the same page
     let result2 = build(&project_root, &build_config)?;
@@ -757,7 +757,7 @@ fn test_incremental_rebuild_after_swapping_photos_on_same_page() -> Result<()> {
     );
 
     // Verify the layout is consistent after rebuild
-    let state_after = ProjectState::load(&yaml_path)?;
+    let state_after = read_state_yaml(&yaml_path)?;
     assert!(
         !state_after.layout.is_empty(),
         "Layout should still exist after rebuild"
@@ -814,11 +814,11 @@ fn incremental_build_skips_manual_page() -> Result<()> {
 
     // Mark first page as Manual and capture its slots
     let yaml_path = project_root.join("testbuild.yaml");
-    let mut state = ProjectState::load(&yaml_path)?;
+    let mut state = read_state_yaml(&yaml_path)?;
     assert!(!state.layout.is_empty(), "need at least one page");
-    state.layout[0].mode = fotobuch::dto_models::PageMode::Manual;
+    state.layout[0].mode = fotobuch::models::PageMode::Manual;
     let slots_before = state.layout[0].slots.clone();
-    state.save(&yaml_path)?;
+    write_state_yaml(&state, &yaml_path)?;
     // commit so StateManager doesn't see dirty files
     let repo = git2::Repository::open(&project_root)?;
     let mut index = repo.index()?;
@@ -847,7 +847,7 @@ fn incremental_build_skips_manual_page() -> Result<()> {
         },
     )?;
 
-    let state_after = ProjectState::load(&yaml_path)?;
+    let state_after = read_state_yaml(&yaml_path)?;
     assert_eq!(
         state_after.layout[0].slots, slots_before,
         "Manual page slots must not change after incremental build"
