@@ -2,7 +2,7 @@
 //!
 //! Stores the best known layout result for each page photo range.
 
-use crate::solver::page_layout_solver::{CostBreakdown, GaResult};
+use crate::solver::page_layout_solver::{CostBreakdown, PageLayoutResult};
 use crate::solver::prelude::Photo;
 use std::collections::{BTreeSet, HashMap};
 
@@ -12,7 +12,7 @@ pub trait HasFitness {
     fn fitness(&self) -> f64;
 }
 
-impl HasFitness for GaResult {
+impl HasFitness for PageLayoutResult {
     fn fitness(&self) -> f64 {
         self.fitness
     }
@@ -109,7 +109,7 @@ mod tests {
     use super::*;
     use crate::solver::data_models::Canvas;
     use crate::solver::{
-        page_layout_solver::{CostBreakdown, GaResult},
+        page_layout_solver::{CostBreakdown, PageLayoutResult},
         prelude::*,
     };
 
@@ -117,7 +117,7 @@ mod tests {
         Photo::new(id.to_string(), 1.5, 1.0, "group".to_string())
     }
 
-    fn make_ga_result(fitness: f64) -> GaResult {
+    fn make_page_result(fitness: f64) -> PageLayoutResult {
         let canvas = Canvas::new(297.0, 210.0, 5.0);
         let layout = SolverPageLayout::new(vec![], canvas);
         let breakdown = CostBreakdown {
@@ -126,7 +126,7 @@ mod tests {
             coverage: fitness,
             barycenter: 0.0,
         };
-        GaResult {
+        PageLayoutResult {
             layout,
             fitness,
             cost_breakdown: breakdown,
@@ -144,17 +144,17 @@ mod tests {
 
     #[test]
     fn test_cache_new() {
-        let cache = PhotoCombinationCache::<GaResult>::new();
+        let cache = PhotoCombinationCache::<PageLayoutResult>::new();
         assert!(cache.is_empty());
         assert_eq!(cache.len(), 0);
     }
 
     #[test]
     fn test_cache_insert_and_get() {
-        let mut cache = PhotoCombinationCache::<GaResult>::new();
+        let mut cache = PhotoCombinationCache::<PageLayoutResult>::new();
         let photos = vec![make_photo("a"), make_photo("b")];
 
-        assert!(cache.insert_if_better(&photos, make_ga_result(0.15)));
+        assert!(cache.insert_if_better(&photos, make_page_result(0.15)));
         assert_eq!(cache.len(), 1);
 
         let retrieved = cache.get(&photos);
@@ -164,52 +164,52 @@ mod tests {
 
     #[test]
     fn test_cache_get_nonexistent() {
-        let cache = PhotoCombinationCache::<GaResult>::new();
+        let cache = PhotoCombinationCache::<PageLayoutResult>::new();
         assert!(cache.get(&[make_photo("a")]).is_none());
     }
 
     #[test]
     fn test_cache_insert_better() {
-        let mut cache = PhotoCombinationCache::<GaResult>::new();
+        let mut cache = PhotoCombinationCache::<PageLayoutResult>::new();
         let photos = vec![make_photo("a")];
 
-        cache.insert_if_better(&photos, make_ga_result(0.2));
+        cache.insert_if_better(&photos, make_page_result(0.2));
 
-        let better = cache.insert_if_better(&photos, make_ga_result(0.15));
+        let better = cache.insert_if_better(&photos, make_page_result(0.15));
         assert!(better, "Should accept better result");
         assert_eq!(cache.get(&photos).unwrap().fitness, 0.15);
     }
 
     #[test]
     fn test_cache_insert_worse() {
-        let mut cache = PhotoCombinationCache::<GaResult>::new();
+        let mut cache = PhotoCombinationCache::<PageLayoutResult>::new();
         let photos = vec![make_photo("a")];
 
-        cache.insert_if_better(&photos, make_ga_result(0.15));
+        cache.insert_if_better(&photos, make_page_result(0.15));
 
-        let worse = cache.insert_if_better(&photos, make_ga_result(0.2));
+        let worse = cache.insert_if_better(&photos, make_page_result(0.2));
         assert!(!worse, "Should reject worse result");
         assert_eq!(cache.get(&photos).unwrap().fitness, 0.15);
     }
 
     #[test]
     fn test_cache_insert_equal() {
-        let mut cache = PhotoCombinationCache::<GaResult>::new();
+        let mut cache = PhotoCombinationCache::<PageLayoutResult>::new();
         let photos = vec![make_photo("a")];
 
-        cache.insert_if_better(&photos, make_ga_result(0.15));
+        cache.insert_if_better(&photos, make_page_result(0.15));
 
-        let equal = cache.insert_if_better(&photos, make_ga_result(0.15));
+        let equal = cache.insert_if_better(&photos, make_page_result(0.15));
         assert!(!equal, "Should reject equal result");
     }
 
     #[test]
     fn test_cache_key_is_id_based_not_order() {
-        let mut cache = PhotoCombinationCache::<GaResult>::new();
+        let mut cache = PhotoCombinationCache::<PageLayoutResult>::new();
         let p1 = make_photo("a");
         let p2 = make_photo("b");
 
-        cache.insert_if_better(&[p1.clone(), p2.clone()], make_ga_result(0.1));
+        cache.insert_if_better(&[p1.clone(), p2.clone()], make_page_result(0.1));
 
         // Same photos, different order → same cache entry
         let retrieved = cache.get(&[p2, p1]);
@@ -219,13 +219,13 @@ mod tests {
 
     #[test]
     fn test_cache_different_photo_sets_are_independent() {
-        let mut cache = PhotoCombinationCache::<GaResult>::new();
+        let mut cache = PhotoCombinationCache::<PageLayoutResult>::new();
         let p1 = make_photo("a");
         let p2 = make_photo("b");
         let p3 = make_photo("c");
 
-        cache.insert_if_better(&[p1.clone(), p2.clone()], make_ga_result(0.1));
-        cache.insert_if_better(&[p1.clone(), p3.clone()], make_ga_result(0.2));
+        cache.insert_if_better(&[p1.clone(), p2.clone()], make_page_result(0.1));
+        cache.insert_if_better(&[p1.clone(), p3.clone()], make_page_result(0.2));
 
         assert_eq!(cache.len(), 2);
         assert_eq!(cache.get(&[p1.clone(), p2]).unwrap().fitness, 0.1);
@@ -245,10 +245,10 @@ mod tests {
 
     #[test]
     fn test_cache_clear() {
-        let mut cache = PhotoCombinationCache::<GaResult>::new();
+        let mut cache = PhotoCombinationCache::<PageLayoutResult>::new();
 
-        cache.insert_if_better(&[make_photo("a")], make_ga_result(0.1));
-        cache.insert_if_better(&[make_photo("b")], make_ga_result(0.2));
+        cache.insert_if_better(&[make_photo("a")], make_page_result(0.1));
+        cache.insert_if_better(&[make_photo("b")], make_page_result(0.2));
         assert_eq!(cache.len(), 2);
 
         cache.clear();

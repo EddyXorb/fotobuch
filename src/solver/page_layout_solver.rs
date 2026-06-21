@@ -19,9 +19,9 @@ pub use fitness::CostBreakdown;
 pub use individual::LayoutIndividual;
 use tracing::debug;
 
-/// Result of a genetic algorithm run for a single page layout.
+/// Result of solving a single page layout.
 #[derive(Debug, Clone)]
-pub struct GaResult {
+pub struct PageLayoutResult {
     /// The corresponding page layout with photo placements.
     pub layout: SolverPageLayout,
     /// The raw fitness value (lower is better).
@@ -35,7 +35,7 @@ pub fn solve_page_layout(
     photos: &[Photo],
     canvas: &Canvas,
     config: &PageLayoutSolverConfig,
-) -> GaResult {
+) -> PageLayoutResult {
     use crate::solver::algorithms::genetic_algorithm::{Config, GeneticAlgorithm, Individual};
 
     let start_time = std::time::Instant::now();
@@ -88,7 +88,7 @@ pub fn solve_page_layout(
         cost_breakdown.barycenter,
     );
 
-    GaResult {
+    PageLayoutResult {
         layout,
         fitness,
         cost_breakdown,

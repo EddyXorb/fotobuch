@@ -9,25 +9,25 @@ mod perturbation;
 
 use super::model::{GroupInfo, PageAssignment};
 use crate::dto_models::BookLayoutSolverConfig;
-use crate::solver::page_layout_solver::GaResult;
+use crate::solver::page_layout_solver::PageLayoutResult;
 use crate::solver::prelude::*;
 
 pub use improve::LocalSearchResult;
 
 /// Trait for evaluating single-page layouts.
 ///
-/// Implementations return a full `GaResult` for a given slice of photos.
+/// Implementations return a full `PageLayoutResult` for a given slice of photos.
 /// This abstraction allows testing local search logic with mock evaluators.
 pub trait PageLayoutEvaluator {
     /// Evaluate the layout quality for a slice of photos.
     ///
     /// Returns the full GA result including layout, fitness, and cost breakdown.
-    fn evaluate(&self, photos: &[Photo]) -> GaResult;
+    fn evaluate(&self, photos: &[Photo]) -> PageLayoutResult;
 }
 
 /// Improves an initial page assignment using local search.
 ///
-/// `initial_layouts` holds the precomputed `GaResult` for each page of
+/// `initial_layouts` holds the precomputed `PageLayoutResult` for each page of
 /// `assignment` (page order); they seed the layout cache so the search starts
 /// from the already-computed layouts.
 ///
@@ -38,7 +38,7 @@ pub trait PageLayoutEvaluator {
 /// 4. Accepts first improving move, repeats until timeout or convergence
 pub fn improve(
     assignment: PageAssignment,
-    initial_layouts: Vec<GaResult>,
+    initial_layouts: Vec<PageLayoutResult>,
     photos: &[Photo],
     groups: &GroupInfo,
     params: &BookLayoutSolverConfig,
@@ -59,7 +59,7 @@ mod tests {
     use super::*;
 
     use crate::solver::data_models::Canvas;
-    use crate::solver::page_layout_solver::{CostBreakdown, GaResult};
+    use crate::solver::page_layout_solver::{CostBreakdown, PageLayoutResult};
 
     /// Mock evaluator for testing that returns deterministic costs
     /// based on photo count deviation from an ideal value.
@@ -69,7 +69,7 @@ mod tests {
     }
 
     #[allow(dead_code)]
-    fn make_mock_result(photos: &[Photo], ideal_count: usize) -> GaResult {
+    fn make_mock_result(photos: &[Photo], ideal_count: usize) -> PageLayoutResult {
         let count = photos.len();
         let deviation = (count as i32 - ideal_count as i32).abs() as f64;
         let coverage = deviation * 0.1;
@@ -79,7 +79,7 @@ mod tests {
             coverage,
             barycenter: 0.01,
         };
-        GaResult {
+        PageLayoutResult {
             layout: SolverPageLayout::new(vec![], Canvas::new(297.0, 210.0, 5.0)),
             fitness: breakdown.total,
             cost_breakdown: breakdown,
@@ -87,7 +87,7 @@ mod tests {
     }
 
     impl PageLayoutEvaluator for MockEvaluator {
-        fn evaluate(&self, photos: &[Photo]) -> GaResult {
+        fn evaluate(&self, photos: &[Photo]) -> PageLayoutResult {
             make_mock_result(photos, self.ideal_count)
         }
     }

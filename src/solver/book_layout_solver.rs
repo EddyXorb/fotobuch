@@ -12,10 +12,10 @@
 
 mod create_start_solution;
 mod feasibility;
-mod ga_page_evaluator;
 mod local_search;
 mod model;
 mod page_assignment_solver;
+mod page_evaluator;
 
 // Re-export public types
 pub use local_search::PageLayoutEvaluator;
@@ -24,9 +24,9 @@ use tracing::{debug, info};
 
 use super::data_models::book_layout::BookLayout;
 use crate::dto_models::BookLayoutSolverConfig;
-use crate::solver::page_layout_solver::GaResult;
+use crate::solver::page_layout_solver::PageLayoutResult;
 use crate::solver::prelude::*;
-use ga_page_evaluator::GAPageEvaluator;
+use page_evaluator::PageEvaluator;
 use thiserror::Error;
 
 /// Error type for book layout solver.
@@ -80,7 +80,7 @@ pub fn solve_book_layout(
     // Both branches below need it: without local search it is the final result,
     // with local search it seeds the search so the initial pages are not redone.
     start = std::time::Instant::now();
-    let evaluator = GAPageEvaluator::new(canvas, page_layout_config);
+    let evaluator = PageEvaluator::new(canvas, page_layout_config);
     let initial_layouts = evaluate_pages(&initial_assignment, photos, &evaluator);
     let elapsed = start.elapsed().as_millis() as f64;
     info!("Initial page layouts done in {:.3}ms", elapsed);
@@ -115,12 +115,12 @@ pub fn solve_book_layout(
 }
 
 /// Evaluates the page layout for each page of an assignment exactly once,
-/// returning the full [`GaResult`] per page in page order.
+/// returning the full [`PageLayoutResult`] per page in page order.
 fn evaluate_pages(
     assignment: &model::PageAssignment,
     photos: &[Photo],
     evaluator: &impl PageLayoutEvaluator,
-) -> Vec<GaResult> {
+) -> Vec<PageLayoutResult> {
     (0..assignment.num_pages())
         .map(|page_idx| {
             let range = assignment.page_range(page_idx);
