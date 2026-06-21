@@ -1,7 +1,7 @@
 # Lib-Refactoring — Strukturvorschläge für `src/`
 
-> Status: teils umgesetzt. Abschnitte 1–3 sind im Kern erledigt (Details in den
-> separaten Plänen `0x-*.md`, siehe Abschnitt 12); Abschnitte 4–11 sind offen.
+> Status: teils umgesetzt. Abschnitte 1–5 sind im Kern erledigt (Details in den
+> separaten Plänen `0x-*.md`, siehe Abschnitt 12); Abschnitte 6–11 sind offen.
 > Reihenfolge je Abschnitt = Priorität. Kein fertiger Code, nur Ideen +
 > Signatur-Skizzen. Befunde mit `Datei:Zeile` belegt (offene Abschnitte gegen den
 > aktuellen Stand geprüft).
@@ -80,8 +80,8 @@ Verben `build_`/`solve_`/`update_`. Plan: [`03-build-structure.md`](./03-build-s
 
 ## 4. Solver-Modul
 
-**Status: offen.** Vollständiger Plan: [`04-solver.md`](./04-solver.md). Befunde
-in Kürze:
+**Status: umgesetzt** (#45). Vollständiger Plan: [`04-solver.md`](./04-solver.md).
+Befunde in Kürze:
 
 - **Modul-Inception:** `solver/solver.rs` (`#[allow(module_inception)]`,
   `solver.rs:17`) und `ga_solver/solver.rs`.
@@ -99,11 +99,10 @@ in Kürze:
 
 ---
 
-## 5. Domänenmodell (`dto_models`)
+## 5. Domänenmodell (`dto_models` → `models`)
 
-**Status: offen** (Teil 5.2 Cover-Geometrie bereits erledigt, siehe
-[`02-cover.md`](./02-cover.md)). Vollständiger Plan:
-[`05-dto-models.md`](./05-dto-models.md). Befunde in Kürze:
+**Status: umgesetzt** (#48; `dto_models` heißt jetzt `models`). Vollständiger
+Plan: [`05-dto-models.md`](./05-dto-models.md). Befunde in Kürze:
 
 - **Name `dto_models`** suggeriert Logiklosigkeit, ist aber Domänenmodell.
 - **Logik auf DTOs:** `ProjectState` als Gott-Objekt-Keim (Persistence +
@@ -118,26 +117,19 @@ in Kürze:
 
 ## 6. `state_manager`
 
-- **`mgr.state: pub`** (`state_manager.rs:60`) öffnet die Kapselung — ~200
-  Stellen greifen direkt auf `mgr.state.*` zu und können Invarianten (Numerierung,
-  Validität) verletzen, ohne dass `StateManager` es bemerkt. Zugriff über Methoden
-  kanalisieren (zumindest schreibend).
-- **`renumber_pages` ist freie `pub`-Funktion** mit ungenutztem `_has_cover`
-  (`state_manager.rs:29`, dead param) und wird von Commands direkt importiert
-  (`remove.rs:252`, `build/plan.rs:72`) → als Methode auf `ProjectState`/
-  `[LayoutPage]` kapseln, toten Parameter entfernen.
-- **Zwei Wege zum State:** `StateManager::open` (mit Lifecycle/Auto-Commit) vs.
-  freie `load_project_state()` (`state_manager.rs:390`, ohne Garantien) → kein
-  Typschutz vor falscher Wahl. `open()` hat zudem unsichtbaren Seiteneffekt
-  (`auto_commit_manual_edits`, `:125`), kaum dokumentiert.
-- **`finish_always` Rückgabe inkonsistent:** liefert `Option<ProjectState>`,
-  obwohl per Doku immer `Some` → `Result<ProjectState>` ohne `Option`.
-- **Veralteter Doc-Kommentar:** `ensure_build_baseline` nennt Varianten
-  `"Loaded"/"NoBuildCommit"`, real `LazyLoad::Failed` (`:289`).
-- **Sichtbarkeit in `state_diff.rs`** uneinheitlich (`pub` statt `pub(super)` für
-  rein interne Helfer).
-- `page_change_detection.rs` (1025 Z.) ist v. a. Tests (~770) — ok, aber
-  Test-Fixtures extrahierbar.
+**Status: offen.** Vollständiger Plan: [`06-state-manager.md`](./06-state-manager.md).
+Befunde in Kürze:
+
+- **Toter No-Op `renumber_pages`** (`state_manager.rs:27`, seit Wegfall von
+  `LayoutPage.page` funktionslos) plus drei Aufrufstellen → ersatzlos löschen.
+- **`finish_always`** gibt `Result<Option<ProjectState>>`, committet aber immer →
+  `Option` überflüssig.
+- **Doc-Drift** (`ensure_build_baseline` nennt `"NoBuildCommit"` statt `Failed`),
+  übergroße `pub`-Sichtbarkeit der `state_diff`-Helfer, Test-lastiges
+  `page_change_detection.rs`.
+- **Strukturell (Designentscheidung):** `mgr.state: pub` (bewusst für disjunkte
+  Borrows, 186 Zugriffe) → Schreibzugriff kanalisieren; zwei Ladewege
+  (`open` vs. freie `load_project_state`) ohne Typschutz vereinheitlichen.
 
 ---
 
@@ -440,7 +432,9 @@ Themenblock in eigenen Dateien neben diesem Dokument:
 - [`04-solver.md`](./04-solver.md) — Modul-/Namensstruktur des Solvers
   (Abschnitt 4; umgesetzt).
 - [`05-dto-models.md`](./05-dto-models.md) — Domänenmodell entlogiken & Typen
-  stärken (Abschnitt 5; offen).
+  stärken (Abschnitt 5; umgesetzt).
+- [`06-state-manager.md`](./06-state-manager.md) — `state_manager` aufräumen &
+  Kapselung schärfen (Abschnitt 6; offen).
 
 Weitere Pläne (Commands …) folgen demselben Schema.
 
