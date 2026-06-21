@@ -5,12 +5,11 @@ use serde::{Deserialize, Serialize};
 /// Controls whether the GA solver or the deterministic cover solver is used for
 /// page 0, and which fixed slot geometry the cover solver generates.
 ///
-/// **Default:** `Free` — existing behaviour, GA solver optimises freely.
+/// **Default:** `Split` — one photo per front/back panel, aspect-ratio preserved.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "kebab-case")]
 pub enum CoverMode {
     /// GA solver optimises the cover like any other page (existing behaviour).
-    #[default]
     Free,
     /// One photo on the front panel, aspect-ratio preserved and centred.
     Front,
@@ -25,6 +24,7 @@ pub enum CoverMode {
     /// One photo filling the full spread (may crop).
     SpreadFull,
     /// Two photos: slot 0 → front, slot 1 → back, aspect-ratio preserved and centred.
+    #[default]
     Split,
     /// Two photos: slot 0 → front, slot 1 → back, each half fully filled (may crop).
     SplitFull,
@@ -187,9 +187,8 @@ mod tests {
     }
 
     #[test]
-    fn cover_mode_default_is_split() {
-        let c = CoverConfig::default();
-        assert_eq!(c.mode, CoverMode::Split);
+    fn cover_mode_default_matches_cover_config_default() {
+        assert_eq!(CoverMode::default(), CoverConfig::default().mode);
     }
 
     #[test]
