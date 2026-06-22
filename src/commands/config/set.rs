@@ -32,7 +32,7 @@ pub fn config_set(
 
     let mut mgr = StateManager::open(project_root)?;
 
-    let mut config_value = serde_yaml::to_value(mgr.state().config.clone())
+    let mut config_value = serde_yaml::to_value(&mgr.state.config)
         .map_err(|e| anyhow!("Failed to serialize config: {e}"))?;
 
     let parts: Vec<&str> = key.split('.').collect();
