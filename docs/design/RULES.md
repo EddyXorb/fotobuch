@@ -20,7 +20,7 @@ Daraus ergeben sich drei Zugriffsarten:
 |---|---|---|
 | **Domänen-Lesen** (aus `ProjectState`) | `mgr.state() -> &ProjectState` | überall, wohin weitergereicht |
 | **Manager-Lesen** (Git-Baseline, Pfade) | `mgr.…()` → *owned* Ergebnis | nur oberste Schicht |
-| **Domänen-Schreiben** | `mgr.write_layout()` / `write_photos()` / `write_config()` | nur oberste Schicht, als schmaler Borrow weitergereicht |
+| **Domänen-Schreiben** | `mgr.get_write_layout_state()` / `get_write_photos_state()` / `get_write_config_state()` | nur oberste Schicht, als schmaler Borrow weitergereicht |
 
 `&mut ProjectState` und ein Sammel-`state_mut()` existieren **nicht**.
 
@@ -45,9 +45,9 @@ Die Verengung geschieht **oben** im Orchestrator, nicht im Blattknoten.
 Muster pro Command: **Lesen → Entscheiden → Schreiben**.
 
 ```rust
-let plan = plan_xyz(mgr.state(), config)?;        // Lesen: &ProjectState → owned Plan
+let plan = plan_xyz(mgr.state(), config)?;              // Lesen: &ProjectState → owned Plan
 {
-    let mut wls = mgr.write_layout();              // Schreiben: Footprint oben sichtbar
+    let mut wls = mgr.get_write_layout_state();         // Schreiben: Footprint oben sichtbar
     apply_xyz(wls.layout_mut(), &plan);
 }
 mgr.finish("…")?;
@@ -75,3 +75,10 @@ einzelner maßgeschneiderter Split-Accessor die **dokumentierte Ausnahme**.
 
 `finish()` validiert autoritativ vor dem Commit; `Drop` warnt bei nicht
 committeten Änderungen. Ein blockierender Check pro Einzel-Bearbeitung ist nicht nötig.
+
+### R7 — Write-Facades nur unterhalb des Einstiegspunkts
+
+Write-State-Facades (`WriteLayoutState` usw.) werden ausschließlich in Ebenen
+unterhalb des Command-Einstiegspunkts eingesetzt — also dann, wenn schmale
+Borrows an Unterfunktionen weitergegeben werden. Gibt es keine Unterfunktionen,
+wird direkt auf `mgr.state` operiert.

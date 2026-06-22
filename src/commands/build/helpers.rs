@@ -5,7 +5,7 @@ use tracing::{info, warn};
 
 use super::DpiWarning;
 use crate::cache::{final_cache, preview_cache};
-use crate::models::{LayoutPage, PhotoFile, PhotoGroup, build_photo_index};
+use crate::models::{PhotoFile, PhotoGroup, ProjectState, build_photo_index};
 use crate::output::typst;
 use crate::state_manager::StateManager;
 
@@ -141,19 +141,11 @@ pub fn render_pdf(ctx: &RenderContext, target: PdfTarget, skip_pdf: bool) -> Res
 /// # Arguments
 /// * `start` - **0-based** index (inclusive), e.g., 0 for the first page
 /// * `end` - Slice end (exclusive), e.g., 2 to include pages at indices 0 and 1
-///
-/// # Example
-/// To get photos from user pages 1-2 (1-based): call with `start = 0, end = 2`
-pub fn collect_photos_as_groups(
-    layout: &[LayoutPage],
-    photos: &[PhotoGroup],
-    start: usize,
-    end: usize,
-) -> Vec<PhotoGroup> {
-    let photo_index = build_photo_index(photos);
+pub fn collect_photos_as_groups(state: &ProjectState, start: usize, end: usize) -> Vec<PhotoGroup> {
+    let photo_index = build_photo_index(&state.photos);
 
     // Photo-IDs aus dem Bereich sammeln
-    let page_photo_ids: Vec<&str> = layout[start..end]
+    let page_photo_ids: Vec<&str> = state.layout[start..end]
         .iter()
         .flat_map(|p| p.photos.iter().map(String::as_str))
         .collect();
@@ -170,7 +162,8 @@ pub fn collect_photos_as_groups(
     }
 
     // sort_key aus photos übernehmen
-    let group_sort_keys: HashMap<&str, &str> = photos
+    let group_sort_keys: HashMap<&str, &str> = state
+        .photos
         .iter()
         .map(|g| (g.group.as_str(), g.sort_key.as_str()))
         .collect();

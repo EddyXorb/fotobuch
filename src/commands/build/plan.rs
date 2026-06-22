@@ -36,28 +36,19 @@ impl BuildPlan {
         match self {
             BuildPlan::Auto { pages } => {
                 if mgr.state().layout.is_empty() {
-                    let mut wls = mgr.write_layout();
-                    build_full_book(&mut wls)
+                    build_full_book(&mut mgr.get_write_layout_state())
                 } else {
                     let mut outdated = mgr.outdated_pages_indices();
                     if let Some(filter) = pages.as_deref() {
                         outdated.retain(|p| filter.contains(p));
                     }
-                    let mut wls = mgr.write_layout();
-                    build_outdated_pages(&mut wls, &outdated)
+                    build_outdated_pages(&mut mgr.get_write_layout_state(), &outdated)
                 }
             }
-            BuildPlan::All => {
-                let mut wls = mgr.write_layout();
-                build_full_book(&mut wls)
-            }
-            BuildPlan::Page(idx) => {
-                let mut wls = mgr.write_layout();
-                build_page(&mut wls, *idx)
-            }
+            BuildPlan::All => build_full_book(&mut mgr.get_write_layout_state()),
+            BuildPlan::Page(idx) => build_page(&mut mgr.get_write_layout_state(), *idx),
             BuildPlan::Range { start, end, flex } => {
-                let mut wls = mgr.write_layout();
-                build_page_range(&mut wls, *start, *end, *flex)
+                build_page_range(&mut mgr.get_write_layout_state(), *start, *end, *flex)
             }
             BuildPlan::Release { .. } => Ok(Vec::new()),
         }

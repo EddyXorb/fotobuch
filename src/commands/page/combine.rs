@@ -3,7 +3,7 @@
 use std::path::Path;
 
 use crate::commands::CommandOutput;
-use crate::state_manager::{StateManager, WriteLayoutState};
+use crate::state_manager::{ReadOnlyState, StateManager, WriteLayoutState};
 
 use super::helpers::{format_pages_list, page_idx};
 use super::types::{PageMoveError, PageMoveResult, PagesExpr, ValidationError};
@@ -26,7 +26,7 @@ pub fn execute_combine(
     let other_pages: Vec<u32> = pages_expr.pages[1..].to_vec();
 
     {
-        let mut wls: WriteLayoutState<'_> = mgr.write_layout();
+        let mut wls: WriteLayoutState<'_> = mgr.get_write_layout_state();
         for &p in &pages_expr.pages {
             page_idx(p, wls.layout())?;
         }

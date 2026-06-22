@@ -4,7 +4,7 @@ use crate::models::{
     PhotoGroup, build_photo_index,
 };
 use crate::solver::{Request, RequestType, run_solver};
-use crate::state_manager::WriteLayoutState;
+use crate::state_manager::{ReadOnlyState, WriteLayoutState};
 use anyhow::Result;
 use std::collections::HashSet;
 
@@ -122,12 +122,7 @@ impl SolverPlan {
         let cover = &self.book_config.cover;
         if self.range.is_none_or(|r| r.0 == 0) && cover.active && cover.mode.is_free() {
             let photo_index = build_photo_index(wls.photos());
-            update_cover_page(
-                wls.layout_mut(),
-                &self.book_config,
-                &self.page_layout_solver_config,
-                &photo_index,
-            )?;
+            update_cover_page(wls, &photo_index)?;
         }
 
         Ok(affected)

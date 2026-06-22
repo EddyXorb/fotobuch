@@ -5,7 +5,7 @@ use std::path::Path;
 use crate::{
     commands::CommandOutput,
     models::{LayoutPage, PageMode, Slot},
-    state_manager::{StateManager, WriteLayoutState},
+    state_manager::{ReadOnlyState, StateManager, WriteLayoutState},
 };
 
 use super::{
@@ -84,7 +84,7 @@ pub fn execute_pos(
     let mut slots_changed = Vec::new();
 
     {
-        let mut wls: WriteLayoutState<'_> = mgr.write_layout();
+        let mut wls: WriteLayoutState<'_> = mgr.get_write_layout_state();
         for slot_idx in slot_indices {
             let old = wls.layout()[idx].slots[slot_idx].clone();
             let mut new = old.clone();

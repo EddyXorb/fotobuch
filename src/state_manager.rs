@@ -131,22 +131,22 @@ impl StateManager {
         &self.state
     }
 
-    /// Write-view for the layout field; drops the view before calling `finish`.
-    pub fn write_layout(&mut self) -> WriteLayoutState<'_> {
+    /// Write-view for the layout field; drop before calling `finish`.
+    pub fn get_write_layout_state(&mut self) -> WriteLayoutState<'_> {
         WriteLayoutState {
             state: &mut self.state,
         }
     }
 
-    /// Write-view for the photos field; drops the view before calling `finish`.
-    pub fn write_photos(&mut self) -> WritePhotosState<'_> {
+    /// Write-view for the photos field; drop before calling `finish`.
+    pub fn get_write_photos_state(&mut self) -> WritePhotosState<'_> {
         WritePhotosState {
             state: &mut self.state,
         }
     }
 
-    /// Write-view for the config field; drops the view before calling `finish`.
-    pub fn write_config(&mut self) -> WriteConfigState<'_> {
+    /// Write-view for the config field; drop before calling `finish`.
+    pub fn get_write_config_state(&mut self) -> WriteConfigState<'_> {
         WriteConfigState {
             state: &mut self.state,
         }
@@ -400,11 +400,44 @@ impl Drop for StateManager {
     }
 }
 
-// ── Write views ──────────────────────────────────────────────────────────────
+// ── Sealed inner trait ────────────────────────────────────────────────────────
 
-/// Write-view that exposes `layout_mut()` plus read-only access to the rest.
+mod inner {
+    use crate::models::ProjectState;
+
+    pub trait Inner {
+        fn state_ref(&self) -> &ProjectState;
+        fn state_mut(&mut self) -> &mut ProjectState;
+    }
+}
+
+// ── ReadOnlyState ─────────────────────────────────────────────────────────────
+
+/// Uniform read-only interface shared by all Write\*State views.
 ///
-/// Returned by [`StateManager::write_layout`]. Drop before calling
+/// Implemented for [`WriteLayoutState`], [`WritePhotosState`], and
+/// [`WriteConfigState`]. Import this trait to access `layout`, `photos`,
+/// `config`, and `state` on any of the three views.
+pub trait ReadOnlyState: inner::Inner {
+    fn layout(&self) -> &[crate::models::LayoutPage] {
+        &self.state_ref().layout
+    }
+    fn photos(&self) -> &[crate::models::PhotoGroup] {
+        &self.state_ref().photos
+    }
+    fn config(&self) -> &crate::models::ProjectConfig {
+        &self.state_ref().config
+    }
+    fn state(&self) -> &ProjectState {
+        self.state_ref()
+    }
+}
+
+// ── Write views ───────────────────────────────────────────────────────────────
+
+/// Write-view that exposes `layout_mut()` plus read-only access via [`ReadOnlyState`].
+///
+/// Returned by [`StateManager::get_write_layout_state`]. Drop before calling
 /// [`StateManager::finish`] / [`StateManager::finish_always`].
 pub struct WriteLayoutState<'a> {
     state: &'a mut ProjectState,
@@ -414,23 +447,26 @@ impl<'a> WriteLayoutState<'a> {
     pub fn layout_mut(&mut self) -> &mut Vec<crate::models::LayoutPage> {
         &mut self.state.layout
     }
-    pub fn layout(&self) -> &[crate::models::LayoutPage] {
-        &self.state.layout
-    }
-    pub fn photos(&self) -> &[crate::models::PhotoGroup] {
-        &self.state.photos
-    }
-    pub fn config(&self) -> &crate::models::ProjectConfig {
-        &self.state.config
-    }
-    pub fn state(&self) -> &ProjectState {
-        self.state
+
+    #[cfg(test)]
+    pub(crate) fn for_test(state: &'a mut ProjectState) -> Self {
+        WriteLayoutState { state }
     }
 }
 
-/// Write-view that exposes `photos_mut()` plus read-only access to the rest.
+impl inner::Inner for WriteLayoutState<'_> {
+    fn state_ref(&self) -> &ProjectState {
+        self.state
+    }
+    fn state_mut(&mut self) -> &mut ProjectState {
+        self.state
+    }
+}
+impl ReadOnlyState for WriteLayoutState<'_> {}
+
+/// Write-view that exposes `photos_mut()` plus read-only access via [`ReadOnlyState`].
 ///
-/// Returned by [`StateManager::write_photos`].
+/// Returned by [`StateManager::get_write_photos_state`].
 pub struct WritePhotosState<'a> {
     state: &'a mut ProjectState,
 }
@@ -439,17 +475,21 @@ impl<'a> WritePhotosState<'a> {
     pub fn photos_mut(&mut self) -> &mut Vec<crate::models::PhotoGroup> {
         &mut self.state.photos
     }
-    pub fn photos(&self) -> &[crate::models::PhotoGroup] {
-        &self.state.photos
+}
+
+impl inner::Inner for WritePhotosState<'_> {
+    fn state_ref(&self) -> &ProjectState {
+        self.state
     }
-    pub fn state(&self) -> &ProjectState {
+    fn state_mut(&mut self) -> &mut ProjectState {
         self.state
     }
 }
+impl ReadOnlyState for WritePhotosState<'_> {}
 
-/// Write-view that exposes `config_mut()` plus read-only access.
+/// Write-view that exposes `config_mut()` plus read-only access via [`ReadOnlyState`].
 ///
-/// Returned by [`StateManager::write_config`].
+/// Returned by [`StateManager::get_write_config_state`].
 pub struct WriteConfigState<'a> {
     state: &'a mut ProjectState,
 }
@@ -458,10 +498,17 @@ impl<'a> WriteConfigState<'a> {
     pub fn config_mut(&mut self) -> &mut crate::models::ProjectConfig {
         &mut self.state.config
     }
-    pub fn state(&self) -> &ProjectState {
+}
+
+impl inner::Inner for WriteConfigState<'_> {
+    fn state_ref(&self) -> &ProjectState {
+        self.state
+    }
+    fn state_mut(&mut self) -> &mut ProjectState {
         self.state
     }
 }
+impl ReadOnlyState for WriteConfigState<'_> {}
 
 // ── ReadHandle ────────────────────────────────────────────────────────────────
 

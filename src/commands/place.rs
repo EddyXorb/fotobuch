@@ -7,8 +7,8 @@ use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 use crate::commands::CommandOutput;
-use crate::models::{LayoutPage, PageMode, PhotoFile, PhotoGroup, ProjectState, build_photo_index};
-use crate::state_manager::{StateManager, WriteLayoutState};
+use crate::models::{LayoutPage, PageMode, PhotoFile, ProjectState, build_photo_index};
+use crate::state_manager::{ReadOnlyState, StateManager, WriteLayoutState};
 
 /// Target destination for placing photos.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -158,18 +158,11 @@ pub fn place(project_root: &Path, config: &PlaceConfig) -> Result<CommandOutput<
 
     // 3. Place photos (read phase before write)
     let (pages_affected, pages_inserted) = {
-        let mut wls: WriteLayoutState<'_> = mgr.write_layout();
+        let mut wls: WriteLayoutState<'_> = mgr.get_write_layout_state();
         match config.dst {
             PlaceDst::NewPageAt(pos) => place_into_new_page(wls.layout_mut(), &filtered, pos),
             PlaceDst::Page(page) => (place_into_page(wls.layout_mut(), &filtered, page), vec![]),
-            PlaceDst::Auto => {
-                let photos = wls.photos().to_vec();
-                let cover_active = wls.config().book.cover.active;
-                (
-                    place_chronologically(wls.layout_mut(), &photos, cover_active, &filtered),
-                    vec![],
-                )
-            }
+            PlaceDst::Auto => (place_chronologically(&mut wls, &filtered), vec![]),
         }
     };
 
@@ -275,18 +268,17 @@ fn find_target_page(
 /// Places photos chronologically onto appropriate pages
 /// Returns affected page indices (0-based, sorted, deduplicated)
 fn place_chronologically(
-    layout: &mut [LayoutPage],
-    all_photos: &[PhotoGroup],
-    cover_active: bool,
+    wls: &mut WriteLayoutState<'_>,
     unplaced: &[&UnplacedPhoto],
 ) -> Vec<usize> {
-    let photo_index = build_photo_index(all_photos);
-    let page_ranges = compute_page_ranges(layout, &photo_index, cover_active);
+    let photo_index = build_photo_index(wls.photos());
+    let cover_active = wls.config().book.cover.active;
+    let page_ranges = compute_page_ranges(wls.layout(), &photo_index, cover_active);
 
     let mut affected: HashSet<usize> = HashSet::new();
     for photo in unplaced {
         let page_idx = find_target_page(photo.timestamp, &page_ranges);
-        layout[page_idx].photos.push(photo.id.clone());
+        wls.layout_mut()[page_idx].photos.push(photo.id.clone());
         affected.insert(page_idx);
     }
 
@@ -620,8 +612,10 @@ mod tests {
             timestamp: new_ts,
         };
         let refs: Vec<&UnplacedPhoto> = vec![&new_photo];
-        let cover_active = state.config.book.cover.active;
-        let affected = place_chronologically(&mut state.layout, &state.photos, cover_active, &refs);
+        let affected = {
+            let mut wls = WriteLayoutState::for_test(&mut state);
+            place_chronologically(&mut wls, &refs)
+        };
 
         // Must NOT land on cover (page 0)
         assert!(!state.layout[0].photos.contains(&"new.jpg".to_string()));

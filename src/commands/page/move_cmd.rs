@@ -4,7 +4,7 @@ use std::path::Path;
 
 use crate::commands::CommandOutput;
 use crate::models::{LayoutPage, PageMode, Slot};
-use crate::state_manager::{StateManager, WriteLayoutState};
+use crate::state_manager::{ReadOnlyState, StateManager, WriteLayoutState};
 
 use super::helpers::{
     collect_dst_swap_photos_with_indices, collect_src_photos, collect_src_photos_with_indices,
@@ -60,7 +60,7 @@ fn execute_move_to(
         return match src {
             Src::Slots { page, slots } => {
                 let (deleted, modified) = {
-                    let mut wls: WriteLayoutState<'_> = mgr.write_layout();
+                    let mut wls: WriteLayoutState<'_> = mgr.get_write_layout_state();
                     let idx = page_idx(page, wls.layout())?;
                     let slot_indices = resolve_slots(page, &slots, wls.layout())?;
                     remove_slots(wls.layout_mut(), idx, slot_indices);
@@ -92,7 +92,7 @@ fn execute_move_to(
                 let src_desc = format_pages_list(&pe.pages);
                 page_nums.sort_unstable_by(|a, b| b.cmp(a));
                 let deleted = {
-                    let mut wls: WriteLayoutState<'_> = mgr.write_layout();
+                    let mut wls: WriteLayoutState<'_> = mgr.get_write_layout_state();
                     let mut deleted = vec![];
                     for &p in &page_nums {
                         let idx = page_idx(p, wls.layout())?;
@@ -140,7 +140,7 @@ fn execute_move_to(
 
     // Step 1: handle DstMove (may insert a new page).
     let (dst_page_idx, inserted_page): (usize, Option<u32>) = {
-        let mut wls: WriteLayoutState<'_> = mgr.write_layout();
+        let mut wls: WriteLayoutState<'_> = mgr.get_write_layout_state();
         match &dst {
             DstMove::Page(p) => (page_idx(*p, wls.layout())?, None),
             DstMove::NewPageAt(idx) => {
@@ -180,7 +180,7 @@ fn execute_move_to(
         desc.sort_unstable_by(|a, b| b.cmp(a));
 
         let (deleted, modified) = {
-            let mut wls: WriteLayoutState<'_> = mgr.write_layout();
+            let mut wls: WriteLayoutState<'_> = mgr.get_write_layout_state();
             let src_is_manual = wls.layout()[idx].mode == PageMode::Manual;
             for &i in &desc {
                 wls.layout_mut()[idx].photos.remove(i);
@@ -215,7 +215,7 @@ fn execute_move_to(
 
     // Step 3: For Pages variant — clear src pages, add to dst.
     let (deleted, modified, src_desc, dst_page_num) = {
-        let mut wls: WriteLayoutState<'_> = mgr.write_layout();
+        let mut wls: WriteLayoutState<'_> = mgr.get_write_layout_state();
         let src_page_indices: Vec<usize> = match &src {
             Src::Pages(pe) => pe
                 .pages
@@ -311,7 +311,7 @@ fn execute_move_to_manual(
     }
 
     let (deleted, modified) = {
-        let mut wls: WriteLayoutState<'_> = mgr.write_layout();
+        let mut wls: WriteLayoutState<'_> = mgr.get_write_layout_state();
 
         // Remove from src (descending so indices stay valid). Drop the slot only on a
         // manual source; Auto pages recompute their slots on the next build.
@@ -433,7 +433,7 @@ fn execute_swap(
         modified_pages.dedup();
 
         {
-            let mut wls: WriteLayoutState<'_> = mgr.write_layout();
+            let mut wls: WriteLayoutState<'_> = mgr.get_write_layout_state();
             block_transpose_pages(wls.layout_mut(), &lpe.pages, &rpe.pages);
         }
         let changed_state = mgr.finish("page swap")?;
@@ -467,7 +467,7 @@ fn execute_swap(
     }
 
     {
-        let mut wls: WriteLayoutState<'_> = mgr.write_layout();
+        let mut wls: WriteLayoutState<'_> = mgr.get_write_layout_state();
         swap_photos_in_layout(
             wls.layout_mut(),
             SwapSide {

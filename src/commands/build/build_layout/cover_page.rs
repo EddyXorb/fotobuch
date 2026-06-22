@@ -5,6 +5,7 @@ use crate::models::{
 use crate::run_solver;
 use crate::solver::cover_solver::{compute_cover_slots, warn_slot_count_mismatch};
 use crate::solver::{Request, RequestType};
+use crate::state_manager::{ReadOnlyState, WriteLayoutState};
 use anyhow::Result;
 use std::collections::HashMap;
 
@@ -27,21 +28,22 @@ pub(super) fn build_cover_page(
 /// Updates the existing cover page (index 0) in `layout`.
 /// Dispatches to the GA solver (free mode) or the deterministic cover solver (structured mode).
 pub(super) fn update_cover_page(
-    layout: &mut [LayoutPage],
-    book_config: &BookConfig,
-    page_layout_config: &PageLayoutSolverConfig,
+    wls: &mut WriteLayoutState<'_>,
     photo_index: &HashMap<String, (PhotoFile, String)>,
 ) -> Result<()> {
-    let files: Vec<PhotoFile> = layout[0]
+    let files: Vec<PhotoFile> = wls.layout()[0]
         .photos
         .iter()
         .filter_map(|id| photo_index.get(id).map(|(f, _)| f.clone()))
         .collect();
 
-    if book_config.cover.mode.is_free() {
-        update_cover_free(layout, book_config, page_layout_config, files)
+    if wls.config().book.cover.mode.is_free() {
+        let book_config = wls.config().book.clone();
+        let page_layout_config = wls.config().page_layout_solver.clone();
+        update_cover_free(wls.layout_mut(), &book_config, &page_layout_config, files)
     } else {
-        update_cover_structured(layout, book_config, files, photo_index)
+        let book_config = wls.config().book.clone();
+        update_cover_structured(wls.layout_mut(), &book_config, files, photo_index)
     }
 }
 

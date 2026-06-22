@@ -3,7 +3,7 @@
 use std::path::Path;
 
 use crate::commands::CommandOutput;
-use crate::state_manager::{StateManager, WriteLayoutState};
+use crate::state_manager::StateManager;
 
 use crate::commands::page::{
     PageMoveError, PageMoveResult, SlotExpr, delete_empty_pages, page_idx, remove_slots,
@@ -34,17 +34,13 @@ pub fn execute_unplace(
         });
     }
 
-    let (deleted, modified) = {
-        let mut wls: WriteLayoutState<'_> = mgr.write_layout();
-        let page_idx_val = page_idx(page, wls.layout())?;
-        remove_slots(wls.layout_mut(), page_idx_val, slot_indices);
-        let deleted = delete_empty_pages(wls.layout_mut());
-        let modified = if deleted.contains(&page) {
-            vec![]
-        } else {
-            vec![page]
-        };
-        (deleted, modified)
+    let page_idx_val = page_idx(page, &mgr.state.layout)?;
+    remove_slots(&mut mgr.state.layout, page_idx_val, slot_indices);
+    let deleted = delete_empty_pages(&mut mgr.state.layout);
+    let modified = if deleted.contains(&page) {
+        vec![]
+    } else {
+        vec![page]
     };
 
     let changed_state = mgr.finish(&format!("unplace: page {page}"))?;

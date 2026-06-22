@@ -2,6 +2,7 @@ use super::cover_page::update_cover_page;
 use crate::models::{BookConfig, LayoutPage, PageLayoutSolverConfig, PhotoFile, PhotoGroup};
 use crate::run_solver;
 use crate::solver::{Request, RequestType};
+use crate::state_manager::{ReadOnlyState, WriteLayoutState};
 use anyhow::Result;
 use std::collections::HashMap;
 
@@ -11,23 +12,19 @@ use std::collections::HashMap;
 /// # Arguments
 /// * `page_idx` - **0-based** index into `layout` (e.g., 0 = first page, 1 = second page).
 pub(super) fn solve_single_page(
-    layout: &mut [LayoutPage],
+    wls: &mut WriteLayoutState<'_>,
     page_idx: usize,
-    book_config: &BookConfig,
-    page_layout_config: &PageLayoutSolverConfig,
     photo_index: &HashMap<String, (PhotoFile, String)>,
 ) -> Result<()> {
-    if page_idx >= layout.len() {
+    if page_idx >= wls.layout().len() {
         anyhow::bail!(
             "Page {} does not exist (layout has {} pages)",
             page_idx,
-            layout.len()
+            wls.layout().len()
         );
     }
 
-    let page = &layout[page_idx];
-
-    let files: Vec<PhotoFile> = page
+    let files: Vec<PhotoFile> = wls.layout()[page_idx]
         .photos
         .iter()
         .filter_map(|id| photo_index.get(id).map(|(file, _)| file.clone()))
@@ -37,10 +34,18 @@ pub(super) fn solve_single_page(
         anyhow::bail!("Page {} has no valid photos", page_idx);
     }
 
-    if page_idx == 0 && book_config.cover.active {
-        update_cover_page(layout, book_config, page_layout_config, photo_index)
+    if page_idx == 0 && wls.config().book.cover.active {
+        update_cover_page(wls, photo_index)
     } else {
-        solve_inner_page(layout, page_idx, book_config, page_layout_config, files)
+        let book_config = wls.config().book.clone();
+        let page_layout_config = wls.config().page_layout_solver.clone();
+        solve_inner_page(
+            wls.layout_mut(),
+            page_idx,
+            &book_config,
+            &page_layout_config,
+            files,
+        )
     }
 }
 
