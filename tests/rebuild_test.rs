@@ -305,7 +305,7 @@ fn test_rebuild_range_flex_allows_page_variation() -> Result<()> {
     )?;
 
     // Load state after rebuild
-    let state_after = read_state_yaml(&yaml_path)?;
+    let _state_after = read_state_yaml(&yaml_path)?;
 
     let new_range_size = result.result.pages_rebuilt.len();
     assert!(

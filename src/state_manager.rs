@@ -44,7 +44,7 @@ pub struct StateManager {
     repo: git2::Repository,
 
     /// Current (potentially mutated) project state.
-    pub(crate) state: ProjectState,
+    pub state: ProjectState,
     /// Snapshot of state after `open()` (after any auto-commit).
     /// Used by `finish()` and `Drop` to detect programmatic changes.
     baseline: ProjectState,
