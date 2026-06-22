@@ -7,9 +7,8 @@ use anyhow::Result;
 use std::collections::HashSet;
 use std::path::Path;
 
-use crate::commands::CommandOutput;
 use crate::commands::page::delete_empty_pages;
-use crate::state_manager::StateManager;
+use crate::commands::{CommandOutput, run_command};
 
 /// Determines which photos to remove.
 #[derive(Debug, Clone)]
@@ -60,70 +59,67 @@ pub struct RemoveResult {
 /// # Returns
 /// * `RemoveResult` with summary of removed photos and affected pages
 pub fn remove(project_root: &Path, config: &RemoveConfig) -> Result<CommandOutput<RemoveResult>> {
-    let mut mgr = StateManager::open(project_root)?;
+    run_command(project_root, |mgr| {
+        // 1. Determine which IDs to act on
+        let (matched_ids, matched_groups) = match &config.target {
+            RemoveTarget::Patterns(patterns) => {
+                let matches = match_photos(&mgr.state, patterns)?;
+                (matches.matched_ids, matches.matched_groups)
+            }
+            RemoveTarget::Ids(ids) => {
+                let matched_ids: HashSet<String> = ids.iter().cloned().collect();
+                (matched_ids, vec![])
+            }
+            RemoveTarget::Unplaced => (collect_unplaced_ids(&mgr.state), vec![]),
+        };
 
-    // 1. Determine which IDs to act on
-    let (matched_ids, matched_groups) = match &config.target {
-        RemoveTarget::Patterns(patterns) => {
-            let matches = match_photos(&mgr.state, patterns)?;
-            (matches.matched_ids, matches.matched_groups)
+        if matched_ids.is_empty() {
+            return Ok((
+                String::new(),
+                RemoveResult {
+                    photos_removed: 0,
+                    placements_removed: 0,
+                    groups_removed: vec![],
+                    pages_affected: vec![],
+                },
+            ));
         }
-        RemoveTarget::Ids(ids) => {
-            let matched_ids: HashSet<String> = ids.iter().cloned().collect();
-            (matched_ids, vec![])
-        }
-        RemoveTarget::Unplaced => (collect_unplaced_ids(&mgr.state), vec![]),
-    };
 
-    if matched_ids.is_empty() {
-        let changed_state = mgr.finish("")?;
-        return Ok(CommandOutput {
-            result: RemoveResult {
-                photos_removed: 0,
-                placements_removed: 0,
-                groups_removed: vec![],
-                pages_affected: vec![],
+        // 2. Aus Layout entfernen (immer, auch bei --keep-files)
+        let layout_result = {
+            let layout = &mut mgr.state.layout;
+            let result = remove_from_layout(layout, &matched_ids);
+            delete_empty_pages(layout);
+            result
+        };
+
+        // 4. Aus Photos entfernen (nur ohne --keep-files)
+        let mut groups_removed = matched_groups;
+        let photos_removed = if config.keep_files {
+            0
+        } else {
+            remove_from_photos(&mut mgr.state.photos, &matched_ids, &mut groups_removed)
+        };
+
+        let commit_msg = if matches!(config.target, RemoveTarget::Unplaced) {
+            format!("remove: {} unplaced photos", photos_removed)
+        } else if config.keep_files {
+            format!(
+                "remove: {} placements from layout (photos kept)",
+                layout_result.placements_removed
+            )
+        } else {
+            format!("remove: {} photos", photos_removed)
+        };
+
+        Ok((
+            commit_msg,
+            RemoveResult {
+                photos_removed,
+                placements_removed: layout_result.placements_removed,
+                groups_removed,
+                pages_affected: layout_result.pages_affected,
             },
-            changed_state,
-        });
-    }
-
-    // 2. Aus Layout entfernen (immer, auch bei --keep-files)
-    let layout_result = {
-        let layout = &mut mgr.state.layout;
-        let result = remove_from_layout(layout, &matched_ids);
-        delete_empty_pages(layout);
-        result
-    };
-
-    // 4. Aus Photos entfernen (nur ohne --keep-files)
-    let mut groups_removed = matched_groups;
-    let photos_removed = if config.keep_files {
-        0
-    } else {
-        remove_from_photos(&mut mgr.state.photos, &matched_ids, &mut groups_removed)
-    };
-
-    // 5. Speichern + Git commit
-    let commit_msg = if matches!(config.target, RemoveTarget::Unplaced) {
-        format!("remove: {} unplaced photos", photos_removed)
-    } else if config.keep_files {
-        format!(
-            "remove: {} placements from layout (photos kept)",
-            layout_result.placements_removed
-        )
-    } else {
-        format!("remove: {} photos", photos_removed)
-    };
-    let changed_state = mgr.finish(&commit_msg)?;
-
-    Ok(CommandOutput {
-        result: RemoveResult {
-            photos_removed,
-            placements_removed: layout_result.placements_removed,
-            groups_removed,
-            pages_affected: layout_result.pages_affected,
-        },
-        changed_state,
+        ))
     })
 }

@@ -8,10 +8,10 @@ use regex::Regex;
 use std::collections::HashSet;
 use std::path::Path;
 
-use crate::commands::CommandOutput;
 use crate::commands::page::format_pages_list;
+use crate::commands::{CommandOutput, run_command};
 use crate::models::{LayoutPage, PageMode, ProjectState, build_photo_index};
-use crate::state_manager::{ReadOnlyState, StateManager, WriteLayoutState};
+use crate::state_manager::{ReadOnlyState, WriteLayoutState};
 
 /// Target destination for placing photos.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -76,109 +76,106 @@ fn find_unplaced(state: &ProjectState) -> Vec<UnplacedPhoto> {
 /// # Returns
 /// * `PlaceResult` with count of placed photos and affected pages
 pub fn place(project_root: &Path, config: &PlaceConfig) -> Result<CommandOutput<PlaceResult>> {
-    let mut mgr = StateManager::open(project_root)?;
-
-    // Validation
-    if mgr.state().layout.is_empty() && !matches!(config.dst, PlaceDst::NewPageAt(_)) {
-        anyhow::bail!("No layout yet. Run `fotobuch build` first.");
-    }
-    match config.dst {
-        PlaceDst::Page(page) if page >= mgr.state().layout.len() => {
-            anyhow::bail!(
-                "Invalid page {} (layout has {} pages, indices 0..{})",
-                page,
-                mgr.state().layout.len(),
-                mgr.state().layout.len().saturating_sub(1),
-            );
+    run_command(project_root, |mgr| {
+        // Validation
+        if mgr.state().layout.is_empty() && !matches!(config.dst, PlaceDst::NewPageAt(_)) {
+            anyhow::bail!("No layout yet. Run `fotobuch build` first.");
         }
-        PlaceDst::NewPageAt(pos) if pos > mgr.state().layout.len() => {
-            anyhow::bail!(
-                "Invalid new page position {} (layout has {} pages, valid range 0..={})",
-                pos,
-                mgr.state().layout.len(),
-                mgr.state().layout.len(),
-            );
-        }
-        _ => {}
-    }
-
-    // 1. Find unplaced photos
-    let unplaced = find_unplaced(mgr.state());
-    if unplaced.is_empty() {
-        let changed_state = mgr.finish("")?;
-        return Ok(CommandOutput {
-            result: PlaceResult {
-                photos_placed: 0,
-                pages_affected: vec![],
-                pages_inserted: vec![],
-            },
-            changed_state,
-        });
-    }
-
-    // 2. Apply filters
-    let after_regex = apply_filters(&unplaced, &config.filters)?;
-    let filtered: Vec<_> = if config.ids.is_empty() {
-        after_regex
-    } else {
-        after_regex
-            .into_iter()
-            .filter(|p| config.ids.contains(&p.id))
-            .collect()
-    };
-    if filtered.is_empty() {
-        let changed_state = mgr.finish("")?;
-        return Ok(CommandOutput {
-            result: PlaceResult {
-                photos_placed: 0,
-                pages_affected: vec![],
-                pages_inserted: vec![],
-            },
-            changed_state,
-        });
-    }
-
-    // 3. Place photos (read phase before write)
-    let (pages_affected, pages_inserted) = {
-        let mut wls: WriteLayoutState<'_> = mgr.get_write_layout_state();
         match config.dst {
-            PlaceDst::NewPageAt(pos) => place_into_new_page(wls.layout_mut(), &filtered, pos),
-            PlaceDst::Page(page) => (place_into_page(wls.layout_mut(), &filtered, page), vec![]),
-            PlaceDst::Auto => {
-                let photo_index = build_photo_index(wls.photos());
-                let cover_active = wls.config().book.cover.active;
-                let assignments = page_placement::place_chronologically(
-                    wls.layout(),
-                    &photo_index,
-                    cover_active,
-                    &filtered,
+            PlaceDst::Page(page) if page >= mgr.state().layout.len() => {
+                anyhow::bail!(
+                    "Invalid page {} (layout has {} pages, indices 0..{})",
+                    page,
+                    mgr.state().layout.len(),
+                    mgr.state().layout.len().saturating_sub(1),
                 );
-                let mut affected = HashSet::new();
-                for (page_idx, photo_id) in assignments {
-                    wls.layout_mut()[page_idx].photos.push(photo_id);
-                    affected.insert(page_idx);
-                }
-                let mut result: Vec<usize> = affected.into_iter().collect();
-                result.sort();
-                (result, vec![])
             }
+            PlaceDst::NewPageAt(pos) if pos > mgr.state().layout.len() => {
+                anyhow::bail!(
+                    "Invalid new page position {} (layout has {} pages, valid range 0..={})",
+                    pos,
+                    mgr.state().layout.len(),
+                    mgr.state().layout.len(),
+                );
+            }
+            _ => {}
         }
-    };
 
-    let photos_placed = filtered.len();
+        // 1. Find unplaced photos
+        let unplaced = find_unplaced(mgr.state());
+        if unplaced.is_empty() {
+            return Ok((
+                String::new(),
+                PlaceResult {
+                    photos_placed: 0,
+                    pages_affected: vec![],
+                    pages_inserted: vec![],
+                },
+            ));
+        }
 
-    // 4. Commit
-    let pages_u32: Vec<u32> = pages_affected.iter().map(|&p| p as u32).collect();
-    let pages_str = format_pages_list(&pages_u32);
-    let changed_state = mgr.finish(&format!("place: {photos_placed} photos onto {pages_str}"))?;
+        // 2. Apply filters
+        let after_regex = apply_filters(&unplaced, &config.filters)?;
+        let filtered: Vec<_> = if config.ids.is_empty() {
+            after_regex
+        } else {
+            after_regex
+                .into_iter()
+                .filter(|p| config.ids.contains(&p.id))
+                .collect()
+        };
+        if filtered.is_empty() {
+            return Ok((
+                String::new(),
+                PlaceResult {
+                    photos_placed: 0,
+                    pages_affected: vec![],
+                    pages_inserted: vec![],
+                },
+            ));
+        }
 
-    Ok(CommandOutput {
-        result: PlaceResult {
-            photos_placed,
-            pages_affected,
-            pages_inserted,
-        },
-        changed_state,
+        // 3. Place photos
+        let (pages_affected, pages_inserted) = {
+            let mut wls: WriteLayoutState<'_> = mgr.get_write_layout_state();
+            match config.dst {
+                PlaceDst::NewPageAt(pos) => place_into_new_page(wls.layout_mut(), &filtered, pos),
+                PlaceDst::Page(page) => {
+                    (place_into_page(wls.layout_mut(), &filtered, page), vec![])
+                }
+                PlaceDst::Auto => {
+                    let photo_index = build_photo_index(wls.photos());
+                    let cover_active = wls.config().book.cover.active;
+                    let assignments = page_placement::place_chronologically(
+                        wls.layout(),
+                        &photo_index,
+                        cover_active,
+                        &filtered,
+                    );
+                    let mut affected = HashSet::new();
+                    for (page_idx, photo_id) in assignments {
+                        wls.layout_mut()[page_idx].photos.push(photo_id);
+                        affected.insert(page_idx);
+                    }
+                    let mut result: Vec<usize> = affected.into_iter().collect();
+                    result.sort();
+                    (result, vec![])
+                }
+            }
+        };
+
+        let photos_placed = filtered.len();
+        let pages_u32: Vec<u32> = pages_affected.iter().map(|&p| p as u32).collect();
+        let pages_str = format_pages_list(&pages_u32);
+
+        Ok((
+            format!("place: {photos_placed} photos onto {pages_str}"),
+            PlaceResult {
+                photos_placed,
+                pages_affected,
+                pages_inserted,
+            },
+        ))
     })
 }
 

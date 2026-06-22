@@ -2,10 +2,8 @@
 
 use std::path::Path;
 
-use crate::commands::CommandOutput;
-use crate::state_manager::StateManager;
-
 use crate::commands::page::{PageMoveError, SlotExpr, apply_unplace};
+use crate::commands::{CommandOutput, run_command};
 
 /// Result of unplacing photos.
 #[derive(Debug)]
@@ -23,23 +21,21 @@ pub fn execute_unplace(
     page: u32,
     slots: SlotExpr,
 ) -> Result<CommandOutput<UnplaceResult>, PageMoveError> {
-    let mut mgr = StateManager::open(project_root)?;
-
-    let (deleted, modified) = apply_unplace(&mut mgr.state.layout, page, &slots)?;
-
-    let changed_state = if deleted.is_empty() && modified.is_empty() {
-        mgr.finish("")?
-    } else {
-        mgr.finish(&format!("unplace: page {page}"))?
-    };
-
-    Ok(CommandOutput {
-        result: UnplaceResult {
-            pages_modified: modified,
-            pages_inserted: vec![],
-            pages_deleted: deleted,
-        },
-        changed_state,
+    run_command(project_root, |mgr| {
+        let (deleted, modified) = apply_unplace(&mut mgr.state.layout, page, &slots)?;
+        let commit_msg = if deleted.is_empty() && modified.is_empty() {
+            String::new()
+        } else {
+            format!("unplace: page {page}")
+        };
+        Ok((
+            commit_msg,
+            UnplaceResult {
+                pages_modified: modified,
+                pages_inserted: vec![],
+                pages_deleted: deleted,
+            },
+        ))
     })
 }
 

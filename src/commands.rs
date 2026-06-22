@@ -19,7 +19,10 @@ pub mod status;
 pub mod undo;
 pub mod unplace;
 
+use std::path::Path;
+
 use crate::models::ProjectState;
+use crate::state_manager::StateManager;
 
 /// Wraps a command result with an optional post-command state snapshot.
 ///
@@ -28,6 +31,25 @@ use crate::models::ProjectState;
 pub struct CommandOutput<T> {
     pub result: T,
     pub changed_state: Option<ProjectState>,
+}
+
+/// Open → execute → finish wrapper for write commands.
+///
+/// The closure receives `&mut StateManager`, performs its work, and returns
+/// `(commit_message, result)`. An empty commit message signals "nothing to do"
+/// and `finish` will skip the commit when the state is unchanged.
+pub fn run_command<T, E, F>(project_root: &Path, f: F) -> Result<CommandOutput<T>, E>
+where
+    E: From<anyhow::Error>,
+    F: FnOnce(&mut StateManager) -> Result<(String, T), E>,
+{
+    let mut mgr = StateManager::open(project_root)?;
+    let (commit_msg, result) = f(&mut mgr)?;
+    let changed_state = mgr.finish(&commit_msg)?;
+    Ok(CommandOutput {
+        result,
+        changed_state,
+    })
 }
 
 impl<T: std::fmt::Debug> std::fmt::Debug for CommandOutput<T> {
