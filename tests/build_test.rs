@@ -33,7 +33,7 @@ fn create_test_project_with_photos(temp_dir: &TempDir) -> Result<PathBuf> {
 
     let mut mgr = StateManager::open(&project_root)?;
     {
-        let cfg = &mut mgr.state.config;
+        let cfg = mgr.get_write_config_state().config_mut();
         cfg.book_layout_solver.page_max = 5;
         cfg.book_layout_solver.page_target = 3;
         cfg.book_layout_solver.group_min_photos = 1;
@@ -89,7 +89,7 @@ fn create_test_project_with_artificial_photos_3(temp_dir: &TempDir) -> Result<Pa
 
     let mut mgr = StateManager::open(&project_root)?;
     {
-        let cfg = &mut mgr.state.config;
+        let cfg = mgr.get_write_config_state().config_mut();
         cfg.book_layout_solver.page_max = 2;
         cfg.book_layout_solver.page_target = 2;
         cfg.book_layout_solver.group_min_photos = 1;
@@ -873,7 +873,7 @@ fn build_does_not_write_pdf_when_write_pdf_disabled() -> Result<()> {
 
     // Disable PDF writing via the project config.
     let mut mgr = StateManager::open(&project_root)?;
-    mgr.state.config.preview.write_pdf = false;
+    mgr.get_write_config_state().config_mut().preview.write_pdf = false;
     mgr.finish("test: disable write_pdf")?;
 
     // Build with skip_pdf=false — the config must still suppress the PDF.

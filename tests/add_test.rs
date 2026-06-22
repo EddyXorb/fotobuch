@@ -3,7 +3,7 @@
 use anyhow::Result;
 use fotobuch::commands::project::new::{NewConfig, project_new};
 use fotobuch::commands::{AddConfig, add};
-use fotobuch::models::{ProjectState, read_state_yaml};
+use fotobuch::models::read_state_yaml;
 use regex::Regex;
 use std::fs;
 use std::path::PathBuf;
