@@ -65,6 +65,19 @@ impl ProjectState {
         }
     }
 
+    /// Iterator over photos not placed in any layout page.
+    pub fn unplaced_photo_files(&self) -> impl Iterator<Item = &PhotoFile> {
+        let placed: std::collections::HashSet<String> = self
+            .layout
+            .iter()
+            .flat_map(|p| p.photos.iter().cloned())
+            .collect();
+        self.photos
+            .iter()
+            .flat_map(|g| g.files.iter())
+            .filter(move |f| !placed.contains(&f.id))
+    }
+
     pub fn check_validity(&self) -> Result<()> {
         // Build known photo IDs, checking for duplicates within the photos section
         let mut known_ids: std::collections::HashSet<&str> = std::collections::HashSet::new();

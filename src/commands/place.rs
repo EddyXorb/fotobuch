@@ -51,28 +51,15 @@ struct UnplacedPhoto {
     timestamp: DateTime<Utc>,
 }
 
-/// Finds all photos that are in state.photos but not in state.layout
-/// Returns them sorted chronologically by timestamp
 fn find_unplaced(state: &ProjectState) -> Vec<UnplacedPhoto> {
-    let placed_ids: HashSet<&str> = state
-        .layout
-        .iter()
-        .flat_map(|p| p.photos.iter().map(String::as_str))
-        .collect();
-
     let mut unplaced: Vec<UnplacedPhoto> = state
-        .photos
-        .iter()
-        .flat_map(|g| {
-            g.files.iter().map(|f| UnplacedPhoto {
-                id: f.id.clone(),
-                source: f.source.clone(),
-                timestamp: f.timestamp,
-            })
+        .unplaced_photo_files()
+        .map(|f| UnplacedPhoto {
+            id: f.id.clone(),
+            source: f.source.clone(),
+            timestamp: f.timestamp,
         })
-        .filter(|f| !placed_ids.contains(f.id.as_str()))
         .collect();
-
     unplaced.sort_by_key(|f| f.timestamp);
     unplaced
 }

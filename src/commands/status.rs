@@ -77,19 +77,8 @@ pub struct StatusReport {
     pub warnings: Vec<String>,
 }
 
-/// Count photos not placed in layout
 fn count_unplaced(state: &ProjectState) -> usize {
-    let placed_ids: HashSet<&str> = state
-        .layout
-        .iter()
-        .flat_map(|p| p.photos.iter().map(String::as_str))
-        .collect();
-    state
-        .photos
-        .iter()
-        .flat_map(|g| &g.files)
-        .filter(|f| !placed_ids.contains(f.id.as_str()))
-        .count()
+    state.unplaced_photo_files().count()
 }
 
 /// Check consistency between photos and layout

@@ -180,22 +180,8 @@ fn remove_from_photos(
     total_removed
 }
 
-/// Collects IDs of all photos not referenced in any layout page.
 fn collect_unplaced_ids(state: &ProjectState) -> HashSet<String> {
-    let placed: HashSet<&str> = state
-        .layout
-        .iter()
-        .flat_map(|p| p.photos.iter())
-        .map(|id| id.as_str())
-        .collect();
-
-    state
-        .photos
-        .iter()
-        .flat_map(|g| g.files.iter())
-        .filter(|f| !placed.contains(f.id.as_str()))
-        .map(|f| f.id.clone())
-        .collect()
+    state.unplaced_photo_files().map(|f| f.id.clone()).collect()
 }
 
 /// Remove photos or groups from the project
