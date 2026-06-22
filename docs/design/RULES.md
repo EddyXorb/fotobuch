@@ -63,3 +63,7 @@ wie nötig; „verändern können" zieht „verändern" nach sich.
   }
   fn apply_foo(s: &mut WriteLayoutState, cfg: &FooConfig) -> Result<FooResult> { … }
   ```
+
+- **R9 — Dateigrößen-Limit.** Kein Modul in `src/` darf mehr als 300 nicht-Test-Zeilen haben.
+  Überschreitet ein Modul diese Grenze, wird es thematisch in Untermods aufgeteilt (Modul-Konvention:
+  gleichnamige Root-Datei + Unterordner mit Submod-Dateien).
