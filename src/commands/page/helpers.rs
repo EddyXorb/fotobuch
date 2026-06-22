@@ -198,9 +198,13 @@ fn format_slot_expr(slots: &SlotExpr) -> String {
     parts.join(",")
 }
 
-pub(super) fn format_pages_list(pages: &[u32]) -> String {
-    let list: Vec<String> = pages.iter().map(|p| p.to_string()).collect();
-    list.join(",")
+pub(crate) fn format_pages_list(pages: &[u32]) -> String {
+    if pages.len() == 1 {
+        format!("page {}", pages[0])
+    } else {
+        let list: Vec<String> = pages.iter().map(|p| p.to_string()).collect();
+        format!("pages {}", list.join(", "))
+    }
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────

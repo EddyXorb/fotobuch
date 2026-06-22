@@ -7,6 +7,7 @@ use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 use crate::commands::CommandOutput;
+use crate::commands::page::format_pages_list;
 use crate::models::{LayoutPage, PageMode, PhotoFile, ProjectState, build_photo_index};
 use crate::state_manager::{ReadOnlyState, StateManager, WriteLayoutState};
 
@@ -156,7 +157,8 @@ pub fn place(project_root: &Path, config: &PlaceConfig) -> Result<CommandOutput<
     let photos_placed = filtered.len();
 
     // 4. Commit
-    let pages_str = format_page_list(&pages_affected);
+    let pages_u32: Vec<u32> = pages_affected.iter().map(|&p| p as u32).collect();
+    let pages_str = format_pages_list(&pages_u32);
     let changed_state = mgr.finish(&format!("place: {photos_placed} photos onto {pages_str}"))?;
 
     Ok(CommandOutput {
@@ -306,16 +308,6 @@ fn place_into_new_page(
     (vec![position], vec![position])
 }
 
-/// Formats page list for commit message: "page 5" or "pages 2, 5, 8"
-fn format_page_list(pages: &[usize]) -> String {
-    if pages.len() == 1 {
-        format!("page {}", pages[0])
-    } else {
-        let list: Vec<String> = pages.iter().map(|p| p.to_string()).collect();
-        format!("pages {}", list.join(", "))
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -432,16 +424,6 @@ mod tests {
         let photos = vec![];
         let result = apply_filters(&photos, &["[invalid".to_string()]);
         assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_format_page_list_single() {
-        assert_eq!(format_page_list(&[5]), "page 5");
-    }
-
-    #[test]
-    fn test_format_page_list_multiple() {
-        assert_eq!(format_page_list(&[2, 5, 8]), "pages 2, 5, 8");
     }
 
     fn make_photo_file(id: &str, ts: DateTime<Utc>) -> PhotoFile {

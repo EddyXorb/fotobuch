@@ -6,6 +6,7 @@ use std::collections::HashSet;
 use std::path::Path;
 
 use crate::commands::CommandOutput;
+use crate::commands::page::delete_empty_pages;
 use crate::models::{LayoutPage, PhotoGroup, ProjectState};
 use crate::state_manager::StateManager;
 
@@ -142,11 +143,6 @@ fn remove_from_layout(
     }
 }
 
-/// Entfernt Seiten ohne Fotos aus dem Layout.
-fn remove_empty_pages(layout: &mut Vec<LayoutPage>) {
-    layout.retain(|p| !p.photos.is_empty());
-}
-
 /// Entfernt gematchte Fotos aus state.photos.
 /// Leere Gruppen werden komplett entfernt.
 /// Gibt die Anzahl entfernter Fotos zurück.
@@ -233,7 +229,7 @@ pub fn remove(project_root: &Path, config: &RemoveConfig) -> Result<CommandOutpu
     let layout_result = {
         let layout = &mut mgr.state.layout;
         let result = remove_from_layout(layout, &matched_ids);
-        remove_empty_pages(layout);
+        delete_empty_pages(layout);
         result
     };
 
@@ -366,31 +362,6 @@ mod tests {
         assert_eq!(layout[0].photos[0], "b.jpg");
         assert_eq!(layout[0].slots.len(), 1);
         assert_eq!(layout[0].slots[0], slot2);
-    }
-
-    #[test]
-    fn test_remove_empty_pages() {
-        let mut layout = vec![
-            LayoutPage {
-                photos: vec![],
-                slots: vec![],
-                mode: PageMode::Auto,
-            },
-            LayoutPage {
-                photos: vec!["a.jpg".to_string()],
-                slots: vec![],
-                mode: PageMode::Auto,
-            },
-            LayoutPage {
-                photos: vec![],
-                slots: vec![],
-                mode: PageMode::Auto,
-            },
-        ];
-
-        remove_empty_pages(&mut layout);
-        assert_eq!(layout.len(), 1);
-        assert_eq!(layout[0].photos[0], "a.jpg");
     }
 
     #[test]
