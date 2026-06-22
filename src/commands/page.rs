@@ -9,6 +9,7 @@ mod mode;
 mod move_cmd;
 mod pos;
 mod split;
+mod swap;
 mod types;
 mod weight;
 
