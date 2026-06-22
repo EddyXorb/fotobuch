@@ -8,7 +8,7 @@ use std::collections::HashSet;
 use std::path::Path;
 
 use crate::commands::page::delete_empty_pages;
-use crate::commands::{CommandOutput, run_command};
+use crate::commands::{CommandOutput, run_write_command};
 
 /// Determines which photos to remove.
 #[derive(Debug, Clone)]
@@ -59,7 +59,7 @@ pub struct RemoveResult {
 /// # Returns
 /// * `RemoveResult` with summary of removed photos and affected pages
 pub fn remove(project_root: &Path, config: &RemoveConfig) -> Result<CommandOutput<RemoveResult>> {
-    run_command(project_root, |mgr| {
+    run_write_command(project_root, |mgr| {
         // 1. Determine which IDs to act on
         let (matched_ids, matched_groups) = match &config.target {
             RemoveTarget::Patterns(patterns) => {

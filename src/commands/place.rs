@@ -9,7 +9,7 @@ use std::collections::HashSet;
 use std::path::Path;
 
 use crate::commands::page::format_pages_list;
-use crate::commands::{CommandOutput, run_command};
+use crate::commands::{CommandOutput, run_write_command};
 use crate::models::{LayoutPage, PageMode, ProjectState, build_photo_index};
 use crate::state_manager::{ReadOnlyState, WriteLayoutState};
 
@@ -76,7 +76,7 @@ fn find_unplaced(state: &ProjectState) -> Vec<UnplacedPhoto> {
 /// # Returns
 /// * `PlaceResult` with count of placed photos and affected pages
 pub fn place(project_root: &Path, config: &PlaceConfig) -> Result<CommandOutput<PlaceResult>> {
-    run_command(project_root, |mgr| {
+    run_write_command(project_root, |mgr| {
         // Validation
         if mgr.state().layout.is_empty() && !matches!(config.dst, PlaceDst::NewPageAt(_)) {
             anyhow::bail!("No layout yet. Run `fotobuch build` first.");

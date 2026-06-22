@@ -38,7 +38,7 @@ pub struct CommandOutput<T> {
 /// The closure receives `&mut StateManager`, performs its work, and returns
 /// `(commit_message, result)`. An empty commit message signals "nothing to do"
 /// and `finish` will skip the commit when the state is unchanged.
-pub fn run_command<T, E, F>(project_root: &Path, f: F) -> Result<CommandOutput<T>, E>
+pub fn run_write_command<T, E, F>(project_root: &Path, f: F) -> Result<CommandOutput<T>, E>
 where
     E: From<anyhow::Error>,
     F: FnOnce(&mut StateManager) -> Result<(String, T), E>,

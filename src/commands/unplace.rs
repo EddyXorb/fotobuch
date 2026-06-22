@@ -3,7 +3,7 @@
 use std::path::Path;
 
 use crate::commands::page::{PageMoveError, SlotExpr, apply_unplace};
-use crate::commands::{CommandOutput, run_command};
+use crate::commands::{CommandOutput, run_write_command};
 
 /// Result of unplacing photos.
 #[derive(Debug)]
@@ -21,7 +21,7 @@ pub fn execute_unplace(
     page: u32,
     slots: SlotExpr,
 ) -> Result<CommandOutput<UnplaceResult>, PageMoveError> {
-    run_command(project_root, |mgr| {
+    run_write_command(project_root, |mgr| {
         let (deleted, modified) = apply_unplace(&mut mgr.state.layout, page, &slots)?;
         let commit_msg = if deleted.is_empty() && modified.is_empty() {
             String::new()
