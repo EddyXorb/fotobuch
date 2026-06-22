@@ -5,7 +5,11 @@ use std::path::Path;
 use anyhow::{Result, anyhow};
 use serde_yaml::Value;
 
-use crate::{commands::CommandOutput, models::ProjectConfig, state_manager::StateManager};
+use crate::{
+    commands::{CommandOutput, run_write_command},
+    models::ProjectConfig,
+    state_manager::{ReadOnlyState, WriteConfigState},
+};
 
 /// Result of a successful `config set` call.
 #[derive(Debug, Clone)]
@@ -30,10 +34,25 @@ pub fn config_set(
         return Err(anyhow!("Invalid config key: '{key}'"));
     }
 
-    let mut mgr = StateManager::open(project_root)?;
+    run_write_command(project_root, |mgr| {
+        let mut view = mgr.get_write_config_state();
+        let old_value = set_config_key(&mut view, key, value)?;
 
-    let mut config_value = serde_yaml::to_value(&mgr.state.config)
-        .map_err(|e| anyhow!("Failed to serialize config: {e}"))?;
+        Ok((
+            format!("config set {key}: {value}"),
+            ConfigSetResult {
+                key: key.to_string(),
+                old_value,
+                new_value: value.to_string(),
+            },
+        ))
+    })
+}
+
+/// Set `key` (dot-notation) to `value` on the config view, returning the old value.
+fn set_config_key(s: &mut WriteConfigState, key: &str, value: &str) -> Result<String> {
+    let mut config_value =
+        serde_yaml::to_value(s.config()).map_err(|e| anyhow!("Failed to serialize config: {e}"))?;
 
     let parts: Vec<&str> = key.split('.').collect();
     let (head, last_key) = parts.split_at(parts.len() - 1);
@@ -67,17 +86,8 @@ pub fn config_set(
     let new_config: ProjectConfig = serde_yaml::from_value(config_value)
         .map_err(|e| anyhow!("Cannot set '{key}' to '{value}': {e}"))?;
 
-    mgr.state.config = new_config;
-    let changed_state = mgr.finish(&format!("config set {key}: {value}"))?;
-
-    Ok(CommandOutput {
-        result: ConfigSetResult {
-            key: key.to_string(),
-            old_value,
-            new_value: value.to_string(),
-        },
-        changed_state,
-    })
+    *s.config_mut() = new_config;
+    Ok(old_value)
 }
 
 /// Auto-detect the YAML type from a string value.
@@ -114,6 +124,7 @@ fn value_to_string(v: &Value) -> String {
 mod tests {
     use super::*;
     use crate::commands::page::test_fixtures::{make_state_with_layout, setup_repo};
+    use crate::state_manager::StateManager;
 
     fn open_tmp() -> (tempfile::TempDir, std::path::PathBuf) {
         let state = make_state_with_layout(vec![vec![]]);

@@ -44,3 +44,22 @@ wie nötig; „verändern können" zieht „verändern" nach sich.
 
   *Grenze:* `photos()` und `layout_mut()` nicht gleichzeitig live (beide borgen den
   View) → Reads vorher als owned ziehen (R4); interner Feld-Split nur als Ausnahme.
+
+- **R8 — Einheitlicher Schreib-Flow.** Jeder schreibende Command kapselt
+  `open → Ausführung → finish` über `run_write_command` in seiner Top-Level-Funktion.
+  Die Closure ist die Orchestrierungs-Spitze (R3): sie liest/validiert über `state()`,
+  erzeugt **eine** Write-View (`write_*()`, R7) und übergibt **diese** — nicht den
+  `mgr` — an die eigentliche Schreib-Unterfunktion. So sieht man am Signaturtyp den
+  Footprint, und der Commit-Flow ist über alle Commands gleich.
+
+  ```rust
+  pub fn foo(root: &Path, cfg: &FooConfig) -> Result<CommandOutput<FooResult>> {
+      run_write_command(root, |mgr| {
+          // lesen/entscheiden über mgr.state() (R4)
+          let mut view = mgr.write_layout();
+          let result = apply_foo(&mut view, cfg)?; // Unterfunktion bekommt nur die View
+          Ok((commit_msg, result))
+      })
+  }
+  fn apply_foo(s: &mut WriteLayoutState, cfg: &FooConfig) -> Result<FooResult> { … }
+  ```

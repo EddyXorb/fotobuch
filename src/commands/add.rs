@@ -11,14 +11,14 @@ mod merge;
 pub use deduplication::deduplicate;
 pub use merge::merge_group;
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use regex::Regex;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
-use crate::commands::CommandOutput;
+use crate::commands::{CommandOutput, run_write_command};
 use crate::input::scan::{self as scanner, ScannerInput};
-use crate::state_manager::StateManager;
+use crate::state_manager::{ReadOnlyState, WritePhotosState};
 
 /// Configuration for adding photos
 #[derive(Debug)]
@@ -83,37 +83,35 @@ pub struct AddResult {
 /// 7. Sort groups by sort_key — skipped in dry-run
 /// 8. Commit changes via StateManager — skipped in dry-run
 pub fn add(project_root: &Path, config: &AddConfig) -> Result<CommandOutput<AddResult>> {
-    let mut mgr =
-        StateManager::open(project_root).context("Failed to open project via StateManager")?;
+    run_write_command(project_root, |mgr| {
+        let mut view = mgr.get_write_photos_state();
+        let result = ingest_photos(&mut view, config)?;
 
-    let all_files: Vec<_> = mgr
-        .state
-        .photos
-        .iter()
-        .flat_map(|g| g.files.iter())
-        .collect();
+        let commit_msg = if config.dry_run {
+            String::new()
+        } else {
+            let total_photos: usize = result.groups_added.iter().map(|g| g.photo_count).sum();
+            format!(
+                "add: {} photos in {} groups",
+                total_photos,
+                result.groups_added.len()
+            )
+        };
+        Ok((commit_msg, result))
+    })
+}
 
-    let mut existing_paths: HashSet<PathBuf> =
-        all_files.iter().map(|f| PathBuf::from(&f.source)).collect();
-
-    let mut existing_hashes: HashSet<String> = all_files
-        .iter()
-        .filter(|f| !f.hash.is_empty())
-        .map(|f| f.hash.clone())
-        .collect();
-
-    let existing_path_hashes: HashMap<PathBuf, String> = all_files
-        .iter()
-        .filter(|f| !f.hash.is_empty())
-        .map(|f| (PathBuf::from(&f.source), f.hash.clone()))
-        .collect();
+/// Scan the configured paths, deduplicate against the existing photos and merge
+/// the surviving groups into `state.photos` (unless `config.dry_run`).
+fn ingest_photos(s: &mut WritePhotosState, config: &AddConfig) -> Result<AddResult> {
+    // Read-derived indices pulled as owned up front (R4: narrow early).
+    let (mut existing_paths, mut existing_hashes, existing_path_hashes) = existing_indices(s);
 
     let mut all_warnings = Vec::new();
     let mut total_skipped = 0;
     let mut total_updated = 0;
     let mut groups_added = Vec::new();
 
-    // Scan photos with filtering
     let scan_output = scanner::scan_photos(ScannerInput {
         paths: config.paths.clone(),
         xmp_filters: config.xmp_filters.clone(),
@@ -146,7 +144,7 @@ pub fn add(project_root: &Path, config: &AddConfig) -> Result<CommandOutput<AddR
             // Apply in-place updates to existing photos
             for updated_file in &updated_files {
                 let source = &updated_file.source;
-                for group in &mut mgr.state.photos {
+                for group in s.photos_mut() {
                     if let Some(existing) = group.files.iter_mut().find(|f| f.source == *source) {
                         *existing = updated_file.clone();
                         break;
@@ -173,7 +171,7 @@ pub fn add(project_root: &Path, config: &AddConfig) -> Result<CommandOutput<AddR
 
         if !config.dry_run {
             scanned_group.files = kept_files;
-            merge_group(&mut mgr.state.photos, scanned_group);
+            merge_group(s.photos_mut(), scanned_group);
         }
 
         groups_added.push(GroupSummary {
@@ -183,31 +181,43 @@ pub fn add(project_root: &Path, config: &AddConfig) -> Result<CommandOutput<AddR
         });
     }
 
-    let changed_state = if !config.dry_run {
-        mgr.state.photos.sort_by(|a, b| a.sort_key.cmp(&b.sort_key));
+    if !config.dry_run {
+        s.photos_mut().sort_by(|a, b| a.sort_key.cmp(&b.sort_key));
+    }
 
-        let total_photos: usize = groups_added.iter().map(|g| g.photo_count).sum();
-        mgr.finish(&format!(
-            "add: {} photos in {} groups",
-            total_photos,
-            groups_added.len()
-        ))?
-    } else {
-        mgr.finish("")?
-    };
-
-    Ok(CommandOutput {
-        result: AddResult {
-            groups_added,
-            skipped: total_skipped,
-            xmp_filtered: total_xmp_filtered,
-            source_filtered: total_source_filtered,
-            warnings: all_warnings,
-            dry_run: config.dry_run,
-            updated: total_updated,
-        },
-        changed_state,
+    Ok(AddResult {
+        groups_added,
+        skipped: total_skipped,
+        xmp_filtered: total_xmp_filtered,
+        source_filtered: total_source_filtered,
+        warnings: all_warnings,
+        dry_run: config.dry_run,
+        updated: total_updated,
     })
+}
+
+/// Collect the existing photos' source paths and content hashes for dedup.
+fn existing_indices(
+    s: &WritePhotosState,
+) -> (HashSet<PathBuf>, HashSet<String>, HashMap<PathBuf, String>) {
+    let all_files: Vec<_> = s.photos().iter().flat_map(|g| g.files.iter()).collect();
+
+    let existing_paths: HashSet<PathBuf> =
+        all_files.iter().map(|f| PathBuf::from(&f.source)).collect();
+
+    let existing_hashes: HashSet<String> = all_files
+        .iter()
+        .filter(|f| !f.hash.is_empty())
+        .map(|f| f.hash.clone())
+        .collect();
+
+    let existing_path_hashes: HashMap<PathBuf, String> = all_files
+        .iter()
+        .filter(|f| !f.hash.is_empty())
+        .map(|f| (PathBuf::from(&f.source), f.hash.clone()))
+        .collect();
+
+    (existing_paths, existing_hashes, existing_path_hashes)
 }
 
 #[cfg(test)]

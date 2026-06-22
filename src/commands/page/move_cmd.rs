@@ -2,16 +2,18 @@
 
 use std::path::Path;
 
-use crate::commands::CommandOutput;
+use crate::commands::{CommandOutput, run_write_command};
 use crate::models::{LayoutPage, PageMode, Slot};
-use crate::state_manager::StateManager;
+use crate::state_manager::{ReadOnlyState, WriteLayoutState};
 
 use super::helpers::{
     apply_unplace, collect_src_photos, delete_empty_pages, format_pages_list, format_src_desc,
     page_idx, photos_at_slots, resolve_slots,
 };
 use super::swap::execute_swap;
-use super::types::{DstMove, PageMoveCmd, PageMoveError, PageMoveResult, Src, ValidationError};
+use super::types::{
+    DstMove, PageMoveCmd, PageMoveError, PageMoveResult, SlotExpr, Src, ValidationError,
+};
 
 /// Execute a `page move` command (either Move or Swap variant).
 pub fn execute_move(
@@ -28,6 +30,14 @@ pub fn execute_move(
 /// a Manual page in one gesture, so they don't perfectly overlap.
 const MANUAL_DROP_CASCADE_MM: f64 = 10.0;
 
+fn empty_result() -> PageMoveResult {
+    PageMoveResult {
+        pages_modified: vec![],
+        pages_inserted: vec![],
+        pages_deleted: vec![],
+    }
+}
+
 fn execute_move_to(
     project_root: &Path,
     src: Src,
@@ -37,104 +47,126 @@ fn execute_move_to(
         return execute_move_to_manual(project_root, src, page, x_mm, y_mm);
     }
 
+    // Same-page slot move is a no-op — don't even open the project.
     if let Src::Slots { page, slots: _ } = &src
         && let DstMove::Page(dst_page) = &dst
         && *page == *dst_page
     {
         return Ok(CommandOutput {
-            result: PageMoveResult {
-                pages_modified: vec![],
-                pages_inserted: vec![],
-                pages_deleted: vec![],
-            },
+            result: empty_result(),
             changed_state: None,
         });
     }
 
-    let mut mgr = StateManager::open(project_root)?;
+    run_write_command(project_root, |mgr| {
+        let mut view = mgr.get_write_layout_state();
+        apply_move(&mut view, src, dst)
+    })
+}
 
-    // Handle unplace-destination: remove photos from layout (and delete pages for Src::Pages).
+/// Orchestrate a (non-manual, non-same-page) move on the layout view.
+fn apply_move(
+    s: &mut WriteLayoutState,
+    src: Src,
+    dst: DstMove,
+) -> Result<(String, PageMoveResult), PageMoveError> {
     if matches!(dst, DstMove::Unplace) {
-        return match src {
-            Src::Slots { page, slots } => {
-                let (deleted, modified) = apply_unplace(&mut mgr.state.layout, page, &slots)?;
-                let changed_state =
-                    mgr.finish(&format!("page move: page {page}:... -> (unplace)"))?;
-                Ok(CommandOutput {
-                    result: PageMoveResult {
-                        pages_modified: modified,
-                        pages_inserted: vec![],
-                        pages_deleted: deleted,
-                    },
-                    changed_state,
-                })
-            }
-            Src::Pages(pe) => {
-                // Remove pages descending so indices stay valid.
-                let mut page_nums = pe.pages.clone();
-                if mgr.state.has_cover() && page_nums.contains(&0) {
-                    return Err(ValidationError::PageNotFound(0).into());
-                }
-                let src_desc = format_pages_list(&pe.pages);
-                page_nums.sort_unstable_by(|a, b| b.cmp(a));
-                let deleted = {
-                    let mut deleted = vec![];
-                    for &p in &page_nums {
-                        let idx = page_idx(p, &mgr.state.layout)?;
-                        deleted.push(idx as u32);
-                        mgr.state.layout.remove(idx);
-                    }
-                    deleted.sort();
-                    deleted
-                };
-                let changed_state = mgr.finish(&format!("page move: {src_desc} -> (unplace)"))?;
-                Ok(CommandOutput {
-                    result: PageMoveResult {
-                        pages_modified: vec![],
-                        pages_inserted: vec![],
-                        pages_deleted: deleted,
-                    },
-                    changed_state,
-                })
-            }
-        };
+        return move_to_unplace(s, src);
     }
 
-    let photos = collect_src_photos(&src, &mgr.state.layout)?.0;
+    let photos = collect_src_photos(&src, s.layout())?.0;
     if photos.is_empty() {
-        let changed_state = mgr.finish("")?;
-        return Ok(CommandOutput {
-            result: PageMoveResult {
-                pages_modified: vec![],
-                pages_inserted: vec![],
-                pages_deleted: vec![],
-            },
-            changed_state,
-        });
+        return Ok((String::new(), empty_result()));
     }
 
     // For Slots: resolve src index and slot indices BEFORE any insertion so that
     // a NewPageAt insert cannot shift the src page out of position.
     let pre_insert_src = if let Src::Slots { page, slots } = &src {
-        let idx = page_idx(*page, &mgr.state.layout)?;
-        let slot_indices = resolve_slots(*page, slots, &mgr.state.layout)?;
+        let idx = page_idx(*page, s.layout())?;
+        let slot_indices = resolve_slots(*page, slots, s.layout())?;
         Some((idx, slot_indices))
     } else {
         None
     };
 
-    // Step 1: handle DstMove (may insert a new page).
-    let (dst_page_idx, inserted_page): (usize, Option<u32>) = match &dst {
-        DstMove::Page(p) => (page_idx(*p, &mgr.state.layout)?, None),
+    let (dst_page_idx, inserted_page) = resolve_move_dst(s, &dst)?;
+
+    if let Src::Slots { page, .. } = &src {
+        let pre_insert = pre_insert_src.expect("Slots arm has pre_insert_src");
+        return Ok(move_slots_to_page(
+            s,
+            *page,
+            pre_insert,
+            &photos,
+            dst_page_idx,
+            inserted_page,
+        ));
+    }
+
+    move_pages_to_page(s, &src, &photos, dst_page_idx, inserted_page)
+}
+
+/// Remove photos from the layout (unplace destination).
+fn move_to_unplace(
+    s: &mut WriteLayoutState,
+    src: Src,
+) -> Result<(String, PageMoveResult), PageMoveError> {
+    match src {
+        Src::Slots { page, slots } => {
+            let (deleted, modified) = apply_unplace(s.layout_mut(), page, &slots)?;
+            Ok((
+                format!("page move: page {page}:... -> (unplace)"),
+                PageMoveResult {
+                    pages_modified: modified,
+                    pages_inserted: vec![],
+                    pages_deleted: deleted,
+                },
+            ))
+        }
+        Src::Pages(pe) => {
+            // Remove pages descending so indices stay valid.
+            let mut page_nums = pe.pages.clone();
+            if s.state().has_cover() && page_nums.contains(&0) {
+                return Err(ValidationError::PageNotFound(0).into());
+            }
+            let src_desc = format_pages_list(&pe.pages);
+            page_nums.sort_unstable_by(|a, b| b.cmp(a));
+            let mut deleted = vec![];
+            for &p in &page_nums {
+                let idx = page_idx(p, s.layout())?;
+                deleted.push(idx as u32);
+                s.layout_mut().remove(idx);
+            }
+            deleted.sort();
+            Ok((
+                format!("page move: {src_desc} -> (unplace)"),
+                PageMoveResult {
+                    pages_modified: vec![],
+                    pages_inserted: vec![],
+                    pages_deleted: deleted,
+                },
+            ))
+        }
+    }
+}
+
+/// Resolve the destination page index, inserting a new page for `NewPageAt`.
+/// Returns `(dst_page_idx, inserted_page_num)`.
+fn resolve_move_dst(
+    s: &mut WriteLayoutState,
+    dst: &DstMove,
+) -> Result<(usize, Option<u32>), PageMoveError> {
+    match dst {
+        DstMove::Page(p) => Ok((page_idx(*p, s.layout())?, None)),
         DstMove::NewPageAt(idx) => {
-            if (*idx as usize) > mgr.state.layout.len() {
+            if (*idx as usize) > s.layout().len() {
                 return Err(ValidationError::PageNotFound(*idx).into());
             }
-            if *idx == 0 && mgr.state.has_cover() {
+            if *idx == 0 && s.state().has_cover() {
                 return Err(ValidationError::PageNotFound(0).into());
             }
             let new_idx = *idx as usize;
-            mgr.state.layout.insert(
+            s.layout_mut().insert(
                 new_idx,
                 LayoutPage {
                     photos: vec![],
@@ -142,94 +174,98 @@ fn execute_move_to(
                     mode: PageMode::Auto,
                 },
             );
-            (new_idx, Some(new_idx as u32))
+            Ok((new_idx, Some(new_idx as u32)))
         }
         DstMove::Unplace => unreachable!("Unplace handled above"),
         DstMove::ManualAt { .. } => unreachable!("ManualAt handled above"),
-    };
-
-    // Step 2: For Slots variant — remove from src, add to dst, early return.
-    if let Src::Slots { page, .. } = &src {
-        let src_page = *page;
-        let (pre_idx, slot_indices) = pre_insert_src.expect("Slots arm has pre_insert_src");
-        let idx = if inserted_page.is_some() && dst_page_idx <= pre_idx {
-            pre_idx + 1
-        } else {
-            pre_idx
-        };
-        let dst_page_num = dst_page_idx as u32;
-        let mut desc = slot_indices.clone();
-        desc.sort_unstable_by(|a, b| b.cmp(a));
-
-        let (deleted, modified) = {
-            let src_is_manual = mgr.state.layout[idx].mode == PageMode::Manual;
-            for &i in &desc {
-                mgr.state.layout[idx].photos.remove(i);
-                if src_is_manual && i < mgr.state.layout[idx].slots.len() {
-                    mgr.state.layout[idx].slots.remove(i);
-                }
-            }
-            for photo in &photos {
-                mgr.state.layout[dst_page_idx].photos.push(photo.clone());
-            }
-            let deleted = delete_empty_pages(&mut mgr.state.layout);
-            let mut modified = vec![src_page, dst_page_num];
-            modified.retain(|p| !deleted.contains(p));
-            modified.sort();
-            modified.dedup();
-            (deleted, modified)
-        };
-
-        let changed_state =
-            mgr.finish(&format!("page move: slots from page {src_page} -> page"))?;
-        return Ok(CommandOutput {
-            result: PageMoveResult {
-                pages_modified: modified,
-                pages_inserted: inserted_page
-                    .map(|_| vec![dst_page_num])
-                    .unwrap_or_default(),
-                pages_deleted: deleted,
-            },
-            changed_state,
-        });
     }
+}
 
-    // Step 3: For Pages variant — clear src pages, add to dst.
-    let (deleted, modified, src_desc, dst_page_num) = {
-        let src_page_indices: Vec<usize> = match &src {
-            Src::Pages(pe) => pe
-                .pages
-                .iter()
-                .map(|&p| page_idx(p, &mgr.state.layout))
-                .collect::<Result<Vec<_>, _>>()?,
-            _ => unreachable!(),
-        };
-        for &idx in &src_page_indices {
-            mgr.state.layout[idx].photos.clear();
-        }
-        for photo in &photos {
-            mgr.state.layout[dst_page_idx].photos.push(photo.clone());
-        }
-        let dst_page_num = dst_page_idx as u32;
-        let deleted = delete_empty_pages(&mut mgr.state.layout);
-        let mut modified_pages = vec![dst_page_num];
-        modified_pages.retain(|p| !deleted.contains(p));
-        let src_desc = format_src_desc(&src);
-        (deleted, modified_pages, src_desc, dst_page_num)
+/// Move individual slots from their source page onto the destination page.
+fn move_slots_to_page(
+    s: &mut WriteLayoutState,
+    src_page: u32,
+    pre_insert: (usize, Vec<usize>),
+    photos: &[String],
+    dst_page_idx: usize,
+    inserted_page: Option<u32>,
+) -> (String, PageMoveResult) {
+    let (pre_idx, slot_indices) = pre_insert;
+    let idx = if inserted_page.is_some() && dst_page_idx <= pre_idx {
+        pre_idx + 1
+    } else {
+        pre_idx
     };
+    let dst_page_num = dst_page_idx as u32;
+    let mut desc = slot_indices.clone();
+    desc.sort_unstable_by(|a, b| b.cmp(a));
 
-    let changed_state = mgr.finish(&format!("page move: {src_desc} -> page {dst_page_num}"))?;
+    let src_is_manual = s.layout()[idx].mode == PageMode::Manual;
+    for &i in &desc {
+        s.layout_mut()[idx].photos.remove(i);
+        if src_is_manual && i < s.layout()[idx].slots.len() {
+            s.layout_mut()[idx].slots.remove(i);
+        }
+    }
+    for photo in photos {
+        s.layout_mut()[dst_page_idx].photos.push(photo.clone());
+    }
+    let deleted = delete_empty_pages(s.layout_mut());
+    let mut modified = vec![src_page, dst_page_num];
+    modified.retain(|p| !deleted.contains(p));
+    modified.sort();
+    modified.dedup();
 
-    Ok(CommandOutput {
-        result: PageMoveResult {
+    (
+        format!("page move: slots from page {src_page} -> page"),
+        PageMoveResult {
             pages_modified: modified,
             pages_inserted: inserted_page
                 .map(|_| vec![dst_page_num])
                 .unwrap_or_default(),
             pages_deleted: deleted,
         },
-        changed_state,
-    })
+    )
+}
+
+/// Move whole source pages' photos onto the destination page.
+fn move_pages_to_page(
+    s: &mut WriteLayoutState,
+    src: &Src,
+    photos: &[String],
+    dst_page_idx: usize,
+    inserted_page: Option<u32>,
+) -> Result<(String, PageMoveResult), PageMoveError> {
+    let src_page_indices: Vec<usize> = match src {
+        Src::Pages(pe) => pe
+            .pages
+            .iter()
+            .map(|&p| page_idx(p, s.layout()))
+            .collect::<Result<Vec<_>, _>>()?,
+        _ => unreachable!(),
+    };
+    for &idx in &src_page_indices {
+        s.layout_mut()[idx].photos.clear();
+    }
+    for photo in photos {
+        s.layout_mut()[dst_page_idx].photos.push(photo.clone());
+    }
+    let dst_page_num = dst_page_idx as u32;
+    let deleted = delete_empty_pages(s.layout_mut());
+    let mut modified = vec![dst_page_num];
+    modified.retain(|p| !deleted.contains(p));
+    let src_desc = format_src_desc(src);
+
+    Ok((
+        format!("page move: {src_desc} -> page {dst_page_num}"),
+        PageMoveResult {
+            pages_modified: modified,
+            pages_inserted: inserted_page
+                .map(|_| vec![dst_page_num])
+                .unwrap_or_default(),
+            pages_deleted: deleted,
+        },
+    ))
 }
 
 /// Move the source slots onto a Manual-mode page, creating a positioned slot for
@@ -245,97 +281,94 @@ fn execute_move_to_manual(
     let Src::Slots {
         page: src_page,
         slots,
-    } = &src
+    } = src
     else {
         // Whole-page moves onto a manual page are not supported via this path.
         return Err(ValidationError::PageNotManual(dst_page).into());
     };
-    let src_page = *src_page;
 
-    let mut mgr = StateManager::open(project_root)?;
+    run_write_command(project_root, |mgr| {
+        let mut view = mgr.get_write_layout_state();
+        apply_move_to_manual(&mut view, src_page, &slots, dst_page, x_mm, y_mm)
+    })
+}
 
-    let dst_idx = page_idx(dst_page, &mgr.state.layout)?;
-    if mgr.state.layout[dst_idx].mode != PageMode::Manual {
+/// Mutating core of `execute_move_to_manual`, working on the layout view.
+fn apply_move_to_manual(
+    s: &mut WriteLayoutState,
+    src_page: u32,
+    slots: &SlotExpr,
+    dst_page: u32,
+    x_mm: f64,
+    y_mm: f64,
+) -> Result<(String, PageMoveResult), PageMoveError> {
+    let dst_idx = page_idx(dst_page, s.layout())?;
+    if s.layout()[dst_idx].mode != PageMode::Manual {
         return Err(ValidationError::PageNotManual(dst_page).into());
     }
     if src_page == dst_page {
         // Same page → a free reposition, handled by `page pos`, not here.
-        let changed_state = mgr.finish("")?;
-        return Ok(CommandOutput {
-            result: PageMoveResult {
-                pages_modified: vec![],
-                pages_inserted: vec![],
-                pages_deleted: vec![],
-            },
-            changed_state,
-        });
+        return Ok((String::new(), empty_result()));
     }
 
-    let src_idx = page_idx(src_page, &mgr.state.layout)?;
-    let mut slot_indices = resolve_slots(src_page, slots, &mgr.state.layout)?;
+    let src_idx = page_idx(src_page, s.layout())?;
+    let mut slot_indices = resolve_slots(src_page, slots, s.layout())?;
     slot_indices.sort_unstable();
 
     // Snapshot each moved photo together with the size of its source slot.
     let mut moved: Vec<(String, f64, f64)> = Vec::with_capacity(slot_indices.len());
     for &i in &slot_indices {
-        let photo = photos_at_slots(&mgr.state.layout, src_idx, &[i])?.remove(0);
-        let slot_dims = mgr.state.layout[src_idx]
+        let photo = photos_at_slots(s.layout(), src_idx, &[i])?.remove(0);
+        let slot_dims = s.layout()[src_idx]
             .slots
             .get(i)
-            .map(|s| (s.width_mm, s.height_mm));
+            .map(|sl| (sl.width_mm, sl.height_mm));
         let (w, h) = match slot_dims {
             Some((w, h)) => (w, h),
-            None => default_manual_slot_size(&mgr.state, dst_idx),
+            None => default_manual_slot_size(s.state(), dst_idx),
         };
         moved.push((photo, w, h));
     }
 
-    let (deleted, modified) = {
-        // Remove from src (descending so indices stay valid). Drop the slot only on a
-        // manual source; Auto pages recompute their slots on the next build.
-        let src_is_manual = mgr.state.layout[src_idx].mode == PageMode::Manual;
-        let mut desc = slot_indices.clone();
-        desc.sort_unstable_by(|a, b| b.cmp(a));
-        for &i in &desc {
-            mgr.state.layout[src_idx].photos.remove(i);
-            if src_is_manual && i < mgr.state.layout[src_idx].slots.len() {
-                mgr.state.layout[src_idx].slots.remove(i);
-            }
+    // Remove from src (descending so indices stay valid). Drop the slot only on a
+    // manual source; Auto pages recompute their slots on the next build.
+    let src_is_manual = s.layout()[src_idx].mode == PageMode::Manual;
+    let mut desc = slot_indices.clone();
+    desc.sort_unstable_by(|a, b| b.cmp(a));
+    for &i in &desc {
+        s.layout_mut()[src_idx].photos.remove(i);
+        if src_is_manual && i < s.layout()[src_idx].slots.len() {
+            s.layout_mut()[src_idx].slots.remove(i);
         }
+    }
 
-        // Append photos and matching positioned slots to the manual destination.
-        for (n, (photo, w, h)) in moved.into_iter().enumerate() {
-            let offset = MANUAL_DROP_CASCADE_MM * n as f64;
-            mgr.state.layout[dst_idx].photos.push(photo);
-            mgr.state.layout[dst_idx].slots.push(Slot {
-                x_mm: x_mm + offset,
-                y_mm: y_mm + offset,
-                width_mm: w,
-                height_mm: h,
-            });
-        }
+    // Append photos and matching positioned slots to the manual destination.
+    for (n, (photo, w, h)) in moved.into_iter().enumerate() {
+        let offset = MANUAL_DROP_CASCADE_MM * n as f64;
+        s.layout_mut()[dst_idx].photos.push(photo);
+        s.layout_mut()[dst_idx].slots.push(Slot {
+            x_mm: x_mm + offset,
+            y_mm: y_mm + offset,
+            width_mm: w,
+            height_mm: h,
+        });
+    }
 
-        let dst_page_num = dst_idx as u32;
-        let deleted = delete_empty_pages(&mut mgr.state.layout);
-        let mut modified = vec![src_page, dst_page_num];
-        modified.retain(|p| !deleted.contains(p));
-        modified.sort_unstable();
-        modified.dedup();
-        (deleted, modified)
-    };
     let dst_page_num = dst_idx as u32;
+    let deleted = delete_empty_pages(s.layout_mut());
+    let mut modified = vec![src_page, dst_page_num];
+    modified.retain(|p| !deleted.contains(p));
+    modified.sort_unstable();
+    modified.dedup();
 
-    let changed_state = mgr.finish(&format!(
-        "page move: slots from page {src_page} -> manual page {dst_page_num}"
-    ))?;
-    Ok(CommandOutput {
-        result: PageMoveResult {
+    Ok((
+        format!("page move: slots from page {src_page} -> manual page {dst_page_num}"),
+        PageMoveResult {
             pages_modified: modified,
             pages_inserted: vec![],
             pages_deleted: deleted,
         },
-        changed_state,
-    })
+    ))
 }
 
 /// Fallback slot size when a source slot has no computed geometry yet

@@ -2,8 +2,8 @@
 
 use std::path::Path;
 
-use crate::commands::CommandOutput;
-use crate::state_manager::StateManager;
+use crate::commands::{CommandOutput, run_write_command};
+use crate::state_manager::{ReadOnlyState, WriteLayoutState};
 
 use super::helpers::{format_pages_list, page_idx};
 use super::types::{PageMoveError, PageMoveResult, PagesExpr, ValidationError};
@@ -15,51 +15,61 @@ pub fn execute_combine(
     project_root: &Path,
     pages_expr: PagesExpr,
 ) -> Result<CommandOutput<PageMoveResult>, PageMoveError> {
-    let mut mgr = StateManager::open(project_root)?;
+    run_write_command(project_root, |mgr| {
+        if pages_expr.pages.len() < 2 {
+            let p = pages_expr.pages.first().copied().unwrap_or(0);
+            return Err(ValidationError::CombineSinglePage(p).into());
+        }
 
-    if pages_expr.pages.len() < 2 {
-        let p = pages_expr.pages.first().copied().unwrap_or(0);
-        return Err(ValidationError::CombineSinglePage(p).into());
+        let first_page = pages_expr.pages[0];
+        let other_pages: Vec<u32> = pages_expr.pages[1..].to_vec();
+
+        let mut view = mgr.get_write_layout_state();
+        combine_onto_first(&mut view, &pages_expr.pages, first_page, &other_pages)?;
+
+        let pages_str = format_pages_list(&pages_expr.pages);
+        Ok((
+            format!("page combine: {pages_str}"),
+            PageMoveResult {
+                pages_modified: vec![first_page],
+                pages_inserted: vec![],
+                pages_deleted: other_pages,
+            },
+        ))
+    })
+}
+
+/// Merge the `other_pages`' photos onto `first_page` and delete the merged pages.
+fn combine_onto_first(
+    s: &mut WriteLayoutState,
+    all_pages: &[u32],
+    first_page: u32,
+    other_pages: &[u32],
+) -> Result<(), ValidationError> {
+    for &p in all_pages {
+        page_idx(p, s.layout())?;
     }
 
-    let first_page = pages_expr.pages[0];
-    let other_pages: Vec<u32> = pages_expr.pages[1..].to_vec();
-
-    for &p in &pages_expr.pages {
-        page_idx(p, &mgr.state.layout)?;
-    }
-
-    let first_idx = page_idx(first_page, &mgr.state.layout)?;
+    let first_idx = page_idx(first_page, s.layout())?;
 
     let mut extra_photos: Vec<String> = Vec::new();
-    for &p in &other_pages {
-        let idx = page_idx(p, &mgr.state.layout)?;
-        extra_photos.extend(mgr.state.layout[idx].photos.clone());
+    for &p in other_pages {
+        let idx = page_idx(p, s.layout())?;
+        extra_photos.extend(s.layout()[idx].photos.clone());
     }
 
-    mgr.state.layout[first_idx].photos.extend(extra_photos);
-    mgr.state.layout[first_idx].slots.clear();
+    s.layout_mut()[first_idx].photos.extend(extra_photos);
+    s.layout_mut()[first_idx].slots.clear();
 
     let mut delete_indices: Vec<usize> = other_pages
         .iter()
-        .map(|&p| page_idx(p, &mgr.state.layout).unwrap())
+        .map(|&p| page_idx(p, s.layout()).unwrap())
         .collect();
     delete_indices.sort_unstable_by(|a, b| b.cmp(a));
     for idx in &delete_indices {
-        mgr.state.layout.remove(*idx);
+        s.layout_mut().remove(*idx);
     }
-
-    let pages_str = format_pages_list(&pages_expr.pages);
-    let changed_state = mgr.finish(&format!("page combine: {pages_str}"))?;
-
-    Ok(CommandOutput {
-        result: PageMoveResult {
-            pages_modified: vec![first_page],
-            pages_inserted: vec![],
-            pages_deleted: other_pages,
-        },
-        changed_state,
-    })
+    Ok(())
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────

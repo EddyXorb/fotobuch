@@ -3,9 +3,9 @@
 use std::path::Path;
 
 use crate::{
-    commands::CommandOutput,
+    commands::{CommandOutput, run_write_command},
     models::{LayoutPage, PageMode, Slot},
-    state_manager::StateManager,
+    state_manager::{ReadOnlyState, WriteLayoutState},
 };
 
 use super::{
@@ -70,21 +70,40 @@ pub fn execute_pos(
     slots: SlotExpr,
     config: &PosConfig,
 ) -> Result<CommandOutput<PosResult>, PageMoveError> {
-    let mut mgr = StateManager::open(project_root)?;
+    run_write_command(project_root, |mgr| {
+        let mut view = mgr.get_write_layout_state();
+        let slots_changed = reposition_slots(&mut view, page, &slots, config)?;
 
-    let idx = page_idx(page, &mgr.state.layout)?;
+        Ok((
+            format!("page pos {page}: {} slot(s) moved", slots_changed.len()),
+            PosResult {
+                page,
+                slots_changed,
+            },
+        ))
+    })
+}
+
+/// Apply the position/scale change to each addressed slot on a Manual page.
+fn reposition_slots(
+    s: &mut WriteLayoutState,
+    page: u32,
+    slots: &SlotExpr,
+    config: &PosConfig,
+) -> Result<Vec<SlotChange>, ValidationError> {
+    let idx = page_idx(page, s.layout())?;
 
     // Require Manual mode
-    if !is_in_manual_mode(&mgr.state.layout, idx) {
-        return Err(ValidationError::PageNotManual(page).into());
+    if !is_in_manual_mode(s.layout(), idx) {
+        return Err(ValidationError::PageNotManual(page));
     }
 
-    let slot_indices = resolve_slots(page, &slots, &mgr.state.layout)?;
+    let slot_indices = resolve_slots(page, slots, s.layout())?;
 
     let mut slots_changed = Vec::new();
 
     for slot_idx in slot_indices {
-        let old = mgr.state.layout[idx].slots[slot_idx].clone();
+        let old = s.layout()[idx].slots[slot_idx].clone();
         let mut new = old.clone();
 
         // Apply position change
@@ -101,12 +120,12 @@ pub fn execute_pos(
         }
 
         // Apply scale (origin stays, width/height grow right-downward)
-        if let Some(s) = config.scale {
-            new.width_mm *= s;
-            new.height_mm *= s;
+        if let Some(scale) = config.scale {
+            new.width_mm *= scale;
+            new.height_mm *= scale;
         }
 
-        mgr.state.layout[idx].slots[slot_idx] = new.clone();
+        s.layout_mut()[idx].slots[slot_idx] = new.clone();
         slots_changed.push(SlotChange {
             slot: slot_idx,
             old,
@@ -114,18 +133,7 @@ pub fn execute_pos(
         });
     }
 
-    let changed_state = mgr.finish(&format!(
-        "page pos {page}: {} slot(s) moved",
-        slots_changed.len()
-    ))?;
-
-    Ok(CommandOutput {
-        result: PosResult {
-            page,
-            slots_changed,
-        },
-        changed_state,
-    })
+    Ok(slots_changed)
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────

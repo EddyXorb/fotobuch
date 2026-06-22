@@ -22,7 +22,8 @@ pub fn execute_unplace(
     slots: SlotExpr,
 ) -> Result<CommandOutput<UnplaceResult>, PageMoveError> {
     run_write_command(project_root, |mgr| {
-        let (deleted, modified) = apply_unplace(&mut mgr.state.layout, page, &slots)?;
+        let mut view = mgr.get_write_layout_state();
+        let (deleted, modified) = apply_unplace(view.layout_mut(), page, &slots)?;
         let commit_msg = if deleted.is_empty() && modified.is_empty() {
             String::new()
         } else {

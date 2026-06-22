@@ -2,9 +2,9 @@
 
 use std::path::Path;
 
-use crate::commands::CommandOutput;
+use crate::commands::{CommandOutput, run_write_command};
 use crate::models::{LayoutPage, PageMode};
-use crate::state_manager::StateManager;
+use crate::state_manager::{ReadOnlyState, WriteLayoutState};
 
 use super::helpers::page_idx;
 use super::types::{PageMoveError, PageMoveResult, ValidationError};
@@ -17,29 +17,50 @@ pub fn execute_split(
     page: u32,
     slot: u32,
 ) -> Result<CommandOutput<PageMoveResult>, PageMoveError> {
-    let mut mgr = StateManager::open(project_root)?;
+    run_write_command(project_root, |mgr| {
+        let mut view = mgr.get_write_layout_state();
+        let new_page_num = split_page_at_slot(&mut view, page, slot)?;
 
-    let idx = page_idx(page, &mgr.state.layout)?;
-    let n_photos = mgr.state.layout[idx].photos.len();
+        Ok((
+            format!("page split: page {page} at slot {slot}"),
+            PageMoveResult {
+                pages_modified: vec![page],
+                pages_inserted: vec![new_page_num],
+                pages_deleted: vec![],
+            },
+        ))
+    })
+}
+
+/// Move photos/slots from `slot` onwards onto a fresh page after `page`.
+/// Returns the 0-based index of the inserted page.
+fn split_page_at_slot(
+    s: &mut WriteLayoutState,
+    page: u32,
+    slot: u32,
+) -> Result<u32, ValidationError> {
+    let idx = page_idx(page, s.layout())?;
+    let n_photos = s.layout()[idx].photos.len();
 
     if slot as usize >= n_photos {
-        return Err(ValidationError::SlotNotFound { page, slot }.into());
+        return Err(ValidationError::SlotNotFound { page, slot });
     }
     if slot == 0 {
-        return Err(ValidationError::SplitAtFirstSlot(page).into());
+        return Err(ValidationError::SplitAtFirstSlot(page));
     }
 
     let split_at = slot as usize;
     let new_idx = idx + 1;
-    let moved_photos: Vec<String> = mgr.state.layout[idx].photos[split_at..].to_vec();
-    let moved_slots: Vec<_> = if split_at < mgr.state.layout[idx].slots.len() {
-        mgr.state.layout[idx].slots[split_at..].to_vec()
+    let layout = s.layout_mut();
+    let moved_photos: Vec<String> = layout[idx].photos[split_at..].to_vec();
+    let moved_slots: Vec<_> = if split_at < layout[idx].slots.len() {
+        layout[idx].slots[split_at..].to_vec()
     } else {
         vec![]
     };
-    mgr.state.layout[idx].photos.truncate(split_at);
-    mgr.state.layout[idx].slots.truncate(split_at);
-    mgr.state.layout.insert(
+    layout[idx].photos.truncate(split_at);
+    layout[idx].slots.truncate(split_at);
+    layout.insert(
         new_idx,
         LayoutPage {
             photos: moved_photos,
@@ -48,17 +69,7 @@ pub fn execute_split(
         },
     );
 
-    let new_page_num = new_idx as u32;
-    let changed_state = mgr.finish(&format!("page split: page {page} at slot {slot}"))?;
-
-    Ok(CommandOutput {
-        result: PageMoveResult {
-            pages_modified: vec![page],
-            pages_inserted: vec![new_page_num],
-            pages_deleted: vec![],
-        },
-        changed_state,
-    })
+    Ok(new_idx as u32)
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────

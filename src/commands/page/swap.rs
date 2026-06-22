@@ -2,9 +2,9 @@
 
 use std::path::Path;
 
-use crate::commands::CommandOutput;
+use crate::commands::{CommandOutput, run_write_command};
 use crate::models::{LayoutPage, PageMode};
-use crate::state_manager::StateManager;
+use crate::state_manager::{ReadOnlyState, WriteLayoutState};
 
 use super::helpers::{
     collect_dst_swap_photos_with_indices, collect_src_photos_with_indices, page_idx,
@@ -16,49 +16,80 @@ pub fn execute_swap(
     left: Src,
     right: DstSwap,
 ) -> Result<CommandOutput<PageMoveResult>, PageMoveError> {
-    let mut mgr = StateManager::open(project_root)?;
+    run_write_command(project_root, |mgr| {
+        let mut view = mgr.get_write_layout_state();
+        apply_swap(&mut view, left, right)
+    })
+}
 
+/// Dispatch a swap to the page-block or slot variant on the layout view.
+fn apply_swap(
+    s: &mut WriteLayoutState,
+    left: Src,
+    right: DstSwap,
+) -> Result<(String, PageMoveResult), PageMoveError> {
     // Pages × Pages — block transposition, contiguous ranges only.
     if let (Src::Pages(lpe), DstSwap::Pages(rpe)) = (&left, &right) {
-        if !is_contiguous(&lpe.pages) || !is_contiguous(&rpe.pages) {
-            return Err(ValidationError::SwapNonContiguous.into());
-        }
-
-        let left_set: std::collections::HashSet<u32> = lpe.pages.iter().copied().collect();
-        if rpe.pages.iter().any(|p| left_set.contains(p)) {
-            return Err(ValidationError::SwapRangesOverlap.into());
-        }
-
-        for &p in lpe.pages.iter().chain(rpe.pages.iter()) {
-            page_idx(p, &mgr.state.layout)?;
-        }
-
-        let mut modified_pages: Vec<u32> =
-            lpe.pages.iter().chain(rpe.pages.iter()).copied().collect();
-        modified_pages.sort();
-        modified_pages.dedup();
-
-        block_transpose_pages(&mut mgr.state.layout, &lpe.pages, &rpe.pages);
-        let changed_state = mgr.finish("page swap")?;
-        return Ok(CommandOutput {
-            result: PageMoveResult {
-                pages_modified: modified_pages,
-                pages_inserted: vec![],
-                pages_deleted: vec![],
-            },
-            changed_state,
-        });
+        return swap_page_blocks(s, &lpe.pages, &rpe.pages);
     }
 
     // Slot swap — blockwise replacement, contiguous ranges only.
+    swap_slots(s, left, right)
+}
+
+/// Transpose two contiguous, non-overlapping page ranges.
+fn swap_page_blocks(
+    s: &mut WriteLayoutState,
+    left_pages: &[u32],
+    right_pages: &[u32],
+) -> Result<(String, PageMoveResult), PageMoveError> {
+    if !is_contiguous(left_pages) || !is_contiguous(right_pages) {
+        return Err(ValidationError::SwapNonContiguous.into());
+    }
+
+    let left_set: std::collections::HashSet<u32> = left_pages.iter().copied().collect();
+    if right_pages.iter().any(|p| left_set.contains(p)) {
+        return Err(ValidationError::SwapRangesOverlap.into());
+    }
+
+    for &p in left_pages.iter().chain(right_pages.iter()) {
+        page_idx(p, s.layout())?;
+    }
+
+    let mut modified_pages: Vec<u32> = left_pages
+        .iter()
+        .chain(right_pages.iter())
+        .copied()
+        .collect();
+    modified_pages.sort();
+    modified_pages.dedup();
+
+    block_transpose_pages(s.layout_mut(), left_pages, right_pages);
+
+    Ok((
+        "page swap".to_string(),
+        PageMoveResult {
+            pages_modified: modified_pages,
+            pages_inserted: vec![],
+            pages_deleted: vec![],
+        },
+    ))
+}
+
+/// Swap the photos at two contiguous slot ranges (possibly across pages).
+fn swap_slots(
+    s: &mut WriteLayoutState,
+    left: Src,
+    right: DstSwap,
+) -> Result<(String, PageMoveResult), PageMoveError> {
     if !src_is_contiguous(&left) || !dst_swap_is_contiguous(&right) {
         return Err(ValidationError::SwapNonContiguous.into());
     }
 
     let (left_photos, left_page_idx, left_slot_indices) =
-        collect_src_photos_with_indices(&left, &mgr.state.layout)?;
+        collect_src_photos_with_indices(&left, s.layout())?;
     let (right_photos, right_page_idx, right_slot_indices) =
-        collect_dst_swap_photos_with_indices(&right, &mgr.state.layout)?;
+        collect_dst_swap_photos_with_indices(&right, s.layout())?;
 
     // Same page: slot ranges must not overlap.
     if left_page_idx == right_page_idx {
@@ -70,7 +101,7 @@ pub fn execute_swap(
     }
 
     swap_photos_in_layout(
-        &mut mgr.state.layout,
+        s.layout_mut(),
         SwapSide {
             page_idx: left_page_idx,
             slot_indices: &left_slot_indices,
@@ -90,16 +121,16 @@ pub fn execute_swap(
         let right_recv = left_photos.len();
         let left_start = left_slot_indices.iter().min().copied().unwrap_or(0);
         let right_start = right_slot_indices.iter().min().copied().unwrap_or(0);
-        let photos = mgr.state.photos.to_vec();
+        let photos = s.photos().to_vec();
         adapt_manual_slot_ratios(
-            &mut mgr.state.layout,
+            s.layout_mut(),
             &photos,
             left_page_idx,
             left_start,
             left_recv,
         );
         adapt_manual_slot_ratios(
-            &mut mgr.state.layout,
+            s.layout_mut(),
             &photos,
             right_page_idx,
             right_start,
@@ -111,16 +142,14 @@ pub fn execute_swap(
     modified_pages.sort();
     modified_pages.dedup();
 
-    let changed_state = mgr.finish("page swap")?;
-
-    Ok(CommandOutput {
-        result: PageMoveResult {
+    Ok((
+        "page swap".to_string(),
+        PageMoveResult {
             pages_modified: modified_pages,
             pages_inserted: vec![],
             pages_deleted: vec![],
         },
-        changed_state,
-    })
+    ))
 }
 
 fn is_contiguous(items: &[u32]) -> bool {
