@@ -1,7 +1,7 @@
 # Lib-Refactoring — Strukturvorschläge für `src/`
 
-> Status: teils umgesetzt. Abschnitte 1–5 sind im Kern erledigt (Details in den
-> separaten Plänen `0x-*.md`, siehe Abschnitt 12); Abschnitte 6–11 sind offen.
+> Status: teils umgesetzt. Abschnitte 1–6 sind im Kern erledigt (Details in den
+> separaten Plänen `0x-*.md`, siehe Abschnitt 12); Abschnitte 7–11 sind offen.
 > Reihenfolge je Abschnitt = Priorität. Kein fertiger Code, nur Ideen +
 > Signatur-Skizzen. Befunde mit `Datei:Zeile` belegt (offene Abschnitte gegen den
 > aktuellen Stand geprüft).
@@ -120,8 +120,9 @@ Plan: [`05-dto-models.md`](./05-dto-models.md). Befunde in Kürze:
 
 ## 6. `state_manager`
 
-**Status: offen.** Vollständiger Plan: [`06-state-manager.md`](./06-state-manager.md).
-Befunde in Kürze:
+**Status: umgesetzt** (#49); Nachzieh-Schritt J11 (View-Konsolidierung) offen.
+Vollständiger Plan: [`06-state-manager.md`](./06-state-manager.md). Befunde in
+Kürze:
 
 - **Toter No-Op `renumber_pages`** (`state_manager.rs:27`, seit Wegfall von
   `LayoutPage.page` funktionslos) plus drei Aufrufstellen → ersatzlos löschen.
@@ -137,11 +138,16 @@ Befunde in Kürze:
 
 - **Trichotomie:** Domänen-Lesen über *ein* breites `state() -> &ProjectState`;
   Manager-Lesen (git-Baseline, Pfade) über `mgr`-Methoden nur an der Spitze;
-  Domänen-Schreiben nur über schmale `layout_mut()`/`photos_mut()`/`config_mut()`.
-  `&mut ProjectState` und ein `state_mut()` entfallen.
+  Domänen-Schreiben über die View-Konstruktoren `mgr.write_*()` (R7), `*_mut()`
+  lebt auf der View. `&mut ProjectState` und ein `state_mut()` entfallen.
 - **Wirbelsäulen-Regel:** `mgr` lebt nur auf der Orchestrierungs-Spitze (Pipeline
   + direkte Schritt-Helfer) und wird **nie eine Schicht tiefer** gereicht; schmale
   Borrows gehen nach unten (*narrow early*, Muster Lesen→entscheiden→schreiben).
+- **State-Views gegen Signatur-Explosion (R7):** statt vieler Einzel-Parameter ein
+  Wrapper über `&mut ProjectState` mit genau *einem* schreibbaren Feld —
+  `WriteLayoutState`/`WritePhotosState`/`WriteConfigState` (Typname = Footprint).
+  Lesen ohne Schreiben bleibt `&ProjectState` (kein `ReadState`). Keine
+  layout+photos-Kombi (kein Bedarf; `remove` mutiert sequenziell).
 - **Read-only** als eigener Typ: `open_readonly()` liefert einen schmalen
   Lese-Handle (kein `finish`/`*_mut`) und ersetzt das freie `load_project_state`.
 - **Validität** bleibt zentral in `finish()` (Drop warnt); kein Per-Edit-Check.
@@ -154,56 +160,22 @@ und die Solver-Engines nehmen noch `&mut ProjectState` — beides löst der Plan
 
 ## 7. Commands: Duplizierung, Struktur, Config/Result-Muster
 
-### 7.1 Duplizierte Logik (höchste Priorität)
+**Status: offen.** Vollständiger Plan: [`07-commands.md`](./07-commands.md).
+Befunde in Kürze:
 
-- **3× „unplaced finden"** mit gleichem Kern, drei Signaturen:
-  `remove.rs:184 collect_unplaced_ids`, `place.rs:57 find_unplaced`,
-  `status.rs:82 count_unplaced` → eine Query-Funktion.
-- **2× „leere Seiten entfernen":** `remove.rs:146 remove_empty_pages` (privat,
-  ohne Rückgabe) dupliziert `page/helpers.rs:74 delete_empty_pages` (`pub(crate)`,
-  bereits von `unplace.rs` genutzt) → `remove` soll die vorhandene importieren.
-- **2× Page-Listen-Formatter:** `place.rs:322 format_page_list` (`usize`,
-  ", ") vs. `page/helpers.rs:201 format_pages_list` (`u32`, ",") →
-  zusammenführen (auch Trenner vereinheitlichen).
-- **StateManager open/finish + „nothing to do"-Frühreturn** an ≥8 Stellen
-  (`place.rs:127,149`, `remove.rs:234`, `unplace.rs:26`, `move_cmd.rs:113,279`)
-  → `run_command`-Wrapper.
+- **7.1 Duplizierung:** „unplaced finden" 3×, „leere Seiten entfernen" 2×,
+  Page-Listen-Formatter 2×, open/finish-Boilerplate ≥8× → `run_command`-Wrapper.
+- **7.2 große Dateien:** `move_cmd.rs` (1112 Z.), `place.rs` (625 Z.,
+  Orchestrierung + Algorithmus vermischt), `remove.rs` (583 Z.).
+- **7.3 Datei-vs-Ordner** ohne Kriterium; **7.4 Config/Result-Muster**
+  uneinheitlich (`StatusReport`, fehlende Config-Structs); **7.5 Kollisionen**
+  (`SlotInfo` 2×, `ProjectState_`, `config()`).
 
-### 7.2 Zu große Dateien / vermischte Verantwortung
-
-- **`move_cmd.rs` (1096 Z.)** enthält drei orthogonale Operationen: `execute_move_to`,
-  `execute_move_to_manual`, `execute_swap` → `swap_cmd.rs` abspalten (analog zu
-  `split.rs`/`combine.rs`); Layout-Rechnung `adapt_manual_slot_ratios`/
-  `photo_pixel_size` (`:358–393`) in eigenes Modul.
-- **`place.rs` (626 Z.)** mischt Orchestrierung mit dem chronologischen
-  Algorithmus (`compute_page_ranges`/`find_target_page`/`place_chronologically`,
-  `:207–283`) → Algorithmus in seiteneffektfreies `page_placement.rs` ziehen
-  (isoliert testbar).
-- **`remove.rs` (652 Z.)** dispatcht vier Operationen über `RemoveTarget`.
-
-### 7.3 Datei-vs-Ordner inkonsistent
-
-`add.rs` (280 Z.) hat bereits Submodule `add/deduplication.rs`, `add/merge.rs`,
-ist also de facto Ordnermodul; `remove.rs`/`place.rs` (>600 Z.) sind Einzeldateien,
-`config.rs` (218 Z.) hat einen Ordner. Kriterium festlegen (z. B. „Ordner ab
-Submodul/Größe X") und konsistent anwenden.
-
-### 7.4 Config/Result-Muster uneinheitlich
-
-`AddConfig/AddResult` etc. ok, aber: `StatusReport` statt `…Result`
-(`status.rs:57`); kein Config-Struct bei `history`/`undo`/`unplace`;
-`unplace` gibt fremdes `PageMoveResult`; `page weight` gibt `()`; `PageMoveCmd`
-ist Config-**Enum** statt -Struct. Muster bewusst definieren (nach Abschnitt 1
-lösen Plan-Enums die Config-Structs für build/rebuild ohnehin ab — das als
-gewollte Ausnahme dokumentieren).
-
-### 7.5 Namenskollisionen
-
-- **`SlotInfo` 2×** öffentlich im `commands`-Namespace: `status.rs:32` vs.
-  `page/types.rs:250` → `StatusSlotInfo` / `PageSlotInfo`.
-- **`ProjectState_`** (Trailing-Underscore, `status.rs:21`) ist ein Enum
-  `{Empty, Clean, Modified}` — umbenennen zu `ProjectStatus`/`BookStatus`.
-- **`config()`** heißt wie Modul *und* Typname.
+**Designentscheidung Slot-Move-Familie:** move/swap/combine/split teilen das
+Fundament (Adress-Typen, `PageMoveResult`, `ValidationError`, Helfer); gewählt ist
+**ein Submodul je Verb** unter `page/` mit geteiltem Fundament — kein
+Mega-Einstiegs-Enum. Dazu `DstMove::Unplace`/`execute_unplace` auf eine
+Implementierung zusammenführen. Details im Plan.
 
 ---
 
@@ -453,9 +425,11 @@ Themenblock in eigenen Dateien neben diesem Dokument:
 - [`05-dto-models.md`](./05-dto-models.md) — Domänenmodell entlogiken & Typen
   stärken (Abschnitt 5; umgesetzt).
 - [`06-state-manager.md`](./06-state-manager.md) — `state_manager` aufräumen &
-  Kapselung schärfen (Abschnitt 6; offen).
+  Kapselung schärfen (Abschnitt 6; umgesetzt, J11 offen).
+- [`07-commands.md`](./07-commands.md) — Commands entdoppeln, Slot-Move-Familie
+  schneiden, Muster vereinheitlichen (Abschnitt 7; offen).
 
-Weitere Pläne (Commands …) folgen demselben Schema.
+Weitere Pläne (`input` …) folgen demselben Schema.
 
 ---
 

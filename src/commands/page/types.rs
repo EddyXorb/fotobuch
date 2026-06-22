@@ -247,7 +247,7 @@ impl InfoFilter {
 
 /// Per-slot info record returned by `execute_info`.
 #[derive(Debug, Clone)]
-pub struct SlotInfo {
+pub struct PageSlotInfo {
     /// 0-based page number.
     pub page: u32,
     /// 0-based slot number.
@@ -272,7 +272,7 @@ pub struct SlotInfo {
 /// Result of `execute_info`.
 #[derive(Debug)]
 pub struct PageInfoResult {
-    pub slots: Vec<SlotInfo>,
+    pub slots: Vec<PageSlotInfo>,
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────

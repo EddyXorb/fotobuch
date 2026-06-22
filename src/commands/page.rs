@@ -24,6 +24,6 @@ pub use pos::{PosConfig, PosMode, PosResult, SlotChange, execute_pos};
 pub use split::execute_split;
 pub use types::{
     DstMove, DstSwap, InfoFilter, PageInfoResult, PageMoveCmd, PageMoveError, PageMoveResult,
-    PagesExpr, SlotExpr, SlotInfo, SlotItem, Src, ValidationError, WeightAddress,
+    PageSlotInfo, PagesExpr, SlotExpr, SlotItem, Src, ValidationError, WeightAddress,
 };
 pub use weight::execute_weight;

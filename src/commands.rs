@@ -41,10 +41,10 @@ impl<T: std::fmt::Debug> std::fmt::Debug for CommandOutput<T> {
 
 pub use add::{AddConfig, AddResult, GroupSummary, add};
 pub use build::{BuildConfig, BuildPlan, BuildResult, DpiWarning, build};
-pub use config::{ConfigResult, config, render_config};
+pub use config::{ConfigResult, current_config, render_config};
 pub use history::{HistoryEntry, history};
 pub use place::{PlaceConfig, PlaceDst, PlaceResult, place};
 pub use project::new::{project_new, validate_project_name};
 pub use remove::{RemoveConfig, RemoveResult, RemoveTarget, remove};
-pub use status::{PageDetail, ProjectState_, SlotInfo, StatusConfig, StatusReport, status};
+pub use status::{PageDetail, ProjectStatus, StatusConfig, StatusReport, StatusSlotInfo, status};
 pub use undo::{UndoResult, redo, undo};
