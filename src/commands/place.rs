@@ -1,14 +1,16 @@
 //! `fotobuch place` command - Place unplaced photos into the book
 
+mod page_placement;
+use page_placement::UnplacedPhoto;
+
 use anyhow::{Context, Result};
-use chrono::{DateTime, Utc};
 use regex::Regex;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::path::Path;
 
 use crate::commands::CommandOutput;
 use crate::commands::page::format_pages_list;
-use crate::models::{LayoutPage, PageMode, PhotoFile, ProjectState, build_photo_index};
+use crate::models::{LayoutPage, PageMode, ProjectState, build_photo_index};
 use crate::state_manager::{ReadOnlyState, StateManager, WriteLayoutState};
 
 /// Target destination for placing photos.
@@ -42,14 +44,6 @@ pub struct PlaceResult {
     pub pages_affected: Vec<usize>,
     /// Pages newly inserted (0-based positions after insertion)
     pub pages_inserted: Vec<usize>,
-}
-
-/// Represents an unplaced photo with its key metadata
-#[derive(Debug, Clone)]
-struct UnplacedPhoto {
-    id: String,
-    source: String,
-    timestamp: DateTime<Utc>,
 }
 
 fn find_unplaced(state: &ProjectState) -> Vec<UnplacedPhoto> {
@@ -150,7 +144,24 @@ pub fn place(project_root: &Path, config: &PlaceConfig) -> Result<CommandOutput<
         match config.dst {
             PlaceDst::NewPageAt(pos) => place_into_new_page(wls.layout_mut(), &filtered, pos),
             PlaceDst::Page(page) => (place_into_page(wls.layout_mut(), &filtered, page), vec![]),
-            PlaceDst::Auto => (place_chronologically(&mut wls, &filtered), vec![]),
+            PlaceDst::Auto => {
+                let photo_index = build_photo_index(wls.photos());
+                let cover_active = wls.config().book.cover.active;
+                let assignments = page_placement::place_chronologically(
+                    wls.layout(),
+                    &photo_index,
+                    cover_active,
+                    &filtered,
+                );
+                let mut affected = HashSet::new();
+                for (page_idx, photo_id) in assignments {
+                    wls.layout_mut()[page_idx].photos.push(photo_id);
+                    affected.insert(page_idx);
+                }
+                let mut result: Vec<usize> = affected.into_iter().collect();
+                result.sort();
+                (result, vec![])
+            }
         }
     };
 
@@ -193,89 +204,6 @@ fn apply_filters<'a>(
         .collect())
 }
 
-/// Computes (page_idx, min_timestamp, max_timestamp) for each page with photos.
-/// Skips the cover page (index 0) when the cover is active.
-fn compute_page_ranges(
-    layout: &[LayoutPage],
-    photo_index: &HashMap<String, (PhotoFile, String)>,
-    cover_active: bool,
-) -> Vec<(usize, DateTime<Utc>, DateTime<Utc>)> {
-    layout
-        .iter()
-        .enumerate()
-        .filter(|(idx, _)| !cover_active || *idx != 0)
-        .filter_map(|(idx, page)| {
-            let timestamps: Vec<DateTime<Utc>> = page
-                .photos
-                .iter()
-                .filter_map(|id| photo_index.get(id))
-                .map(|(pf, _)| pf.timestamp)
-                .collect();
-            if timestamps.is_empty() {
-                return None;
-            }
-            let min = *timestamps.iter().min().unwrap();
-            let max = *timestamps.iter().max().unwrap();
-            Some((idx, min, max))
-        })
-        .collect()
-}
-
-/// Computes minimum distance from a timestamp to a page range
-fn min_distance(ts: DateTime<Utc>, min: DateTime<Utc>, max: DateTime<Utc>) -> u64 {
-    let to_min = (ts - min).num_seconds().unsigned_abs();
-    let to_max = (ts - max).num_seconds().unsigned_abs();
-    to_min.min(to_max)
-}
-
-/// Finds the target page for a photo based on its timestamp.
-/// `page_ranges` must already exclude the cover page if applicable.
-/// Returns the 0-based index of the target page.
-fn find_target_page(
-    photo_ts: DateTime<Utc>,
-    page_ranges: &[(usize, DateTime<Utc>, DateTime<Utc>)],
-) -> usize {
-    // Check if timestamp is within any page range
-    for &(idx, min_ts, max_ts) in page_ranges {
-        if photo_ts >= min_ts && photo_ts <= max_ts {
-            return idx;
-        }
-    }
-
-    // Find closest page by minimum distance, with tie-breaking for earlier page
-    page_ranges
-        .iter()
-        .min_by(|a, b| {
-            let dist_a = min_distance(photo_ts, a.1, a.2);
-            let dist_b = min_distance(photo_ts, b.1, b.2);
-            dist_a.cmp(&dist_b).then(a.0.cmp(&b.0))
-        })
-        .map(|&(idx, _, _)| idx)
-        .unwrap_or(0)
-}
-
-/// Places photos chronologically onto appropriate pages
-/// Returns affected page indices (0-based, sorted, deduplicated)
-fn place_chronologically(
-    wls: &mut WriteLayoutState<'_>,
-    unplaced: &[&UnplacedPhoto],
-) -> Vec<usize> {
-    let photo_index = build_photo_index(wls.photos());
-    let cover_active = wls.config().book.cover.active;
-    let page_ranges = compute_page_ranges(wls.layout(), &photo_index, cover_active);
-
-    let mut affected: HashSet<usize> = HashSet::new();
-    for photo in unplaced {
-        let page_idx = find_target_page(photo.timestamp, &page_ranges);
-        wls.layout_mut()[page_idx].photos.push(photo.id.clone());
-        affected.insert(page_idx);
-    }
-
-    let mut result: Vec<usize> = affected.into_iter().collect();
-    result.sort();
-    result
-}
-
 /// Places all photos onto a specific page
 /// Returns affected page index (0-based, as single-element vector)
 fn place_into_page(
@@ -311,10 +239,10 @@ fn place_into_new_page(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::{LayoutPage, PageMode, PhotoGroup, ProjectState};
-    use chrono::TimeZone;
+    use crate::models::{LayoutPage, PageMode, PhotoFile, PhotoGroup, ProjectState};
+    use chrono::{TimeZone, Utc};
 
-    fn make_unplaced(id: &str, source: &str, ts: DateTime<Utc>) -> UnplacedPhoto {
+    fn make_unplaced(id: &str, source: &str, ts: chrono::DateTime<Utc>) -> UnplacedPhoto {
         UnplacedPhoto {
             id: id.to_string(),
             source: source.to_string(),
@@ -353,7 +281,6 @@ mod tests {
             layout: vec![LayoutPage {
                 photos: vec!["a.jpg".to_string()],
                 slots: vec![],
-
                 mode: PageMode::Auto,
             }],
         };
@@ -412,7 +339,6 @@ mod tests {
                 Utc.timestamp_opt(3000, 0).unwrap(),
             ),
         ];
-        // Both patterns must match
         let filtered =
             apply_filters(&photos, &["vacation".to_string(), "2024".to_string()]).unwrap();
         assert_eq!(filtered.len(), 1);
@@ -424,171 +350,5 @@ mod tests {
         let photos = vec![];
         let result = apply_filters(&photos, &["[invalid".to_string()]);
         assert!(result.is_err());
-    }
-
-    fn make_photo_file(id: &str, ts: DateTime<Utc>) -> PhotoFile {
-        PhotoFile {
-            id: id.to_string(),
-            source: format!("/photos/{id}"),
-            width_px: 1920,
-            height_px: 1080,
-            area_weight: 1.0,
-            timestamp: ts,
-            hash: id.to_string(),
-        }
-    }
-
-    /// Build a minimal ProjectState with an optional active cover.
-    fn make_state_with_cover(
-        cover_active: bool,
-        layout: Vec<LayoutPage>,
-        photos: Vec<PhotoGroup>,
-    ) -> ProjectState {
-        use crate::models::{BookConfig, CoverConfig, ProjectConfig};
-        ProjectState {
-            config: ProjectConfig {
-                book: BookConfig {
-                    title: "Test".into(),
-                    page_width_mm: 210.0,
-                    page_height_mm: 297.0,
-                    bleed_mm: 3.0,
-                    margin_mm: 10.0,
-                    gap_mm: 5.0,
-                    bleed_threshold_mm: 3.0,
-                    dpi: 300.0,
-                    cover: CoverConfig {
-                        active: cover_active,
-                        ..Default::default()
-                    },
-                    appendix: Default::default(),
-                },
-                ..Default::default()
-            },
-            photos,
-            layout,
-        }
-    }
-
-    #[test]
-    fn test_compute_page_ranges_excludes_cover_when_active() {
-        // Page 0 = cover (ts=1000), page 1 = content (ts=5000)
-        let cover_ts = Utc.timestamp_opt(1000, 0).unwrap();
-        let content_ts = Utc.timestamp_opt(5000, 0).unwrap();
-
-        let photos = vec![PhotoGroup {
-            group: "G".into(),
-            sort_key: "2024".into(),
-            files: vec![
-                make_photo_file("cover.jpg", cover_ts),
-                make_photo_file("content.jpg", content_ts),
-            ],
-        }];
-        let layout = vec![
-            LayoutPage {
-                photos: vec!["cover.jpg".into()],
-                slots: vec![],
-
-                mode: PageMode::Auto,
-            },
-            LayoutPage {
-                photos: vec!["content.jpg".into()],
-                slots: vec![],
-
-                mode: PageMode::Auto,
-            },
-        ];
-        let state = make_state_with_cover(true, layout, photos);
-        let photo_index = build_photo_index(&state.photos);
-        let ranges =
-            compute_page_ranges(&state.layout, &photo_index, state.config.book.cover.active);
-
-        // Cover (page 0) must be absent; only page 1 should appear
-        assert_eq!(ranges.len(), 1);
-        assert_eq!(ranges[0].0, 1);
-    }
-
-    #[test]
-    fn test_compute_page_ranges_includes_page0_when_cover_inactive() {
-        let ts0 = Utc.timestamp_opt(1000, 0).unwrap();
-        let ts1 = Utc.timestamp_opt(5000, 0).unwrap();
-
-        let photos = vec![PhotoGroup {
-            group: "G".into(),
-            sort_key: "2024".into(),
-            files: vec![
-                make_photo_file("p0.jpg", ts0),
-                make_photo_file("p1.jpg", ts1),
-            ],
-        }];
-        let layout = vec![
-            LayoutPage {
-                photos: vec!["p0.jpg".into()],
-                slots: vec![],
-
-                mode: PageMode::Auto,
-            },
-            LayoutPage {
-                photos: vec!["p1.jpg".into()],
-                slots: vec![],
-
-                mode: PageMode::Auto,
-            },
-        ];
-        let state = make_state_with_cover(false, layout, photos);
-        let photo_index = build_photo_index(&state.photos);
-        let ranges =
-            compute_page_ranges(&state.layout, &photo_index, state.config.book.cover.active);
-
-        assert_eq!(ranges.len(), 2);
-    }
-
-    #[test]
-    fn test_place_chronologically_does_not_place_on_cover() {
-        // Cover (page 0) has a photo at ts=1000; content page (page 1) has a photo at ts=5000.
-        // A new photo at ts=1500 should go to page 1 (closest content page), not cover.
-        let cover_ts = Utc.timestamp_opt(1000, 0).unwrap();
-        let content_ts = Utc.timestamp_opt(5000, 0).unwrap();
-        let new_ts = Utc.timestamp_opt(1500, 0).unwrap();
-
-        let photos = vec![PhotoGroup {
-            group: "G".into(),
-            sort_key: "2024".into(),
-            files: vec![
-                make_photo_file("cover.jpg", cover_ts),
-                make_photo_file("content.jpg", content_ts),
-                make_photo_file("new.jpg", new_ts),
-            ],
-        }];
-        let layout = vec![
-            LayoutPage {
-                photos: vec!["cover.jpg".into()],
-                slots: vec![],
-
-                mode: PageMode::Auto,
-            },
-            LayoutPage {
-                photos: vec!["content.jpg".into()],
-                slots: vec![],
-
-                mode: PageMode::Auto,
-            },
-        ];
-        let mut state = make_state_with_cover(true, layout, photos);
-
-        let new_photo = UnplacedPhoto {
-            id: "new.jpg".into(),
-            source: "/photos/new.jpg".into(),
-            timestamp: new_ts,
-        };
-        let refs: Vec<&UnplacedPhoto> = vec![&new_photo];
-        let affected = {
-            let mut wls = WriteLayoutState::for_test(&mut state);
-            place_chronologically(&mut wls, &refs)
-        };
-
-        // Must NOT land on cover (page 0)
-        assert!(!state.layout[0].photos.contains(&"new.jpg".to_string()));
-        assert!(state.layout[1].photos.contains(&"new.jpg".to_string()));
-        assert_eq!(affected, vec![1]);
     }
 }
