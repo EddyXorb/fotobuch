@@ -5,7 +5,7 @@ use std::path::Path;
 use crate::{
     commands::CommandOutput,
     models::{LayoutPage, PageMode, Slot},
-    state_manager::StateManager,
+    state_manager::{StateManager, WriteLayoutState},
 };
 
 use super::{
@@ -83,35 +83,38 @@ pub fn execute_pos(
 
     let mut slots_changed = Vec::new();
 
-    for slot_idx in slot_indices {
-        let old = mgr.state.layout[idx].slots[slot_idx].clone();
-        let mut new = old.clone();
+    {
+        let mut wls: WriteLayoutState<'_> = mgr.write_layout();
+        for slot_idx in slot_indices {
+            let old = wls.layout()[idx].slots[slot_idx].clone();
+            let mut new = old.clone();
 
-        // Apply position change
-        match &config.position {
-            Some(PosMode::Relative { dx_mm, dy_mm }) => {
-                new.x_mm += dx_mm;
-                new.y_mm += dy_mm;
+            // Apply position change
+            match &config.position {
+                Some(PosMode::Relative { dx_mm, dy_mm }) => {
+                    new.x_mm += dx_mm;
+                    new.y_mm += dy_mm;
+                }
+                Some(PosMode::Absolute { x_mm, y_mm }) => {
+                    new.x_mm = *x_mm;
+                    new.y_mm = *y_mm;
+                }
+                None => {}
             }
-            Some(PosMode::Absolute { x_mm, y_mm }) => {
-                new.x_mm = *x_mm;
-                new.y_mm = *y_mm;
+
+            // Apply scale (origin stays, width/height grow right-downward)
+            if let Some(s) = config.scale {
+                new.width_mm *= s;
+                new.height_mm *= s;
             }
-            None => {}
-        }
 
-        // Apply scale (origin stays, width/height grow right-downward)
-        if let Some(s) = config.scale {
-            new.width_mm *= s;
-            new.height_mm *= s;
+            wls.layout_mut()[idx].slots[slot_idx] = new.clone();
+            slots_changed.push(SlotChange {
+                slot: slot_idx,
+                old,
+                new,
+            });
         }
-
-        mgr.layout_mut()[idx].slots[slot_idx] = new.clone();
-        slots_changed.push(SlotChange {
-            slot: slot_idx,
-            old,
-            new,
-        });
     }
 
     let changed_state = mgr.finish(&format!(

@@ -3,7 +3,7 @@
 use std::path::Path;
 
 use crate::commands::CommandOutput;
-use crate::state_manager::StateManager;
+use crate::state_manager::{StateManager, WritePhotosState};
 
 use super::helpers::{page_idx, resolve_slots};
 use super::types::{PageMoveError, ValidationError, WeightAddress};
@@ -38,11 +38,14 @@ pub fn execute_weight(
         .map(|&i| mgr.state.layout[page_idx_val].photos[i].clone())
         .collect();
 
-    for photo_id in &photo_ids {
-        for group in mgr.photos_mut() {
-            for file in &mut group.files {
-                if file.id == *photo_id {
-                    file.area_weight = weight;
+    {
+        let mut wps: WritePhotosState<'_> = mgr.write_photos();
+        for photo_id in &photo_ids {
+            for group in wps.photos_mut() {
+                for file in &mut group.files {
+                    if file.id == *photo_id {
+                        file.area_weight = weight;
+                    }
                 }
             }
         }

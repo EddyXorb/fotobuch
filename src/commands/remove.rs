@@ -7,7 +7,7 @@ use std::path::Path;
 
 use crate::commands::CommandOutput;
 use crate::models::{LayoutPage, PhotoGroup, ProjectState};
-use crate::state_manager::StateManager;
+use crate::state_manager::{StateManager, WriteLayoutState, WritePhotosState};
 
 /// Determines which photos to remove.
 #[derive(Debug, Clone)]
@@ -244,17 +244,21 @@ pub fn remove(project_root: &Path, config: &RemoveConfig) -> Result<CommandOutpu
     }
 
     // 2. Aus Layout entfernen (immer, auch bei --keep-files)
-    let layout_result = remove_from_layout(mgr.layout_mut(), &matched_ids);
-
-    // 3. Leere Seiten entfernen
-    remove_empty_pages(mgr.layout_mut());
+    let layout_result = {
+        let mut wls: WriteLayoutState<'_> = mgr.write_layout();
+        let layout = wls.layout_mut();
+        let result = remove_from_layout(layout, &matched_ids);
+        remove_empty_pages(layout);
+        result
+    };
 
     // 4. Aus Photos entfernen (nur ohne --keep-files)
     let mut groups_removed = matched_groups;
     let photos_removed = if config.keep_files {
         0
     } else {
-        remove_from_photos(mgr.photos_mut(), &matched_ids, &mut groups_removed)
+        let mut wps: WritePhotosState<'_> = mgr.write_photos();
+        remove_from_photos(wps.photos_mut(), &matched_ids, &mut groups_removed)
     };
 
     // 5. Speichern + Git commit

@@ -4,6 +4,7 @@ use crate::models::{
     PhotoGroup, build_photo_index,
 };
 use crate::solver::{Request, RequestType, run_solver};
+use crate::state_manager::WriteLayoutState;
 use anyhow::Result;
 use std::collections::HashSet;
 
@@ -11,29 +12,34 @@ use std::collections::HashSet;
 ///
 /// `range` is the half-open `[start, end)` layout slice being replaced, or `None`
 /// for a full-book solve. Returns the affected 0-based layout indices.
-#[allow(clippy::too_many_arguments)]
 pub(super) fn solve_multipage(
-    layout: &mut Vec<LayoutPage>,
-    book_config: &BookConfig,
-    solver_config: &BookLayoutSolverConfig,
-    page_layout_config: &PageLayoutSolverConfig,
-    photos: &[PhotoGroup],
+    wls: &mut WriteLayoutState<'_>,
     groups: &[PhotoGroup],
     range: Option<(usize, usize)>,
     custom_config: Option<BookLayoutSolverConfig>,
 ) -> Result<Vec<usize>> {
+    let book_config = wls.config().book.clone();
+    let solver_config = wls.config().book_layout_solver.clone();
+    let page_layout_config = wls.config().page_layout_solver.clone();
+    let photos = wls.photos().to_vec();
     let mut plan = SolverPlan::build(
-        layout,
-        book_config,
-        solver_config,
-        page_layout_config,
+        wls.layout(),
+        &book_config,
+        &solver_config,
+        &page_layout_config,
         groups,
         range,
         custom_config,
     );
     let solved = run_solver(&plan.request())?;
     let pages = plan.assemble(solved)?;
-    plan.apply(layout, book_config, page_layout_config, photos, pages)
+    plan.apply(
+        wls.layout_mut(),
+        &book_config,
+        &page_layout_config,
+        &photos,
+        pages,
+    )
 }
 
 /// Everything the multi-page solver needs, plus the pieces carved out of `groups`

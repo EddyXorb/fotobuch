@@ -32,15 +32,19 @@ fn create_test_project_with_photos(temp_dir: &TempDir) -> Result<PathBuf> {
     let project_root = result.result.project_root;
 
     let mut mgr = StateManager::open(&project_root)?;
-    mgr.config_mut().book_layout_solver.page_max = 5;
-    mgr.config_mut().book_layout_solver.page_target = 3;
-    mgr.config_mut().book_layout_solver.group_min_photos = 1;
-    mgr.config_mut().book_layout_solver.enable_local_search = false;
-    mgr.config_mut().page_layout_solver.population_size = 20;
-    mgr.config_mut().page_layout_solver.max_generations = 10;
-    mgr.config_mut().page_layout_solver.islands_nr = 1;
-    mgr.config_mut().book.dpi = 50.0;
-    mgr.config_mut().preview.max_preview_px = 100;
+    {
+        let mut wcs = mgr.write_config();
+        let cfg = wcs.config_mut();
+        cfg.book_layout_solver.page_max = 5;
+        cfg.book_layout_solver.page_target = 3;
+        cfg.book_layout_solver.group_min_photos = 1;
+        cfg.book_layout_solver.enable_local_search = false;
+        cfg.page_layout_solver.population_size = 20;
+        cfg.page_layout_solver.max_generations = 10;
+        cfg.page_layout_solver.islands_nr = 1;
+        cfg.book.dpi = 50.0;
+        cfg.preview.max_preview_px = 100;
+    }
     mgr.finish("test: configure for fast tests")?;
 
     // Add test photos
@@ -85,18 +89,21 @@ fn create_test_project_with_artificial_photos_3(temp_dir: &TempDir) -> Result<Pa
     let project_root = result.result.project_root;
 
     let mut mgr = StateManager::open(&project_root)?;
-    // Force at least 2 pages: min 1 photo per page, max 2 per page
-    mgr.config_mut().book_layout_solver.page_max = 2;
-    mgr.config_mut().book_layout_solver.page_target = 2;
-    mgr.config_mut().book_layout_solver.group_min_photos = 1;
-    mgr.config_mut().book_layout_solver.photos_per_page_min = 1;
-    mgr.config_mut().book_layout_solver.photos_per_page_max = 2;
-    mgr.config_mut().book_layout_solver.enable_local_search = false;
-    mgr.config_mut().page_layout_solver.population_size = 20;
-    mgr.config_mut().page_layout_solver.max_generations = 10;
-    mgr.config_mut().page_layout_solver.islands_nr = 1;
-    mgr.config_mut().book.dpi = 75.0;
-    mgr.config_mut().preview.max_preview_px = 100;
+    {
+        let mut wcs = mgr.write_config();
+        let cfg = wcs.config_mut();
+        cfg.book_layout_solver.page_max = 2;
+        cfg.book_layout_solver.page_target = 2;
+        cfg.book_layout_solver.group_min_photos = 1;
+        cfg.book_layout_solver.photos_per_page_min = 1;
+        cfg.book_layout_solver.photos_per_page_max = 2;
+        cfg.book_layout_solver.enable_local_search = false;
+        cfg.page_layout_solver.population_size = 20;
+        cfg.page_layout_solver.max_generations = 10;
+        cfg.page_layout_solver.islands_nr = 1;
+        cfg.book.dpi = 75.0;
+        cfg.preview.max_preview_px = 100;
+    }
     mgr.finish("test: configure for artificial photos test")?;
 
     // Add artificial photos with different aspect ratios
@@ -868,7 +875,7 @@ fn build_does_not_write_pdf_when_write_pdf_disabled() -> Result<()> {
 
     // Disable PDF writing via the project config.
     let mut mgr = StateManager::open(&project_root)?;
-    mgr.config_mut().preview.write_pdf = false;
+    mgr.write_config().config_mut().preview.write_pdf = false;
     mgr.finish("test: disable write_pdf")?;
 
     // Build with skip_pdf=false — the config must still suppress the PDF.

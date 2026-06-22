@@ -3,7 +3,7 @@
 use std::path::Path;
 
 use crate::commands::CommandOutput;
-use crate::state_manager::StateManager;
+use crate::state_manager::{StateManager, WriteLayoutState};
 
 use super::helpers::{format_pages_list, page_idx};
 use super::types::{PageMoveError, PageMoveResult, PagesExpr, ValidationError};
@@ -22,30 +22,34 @@ pub fn execute_combine(
         return Err(ValidationError::CombineSinglePage(p).into());
     }
 
-    for &p in &pages_expr.pages {
-        page_idx(p, mgr.layout_mut())?;
-    }
-
     let first_page = pages_expr.pages[0];
-    let first_idx = page_idx(first_page, mgr.layout_mut())?;
-
-    let mut extra_photos: Vec<String> = Vec::new();
     let other_pages: Vec<u32> = pages_expr.pages[1..].to_vec();
-    for &p in &other_pages {
-        let idx = page_idx(p, mgr.layout_mut())?;
-        extra_photos.extend(mgr.layout_mut()[idx].photos.clone());
-    }
 
-    mgr.layout_mut()[first_idx].photos.extend(extra_photos);
-    mgr.layout_mut()[first_idx].slots.clear(); // needs rebuild
+    {
+        let mut wls: WriteLayoutState<'_> = mgr.write_layout();
+        for &p in &pages_expr.pages {
+            page_idx(p, wls.layout())?;
+        }
 
-    let mut delete_indices: Vec<usize> = other_pages
-        .iter()
-        .map(|&p| page_idx(p, mgr.layout_mut()).unwrap())
-        .collect();
-    delete_indices.sort_unstable_by(|a, b| b.cmp(a));
-    for idx in &delete_indices {
-        mgr.layout_mut().remove(*idx);
+        let first_idx = page_idx(first_page, wls.layout())?;
+
+        let mut extra_photos: Vec<String> = Vec::new();
+        for &p in &other_pages {
+            let idx = page_idx(p, wls.layout())?;
+            extra_photos.extend(wls.layout()[idx].photos.clone());
+        }
+
+        wls.layout_mut()[first_idx].photos.extend(extra_photos);
+        wls.layout_mut()[first_idx].slots.clear();
+
+        let mut delete_indices: Vec<usize> = other_pages
+            .iter()
+            .map(|&p| page_idx(p, wls.layout()).unwrap())
+            .collect();
+        delete_indices.sort_unstable_by(|a, b| b.cmp(a));
+        for idx in &delete_indices {
+            wls.layout_mut().remove(*idx);
+        }
     }
 
     let pages_str = format_pages_list(&pages_expr.pages);

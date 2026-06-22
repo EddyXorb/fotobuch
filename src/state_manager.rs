@@ -131,19 +131,25 @@ impl StateManager {
         &self.state
     }
 
-    /// Mutable access to the layout pages.
-    pub fn layout_mut(&mut self) -> &mut Vec<crate::models::LayoutPage> {
-        &mut self.state.layout
+    /// Write-view for the layout field; drops the view before calling `finish`.
+    pub fn write_layout(&mut self) -> WriteLayoutState<'_> {
+        WriteLayoutState {
+            state: &mut self.state,
+        }
     }
 
-    /// Mutable access to the photo groups.
-    pub fn photos_mut(&mut self) -> &mut Vec<crate::models::PhotoGroup> {
-        &mut self.state.photos
+    /// Write-view for the photos field; drops the view before calling `finish`.
+    pub fn write_photos(&mut self) -> WritePhotosState<'_> {
+        WritePhotosState {
+            state: &mut self.state,
+        }
     }
 
-    /// Mutable access to the project config.
-    pub fn config_mut(&mut self) -> &mut crate::models::ProjectConfig {
-        &mut self.state.config
+    /// Write-view for the config field; drops the view before calling `finish`.
+    pub fn write_config(&mut self) -> WriteConfigState<'_> {
+        WriteConfigState {
+            state: &mut self.state,
+        }
     }
 
     /// Path to `{project_root}/.fotobuch/cache/{project_name}/`.
@@ -391,6 +397,69 @@ impl Drop for StateManager {
                 );
             }
         }
+    }
+}
+
+// ── Write views ──────────────────────────────────────────────────────────────
+
+/// Write-view that exposes `layout_mut()` plus read-only access to the rest.
+///
+/// Returned by [`StateManager::write_layout`]. Drop before calling
+/// [`StateManager::finish`] / [`StateManager::finish_always`].
+pub struct WriteLayoutState<'a> {
+    state: &'a mut ProjectState,
+}
+
+impl<'a> WriteLayoutState<'a> {
+    pub fn layout_mut(&mut self) -> &mut Vec<crate::models::LayoutPage> {
+        &mut self.state.layout
+    }
+    pub fn layout(&self) -> &[crate::models::LayoutPage] {
+        &self.state.layout
+    }
+    pub fn photos(&self) -> &[crate::models::PhotoGroup] {
+        &self.state.photos
+    }
+    pub fn config(&self) -> &crate::models::ProjectConfig {
+        &self.state.config
+    }
+    pub fn state(&self) -> &ProjectState {
+        self.state
+    }
+}
+
+/// Write-view that exposes `photos_mut()` plus read-only access to the rest.
+///
+/// Returned by [`StateManager::write_photos`].
+pub struct WritePhotosState<'a> {
+    state: &'a mut ProjectState,
+}
+
+impl<'a> WritePhotosState<'a> {
+    pub fn photos_mut(&mut self) -> &mut Vec<crate::models::PhotoGroup> {
+        &mut self.state.photos
+    }
+    pub fn photos(&self) -> &[crate::models::PhotoGroup] {
+        &self.state.photos
+    }
+    pub fn state(&self) -> &ProjectState {
+        self.state
+    }
+}
+
+/// Write-view that exposes `config_mut()` plus read-only access.
+///
+/// Returned by [`StateManager::write_config`].
+pub struct WriteConfigState<'a> {
+    state: &'a mut ProjectState,
+}
+
+impl<'a> WriteConfigState<'a> {
+    pub fn config_mut(&mut self) -> &mut crate::models::ProjectConfig {
+        &mut self.state.config
+    }
+    pub fn state(&self) -> &ProjectState {
+        self.state
     }
 }
 

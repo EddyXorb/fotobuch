@@ -5,7 +5,6 @@ use super::helpers::{
     render_pdf,
 };
 use crate::commands::CommandOutput;
-use crate::models::{BookConfig, BookLayoutSolverConfig, PageLayoutSolverConfig, PhotoGroup};
 use crate::state_manager::StateManager;
 use anyhow::Result;
 
@@ -37,64 +36,28 @@ impl BuildPlan {
         match self {
             BuildPlan::Auto { pages } => {
                 if mgr.state().layout.is_empty() {
-                    let (book_config, solver_config, page_layout_config, photos) =
-                        extract_solver_inputs(mgr);
-                    build_full_book(
-                        mgr.layout_mut(),
-                        &book_config,
-                        &solver_config,
-                        &page_layout_config,
-                        &photos,
-                    )
+                    let mut wls = mgr.write_layout();
+                    build_full_book(&mut wls)
                 } else {
                     let mut outdated = mgr.outdated_pages_indices();
                     if let Some(filter) = pages.as_deref() {
                         outdated.retain(|p| filter.contains(p));
                     }
-                    let (book_config, _, page_layout_config, photos) = extract_solver_inputs(mgr);
-                    build_outdated_pages(
-                        mgr.layout_mut(),
-                        &outdated,
-                        &book_config,
-                        &page_layout_config,
-                        &photos,
-                    )
+                    let mut wls = mgr.write_layout();
+                    build_outdated_pages(&mut wls, &outdated)
                 }
             }
             BuildPlan::All => {
-                let (book_config, solver_config, page_layout_config, photos) =
-                    extract_solver_inputs(mgr);
-                build_full_book(
-                    mgr.layout_mut(),
-                    &book_config,
-                    &solver_config,
-                    &page_layout_config,
-                    &photos,
-                )
+                let mut wls = mgr.write_layout();
+                build_full_book(&mut wls)
             }
             BuildPlan::Page(idx) => {
-                let (book_config, _, page_layout_config, photos) = extract_solver_inputs(mgr);
-                build_page(
-                    mgr.layout_mut(),
-                    *idx,
-                    &book_config,
-                    &page_layout_config,
-                    &photos,
-                )
+                let mut wls = mgr.write_layout();
+                build_page(&mut wls, *idx)
             }
             BuildPlan::Range { start, end, flex } => {
-                let (book_config, solver_config, page_layout_config, photos) =
-                    extract_solver_inputs(mgr);
-                build_page_range(
-                    mgr.layout_mut(),
-                    *start,
-                    *end,
-                    *flex,
-                    &book_config,
-                    &solver_config,
-                    &page_layout_config,
-                    &photos,
-                )
+                let mut wls = mgr.write_layout();
+                build_page_range(&mut wls, *start, *end, *flex)
             }
             BuildPlan::Release { .. } => Ok(Vec::new()),
         }
@@ -227,23 +190,6 @@ fn commit_message(
             format!("release: {} pages, {} photos", page_count, total_photos)
         }
     }
-}
-
-fn extract_solver_inputs(
-    mgr: &StateManager,
-) -> (
-    BookConfig,
-    BookLayoutSolverConfig,
-    PageLayoutSolverConfig,
-    Vec<PhotoGroup>,
-) {
-    let s = mgr.state();
-    (
-        s.config.book.clone(),
-        s.config.book_layout_solver.clone(),
-        s.config.page_layout_solver.clone(),
-        s.photos.clone(),
-    )
 }
 
 // ── tests ─────────────────────────────────────────────────────────────────────

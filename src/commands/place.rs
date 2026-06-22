@@ -8,7 +8,7 @@ use std::path::Path;
 
 use crate::commands::CommandOutput;
 use crate::models::{LayoutPage, PageMode, PhotoFile, PhotoGroup, ProjectState, build_photo_index};
-use crate::state_manager::StateManager;
+use crate::state_manager::{StateManager, WriteLayoutState};
 
 /// Target destination for placing photos.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -157,16 +157,19 @@ pub fn place(project_root: &Path, config: &PlaceConfig) -> Result<CommandOutput<
     }
 
     // 3. Place photos (read phase before write)
-    let (pages_affected, pages_inserted) = match config.dst {
-        PlaceDst::NewPageAt(pos) => place_into_new_page(mgr.layout_mut(), &filtered, pos),
-        PlaceDst::Page(page) => (place_into_page(mgr.layout_mut(), &filtered, page), vec![]),
-        PlaceDst::Auto => {
-            let photos = mgr.state().photos.clone();
-            let cover_active = mgr.state().config.book.cover.active;
-            (
-                place_chronologically(mgr.layout_mut(), &photos, cover_active, &filtered),
-                vec![],
-            )
+    let (pages_affected, pages_inserted) = {
+        let mut wls: WriteLayoutState<'_> = mgr.write_layout();
+        match config.dst {
+            PlaceDst::NewPageAt(pos) => place_into_new_page(wls.layout_mut(), &filtered, pos),
+            PlaceDst::Page(page) => (place_into_page(wls.layout_mut(), &filtered, page), vec![]),
+            PlaceDst::Auto => {
+                let photos = wls.photos().to_vec();
+                let cover_active = wls.config().book.cover.active;
+                (
+                    place_chronologically(wls.layout_mut(), &photos, cover_active, &filtered),
+                    vec![],
+                )
+            }
         }
     };
 

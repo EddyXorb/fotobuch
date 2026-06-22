@@ -67,7 +67,7 @@ pub fn config_set(
     let new_config: ProjectConfig = serde_yaml::from_value(config_value)
         .map_err(|e| anyhow!("Cannot set '{key}' to '{value}': {e}"))?;
 
-    *mgr.config_mut() = new_config;
+    *mgr.write_config().config_mut() = new_config;
     let changed_state = mgr.finish(&format!("config set {key}: {value}"))?;
 
     Ok(CommandOutput {

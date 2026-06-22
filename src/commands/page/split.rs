@@ -4,7 +4,7 @@ use std::path::Path;
 
 use crate::commands::CommandOutput;
 use crate::models::{LayoutPage, PageMode};
-use crate::state_manager::StateManager;
+use crate::state_manager::{StateManager, WriteLayoutState};
 
 use super::helpers::page_idx;
 use super::types::{PageMoveError, PageMoveResult, ValidationError};
@@ -30,25 +30,26 @@ pub fn execute_split(
     }
 
     let split_at = slot as usize;
-    let moved_photos: Vec<String> = mgr.layout_mut()[idx].photos[split_at..].to_vec();
-    let moved_slots: Vec<_> = if split_at < mgr.layout_mut()[idx].slots.len() {
-        mgr.layout_mut()[idx].slots[split_at..].to_vec()
-    } else {
-        vec![]
-    };
-
-    mgr.layout_mut()[idx].photos.truncate(split_at);
-    mgr.layout_mut()[idx].slots.truncate(split_at);
-
     let new_idx = idx + 1;
-    mgr.layout_mut().insert(
-        new_idx,
-        LayoutPage {
-            photos: moved_photos,
-            slots: moved_slots,
-            mode: PageMode::Auto,
-        },
-    );
+    {
+        let mut wls: WriteLayoutState<'_> = mgr.write_layout();
+        let moved_photos: Vec<String> = wls.layout_mut()[idx].photos[split_at..].to_vec();
+        let moved_slots: Vec<_> = if split_at < wls.layout_mut()[idx].slots.len() {
+            wls.layout_mut()[idx].slots[split_at..].to_vec()
+        } else {
+            vec![]
+        };
+        wls.layout_mut()[idx].photos.truncate(split_at);
+        wls.layout_mut()[idx].slots.truncate(split_at);
+        wls.layout_mut().insert(
+            new_idx,
+            LayoutPage {
+                photos: moved_photos,
+                slots: moved_slots,
+                mode: PageMode::Auto,
+            },
+        );
+    }
 
     let new_page_num = new_idx as u32;
     let changed_state = mgr.finish(&format!("page split: page {page} at slot {slot}"))?;

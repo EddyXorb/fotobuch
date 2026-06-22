@@ -12,85 +12,52 @@ mod single_page;
 use self::multi_page::solve_multipage;
 use self::single_page::solve_single_page;
 use super::helpers::collect_photos_as_groups;
-use crate::models::{
-    BookConfig, BookLayoutSolverConfig, LayoutPage, PageLayoutSolverConfig, PageMode, PhotoGroup,
-    build_photo_index,
-};
+use crate::models::{PageMode, build_photo_index};
+use crate::state_manager::WriteLayoutState;
 use anyhow::Result;
 use tracing::warn;
 
-#[allow(clippy::ptr_arg)]
-pub(super) fn build_full_book(
-    layout: &mut Vec<LayoutPage>,
-    book_config: &BookConfig,
-    solver_config: &BookLayoutSolverConfig,
-    page_layout_config: &PageLayoutSolverConfig,
-    photos: &[PhotoGroup],
-) -> Result<Vec<usize>> {
-    let layout_len = layout.len();
-    if layout_len > 0 && book_config.cover.active {
+pub(super) fn build_full_book(wls: &mut WriteLayoutState<'_>) -> Result<Vec<usize>> {
+    let layout_len = wls.layout().len();
+    if layout_len > 0 && wls.config().book.cover.active {
         let effective_start = skip_cover_if_needed(true, 0, layout_len - 1)?;
-        let groups = collect_photos_as_groups(layout, photos, effective_start, layout_len);
-        return solve_multipage(
-            layout,
-            book_config,
-            solver_config,
-            page_layout_config,
-            photos,
-            &groups,
-            Some((effective_start, layout_len)),
-            None,
-        );
+        let groups =
+            collect_photos_as_groups(wls.layout(), wls.photos(), effective_start, layout_len);
+        return solve_multipage(wls, &groups, Some((effective_start, layout_len)), None);
     }
-    solve_multipage(
-        layout,
-        book_config,
-        solver_config,
-        page_layout_config,
-        photos,
-        photos,
-        None,
-        None,
-    )
+    let groups = wls.photos().to_vec();
+    solve_multipage(wls, &groups, None, None)
 }
 
-#[allow(clippy::ptr_arg)]
 pub(super) fn build_outdated_pages(
-    layout: &mut Vec<LayoutPage>,
+    wls: &mut WriteLayoutState<'_>,
     pages: &[usize],
-    book_config: &BookConfig,
-    page_layout_config: &PageLayoutSolverConfig,
-    photos: &[PhotoGroup],
 ) -> Result<Vec<usize>> {
-    let photo_index = build_photo_index(photos);
+    let book_config = wls.config().book.clone();
+    let page_layout_config = wls.config().page_layout_solver.clone();
+    let photo_index = build_photo_index(wls.photos());
+    let layout = wls.layout_mut();
     for &idx in pages {
         if layout[idx].mode != PageMode::Manual {
-            solve_single_page(layout, idx, book_config, page_layout_config, &photo_index)?;
+            solve_single_page(layout, idx, &book_config, &page_layout_config, &photo_index)?;
         }
     }
     Ok(pages.to_vec())
 }
 
-#[allow(clippy::ptr_arg)]
-pub(super) fn build_page(
-    layout: &mut Vec<LayoutPage>,
-    idx: usize,
-    book_config: &BookConfig,
-    page_layout_config: &PageLayoutSolverConfig,
-    photos: &[PhotoGroup],
-) -> Result<Vec<usize>> {
-    if layout.is_empty() {
+pub(super) fn build_page(wls: &mut WriteLayoutState<'_>, idx: usize) -> Result<Vec<usize>> {
+    if wls.layout().is_empty() {
         anyhow::bail!("No layout exists. Run `fotobuch build` first.");
     }
-    if idx >= layout.len() {
+    if idx >= wls.layout().len() {
         anyhow::bail!(
             "Invalid page index {} (layout has {} pages, indices 0..{})",
             idx,
-            layout.len(),
-            layout.len().saturating_sub(1),
+            wls.layout().len(),
+            wls.layout().len().saturating_sub(1),
         );
     }
-    if layout[idx].mode == PageMode::Manual {
+    if wls.layout()[idx].mode == PageMode::Manual {
         anyhow::bail!(
             "Cannot rebuild page {}: page is in manual mode. \
              Use `page mode {} a` to switch to auto mode first.",
@@ -98,49 +65,49 @@ pub(super) fn build_page(
             idx
         );
     }
-    let photo_index = build_photo_index(photos);
-    solve_single_page(layout, idx, book_config, page_layout_config, &photo_index)?;
+    let book_config = wls.config().book.clone();
+    let page_layout_config = wls.config().page_layout_solver.clone();
+    let photo_index = build_photo_index(wls.photos());
+    solve_single_page(
+        wls.layout_mut(),
+        idx,
+        &book_config,
+        &page_layout_config,
+        &photo_index,
+    )?;
     Ok(vec![idx])
 }
 
-#[allow(clippy::ptr_arg, clippy::too_many_arguments)]
 pub(super) fn build_page_range(
-    layout: &mut Vec<LayoutPage>,
+    wls: &mut WriteLayoutState<'_>,
     start: usize,
     end: usize,
     flex: usize,
-    book_config: &BookConfig,
-    solver_config: &BookLayoutSolverConfig,
-    page_layout_config: &PageLayoutSolverConfig,
-    photos: &[PhotoGroup],
 ) -> Result<Vec<usize>> {
-    if layout.is_empty() {
+    if wls.layout().is_empty() {
         anyhow::bail!("No layout exists. Run `fotobuch build` first.");
     }
-    if start > end || end >= layout.len() {
+    if start > end || end >= wls.layout().len() {
         anyhow::bail!(
             "Invalid page range {}-{} (layout has {} pages, indices 0..{})",
             start,
             end,
-            layout.len(),
-            layout.len().saturating_sub(1),
+            wls.layout().len(),
+            wls.layout().len().saturating_sub(1),
         );
     }
-    let effective_start = skip_cover_if_needed(book_config.cover.active, start, end)?;
-    let groups = collect_photos_as_groups(layout, photos, effective_start, end + 1);
+    let effective_start = skip_cover_if_needed(wls.config().book.cover.active, start, end)?;
+    let solver_config = wls.config().book_layout_solver.clone();
+    let groups = collect_photos_as_groups(wls.layout(), wls.photos(), effective_start, end + 1);
     let n = end - effective_start + 1;
-    let custom_config = BookLayoutSolverConfig {
+    let custom_config = crate::models::BookLayoutSolverConfig {
         page_min: n.saturating_sub(flex).max(1),
         page_max: n + flex,
         page_target: n,
-        ..solver_config.clone()
+        ..solver_config
     };
     solve_multipage(
-        layout,
-        book_config,
-        solver_config,
-        page_layout_config,
-        photos,
+        wls,
         &groups,
         Some((effective_start, end + 1)),
         Some(custom_config),
