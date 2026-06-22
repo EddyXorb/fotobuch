@@ -100,6 +100,28 @@ pub(crate) fn remove_slots(
     }
 }
 
+/// Remove slots from a page; delete the page if it becomes empty.
+/// Returns (pages_deleted, pages_modified).
+pub(crate) fn apply_unplace(
+    layout: &mut Vec<LayoutPage>,
+    page: u32,
+    slots: &SlotExpr,
+) -> Result<(Vec<u32>, Vec<u32>), ValidationError> {
+    let slot_indices = resolve_slots(page, slots, layout)?;
+    if slot_indices.is_empty() {
+        return Ok((vec![], vec![]));
+    }
+    let idx = page_idx(page, layout)?;
+    remove_slots(layout, idx, slot_indices);
+    let deleted = delete_empty_pages(layout);
+    let modified = if deleted.contains(&page) {
+        vec![]
+    } else {
+        vec![page]
+    };
+    Ok((deleted, modified))
+}
+
 // ── Photo collection ──────────────────────────────────────────────────────────
 
 pub(super) fn collect_src_photos(

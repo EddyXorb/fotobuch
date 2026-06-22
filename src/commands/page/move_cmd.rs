@@ -7,8 +7,8 @@ use crate::models::{LayoutPage, PageMode, Slot};
 use crate::state_manager::StateManager;
 
 use super::helpers::{
-    collect_src_photos, delete_empty_pages, format_pages_list, format_src_desc, page_idx,
-    photos_at_slots, remove_slots, resolve_slots,
+    apply_unplace, collect_src_photos, delete_empty_pages, format_pages_list, format_src_desc,
+    page_idx, photos_at_slots, resolve_slots,
 };
 use super::swap::execute_swap;
 use super::types::{DstMove, PageMoveCmd, PageMoveError, PageMoveResult, Src, ValidationError};
@@ -57,18 +57,7 @@ fn execute_move_to(
     if matches!(dst, DstMove::Unplace) {
         return match src {
             Src::Slots { page, slots } => {
-                let (deleted, modified) = {
-                    let idx = page_idx(page, &mgr.state.layout)?;
-                    let slot_indices = resolve_slots(page, &slots, &mgr.state.layout)?;
-                    remove_slots(&mut mgr.state.layout, idx, slot_indices);
-                    let deleted = delete_empty_pages(&mut mgr.state.layout);
-                    let modified = if deleted.contains(&page) {
-                        vec![]
-                    } else {
-                        vec![page]
-                    };
-                    (deleted, modified)
-                };
+                let (deleted, modified) = apply_unplace(&mut mgr.state.layout, page, &slots)?;
                 let changed_state =
                     mgr.finish(&format!("page move: page {page}:... -> (unplace)"))?;
                 Ok(CommandOutput {
