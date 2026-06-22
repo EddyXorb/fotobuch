@@ -3,7 +3,7 @@
 use std::path::Path;
 
 use crate::commands::CommandOutput;
-use crate::state_manager::{ReadOnlyState, StateManager, WriteLayoutState};
+use crate::state_manager::StateManager;
 
 use super::helpers::{format_pages_list, page_idx};
 use super::types::{PageMoveError, PageMoveResult, PagesExpr, ValidationError};
@@ -25,31 +25,28 @@ pub fn execute_combine(
     let first_page = pages_expr.pages[0];
     let other_pages: Vec<u32> = pages_expr.pages[1..].to_vec();
 
-    {
-        let mut wls: WriteLayoutState<'_> = mgr.get_write_layout_state();
-        for &p in &pages_expr.pages {
-            page_idx(p, wls.layout())?;
-        }
+    for &p in &pages_expr.pages {
+        page_idx(p, &mgr.state.layout)?;
+    }
 
-        let first_idx = page_idx(first_page, wls.layout())?;
+    let first_idx = page_idx(first_page, &mgr.state.layout)?;
 
-        let mut extra_photos: Vec<String> = Vec::new();
-        for &p in &other_pages {
-            let idx = page_idx(p, wls.layout())?;
-            extra_photos.extend(wls.layout()[idx].photos.clone());
-        }
+    let mut extra_photos: Vec<String> = Vec::new();
+    for &p in &other_pages {
+        let idx = page_idx(p, &mgr.state.layout)?;
+        extra_photos.extend(mgr.state.layout[idx].photos.clone());
+    }
 
-        wls.layout_mut()[first_idx].photos.extend(extra_photos);
-        wls.layout_mut()[first_idx].slots.clear();
+    mgr.state.layout[first_idx].photos.extend(extra_photos);
+    mgr.state.layout[first_idx].slots.clear();
 
-        let mut delete_indices: Vec<usize> = other_pages
-            .iter()
-            .map(|&p| page_idx(p, wls.layout()).unwrap())
-            .collect();
-        delete_indices.sort_unstable_by(|a, b| b.cmp(a));
-        for idx in &delete_indices {
-            wls.layout_mut().remove(*idx);
-        }
+    let mut delete_indices: Vec<usize> = other_pages
+        .iter()
+        .map(|&p| page_idx(p, &mgr.state.layout).unwrap())
+        .collect();
+    delete_indices.sort_unstable_by(|a, b| b.cmp(a));
+    for idx in &delete_indices {
+        mgr.state.layout.remove(*idx);
     }
 
     let pages_str = format_pages_list(&pages_expr.pages);

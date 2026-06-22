@@ -4,7 +4,7 @@ use std::path::Path;
 
 use crate::commands::CommandOutput;
 use crate::models::PageMode;
-use crate::state_manager::{ReadOnlyState, StateManager, WriteLayoutState};
+use crate::state_manager::StateManager;
 
 use super::{
     helpers::{format_pages_list, page_idx},
@@ -31,14 +31,11 @@ pub fn execute_mode(
     }
 
     let mut pages_changed = Vec::new();
-    {
-        let mut wls: WriteLayoutState<'_> = mgr.get_write_layout_state();
-        for &page_num in &pages.pages {
-            let idx = page_idx(page_num, wls.layout())?;
-            // Auto is skipped at serialization time; see LayoutPage::mode.
-            wls.layout_mut()[idx].mode = mode;
-            pages_changed.push(page_num);
-        }
+    for &page_num in &pages.pages {
+        let idx = page_idx(page_num, &mgr.state.layout)?;
+        // Auto is skipped at serialization time; see LayoutPage::mode.
+        mgr.state.layout[idx].mode = mode;
+        pages_changed.push(page_num);
     }
 
     let mode_str = match mode {
