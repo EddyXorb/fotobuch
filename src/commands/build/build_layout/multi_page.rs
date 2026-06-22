@@ -18,28 +18,10 @@ pub(super) fn solve_multipage(
     range: Option<(usize, usize)>,
     custom_config: Option<BookLayoutSolverConfig>,
 ) -> Result<Vec<usize>> {
-    let book_config = wls.config().book.clone();
-    let solver_config = wls.config().book_layout_solver.clone();
-    let page_layout_config = wls.config().page_layout_solver.clone();
-    let photos = wls.photos().to_vec();
-    let mut plan = SolverPlan::build(
-        wls.layout(),
-        &book_config,
-        &solver_config,
-        &page_layout_config,
-        groups,
-        range,
-        custom_config,
-    );
+    let mut plan = SolverPlan::build(wls, groups, range, custom_config);
     let solved = run_solver(&plan.request())?;
     let pages = plan.assemble(solved)?;
-    plan.apply(
-        wls.layout_mut(),
-        &book_config,
-        &page_layout_config,
-        &photos,
-        pages,
-    )
+    plan.apply(wls, pages)
 }
 
 /// Everything the multi-page solver needs, plus the pieces carved out of `groups`
@@ -60,16 +42,16 @@ struct SolverPlan {
 impl SolverPlan {
     /// Input generation: choose the config, carve out structured cover and manual pages.
     fn build(
-        layout: &[LayoutPage],
-        book_config: &BookConfig,
-        solver_config: &BookLayoutSolverConfig,
-        page_layout_config: &PageLayoutSolverConfig,
+        wls: &WriteLayoutState<'_>,
         groups: &[PhotoGroup],
         range: Option<(usize, usize)>,
         custom_config: Option<BookLayoutSolverConfig>,
     ) -> Self {
-        let solver_config = custom_config.unwrap_or_else(|| solver_config.clone());
-        let book_config = book_config.clone();
+        let solver_config =
+            custom_config.unwrap_or_else(|| wls.config().book_layout_solver.clone());
+        let book_config = wls.config().book.clone();
+        let page_layout_config = wls.config().page_layout_solver.clone();
+        let layout = wls.layout();
 
         let cover = &book_config.cover;
         let is_structured_cover = range.is_none() && cover.active && !cover.mode.is_free();
@@ -86,7 +68,7 @@ impl SolverPlan {
         Self {
             groups,
             solver_config,
-            page_layout_solver_config: page_layout_config.clone(),
+            page_layout_solver_config: page_layout_config,
             book_config,
             cover_files,
             manual_snapshots,
@@ -121,30 +103,31 @@ impl SolverPlan {
         Ok(pages)
     }
 
-    /// Writes the assembled pages into `layout`, refreshes a free-mode cover,
+    /// Writes the assembled pages into the layout, refreshes a free-mode cover,
     /// and returns the affected 0-based layout indices.
-    fn apply(
-        &self,
-        layout: &mut Vec<LayoutPage>,
-        book_config: &BookConfig,
-        page_layout_config: &PageLayoutSolverConfig,
-        photos: &[PhotoGroup],
-        pages: Vec<LayoutPage>,
-    ) -> Result<Vec<usize>> {
-        let affected: Vec<usize> = if let Some((start, end)) = self.range {
-            let indices = (start..start + pages.len()).collect();
-            layout.splice(start..end, pages);
-            indices
-        } else {
-            let indices = (0..pages.len()).collect();
-            *layout = pages;
-            indices
+    fn apply(&self, wls: &mut WriteLayoutState<'_>, pages: Vec<LayoutPage>) -> Result<Vec<usize>> {
+        let affected: Vec<usize> = {
+            let layout = wls.layout_mut();
+            if let Some((start, end)) = self.range {
+                let indices = (start..start + pages.len()).collect();
+                layout.splice(start..end, pages);
+                indices
+            } else {
+                let indices = (0..pages.len()).collect();
+                *layout = pages;
+                indices
+            }
         };
 
-        let cover = &book_config.cover;
+        let cover = &self.book_config.cover;
         if self.range.is_none_or(|r| r.0 == 0) && cover.active && cover.mode.is_free() {
-            let photo_index = build_photo_index(photos);
-            update_cover_page(layout, book_config, page_layout_config, &photo_index)?;
+            let photo_index = build_photo_index(wls.photos());
+            update_cover_page(
+                wls.layout_mut(),
+                &self.book_config,
+                &self.page_layout_solver_config,
+                &photo_index,
+            )?;
         }
 
         Ok(affected)

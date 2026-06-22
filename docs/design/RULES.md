@@ -1,74 +1,77 @@
 # Architektur-Regeln für `src/`
 
-> Projektweite Design-Regeln, die aus dem Lib-Refactoring hervorgegangen sind.
-> Verbindlich für neuen und geänderten Code. Die konkreten Umsetzungspläne liegen
+> Projektweite Design-Regeln aus dem Lib-Refactoring.
+> Verbindlich für neuen und geänderten Code. Konkrete Umsetzungspläne liegen
 > in [`lib-refactoring/`](./lib-refactoring/README.md).
 
 ## State-Zugriff über den `StateManager`
 
-**Ziel.** Von „weitem" erkennbar machen, *was* am State verändert wird und *in
-welchem Umfang*; verändernden Zugriff so schmal wie nötig schneiden; und „etwas
-verändern können" soll möglichst „etwas verändern" nach sich ziehen (kein breiter,
-ungenutzter Zugriff).
+**Ziel.** Auf Anhieb erkennbar machen, *was* am State verändert wird und *in
+welchem Umfang*; verändernden Zugriff so eng wie nötig halten; und Schreibrecht
+soll unmittelbar zum Schreiben führen (kein breiter, ungenutzter Zugriff).
 
 ### R1 — Trichotomie des Zugriffs
 
 Das Risiko ist asymmetrisch: Lesen kann keine Invariante verletzen, Schreiben
-schon; Lifecycle/Pfade/git gehören nur dem Manager. Daraus drei Zugriffsarten:
+schon; Lebenszyklus, Pfade und Git-Verwaltung gehören allein dem Manager.
+Daraus ergeben sich drei Zugriffsarten:
 
-| Zugriff | Accessor | erlaubt wo |
+| Zugriff | Accessor | gültig in |
 |---|---|---|
-| **Domänen-Lesen** (aus `ProjectState`) | `mgr.state() -> &ProjectState` | überall, wohin durchgereicht |
-| **Manager-Lesen** (git-Baseline, Pfade) | `mgr.…()` → *owned* Ergebnis | nur oberste Schicht |
-| **Domänen-Schreiben** | schmale `mgr.layout_mut()` / `photos_mut()` / `config_mut()` | nur oberste Schicht, schmal nach unten gereicht |
+| **Domänen-Lesen** (aus `ProjectState`) | `mgr.state() -> &ProjectState` | überall, wohin weitergereicht |
+| **Manager-Lesen** (Git-Baseline, Pfade) | `mgr.…()` → *owned* Ergebnis | nur oberste Schicht |
+| **Domänen-Schreiben** | `mgr.write_layout()` / `write_photos()` / `write_config()` | nur oberste Schicht, als schmaler Borrow weitergereicht |
 
 `&mut ProjectState` und ein Sammel-`state_mut()` existieren **nicht**.
 
 ### R2 — Lesen breit, Schreiben schmal
 
 - Genau **ein** breiter Lese-Getter `state() -> &ProjectState`. Keine drei
-  Einzel-Read-Getter; Lesen ist risikolos.
-- Schreiben **nur feldweise** über benannte `*_mut()`-Accessoren. Der Methodenname
-  ist der sichtbare Footprint.
+  getrennten Lesezugriffe; Lesen ist risikolos.
+- Schreiben **nur über benannte View-Typen** (`WriteLayoutState` usw.). Der
+  Typname ist der sichtbare Footprint.
 
-### R3 — Wirbelsäulen-Regel
+### R3 — Wirbelsäulenregel
 
-`mgr` darf nur die **Orchestrierungs-Wirbelsäule** eines Commands halten: die
-Pipeline-Funktion plus ihre direkten Schritt-Helfer (z. B. `refresh_cache` /
-`build_layout` / `finish`). Diese Spitze macht alle `state()`-Reads und
-`*_mut()`-Griffe selbst und gibt **nur schmale Borrows** eine Schicht tiefer.
-`mgr` wird **nie eine Schicht tiefer** durchgereicht.
+`mgr` hält ausschließlich die **Orchestrierungs-Wirbelsäule** eines Commands:
+die Pipeline-Funktion und ihre direkten Schritt-Helfer (z. B. `refresh_cache`,
+`build_layout`, `finish`). Diese Schicht führt alle Lesezugriffe und
+Write-View-Konstruktoren selbst durch und reicht **nur schmale Borrows** eine
+Ebene tiefer. `mgr` wird **niemals tiefer weitergereicht**.
 
-### R4 — Narrow early
+### R4 — Erst lesen, dann schreiben
 
-Die Verengung passiert **oben** im Orchestrator, nicht im Leaf. Muster pro
-Command: **Lesen → entscheiden → schreiben**.
+Die Verengung geschieht **oben** im Orchestrator, nicht im Blattknoten.
+Muster pro Command: **Lesen → Entscheiden → Schreiben**.
 
 ```rust
-let plan = plan_xyz(mgr.state(), config)?;   // READ: &ProjectState → owned Plan, Borrow endet
-let affected = apply_xyz(mgr.layout_mut(), &plan);  // WRITE: Footprint sichtbar ganz oben
+let plan = plan_xyz(mgr.state(), config)?;        // Lesen: &ProjectState → owned Plan
+{
+    let mut wls = mgr.write_layout();              // Schreiben: Footprint oben sichtbar
+    apply_xyz(wls.layout_mut(), &plan);
+}
 mgr.finish("…")?;
 ```
 
-Wer den (kleinen) Orchestrator liest, sieht den vollständigen Footprint; die
-Leaf-Helfer (`apply_xyz(layout: &mut Vec<LayoutPage>, …)`) *bestätigen* ihn nur.
+Wer den (kurzen) Orchestrator liest, sieht den vollständigen Footprint; die
+Blatt-Helfer (`apply_xyz(layout: &mut Vec<LayoutPage>, …)`) bestätigen ihn nur.
 
-Gleichzeitiges Lesen-A-und-Schreiben-B löst sich über R4 fast immer auf: das
-Lese-Abgeleitete vorher als *owned* ziehen (Indizes/Pläne), dann schreiben. Nur
-falls ein Lesewert sich nachweislich nicht als owned ziehen lässt, ist ein einzelner
-maßgeschneiderter Split-Accessor die **dokumentierte Ausnahme**.
+Gleichzeitiges Lesen-A-und-Schreiben-B löst sich über R4 fast immer auf: den
+Lesewert zuerst als *owned* Wert ziehen (Indizes, Pläne), dann schreiben. Nur
+wenn ein Lesewert sich nachweislich nicht als owned Wert ziehen lässt, ist ein
+einzelner maßgeschneiderter Split-Accessor die **dokumentierte Ausnahme**.
 
 ### R5 — Read-only-Zugriff ist ein eigener Typ
 
 - `StateManager::open()` = voller Lebenszyklus (Auto-Commit beim Öffnen,
   `finish`, Drop-Warnung).
 - `StateManager::open_readonly()` liefert einen **eigenen schmalen Lese-Handle**
-  (kein `finish`, kein `*_mut`, kein Auto-Commit, keine Drop-Warnung). Read-only
-  ist damit *im Typ* sichtbar und vom Compiler erzwungen.
-- Die Lese-Oberfläche lebt einmal in einem geteilten Lese-Kern, den `StateManager`
-  enthält. Kein `readonly`-Flag (würde Mutation aufrufbar lassen).
+  (kein `finish`, kein Write-View, kein Auto-Commit, keine Drop-Warnung). Der
+  eingeschränkte Zugriff ist damit *im Typ* sichtbar und wird vom Compiler erzwungen.
+- Die Lese-Oberfläche lebt einmal in einem gemeinsamen Lesekern, den `StateManager`
+  enthält. Kein `readonly`-Flag (das ließe Schreibzugriffe weiterhin aufrufbar).
 
 ### R6 — Validität an einer Stelle
 
 `finish()` validiert autoritativ vor dem Commit; `Drop` warnt bei nicht
-committeten Änderungen. Ein blockierender Check pro Einzel-Edit ist nicht nötig.
+committeten Änderungen. Ein blockierender Check pro Einzel-Bearbeitung ist nicht nötig.
