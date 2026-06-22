@@ -80,9 +80,12 @@ pub fn spawn(
                     repaint_ctx.request_repaint();
                 }
                 BackgroundTask::LoadHistory { count } => {
-                    let entries = fotobuch::commands::history::history(&vault_path, count)
-                        .map(|o| o.result)
-                        .unwrap_or_default();
+                    let entries = fotobuch::commands::history::history(
+                        &vault_path,
+                        &fotobuch::commands::history::HistoryConfig { count },
+                    )
+                    .map(|o| o.result)
+                    .unwrap_or_default();
                     let _ = result_tx.send(BackgroundResult::HistoryLoaded { entries });
                     repaint_ctx.request_repaint();
                 }

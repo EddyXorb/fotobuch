@@ -7,6 +7,13 @@ use std::path::Path;
 
 use crate::commands::CommandOutput;
 
+/// Configuration for history command
+#[derive(Debug, Clone)]
+pub struct HistoryConfig {
+    /// Max entries to return; 0 means all
+    pub count: usize,
+}
+
 /// Single history entry
 #[derive(Debug, Clone)]
 pub struct HistoryEntry {
@@ -15,9 +22,11 @@ pub struct HistoryEntry {
 }
 
 /// Show project change history via libgit2.
-///
-/// * `count` – max entries to return; 0 means all
-pub fn history(project_root: &Path, count: usize) -> Result<CommandOutput<Vec<HistoryEntry>>> {
+pub fn history(
+    project_root: &Path,
+    config: &HistoryConfig,
+) -> Result<CommandOutput<Vec<HistoryEntry>>> {
+    let count = config.count;
     let repo = match Repository::open(project_root) {
         Ok(r) => r,
         Err(_) => {
@@ -58,7 +67,11 @@ mod tests {
 
     #[test]
     fn test_history_returns_vec_for_nonexistent_path() {
-        let result = history(Path::new("/nonexistent/path/xyz"), 5).unwrap();
+        let result = history(
+            Path::new("/nonexistent/path/xyz"),
+            &HistoryConfig { count: 5 },
+        )
+        .unwrap();
         assert!(result.result.is_empty());
     }
 }

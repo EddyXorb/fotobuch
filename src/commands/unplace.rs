@@ -5,7 +5,15 @@ use std::path::Path;
 use crate::commands::CommandOutput;
 use crate::state_manager::StateManager;
 
-use crate::commands::page::{PageMoveError, PageMoveResult, SlotExpr, apply_unplace};
+use crate::commands::page::{PageMoveError, SlotExpr, apply_unplace};
+
+/// Result of unplacing photos.
+#[derive(Debug)]
+pub struct UnplaceResult {
+    pub pages_modified: Vec<u32>,
+    pub pages_inserted: Vec<u32>,
+    pub pages_deleted: Vec<u32>,
+}
 
 /// Remove photos from the layout at the given page:slot address.
 ///
@@ -14,7 +22,7 @@ pub fn execute_unplace(
     project_root: &Path,
     page: u32,
     slots: SlotExpr,
-) -> Result<CommandOutput<PageMoveResult>, PageMoveError> {
+) -> Result<CommandOutput<UnplaceResult>, PageMoveError> {
     let mut mgr = StateManager::open(project_root)?;
 
     let (deleted, modified) = apply_unplace(&mut mgr.state.layout, page, &slots)?;
@@ -26,7 +34,7 @@ pub fn execute_unplace(
     };
 
     Ok(CommandOutput {
-        result: PageMoveResult {
+        result: UnplaceResult {
             pages_modified: modified,
             pages_inserted: vec![],
             pages_deleted: deleted,

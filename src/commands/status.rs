@@ -54,7 +54,7 @@ pub struct PageDetail {
 
 /// Overall project status report
 #[derive(Debug, Clone)]
-pub struct StatusReport {
+pub struct StatusResult {
     /// Project name
     pub project_name: String,
     /// Overall state (empty/clean/modified)
@@ -213,7 +213,7 @@ fn build_page_detail(
 }
 
 /// Show project status (read-only)
-pub fn status(project_root: &Path, config: &StatusConfig) -> Result<CommandOutput<StatusReport>> {
+pub fn status(project_root: &Path, config: &StatusConfig) -> Result<CommandOutput<StatusResult>> {
     let mgr = StateManager::open(project_root)?;
     let project_name = mgr.project_name().to_owned();
 
@@ -250,7 +250,7 @@ pub fn status(project_root: &Path, config: &StatusConfig) -> Result<CommandOutpu
         .transpose()?;
 
     Ok(CommandOutput {
-        result: StatusReport {
+        result: StatusResult {
             project_name,
             state: project_state,
             total_photos,
