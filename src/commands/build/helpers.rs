@@ -141,9 +141,6 @@ pub fn render_pdf(ctx: &RenderContext, target: PdfTarget, skip_pdf: bool) -> Res
 /// # Arguments
 /// * `start` - **0-based** index (inclusive), e.g., 0 for the first page
 /// * `end` - Slice end (exclusive), e.g., 2 to include pages at indices 0 and 1
-///
-/// # Example
-/// To get photos from user pages 1-2 (1-based): call with `start = 0, end = 2`
 pub fn collect_photos_as_groups(state: &ProjectState, start: usize, end: usize) -> Vec<PhotoGroup> {
     let photo_index = build_photo_index(&state.photos);
 
@@ -164,7 +161,7 @@ pub fn collect_photos_as_groups(state: &ProjectState, start: usize, end: usize) 
         }
     }
 
-    // sort_key aus state.photos übernehmen
+    // sort_key aus photos übernehmen
     let group_sort_keys: HashMap<&str, &str> = state
         .photos
         .iter()

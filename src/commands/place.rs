@@ -7,8 +7,8 @@ use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 use crate::commands::CommandOutput;
-use crate::models::{PhotoFile, ProjectState, build_photo_index};
-use crate::state_manager::StateManager;
+use crate::models::{LayoutPage, PageMode, PhotoFile, ProjectState, build_photo_index};
+use crate::state_manager::{ReadOnlyState, StateManager, WriteLayoutState};
 
 /// Target destination for placing photos.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -97,31 +97,31 @@ pub fn place(project_root: &Path, config: &PlaceConfig) -> Result<CommandOutput<
     let mut mgr = StateManager::open(project_root)?;
 
     // Validation
-    if mgr.state.layout.is_empty() && !matches!(config.dst, PlaceDst::NewPageAt(_)) {
+    if mgr.state().layout.is_empty() && !matches!(config.dst, PlaceDst::NewPageAt(_)) {
         anyhow::bail!("No layout yet. Run `fotobuch build` first.");
     }
     match config.dst {
-        PlaceDst::Page(page) if page >= mgr.state.layout.len() => {
+        PlaceDst::Page(page) if page >= mgr.state().layout.len() => {
             anyhow::bail!(
                 "Invalid page {} (layout has {} pages, indices 0..{})",
                 page,
-                mgr.state.layout.len(),
-                mgr.state.layout.len().saturating_sub(1),
+                mgr.state().layout.len(),
+                mgr.state().layout.len().saturating_sub(1),
             );
         }
-        PlaceDst::NewPageAt(pos) if pos > mgr.state.layout.len() => {
+        PlaceDst::NewPageAt(pos) if pos > mgr.state().layout.len() => {
             anyhow::bail!(
                 "Invalid new page position {} (layout has {} pages, valid range 0..={})",
                 pos,
-                mgr.state.layout.len(),
-                mgr.state.layout.len(),
+                mgr.state().layout.len(),
+                mgr.state().layout.len(),
             );
         }
         _ => {}
     }
 
     // 1. Find unplaced photos
-    let unplaced = find_unplaced(&mgr.state);
+    let unplaced = find_unplaced(mgr.state());
     if unplaced.is_empty() {
         let changed_state = mgr.finish("")?;
         return Ok(CommandOutput {
@@ -156,11 +156,14 @@ pub fn place(project_root: &Path, config: &PlaceConfig) -> Result<CommandOutput<
         });
     }
 
-    // 3. Place photos
-    let (pages_affected, pages_inserted) = match config.dst {
-        PlaceDst::NewPageAt(pos) => place_into_new_page(&mut mgr.state, &filtered, pos),
-        PlaceDst::Page(page) => (place_into_page(&mut mgr.state, &filtered, page), vec![]),
-        PlaceDst::Auto => (place_chronologically(&mut mgr.state, &filtered), vec![]),
+    // 3. Place photos (read phase before write)
+    let (pages_affected, pages_inserted) = {
+        let mut wls: WriteLayoutState<'_> = mgr.get_write_layout_state();
+        match config.dst {
+            PlaceDst::NewPageAt(pos) => place_into_new_page(wls.layout_mut(), &filtered, pos),
+            PlaceDst::Page(page) => (place_into_page(wls.layout_mut(), &filtered, page), vec![]),
+            PlaceDst::Auto => (place_chronologically(&mut wls, &filtered), vec![]),
+        }
     };
 
     let photos_placed = filtered.len();
@@ -204,12 +207,11 @@ fn apply_filters<'a>(
 /// Computes (page_idx, min_timestamp, max_timestamp) for each page with photos.
 /// Skips the cover page (index 0) when the cover is active.
 fn compute_page_ranges(
-    state: &ProjectState,
+    layout: &[LayoutPage],
     photo_index: &HashMap<String, (PhotoFile, String)>,
+    cover_active: bool,
 ) -> Vec<(usize, DateTime<Utc>, DateTime<Utc>)> {
-    let cover_active = state.config.book.cover.active;
-    state
-        .layout
+    layout
         .iter()
         .enumerate()
         .filter(|(idx, _)| !cover_active || *idx != 0)
@@ -265,15 +267,18 @@ fn find_target_page(
 
 /// Places photos chronologically onto appropriate pages
 /// Returns affected page indices (0-based, sorted, deduplicated)
-fn place_chronologically(state: &mut ProjectState, photos: &[&UnplacedPhoto]) -> Vec<usize> {
-    let photo_index = build_photo_index(&state.photos);
-    let page_ranges = compute_page_ranges(state, &photo_index);
+fn place_chronologically(
+    wls: &mut WriteLayoutState<'_>,
+    unplaced: &[&UnplacedPhoto],
+) -> Vec<usize> {
+    let photo_index = build_photo_index(wls.photos());
+    let cover_active = wls.config().book.cover.active;
+    let page_ranges = compute_page_ranges(wls.layout(), &photo_index, cover_active);
 
     let mut affected: HashSet<usize> = HashSet::new();
-
-    for photo in photos {
+    for photo in unplaced {
         let page_idx = find_target_page(photo.timestamp, &page_ranges);
-        state.layout[page_idx].photos.push(photo.id.clone());
+        wls.layout_mut()[page_idx].photos.push(photo.id.clone());
         affected.insert(page_idx);
     }
 
@@ -285,12 +290,12 @@ fn place_chronologically(state: &mut ProjectState, photos: &[&UnplacedPhoto]) ->
 /// Places all photos onto a specific page
 /// Returns affected page index (0-based, as single-element vector)
 fn place_into_page(
-    state: &mut ProjectState,
+    layout: &mut [LayoutPage],
     photos: &[&UnplacedPhoto],
     page_idx: usize,
 ) -> Vec<usize> {
     for photo in photos {
-        state.layout[page_idx].photos.push(photo.id.clone());
+        layout[page_idx].photos.push(photo.id.clone());
     }
     vec![page_idx]
 }
@@ -298,14 +303,12 @@ fn place_into_page(
 /// Creates a new page at the given position and places all photos there.
 /// Returns (affected pages, inserted pages).
 fn place_into_new_page(
-    state: &mut ProjectState,
+    layout: &mut Vec<LayoutPage>,
     photos: &[&UnplacedPhoto],
     position: usize,
 ) -> (Vec<usize>, Vec<usize>) {
-    use crate::models::{LayoutPage, PageMode};
-
     let photo_ids: Vec<String> = photos.iter().map(|p| p.id.clone()).collect();
-    state.layout.insert(
+    layout.insert(
         position,
         LayoutPage {
             photos: photo_ids,
@@ -527,7 +530,8 @@ mod tests {
         ];
         let state = make_state_with_cover(true, layout, photos);
         let photo_index = build_photo_index(&state.photos);
-        let ranges = compute_page_ranges(&state, &photo_index);
+        let ranges =
+            compute_page_ranges(&state.layout, &photo_index, state.config.book.cover.active);
 
         // Cover (page 0) must be absent; only page 1 should appear
         assert_eq!(ranges.len(), 1);
@@ -563,7 +567,8 @@ mod tests {
         ];
         let state = make_state_with_cover(false, layout, photos);
         let photo_index = build_photo_index(&state.photos);
-        let ranges = compute_page_ranges(&state, &photo_index);
+        let ranges =
+            compute_page_ranges(&state.layout, &photo_index, state.config.book.cover.active);
 
         assert_eq!(ranges.len(), 2);
     }
@@ -607,7 +612,10 @@ mod tests {
             timestamp: new_ts,
         };
         let refs: Vec<&UnplacedPhoto> = vec![&new_photo];
-        let affected = place_chronologically(&mut state, &refs);
+        let affected = {
+            let mut wls = WriteLayoutState::for_test(&mut state);
+            place_chronologically(&mut wls, &refs)
+        };
 
         // Must NOT land on cover (page 0)
         assert!(!state.layout[0].photos.contains(&"new.jpg".to_string()));

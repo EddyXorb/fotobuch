@@ -85,7 +85,6 @@ fn create_test_project_with_artificial_photos_3(temp_dir: &TempDir) -> Result<Pa
     let project_root = result.result.project_root;
 
     let mut mgr = StateManager::open(&project_root)?;
-    // Force at least 2 pages: min 1 photo per page, max 2 per page
     mgr.state.config.book_layout_solver.page_max = 2;
     mgr.state.config.book_layout_solver.page_target = 2;
     mgr.state.config.book_layout_solver.group_min_photos = 1;

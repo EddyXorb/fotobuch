@@ -22,22 +22,23 @@ pub fn execute_combine(
         return Err(ValidationError::CombineSinglePage(p).into());
     }
 
+    let first_page = pages_expr.pages[0];
+    let other_pages: Vec<u32> = pages_expr.pages[1..].to_vec();
+
     for &p in &pages_expr.pages {
         page_idx(p, &mgr.state.layout)?;
     }
 
-    let first_page = pages_expr.pages[0];
     let first_idx = page_idx(first_page, &mgr.state.layout)?;
 
     let mut extra_photos: Vec<String> = Vec::new();
-    let other_pages: Vec<u32> = pages_expr.pages[1..].to_vec();
     for &p in &other_pages {
         let idx = page_idx(p, &mgr.state.layout)?;
         extra_photos.extend(mgr.state.layout[idx].photos.clone());
     }
 
     mgr.state.layout[first_idx].photos.extend(extra_photos);
-    mgr.state.layout[first_idx].slots.clear(); // needs rebuild
+    mgr.state.layout[first_idx].slots.clear();
 
     let mut delete_indices: Vec<usize> = other_pages
         .iter()

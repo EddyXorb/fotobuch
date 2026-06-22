@@ -12,59 +12,48 @@ mod single_page;
 use self::multi_page::solve_multipage;
 use self::single_page::solve_single_page;
 use super::helpers::collect_photos_as_groups;
-use crate::models::{BookLayoutSolverConfig, PageMode, PhotoGroup, build_photo_index};
-use crate::state_manager::StateManager;
+use crate::models::{PageMode, build_photo_index};
+use crate::state_manager::{ReadOnlyState, WriteLayoutState};
 use anyhow::Result;
 use tracing::warn;
 
-pub(super) fn build_full_book(mgr: &mut StateManager) -> Result<Vec<usize>> {
-    let layout_len = mgr.state.layout.len();
-    // For an existing layout with an active cover, skip page 0 so the cover is not
-    // redistributed (use rebuild --page 0 to rebuild it explicitly).
-    if layout_len > 0 && mgr.state.has_cover() {
+pub(super) fn build_full_book(wls: &mut WriteLayoutState<'_>) -> Result<Vec<usize>> {
+    let layout_len = wls.layout().len();
+    if layout_len > 0 && wls.config().book.cover.active {
         let effective_start = skip_cover_if_needed(true, 0, layout_len - 1)?;
-        let groups = collect_photos_as_groups(&mgr.state, effective_start, layout_len);
-        return solve_multipage(
-            &mut mgr.state,
-            &groups,
-            Some((effective_start, layout_len)),
-            None,
-        );
+        let groups = collect_photos_as_groups(wls.state(), effective_start, layout_len);
+        return solve_multipage(wls, &groups, Some((effective_start, layout_len)), None);
     }
-    let groups: Vec<PhotoGroup> = mgr.state.photos.clone();
-    solve_multipage(&mut mgr.state, &groups, None, None)
+    let groups = wls.photos().to_vec();
+    solve_multipage(wls, &groups, None, None)
 }
 
 pub(super) fn build_outdated_pages(
-    mgr: &mut StateManager,
-    page_filter: Option<&[usize]>,
+    wls: &mut WriteLayoutState<'_>,
+    pages: &[usize],
 ) -> Result<Vec<usize>> {
-    let mut pages = mgr.outdated_pages_indices();
-    if let Some(filter) = page_filter {
-        pages.retain(|p| filter.contains(p));
-    }
-    let photo_index = build_photo_index(&mgr.state.photos);
-    for &idx in &pages {
-        if mgr.state.layout[idx].mode != PageMode::Manual {
-            solve_single_page(&mut mgr.state, idx, &photo_index)?;
+    let photo_index = build_photo_index(wls.photos());
+    for &idx in pages {
+        if wls.layout()[idx].mode != PageMode::Manual {
+            solve_single_page(wls, idx, &photo_index)?;
         }
     }
-    Ok(pages)
+    Ok(pages.to_vec())
 }
 
-pub(super) fn build_page(mgr: &mut StateManager, idx: usize) -> Result<Vec<usize>> {
-    if mgr.state.layout.is_empty() {
+pub(super) fn build_page(wls: &mut WriteLayoutState<'_>, idx: usize) -> Result<Vec<usize>> {
+    if wls.layout().is_empty() {
         anyhow::bail!("No layout exists. Run `fotobuch build` first.");
     }
-    if idx >= mgr.state.layout.len() {
+    if idx >= wls.layout().len() {
         anyhow::bail!(
             "Invalid page index {} (layout has {} pages, indices 0..{})",
             idx,
-            mgr.state.layout.len(),
-            mgr.state.layout.len().saturating_sub(1),
+            wls.layout().len(),
+            wls.layout().len().saturating_sub(1),
         );
     }
-    if mgr.state.layout[idx].mode == PageMode::Manual {
+    if wls.layout()[idx].mode == PageMode::Manual {
         anyhow::bail!(
             "Cannot rebuild page {}: page is in manual mode. \
              Use `page mode {} a` to switch to auto mode first.",
@@ -72,40 +61,41 @@ pub(super) fn build_page(mgr: &mut StateManager, idx: usize) -> Result<Vec<usize
             idx
         );
     }
-    let photo_index = build_photo_index(&mgr.state.photos);
-    solve_single_page(&mut mgr.state, idx, &photo_index)?;
+    let photo_index = build_photo_index(wls.photos());
+    solve_single_page(wls, idx, &photo_index)?;
     Ok(vec![idx])
 }
 
 pub(super) fn build_page_range(
-    mgr: &mut StateManager,
+    wls: &mut WriteLayoutState<'_>,
     start: usize,
     end: usize,
     flex: usize,
 ) -> Result<Vec<usize>> {
-    if mgr.state.layout.is_empty() {
+    if wls.layout().is_empty() {
         anyhow::bail!("No layout exists. Run `fotobuch build` first.");
     }
-    if start > end || end >= mgr.state.layout.len() {
+    if start > end || end >= wls.layout().len() {
         anyhow::bail!(
             "Invalid page range {}-{} (layout has {} pages, indices 0..{})",
             start,
             end,
-            mgr.state.layout.len(),
-            mgr.state.layout.len().saturating_sub(1),
+            wls.layout().len(),
+            wls.layout().len().saturating_sub(1),
         );
     }
-    let effective_start = skip_cover_if_needed(mgr.state.has_cover(), start, end)?;
-    let groups = collect_photos_as_groups(&mgr.state, effective_start, end + 1);
+    let effective_start = skip_cover_if_needed(wls.config().book.cover.active, start, end)?;
+    let solver_config = wls.config().book_layout_solver.clone();
+    let groups = collect_photos_as_groups(wls.state(), effective_start, end + 1);
     let n = end - effective_start + 1;
-    let custom_config = BookLayoutSolverConfig {
+    let custom_config = crate::models::BookLayoutSolverConfig {
         page_min: n.saturating_sub(flex).max(1),
         page_max: n + flex,
         page_target: n,
-        ..mgr.state.config.book_layout_solver.clone()
+        ..solver_config
     };
     solve_multipage(
-        &mut mgr.state,
+        wls,
         &groups,
         Some((effective_start, end + 1)),
         Some(custom_config),

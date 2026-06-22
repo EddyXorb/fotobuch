@@ -30,17 +30,15 @@ pub fn execute_split(
     }
 
     let split_at = slot as usize;
+    let new_idx = idx + 1;
     let moved_photos: Vec<String> = mgr.state.layout[idx].photos[split_at..].to_vec();
     let moved_slots: Vec<_> = if split_at < mgr.state.layout[idx].slots.len() {
         mgr.state.layout[idx].slots[split_at..].to_vec()
     } else {
         vec![]
     };
-
     mgr.state.layout[idx].photos.truncate(split_at);
     mgr.state.layout[idx].slots.truncate(split_at);
-
-    let new_idx = idx + 1;
     mgr.state.layout.insert(
         new_idx,
         LayoutPage {

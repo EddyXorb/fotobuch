@@ -5,7 +5,7 @@ use super::helpers::{
     render_pdf,
 };
 use crate::commands::CommandOutput;
-use crate::state_manager::{StateManager, renumber_pages};
+use crate::state_manager::StateManager;
 use anyhow::Result;
 
 /// Describes the layout-change strategy for one build or rebuild invocation.
@@ -35,15 +35,21 @@ impl BuildPlan {
     pub fn build_layout(&self, mgr: &mut StateManager) -> Result<Vec<usize>> {
         match self {
             BuildPlan::Auto { pages } => {
-                if mgr.state.layout.is_empty() {
-                    build_full_book(mgr)
+                if mgr.state().layout.is_empty() {
+                    build_full_book(&mut mgr.get_write_layout_state())
                 } else {
-                    build_outdated_pages(mgr, pages.as_deref())
+                    let mut outdated = mgr.outdated_pages_indices();
+                    if let Some(filter) = pages.as_deref() {
+                        outdated.retain(|p| filter.contains(p));
+                    }
+                    build_outdated_pages(&mut mgr.get_write_layout_state(), &outdated)
                 }
             }
-            BuildPlan::All => build_full_book(mgr),
-            BuildPlan::Page(idx) => build_page(mgr, *idx),
-            BuildPlan::Range { start, end, flex } => build_page_range(mgr, *start, *end, *flex),
+            BuildPlan::All => build_full_book(&mut mgr.get_write_layout_state()),
+            BuildPlan::Page(idx) => build_page(&mut mgr.get_write_layout_state(), *idx),
+            BuildPlan::Range { start, end, flex } => {
+                build_page_range(&mut mgr.get_write_layout_state(), *start, *end, *flex)
+            }
             BuildPlan::Release { .. } => Ok(Vec::new()),
         }
     }
@@ -67,18 +73,14 @@ impl BuildPlan {
         // 2. Build layout (pure)
         let changed_pages = self.build_layout(&mut mgr)?;
 
-        // 3. Renumber pages
-        let has_cover = mgr.state.has_cover();
-        renumber_pages(&mut mgr.state.layout, has_cover);
-
         let ctx = RenderContext::capture(&mgr);
-        let page_count = mgr.state.layout.len();
-        let total_photos: usize = mgr.state.layout.iter().map(|p| p.photos.len()).sum();
+        let page_count = mgr.state().layout.len();
+        let total_photos: usize = mgr.state().layout.iter().map(|p| p.photos.len()).sum();
 
         // 4. Commit
         let msg = commit_message(&self, &changed_pages, page_count, total_photos);
         let changed_state = match commit_mode(&self) {
-            CommitMode::Always => mgr.finish_always(&msg)?,
+            CommitMode::Always => Some(mgr.finish_always(&msg)?),
             CommitMode::Auto => mgr.finish(&msg)?,
         };
 
@@ -105,14 +107,14 @@ impl BuildPlan {
 // ── pipeline helpers ─────────────────────────────────────────────────────────
 
 fn validate_release(mgr: &StateManager, force: bool) -> Result<()> {
-    if mgr.state.layout.is_empty() {
+    if mgr.state().layout.is_empty() {
         anyhow::bail!("No layout found. Run `fotobuch build` first to generate layout.");
     }
     if !force {
         let changed: Vec<_> = mgr
             .outdated_pages_indices()
             .into_iter()
-            .filter(|i| !mgr.state.config.book.cover.active || *i != 0)
+            .filter(|i| !mgr.state().config.book.cover.active || *i != 0)
             .collect();
         if !changed.is_empty() {
             anyhow::bail!(

@@ -1,7 +1,8 @@
 use super::cover_page::update_cover_page;
-use crate::models::{LayoutPage, PhotoFile, PhotoGroup, ProjectState};
+use crate::models::{LayoutPage, PhotoFile, PhotoGroup};
 use crate::run_solver;
 use crate::solver::{Request, RequestType};
+use crate::state_manager::{ReadOnlyState, WriteLayoutState};
 use anyhow::Result;
 use std::collections::HashMap;
 
@@ -9,24 +10,21 @@ use std::collections::HashMap;
 /// non-`Free` mode) or the GA solver (all other cases).
 ///
 /// # Arguments
-/// * `page_idx` - **0-based** index into `state.layout` (e.g., 0 = first page, 1 = second page).
-///   This does NOT consider the `page_nr` field in the layout.
+/// * `page_idx` - **0-based** index into `layout` (e.g., 0 = first page, 1 = second page).
 pub(super) fn solve_single_page(
-    state: &mut ProjectState,
+    wls: &mut WriteLayoutState<'_>,
     page_idx: usize,
     photo_index: &HashMap<String, (PhotoFile, String)>,
 ) -> Result<()> {
-    if page_idx >= state.layout.len() {
+    if page_idx >= wls.layout().len() {
         anyhow::bail!(
             "Page {} does not exist (layout has {} pages)",
             page_idx,
-            state.layout.len()
+            wls.layout().len()
         );
     }
 
-    let page = &state.layout[page_idx];
-
-    let files: Vec<PhotoFile> = page
+    let files: Vec<PhotoFile> = wls.layout()[page_idx]
         .photos
         .iter()
         .filter_map(|id| photo_index.get(id).map(|(file, _)| file.clone()))
@@ -36,29 +34,31 @@ pub(super) fn solve_single_page(
         anyhow::bail!("Page {} has no valid photos", page_idx);
     }
 
-    if page_idx == 0 && state.has_cover() {
-        update_cover_page(state, photo_index)
+    if page_idx == 0 && wls.config().book.cover.active {
+        update_cover_page(wls, photo_index)
     } else {
-        solve_inner_page(state, page_idx, files)
+        solve_inner_page(wls, page_idx, files)
     }
 }
 
 // ── inner pages ───────────────────────────────────────────────────────────────
 
 fn solve_inner_page(
-    state: &mut ProjectState,
+    wls: &mut WriteLayoutState<'_>,
     page_idx: usize,
     files: Vec<PhotoFile>,
 ) -> Result<()> {
     let group = photo_group_for_page(page_idx, files);
+    let book_config = wls.config().book.clone();
+    let page_layout_config = wls.config().page_layout_solver.clone();
     let request = Request {
         request_type: RequestType::SinglePage,
         groups: &[group],
-        page_layout_config: &state.config.page_layout_solver,
-        canvas_config: &state.config.book,
+        page_layout_config: &page_layout_config,
+        canvas_config: &book_config,
     };
     let result = run_solver(&request)?;
-    apply_result(state, page_idx, result)
+    apply_result(wls.layout_mut(), page_idx, result)
 }
 
 // ── shared helpers ────────────────────────────────────────────────────────────
@@ -71,11 +71,11 @@ fn photo_group_for_page(page_idx: usize, files: Vec<PhotoFile>) -> PhotoGroup {
     }
 }
 
-fn apply_result(state: &mut ProjectState, page_idx: usize, result: Vec<LayoutPage>) -> Result<()> {
+fn apply_result(layout: &mut [LayoutPage], page_idx: usize, result: Vec<LayoutPage>) -> Result<()> {
     if result.is_empty() {
         anyhow::bail!("Solver returned no result for page {}", page_idx);
     }
-    state.layout[page_idx].slots = result[0].slots.clone();
-    state.layout[page_idx].photos = result[0].photos.clone();
+    layout[page_idx].slots = result[0].slots.clone();
+    layout[page_idx].photos = result[0].photos.clone();
     Ok(())
 }

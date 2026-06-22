@@ -59,14 +59,17 @@ fn execute_move_to(
     if matches!(dst, DstMove::Unplace) {
         return match src {
             Src::Slots { page, slots } => {
-                let idx = page_idx(page, &mgr.state.layout)?;
-                let slot_indices = resolve_slots(page, &slots, &mgr.state.layout)?;
-                remove_slots(&mut mgr.state.layout, idx, slot_indices);
-                let deleted = delete_empty_pages(&mut mgr.state.layout);
-                let modified = if deleted.contains(&page) {
-                    vec![]
-                } else {
-                    vec![page]
+                let (deleted, modified) = {
+                    let idx = page_idx(page, &mgr.state.layout)?;
+                    let slot_indices = resolve_slots(page, &slots, &mgr.state.layout)?;
+                    remove_slots(&mut mgr.state.layout, idx, slot_indices);
+                    let deleted = delete_empty_pages(&mut mgr.state.layout);
+                    let modified = if deleted.contains(&page) {
+                        vec![]
+                    } else {
+                        vec![page]
+                    };
+                    (deleted, modified)
                 };
                 let changed_state =
                     mgr.finish(&format!("page move: page {page}:... -> (unplace)"))?;
@@ -87,14 +90,16 @@ fn execute_move_to(
                 }
                 let src_desc = format_pages_list(&pe.pages);
                 page_nums.sort_unstable_by(|a, b| b.cmp(a));
-                let mut deleted = vec![];
-                for &p in &page_nums {
-                    let idx = page_idx(p, &mgr.state.layout)?;
-                    let page_num = idx as u32;
-                    mgr.state.layout.remove(idx);
-                    deleted.push(page_num);
-                }
-                deleted.sort();
+                let deleted = {
+                    let mut deleted = vec![];
+                    for &p in &page_nums {
+                        let idx = page_idx(p, &mgr.state.layout)?;
+                        deleted.push(idx as u32);
+                        mgr.state.layout.remove(idx);
+                    }
+                    deleted.sort();
+                    deleted
+                };
                 let changed_state = mgr.finish(&format!("page move: {src_desc} -> (unplace)"))?;
                 Ok(CommandOutput {
                     result: PageMoveResult {
@@ -108,7 +113,7 @@ fn execute_move_to(
         };
     }
 
-    let (photos, _src_page_indices) = collect_src_photos(&src, &mgr.state.layout)?;
+    let photos = collect_src_photos(&src, &mgr.state.layout)?.0;
     if photos.is_empty() {
         let changed_state = mgr.finish("")?;
         return Ok(CommandOutput {
@@ -131,11 +136,9 @@ fn execute_move_to(
         None
     };
 
-    let (dst_page_idx, inserted_page) = match &dst {
-        DstMove::Page(p) => {
-            let idx = page_idx(*p, &mgr.state.layout)?;
-            (idx, None)
-        }
+    // Step 1: handle DstMove (may insert a new page).
+    let (dst_page_idx, inserted_page): (usize, Option<u32>) = match &dst {
+        DstMove::Page(p) => (page_idx(*p, &mgr.state.layout)?, None),
         DstMove::NewPageAt(idx) => {
             if (*idx as usize) > mgr.state.layout.len() {
                 return Err(ValidationError::PageNotFound(*idx).into());
@@ -158,42 +161,38 @@ fn execute_move_to(
         DstMove::ManualAt { .. } => unreachable!("ManualAt handled above"),
     };
 
-    // For Slots variant: remove photos from src and add to dst.
+    // Step 2: For Slots variant — remove from src, add to dst, early return.
     if let Src::Slots { page, .. } = &src {
         let src_page = *page;
-        // Adjust src index if the new-page insert shifted it.
-        let (idx, slot_indices) = {
-            let (pre_idx, slot_indices) = pre_insert_src.expect("Slots arm has pre_insert_src");
-            let idx = if inserted_page.is_some() && dst_page_idx <= pre_idx {
-                pre_idx + 1
-            } else {
-                pre_idx
-            };
-            (idx, slot_indices)
+        let (pre_idx, slot_indices) = pre_insert_src.expect("Slots arm has pre_insert_src");
+        let idx = if inserted_page.is_some() && dst_page_idx <= pre_idx {
+            pre_idx + 1
+        } else {
+            pre_idx
         };
         let dst_page_num = dst_page_idx as u32;
-
-        // Remove photos (and slots on Manual pages) from src, descending to keep indices stable.
         let mut desc = slot_indices.clone();
         desc.sort_unstable_by(|a, b| b.cmp(a));
-        let src_is_manual = mgr.state.layout[idx].mode == PageMode::Manual;
-        for &i in &desc {
-            mgr.state.layout[idx].photos.remove(i);
-            if src_is_manual && i < mgr.state.layout[idx].slots.len() {
-                mgr.state.layout[idx].slots.remove(i);
+
+        let (deleted, modified) = {
+            let src_is_manual = mgr.state.layout[idx].mode == PageMode::Manual;
+            for &i in &desc {
+                mgr.state.layout[idx].photos.remove(i);
+                if src_is_manual && i < mgr.state.layout[idx].slots.len() {
+                    mgr.state.layout[idx].slots.remove(i);
+                }
             }
-        }
+            for photo in &photos {
+                mgr.state.layout[dst_page_idx].photos.push(photo.clone());
+            }
+            let deleted = delete_empty_pages(&mut mgr.state.layout);
+            let mut modified = vec![src_page, dst_page_num];
+            modified.retain(|p| !deleted.contains(p));
+            modified.sort();
+            modified.dedup();
+            (deleted, modified)
+        };
 
-        // Add photos to dst
-        for photo in &photos {
-            mgr.state.layout[dst_page_idx].photos.push(photo.clone());
-        }
-
-        let deleted = delete_empty_pages(&mut mgr.state.layout);
-        let mut modified = vec![src_page, dst_page_num];
-        modified.retain(|p| !deleted.contains(p));
-        modified.sort();
-        modified.dedup();
         let changed_state =
             mgr.finish(&format!("page move: slots from page {src_page} -> page"))?;
         return Ok(CommandOutput {
@@ -208,35 +207,35 @@ fn execute_move_to(
         });
     }
 
-    // For Pages variant: recollect indices (page insert may have shifted them), clear, and add.
-    let src_page_indices: Vec<usize> = match &src {
-        Src::Pages(pe) => pe
-            .pages
-            .iter()
-            .map(|&p| page_idx(p, &mgr.state.layout))
-            .collect::<Result<Vec<_>, _>>()?,
-        _ => unreachable!(),
+    // Step 3: For Pages variant — clear src pages, add to dst.
+    let (deleted, modified, src_desc, dst_page_num) = {
+        let src_page_indices: Vec<usize> = match &src {
+            Src::Pages(pe) => pe
+                .pages
+                .iter()
+                .map(|&p| page_idx(p, &mgr.state.layout))
+                .collect::<Result<Vec<_>, _>>()?,
+            _ => unreachable!(),
+        };
+        for &idx in &src_page_indices {
+            mgr.state.layout[idx].photos.clear();
+        }
+        for photo in &photos {
+            mgr.state.layout[dst_page_idx].photos.push(photo.clone());
+        }
+        let dst_page_num = dst_page_idx as u32;
+        let deleted = delete_empty_pages(&mut mgr.state.layout);
+        let mut modified_pages = vec![dst_page_num];
+        modified_pages.retain(|p| !deleted.contains(p));
+        let src_desc = format_src_desc(&src);
+        (deleted, modified_pages, src_desc, dst_page_num)
     };
 
-    for &idx in &src_page_indices {
-        mgr.state.layout[idx].photos.clear();
-    }
-
-    for photo in &photos {
-        mgr.state.layout[dst_page_idx].photos.push(photo.clone());
-    }
-    let dst_page_num = dst_page_idx as u32;
-
-    let deleted = delete_empty_pages(&mut mgr.state.layout);
-    let mut modified_pages = vec![dst_page_num];
-    modified_pages.retain(|p| !deleted.contains(p));
-
-    let src_desc = format_src_desc(&src);
     let changed_state = mgr.finish(&format!("page move: {src_desc} -> page {dst_page_num}"))?;
 
     Ok(CommandOutput {
         result: PageMoveResult {
-            pages_modified: modified_pages,
+            pages_modified: modified,
             pages_inserted: inserted_page
                 .map(|_| vec![dst_page_num])
                 .unwrap_or_default(),
@@ -293,44 +292,51 @@ fn execute_move_to_manual(
     let mut moved: Vec<(String, f64, f64)> = Vec::with_capacity(slot_indices.len());
     for &i in &slot_indices {
         let photo = photos_at_slots(&mgr.state.layout, src_idx, &[i])?.remove(0);
-        let slot = mgr.state.layout[src_idx].slots.get(i);
-        let (w, h) = match slot {
-            Some(s) => (s.width_mm, s.height_mm),
+        let slot_dims = mgr.state.layout[src_idx]
+            .slots
+            .get(i)
+            .map(|s| (s.width_mm, s.height_mm));
+        let (w, h) = match slot_dims {
+            Some((w, h)) => (w, h),
             None => default_manual_slot_size(&mgr.state, dst_idx),
         };
         moved.push((photo, w, h));
     }
 
-    // Remove from src (descending so indices stay valid). Drop the slot only on a
-    // manual source; Auto pages recompute their slots on the next build.
-    let src_is_manual = mgr.state.layout[src_idx].mode == PageMode::Manual;
-    let mut desc = slot_indices.clone();
-    desc.sort_unstable_by(|a, b| b.cmp(a));
-    for &i in &desc {
-        mgr.state.layout[src_idx].photos.remove(i);
-        if src_is_manual && i < mgr.state.layout[src_idx].slots.len() {
-            mgr.state.layout[src_idx].slots.remove(i);
+    let (deleted, modified) = {
+        // Remove from src (descending so indices stay valid). Drop the slot only on a
+        // manual source; Auto pages recompute their slots on the next build.
+        let src_is_manual = mgr.state.layout[src_idx].mode == PageMode::Manual;
+        let mut desc = slot_indices.clone();
+        desc.sort_unstable_by(|a, b| b.cmp(a));
+        for &i in &desc {
+            mgr.state.layout[src_idx].photos.remove(i);
+            if src_is_manual && i < mgr.state.layout[src_idx].slots.len() {
+                mgr.state.layout[src_idx].slots.remove(i);
+            }
         }
-    }
 
-    // Append photos and matching positioned slots to the manual destination.
-    for (n, (photo, w, h)) in moved.into_iter().enumerate() {
-        let offset = MANUAL_DROP_CASCADE_MM * n as f64;
-        mgr.state.layout[dst_idx].photos.push(photo);
-        mgr.state.layout[dst_idx].slots.push(Slot {
-            x_mm: x_mm + offset,
-            y_mm: y_mm + offset,
-            width_mm: w,
-            height_mm: h,
-        });
-    }
+        // Append photos and matching positioned slots to the manual destination.
+        for (n, (photo, w, h)) in moved.into_iter().enumerate() {
+            let offset = MANUAL_DROP_CASCADE_MM * n as f64;
+            mgr.state.layout[dst_idx].photos.push(photo);
+            mgr.state.layout[dst_idx].slots.push(Slot {
+                x_mm: x_mm + offset,
+                y_mm: y_mm + offset,
+                width_mm: w,
+                height_mm: h,
+            });
+        }
 
+        let dst_page_num = dst_idx as u32;
+        let deleted = delete_empty_pages(&mut mgr.state.layout);
+        let mut modified = vec![src_page, dst_page_num];
+        modified.retain(|p| !deleted.contains(p));
+        modified.sort_unstable();
+        modified.dedup();
+        (deleted, modified)
+    };
     let dst_page_num = dst_idx as u32;
-    let deleted = delete_empty_pages(&mut mgr.state.layout);
-    let mut modified = vec![src_page, dst_page_num];
-    modified.retain(|p| !deleted.contains(p));
-    modified.sort_unstable();
-    modified.dedup();
 
     let changed_state = mgr.finish(&format!(
         "page move: slots from page {src_page} -> manual page {dst_page_num}"
@@ -353,9 +359,8 @@ fn default_manual_slot_size(state: &crate::models::ProjectState, dst_idx: usize)
 }
 
 /// Pixel dimensions of a photo by id, looked up across all photo groups.
-fn photo_pixel_size(state: &crate::models::ProjectState, id: &str) -> Option<(u32, u32)> {
-    state
-        .photos
+fn photo_pixel_size(photos: &[crate::models::PhotoGroup], id: &str) -> Option<(u32, u32)> {
+    photos
         .iter()
         .flat_map(|g| g.files.iter())
         .find(|f| f.id == id)
@@ -366,25 +371,26 @@ fn photo_pixel_size(state: &crate::models::ProjectState, id: &str) -> Option<(u3
 /// `[start, start + count)` to `width * photo_height / photo_width`, keeping the
 /// slot's top-left and width. No-op on Auto pages (their slots are recomputed).
 fn adapt_manual_slot_ratios(
-    state: &mut crate::models::ProjectState,
+    layout: &mut [crate::models::LayoutPage],
+    photos: &[crate::models::PhotoGroup],
     page_idx: usize,
     start: usize,
     count: usize,
 ) {
-    if state.layout[page_idx].mode != PageMode::Manual {
+    if layout[page_idx].mode != PageMode::Manual {
         return;
     }
     for i in start..start + count {
-        let Some(photo_id) = state.layout[page_idx].photos.get(i).cloned() else {
+        let Some(photo_id) = layout[page_idx].photos.get(i).cloned() else {
             continue;
         };
-        if state.layout[page_idx].slots.get(i).is_none() {
+        if layout[page_idx].slots.get(i).is_none() {
             continue;
         }
-        if let Some((w_px, h_px)) = photo_pixel_size(state, &photo_id)
+        if let Some((w_px, h_px)) = photo_pixel_size(photos, &photo_id)
             && w_px > 0
         {
-            let slot = &mut state.layout[page_idx].slots[i];
+            let slot = &mut layout[page_idx].slots[i];
             slot.height_mm = slot.width_mm * (h_px as f64 / w_px as f64);
         }
     }
@@ -418,7 +424,6 @@ fn execute_swap(
         modified_pages.dedup();
 
         block_transpose_pages(&mut mgr.state.layout, &lpe.pages, &rpe.pages);
-
         let changed_state = mgr.finish("page swap")?;
         return Ok(CommandOutput {
             result: PageMoveResult {
@@ -471,8 +476,21 @@ fn execute_swap(
         let right_recv = left_photos.len();
         let left_start = left_slot_indices.iter().min().copied().unwrap_or(0);
         let right_start = right_slot_indices.iter().min().copied().unwrap_or(0);
-        adapt_manual_slot_ratios(&mut mgr.state, left_page_idx, left_start, left_recv);
-        adapt_manual_slot_ratios(&mut mgr.state, right_page_idx, right_start, right_recv);
+        let photos = mgr.state.photos.to_vec();
+        adapt_manual_slot_ratios(
+            &mut mgr.state.layout,
+            &photos,
+            left_page_idx,
+            left_start,
+            left_recv,
+        );
+        adapt_manual_slot_ratios(
+            &mut mgr.state.layout,
+            &photos,
+            right_page_idx,
+            right_start,
+            right_recv,
+        );
     }
 
     let mut modified_pages = vec![left_page_idx as u32, right_page_idx as u32];
@@ -607,8 +625,8 @@ mod tests {
         assert!(result.result.pages_deleted.contains(&1));
 
         let mgr = StateManager::open(tmp.path()).unwrap();
-        assert_eq!(mgr.state.layout.len(), 1);
-        let page1 = &mgr.state.layout[0];
+        assert_eq!(mgr.state().layout.len(), 1);
+        let page1 = &mgr.state().layout[0];
         assert!(page1.photos.contains(&"p2.jpg".to_owned()));
         assert!(page1.photos.contains(&"p3.jpg".to_owned()));
         mgr.finish("test: noop").unwrap();
@@ -629,8 +647,8 @@ mod tests {
         assert!(result.result.pages_modified.is_empty());
 
         let mgr = StateManager::open(tmp.path()).unwrap();
-        assert_eq!(mgr.state.layout.len(), 1);
-        assert_eq!(mgr.state.layout[0].photos, vec!["p2.jpg"]);
+        assert_eq!(mgr.state().layout.len(), 1);
+        assert_eq!(mgr.state().layout[0].photos, vec!["p2.jpg"]);
         mgr.finish("test: noop").unwrap();
     }
 
@@ -652,7 +670,7 @@ mod tests {
         assert!(result.result.pages_deleted.is_empty());
 
         let mgr = StateManager::open(tmp.path()).unwrap();
-        assert_eq!(mgr.state.layout[0].photos, vec!["p2.jpg"]);
+        assert_eq!(mgr.state().layout[0].photos, vec!["p2.jpg"]);
         mgr.finish("test: noop").unwrap();
     }
 
@@ -673,7 +691,7 @@ mod tests {
         assert!(!result.result.pages_inserted.is_empty());
 
         let mgr = StateManager::open(tmp.path()).unwrap();
-        assert_eq!(mgr.state.layout.len(), 3);
+        assert_eq!(mgr.state().layout.len(), 3);
         mgr.finish("test: noop").unwrap();
     }
 
@@ -698,10 +716,10 @@ mod tests {
 
         let mgr = StateManager::open(tmp.path()).unwrap();
         // Original page 0, new page (with p1.jpg), original page 1 (with p2.jpg)
-        assert_eq!(mgr.state.layout.len(), 3);
-        assert_eq!(mgr.state.layout[0].photos, vec!["p0.jpg"]);
-        assert!(mgr.state.layout[1].photos.contains(&"p1.jpg".to_owned()));
-        assert!(mgr.state.layout[2].photos.contains(&"p2.jpg".to_owned()));
+        assert_eq!(mgr.state().layout.len(), 3);
+        assert_eq!(mgr.state().layout[0].photos, vec!["p0.jpg"]);
+        assert!(mgr.state().layout[1].photos.contains(&"p1.jpg".to_owned()));
+        assert!(mgr.state().layout[2].photos.contains(&"p2.jpg".to_owned()));
         mgr.finish("test: noop").unwrap();
     }
 
@@ -723,8 +741,8 @@ mod tests {
         assert!(result.result.pages_deleted.contains(&0));
 
         let mgr = StateManager::open(tmp.path()).unwrap();
-        assert_eq!(mgr.state.layout.len(), 1);
-        assert!(mgr.state.layout[0].photos.contains(&"p0.jpg".to_owned()));
+        assert_eq!(mgr.state().layout.len(), 1);
+        assert!(mgr.state().layout[0].photos.contains(&"p0.jpg".to_owned()));
         mgr.finish("test: noop").unwrap();
     }
 
@@ -747,8 +765,8 @@ mod tests {
         assert!(result.result.pages_modified.is_empty());
 
         let mgr = StateManager::open(tmp.path()).unwrap();
-        assert_eq!(mgr.state.layout.len(), 1);
-        assert_eq!(mgr.state.layout[0].photos, vec!["p2.jpg"]);
+        assert_eq!(mgr.state().layout.len(), 1);
+        assert_eq!(mgr.state().layout[0].photos, vec!["p2.jpg"]);
         mgr.finish("test: noop").unwrap();
     }
 
@@ -773,12 +791,12 @@ mod tests {
 
         let mgr = StateManager::open(tmp.path()).unwrap();
         assert_eq!(
-            mgr.state.layout[0].photos,
+            mgr.state().layout[0].photos,
             vec!["c1.jpg", "c2.jpg", "c3.jpg"]
         );
-        assert_eq!(mgr.state.layout[1].photos, vec!["d1.jpg"]);
-        assert_eq!(mgr.state.layout[2].photos, vec!["a1.jpg", "a2.jpg"]);
-        assert_eq!(mgr.state.layout[3].photos, vec!["b1.jpg"]);
+        assert_eq!(mgr.state().layout[1].photos, vec!["d1.jpg"]);
+        assert_eq!(mgr.state().layout[2].photos, vec!["a1.jpg", "a2.jpg"]);
+        assert_eq!(mgr.state().layout[3].photos, vec!["b1.jpg"]);
         mgr.finish("test: noop").unwrap();
     }
 
@@ -806,12 +824,12 @@ mod tests {
         assert_eq!(result.result.pages_modified, vec![0, 1, 3, 4, 5]);
 
         let mgr = StateManager::open(tmp.path()).unwrap();
-        assert_eq!(mgr.state.layout[0].photos, vec!["c.jpg"]);
-        assert_eq!(mgr.state.layout[1].photos, vec!["d.jpg"]);
-        assert_eq!(mgr.state.layout[2].photos, vec!["e.jpg"]);
-        assert_eq!(mgr.state.layout[3].photos, vec!["M.jpg"]);
-        assert_eq!(mgr.state.layout[4].photos, vec!["a.jpg"]);
-        assert_eq!(mgr.state.layout[5].photos, vec!["b.jpg"]);
+        assert_eq!(mgr.state().layout[0].photos, vec!["c.jpg"]);
+        assert_eq!(mgr.state().layout[1].photos, vec!["d.jpg"]);
+        assert_eq!(mgr.state().layout[2].photos, vec!["e.jpg"]);
+        assert_eq!(mgr.state().layout[3].photos, vec!["M.jpg"]);
+        assert_eq!(mgr.state().layout[4].photos, vec!["a.jpg"]);
+        assert_eq!(mgr.state().layout[5].photos, vec!["b.jpg"]);
         mgr.finish("test: noop").unwrap();
     }
 
@@ -874,7 +892,10 @@ mod tests {
         execute_move(tmp.path(), cmd).unwrap();
 
         let mgr = StateManager::open(tmp.path()).unwrap();
-        assert_eq!(mgr.state.layout[0].photos, vec!["c.jpg", "b.jpg", "a.jpg"]);
+        assert_eq!(
+            mgr.state().layout[0].photos,
+            vec!["c.jpg", "b.jpg", "a.jpg"]
+        );
         mgr.finish("test: noop").unwrap();
     }
 
@@ -920,8 +941,8 @@ mod tests {
 
         let mgr = StateManager::open(tmp.path()).unwrap();
         // new page(b.jpg), page0(a.jpg), page1(c.jpg)
-        assert_eq!(mgr.state.layout.len(), 3);
-        assert!(mgr.state.layout[0].photos.contains(&"b.jpg".to_owned()));
+        assert_eq!(mgr.state().layout.len(), 3);
+        assert!(mgr.state().layout[0].photos.contains(&"b.jpg".to_owned()));
         mgr.finish("test: noop").unwrap();
     }
 
@@ -941,8 +962,8 @@ mod tests {
         execute_move(tmp.path(), cmd).unwrap();
 
         let mgr = StateManager::open(tmp.path()).unwrap();
-        assert_eq!(mgr.state.layout.len(), 2);
-        assert!(mgr.state.layout[1].photos.contains(&"a.jpg".to_owned()));
+        assert_eq!(mgr.state().layout.len(), 2);
+        assert!(mgr.state().layout[1].photos.contains(&"a.jpg".to_owned()));
         mgr.finish("test: noop").unwrap();
     }
 
@@ -971,7 +992,7 @@ mod tests {
         execute_move(tmp.path(), cmd).unwrap();
 
         let mgr = StateManager::open(tmp.path()).unwrap();
-        let dst = &mgr.state.layout[1];
+        let dst = &mgr.state().layout[1];
         // Manual page now holds both photos with matching slot counts.
         assert_eq!(dst.photos, vec!["p2.jpg", "p0.jpg"]);
         assert_eq!(dst.slots.len(), dst.photos.len());
@@ -980,7 +1001,7 @@ mod tests {
         assert_eq!((new.x_mm, new.y_mm), (50.0, 60.0));
         assert_eq!((new.width_mm, new.height_mm), (100.0, 80.0));
         // Source page lost the moved photo.
-        assert_eq!(mgr.state.layout[0].photos, vec!["p1.jpg"]);
+        assert_eq!(mgr.state().layout[0].photos, vec!["p1.jpg"]);
         mgr.finish("test: noop").unwrap();
     }
 
@@ -1033,11 +1054,11 @@ mod tests {
         execute_move(tmp.path(), cmd).unwrap();
 
         let mgr = StateManager::open(tmp.path()).unwrap();
-        let manual_slot = &mgr.state.layout[1].slots[0];
+        let manual_slot = &mgr.state().layout[1].slots[0];
         // Width kept (100), height now matches the incoming photo's ratio: 100 * 3/4 = 75.
         assert_eq!(manual_slot.width_mm, 100.0);
         assert!((manual_slot.height_mm - 75.0).abs() < 1e-9);
-        assert_eq!(mgr.state.layout[1].photos, vec!["p0.jpg"]);
+        assert_eq!(mgr.state().layout[1].photos, vec!["p0.jpg"]);
         mgr.finish("test: noop").unwrap();
     }
 

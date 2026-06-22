@@ -1,9 +1,10 @@
 use super::cover_page::{build_cover_page, split_cover_photos, update_cover_page};
 use crate::models::{
     BookConfig, BookLayoutSolverConfig, LayoutPage, PageLayoutSolverConfig, PageMode, PhotoFile,
-    PhotoGroup, ProjectState, build_photo_index,
+    PhotoGroup, build_photo_index,
 };
 use crate::solver::{Request, RequestType, run_solver};
+use crate::state_manager::{ReadOnlyState, WriteLayoutState};
 use anyhow::Result;
 use std::collections::HashSet;
 
@@ -12,15 +13,15 @@ use std::collections::HashSet;
 /// `range` is the half-open `[start, end)` layout slice being replaced, or `None`
 /// for a full-book solve. Returns the affected 0-based layout indices.
 pub(super) fn solve_multipage(
-    state: &mut ProjectState,
+    wls: &mut WriteLayoutState<'_>,
     groups: &[PhotoGroup],
     range: Option<(usize, usize)>,
     custom_config: Option<BookLayoutSolverConfig>,
 ) -> Result<Vec<usize>> {
-    let mut plan = SolverPlan::build(state, groups, range, custom_config);
+    let mut plan = SolverPlan::build(wls, groups, range, custom_config);
     let solved = run_solver(&plan.request())?;
     let pages = plan.assemble(solved)?;
-    plan.apply(state, pages)
+    plan.apply(wls, pages)
 }
 
 /// Everything the multi-page solver needs, plus the pieces carved out of `groups`
@@ -41,14 +42,16 @@ struct SolverPlan {
 impl SolverPlan {
     /// Input generation: choose the config, carve out structured cover and manual pages.
     fn build(
-        state: &ProjectState,
+        wls: &WriteLayoutState<'_>,
         groups: &[PhotoGroup],
         range: Option<(usize, usize)>,
         custom_config: Option<BookLayoutSolverConfig>,
     ) -> Self {
         let solver_config =
-            custom_config.unwrap_or_else(|| state.config.book_layout_solver.clone());
-        let book_config = state.config.book.clone();
+            custom_config.unwrap_or_else(|| wls.config().book_layout_solver.clone());
+        let book_config = wls.config().book.clone();
+        let page_layout_config = wls.config().page_layout_solver.clone();
+        let layout = wls.layout();
 
         let cover = &book_config.cover;
         let is_structured_cover = range.is_none() && cover.active && !cover.mode.is_free();
@@ -60,12 +63,12 @@ impl SolverPlan {
             (None, groups.to_vec())
         };
 
-        let (manual_snapshots, groups) = extract_manual_pages(&state.layout, &inner_groups, range);
+        let (manual_snapshots, groups) = extract_manual_pages(layout, &inner_groups, range);
 
         Self {
             groups,
             solver_config,
-            page_layout_solver_config: state.config.page_layout_solver.clone(),
+            page_layout_solver_config: page_layout_config,
             book_config,
             cover_files,
             manual_snapshots,
@@ -100,23 +103,26 @@ impl SolverPlan {
         Ok(pages)
     }
 
-    /// Writes the assembled pages into `state.layout`, refreshes a free-mode cover,
+    /// Writes the assembled pages into the layout, refreshes a free-mode cover,
     /// and returns the affected 0-based layout indices.
-    fn apply(&self, state: &mut ProjectState, pages: Vec<LayoutPage>) -> Result<Vec<usize>> {
-        let affected: Vec<usize> = if let Some((start, end)) = self.range {
-            let indices = (start..start + pages.len()).collect();
-            state.layout.splice(start..end, pages);
-            indices
-        } else {
-            let indices = (0..pages.len()).collect();
-            state.layout = pages;
-            indices
+    fn apply(&self, wls: &mut WriteLayoutState<'_>, pages: Vec<LayoutPage>) -> Result<Vec<usize>> {
+        let affected: Vec<usize> = {
+            let layout = wls.layout_mut();
+            if let Some((start, end)) = self.range {
+                let indices = (start..start + pages.len()).collect();
+                layout.splice(start..end, pages);
+                indices
+            } else {
+                let indices = (0..pages.len()).collect();
+                *layout = pages;
+                indices
+            }
         };
 
         let cover = &self.book_config.cover;
         if self.range.is_none_or(|r| r.0 == 0) && cover.active && cover.mode.is_free() {
-            let photo_index = build_photo_index(&state.photos);
-            update_cover_page(state, &photo_index)?;
+            let photo_index = build_photo_index(wls.photos());
+            update_cover_page(wls, &photo_index)?;
         }
 
         Ok(affected)

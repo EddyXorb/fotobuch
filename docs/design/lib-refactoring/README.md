@@ -1,7 +1,7 @@
 # Lib-Refactoring — Strukturvorschläge für `src/`
 
-> Status: teils umgesetzt. Abschnitte 1–3 sind im Kern erledigt (Details in den
-> separaten Plänen `0x-*.md`, siehe Abschnitt 12); Abschnitte 4–11 sind offen.
+> Status: teils umgesetzt. Abschnitte 1–5 sind im Kern erledigt (Details in den
+> separaten Plänen `0x-*.md`, siehe Abschnitt 12); Abschnitte 6–11 sind offen.
 > Reihenfolge je Abschnitt = Priorität. Kein fertiger Code, nur Ideen +
 > Signatur-Skizzen. Befunde mit `Datei:Zeile` belegt (offene Abschnitte gegen den
 > aktuellen Stand geprüft).
@@ -14,6 +14,9 @@ Leitprinzipien für alle Vorschläge:
   Domänenbegriffe exakt wie in `docs/book/src/glossary.md`.
 - **Konsistente Namensschemata.** Gleiche Rolle ⇒ gleiches Suffix/Präfix.
 - **Eine Wahrheit pro Konzept.** Gleiche Logik nicht mehrfach implementieren.
+
+Verbindliche, ausdiskutierte Regeln (State-Zugriff u. a.) stehen in
+[`../RULES.md`](../RULES.md).
 
 Inhalt:
 1. Kernproblem: Vielfalt der build-Methoden
@@ -80,8 +83,8 @@ Verben `build_`/`solve_`/`update_`. Plan: [`03-build-structure.md`](./03-build-s
 
 ## 4. Solver-Modul
 
-**Status: offen.** Vollständiger Plan: [`04-solver.md`](./04-solver.md). Befunde
-in Kürze:
+**Status: umgesetzt** (#45). Vollständiger Plan: [`04-solver.md`](./04-solver.md).
+Befunde in Kürze:
 
 - **Modul-Inception:** `solver/solver.rs` (`#[allow(module_inception)]`,
   `solver.rs:17`) und `ga_solver/solver.rs`.
@@ -99,11 +102,10 @@ in Kürze:
 
 ---
 
-## 5. Domänenmodell (`dto_models`)
+## 5. Domänenmodell (`dto_models` → `models`)
 
-**Status: offen** (Teil 5.2 Cover-Geometrie bereits erledigt, siehe
-[`02-cover.md`](./02-cover.md)). Vollständiger Plan:
-[`05-dto-models.md`](./05-dto-models.md). Befunde in Kürze:
+**Status: umgesetzt** (#48; `dto_models` heißt jetzt `models`). Vollständiger
+Plan: [`05-dto-models.md`](./05-dto-models.md). Befunde in Kürze:
 
 - **Name `dto_models`** suggeriert Logiklosigkeit, ist aber Domänenmodell.
 - **Logik auf DTOs:** `ProjectState` als Gott-Objekt-Keim (Persistence +
@@ -118,26 +120,35 @@ in Kürze:
 
 ## 6. `state_manager`
 
-- **`mgr.state: pub`** (`state_manager.rs:60`) öffnet die Kapselung — ~200
-  Stellen greifen direkt auf `mgr.state.*` zu und können Invarianten (Numerierung,
-  Validität) verletzen, ohne dass `StateManager` es bemerkt. Zugriff über Methoden
-  kanalisieren (zumindest schreibend).
-- **`renumber_pages` ist freie `pub`-Funktion** mit ungenutztem `_has_cover`
-  (`state_manager.rs:29`, dead param) und wird von Commands direkt importiert
-  (`remove.rs:252`, `build/plan.rs:72`) → als Methode auf `ProjectState`/
-  `[LayoutPage]` kapseln, toten Parameter entfernen.
-- **Zwei Wege zum State:** `StateManager::open` (mit Lifecycle/Auto-Commit) vs.
-  freie `load_project_state()` (`state_manager.rs:390`, ohne Garantien) → kein
-  Typschutz vor falscher Wahl. `open()` hat zudem unsichtbaren Seiteneffekt
-  (`auto_commit_manual_edits`, `:125`), kaum dokumentiert.
-- **`finish_always` Rückgabe inkonsistent:** liefert `Option<ProjectState>`,
-  obwohl per Doku immer `Some` → `Result<ProjectState>` ohne `Option`.
-- **Veralteter Doc-Kommentar:** `ensure_build_baseline` nennt Varianten
-  `"Loaded"/"NoBuildCommit"`, real `LazyLoad::Failed` (`:289`).
-- **Sichtbarkeit in `state_diff.rs`** uneinheitlich (`pub` statt `pub(super)` für
-  rein interne Helfer).
-- `page_change_detection.rs` (1025 Z.) ist v. a. Tests (~770) — ok, aber
-  Test-Fixtures extrahierbar.
+**Status: offen.** Vollständiger Plan: [`06-state-manager.md`](./06-state-manager.md).
+Befunde in Kürze:
+
+- **Toter No-Op `renumber_pages`** (`state_manager.rs:27`, seit Wegfall von
+  `LayoutPage.page` funktionslos) plus drei Aufrufstellen → ersatzlos löschen.
+- **`finish_always`** gibt `Result<Option<ProjectState>>`, committet aber immer →
+  `Option` überflüssig.
+- **Doc-Drift** (`ensure_build_baseline` nennt `"NoBuildCommit"` statt `Failed`),
+  übergroße `pub`-Sichtbarkeit der `state_diff`-Helfer, Test-lastiges
+  `page_change_detection.rs`.
+- **Kernthema Kapselung:** `mgr.state: pub` (186 Zugriffe) öffnet beliebiges
+  Mutieren; Footprint von Änderungen ist „von weitem" unsichtbar.
+
+**Designentscheidungen** (ausdiskutiert, festgehalten in [`../RULES.md`](../RULES.md)):
+
+- **Trichotomie:** Domänen-Lesen über *ein* breites `state() -> &ProjectState`;
+  Manager-Lesen (git-Baseline, Pfade) über `mgr`-Methoden nur an der Spitze;
+  Domänen-Schreiben nur über schmale `layout_mut()`/`photos_mut()`/`config_mut()`.
+  `&mut ProjectState` und ein `state_mut()` entfallen.
+- **Wirbelsäulen-Regel:** `mgr` lebt nur auf der Orchestrierungs-Spitze (Pipeline
+  + direkte Schritt-Helfer) und wird **nie eine Schicht tiefer** gereicht; schmale
+  Borrows gehen nach unten (*narrow early*, Muster Lesen→entscheiden→schreiben).
+- **Read-only** als eigener Typ: `open_readonly()` liefert einen schmalen
+  Lese-Handle (kein `finish`/`*_mut`) und ersetzt das freie `load_project_state`.
+- **Validität** bleibt zentral in `finish()` (Drop warnt); kein Per-Edit-Check.
+
+Kontrolliert: Edit-Commands erfüllen die Wirbelsäulen-Regel bereits; nur der
+build-Pfad reicht `mgr` eine Schicht zu tief (`build_layout` → `build_full_book`)
+und die Solver-Engines nehmen noch `&mut ProjectState` — beides löst der Plan auf.
 
 ---
 
@@ -440,7 +451,9 @@ Themenblock in eigenen Dateien neben diesem Dokument:
 - [`04-solver.md`](./04-solver.md) — Modul-/Namensstruktur des Solvers
   (Abschnitt 4; umgesetzt).
 - [`05-dto-models.md`](./05-dto-models.md) — Domänenmodell entlogiken & Typen
-  stärken (Abschnitt 5; offen).
+  stärken (Abschnitt 5; umgesetzt).
+- [`06-state-manager.md`](./06-state-manager.md) — `state_manager` aufräumen &
+  Kapselung schärfen (Abschnitt 6; offen).
 
 Weitere Pläne (Commands …) folgen demselben Schema.
 

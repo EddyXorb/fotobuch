@@ -19,12 +19,9 @@ use std::path::{Path, PathBuf};
 use tracing::{debug, warn};
 
 use crate::git;
-use crate::models::{LayoutPage, ProjectState, read_state_yaml, write_state_yaml};
+use crate::models::{ProjectState, read_state_yaml, write_state_yaml};
 use crate::state_manager::state_diff::StateDiff;
 
-/// No-op kept for call-site compatibility. `LayoutPage` no longer carries a
-/// redundant `page` index field — the array position is the canonical identity.
-pub fn renumber_pages(_layout: &mut [LayoutPage], _has_cover: bool) {}
 // ── BuildBaseline ─────────────────────────────────────────────────────────────
 
 /// Lazy reference state from the last `build:` or `rebuild:` git commit.
@@ -41,10 +38,6 @@ enum LazyLoad {
 // ── StateManager ─────────────────────────────────────────────────────────────
 
 /// Central project state manager.
-///
-/// `state` is intentionally `pub` so commands can take disjoint borrows on
-/// `mgr.state.photos` and `mgr.state.layout` simultaneously without borrowing
-/// the whole manager.
 pub struct StateManager {
     project_root: PathBuf,
     project_name: String,
@@ -133,6 +126,32 @@ impl StateManager {
         &self.project_root
     }
 
+    /// Current project state (read-only).
+    pub fn state(&self) -> &ProjectState {
+        &self.state
+    }
+
+    /// Write-view for the layout field; drop before calling `finish`.
+    pub fn get_write_layout_state(&mut self) -> WriteLayoutState<'_> {
+        WriteLayoutState {
+            state: &mut self.state,
+        }
+    }
+
+    /// Write-view for the photos field; drop before calling `finish`.
+    pub fn get_write_photos_state(&mut self) -> WritePhotosState<'_> {
+        WritePhotosState {
+            state: &mut self.state,
+        }
+    }
+
+    /// Write-view for the config field; drop before calling `finish`.
+    pub fn get_write_config_state(&mut self) -> WriteConfigState<'_> {
+        WriteConfigState {
+            state: &mut self.state,
+        }
+    }
+
     /// Path to `{project_root}/.fotobuch/cache/{project_name}/`.
     pub fn cache_dir(&self) -> PathBuf {
         self.project_root
@@ -197,9 +216,9 @@ impl StateManager {
     ///
     /// Use this for commands like `release_build` that need a git marker commit
     /// even when no state changes occur.
-    /// Returns `Some(state)` always (a commit is always created).
-    pub fn finish_always(self, message: &str) -> Result<Option<ProjectState>> {
+    pub fn finish_always(self, message: &str) -> Result<ProjectState> {
         self.finish_internal(message, true)
+            .map(|opt| opt.expect("finish_always guarantees a commit"))
     }
 
     // ── private helpers ───────────────────────────────────────────────────────
@@ -212,8 +231,6 @@ impl StateManager {
         if let Err(e) = self.state.check_validity() {
             warn!("State is not clean before commit! Reason(s): {e}");
         }
-        let has_cover = self.state.config.book.cover.active;
-        renumber_pages(&mut self.state.layout, has_cover);
         let diff = StateDiff::compute(&self.baseline, &self.state);
 
         if diff.is_empty() && !always_commit {
@@ -284,7 +301,7 @@ impl StateManager {
         }
     }
 
-    /// Resolves `build_baseline` from `Pending` to either `Loaded` or `NoBuildCommit`.
+    /// Resolves `build_baseline` from `Pending` to either `Loaded` or `Failed`.
     /// No-op when already resolved.
     fn ensure_build_baseline(&self) {
         if matches!(*self.build_baseline.borrow(), LazyLoad::Pending) {
@@ -383,9 +400,140 @@ impl Drop for StateManager {
     }
 }
 
-/// Load the current project's state from disk (no StateManager overhead).
-/// Used by commands that do not use StateManager::finish() (undo, redo, project_switch).
-pub fn load_project_state(project_root: &Path) -> Result<ProjectState> {
+// ── Sealed inner trait ────────────────────────────────────────────────────────
+
+mod inner {
+    use crate::models::ProjectState;
+
+    pub trait Inner {
+        fn state_ref(&self) -> &ProjectState;
+        fn state_mut(&mut self) -> &mut ProjectState;
+    }
+}
+
+// ── ReadOnlyState ─────────────────────────────────────────────────────────────
+
+/// Uniform read-only interface shared by all Write\*State views.
+///
+/// Implemented for [`WriteLayoutState`], [`WritePhotosState`], and
+/// [`WriteConfigState`]. Import this trait to access `layout`, `photos`,
+/// `config`, and `state` on any of the three views.
+pub trait ReadOnlyState: inner::Inner {
+    fn layout(&self) -> &[crate::models::LayoutPage] {
+        &self.state_ref().layout
+    }
+    fn photos(&self) -> &[crate::models::PhotoGroup] {
+        &self.state_ref().photos
+    }
+    fn config(&self) -> &crate::models::ProjectConfig {
+        &self.state_ref().config
+    }
+    fn state(&self) -> &ProjectState {
+        self.state_ref()
+    }
+}
+
+// ── Write views ───────────────────────────────────────────────────────────────
+
+/// Write-view that exposes `layout_mut()` plus read-only access via [`ReadOnlyState`].
+///
+/// Returned by [`StateManager::get_write_layout_state`]. Drop before calling
+/// [`StateManager::finish`] / [`StateManager::finish_always`].
+pub struct WriteLayoutState<'a> {
+    state: &'a mut ProjectState,
+}
+
+impl<'a> WriteLayoutState<'a> {
+    pub fn layout_mut(&mut self) -> &mut Vec<crate::models::LayoutPage> {
+        &mut self.state.layout
+    }
+
+    #[cfg(test)]
+    pub(crate) fn for_test(state: &'a mut ProjectState) -> Self {
+        WriteLayoutState { state }
+    }
+}
+
+impl inner::Inner for WriteLayoutState<'_> {
+    fn state_ref(&self) -> &ProjectState {
+        self.state
+    }
+    fn state_mut(&mut self) -> &mut ProjectState {
+        self.state
+    }
+}
+impl ReadOnlyState for WriteLayoutState<'_> {}
+
+/// Write-view that exposes `photos_mut()` plus read-only access via [`ReadOnlyState`].
+///
+/// Returned by [`StateManager::get_write_photos_state`].
+pub struct WritePhotosState<'a> {
+    state: &'a mut ProjectState,
+}
+
+impl<'a> WritePhotosState<'a> {
+    pub fn photos_mut(&mut self) -> &mut Vec<crate::models::PhotoGroup> {
+        &mut self.state.photos
+    }
+}
+
+impl inner::Inner for WritePhotosState<'_> {
+    fn state_ref(&self) -> &ProjectState {
+        self.state
+    }
+    fn state_mut(&mut self) -> &mut ProjectState {
+        self.state
+    }
+}
+impl ReadOnlyState for WritePhotosState<'_> {}
+
+/// Write-view that exposes `config_mut()` plus read-only access via [`ReadOnlyState`].
+///
+/// Returned by [`StateManager::get_write_config_state`].
+pub struct WriteConfigState<'a> {
+    state: &'a mut ProjectState,
+}
+
+impl<'a> WriteConfigState<'a> {
+    pub fn config_mut(&mut self) -> &mut crate::models::ProjectConfig {
+        &mut self.state.config
+    }
+}
+
+impl inner::Inner for WriteConfigState<'_> {
+    fn state_ref(&self) -> &ProjectState {
+        self.state
+    }
+    fn state_mut(&mut self) -> &mut ProjectState {
+        self.state
+    }
+}
+impl ReadOnlyState for WriteConfigState<'_> {}
+
+// ── ReadHandle ────────────────────────────────────────────────────────────────
+
+/// Lightweight read-only view of a project loaded from disk.
+///
+/// Created by [`open_readonly`]. Has no auto-commit, no `finish`, no Drop warning.
+pub struct ReadHandle {
+    state: ProjectState,
+}
+
+impl ReadHandle {
+    pub fn state(&self) -> &ProjectState {
+        &self.state
+    }
+
+    pub fn into_state(self) -> ProjectState {
+        self.state
+    }
+}
+
+/// Open the current project read-only — branch → YAML, no git overhead.
+///
+/// Use for commands that only need to read state after a git operation
+/// (undo, redo, project switch).
+pub fn open_readonly(project_root: &Path) -> Result<ReadHandle> {
     let repo = git::open_repo(project_root)?;
     let branch = git::current_branch(&repo)?;
     let project_name = branch.strip_prefix("fotobuch/").with_context(|| {
@@ -395,7 +543,8 @@ pub fn load_project_state(project_root: &Path) -> Result<ProjectState> {
         )
     })?;
     let yaml_path = project_root.join(format!("{project_name}.yaml"));
-    read_state_yaml(&yaml_path)
+    let state = read_state_yaml(&yaml_path)?;
+    Ok(ReadHandle { state })
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────
