@@ -1,5 +1,5 @@
 use super::cover_page::update_cover_page;
-use crate::models::{BookConfig, LayoutPage, PageLayoutSolverConfig, PhotoFile, PhotoGroup};
+use crate::models::{LayoutPage, PhotoFile, PhotoGroup};
 use crate::run_solver;
 use crate::solver::{Request, RequestType};
 use crate::state_manager::{ReadOnlyState, WriteLayoutState};
@@ -37,36 +37,28 @@ pub(super) fn solve_single_page(
     if page_idx == 0 && wls.config().book.cover.active {
         update_cover_page(wls, photo_index)
     } else {
-        let book_config = wls.config().book.clone();
-        let page_layout_config = wls.config().page_layout_solver.clone();
-        solve_inner_page(
-            wls.layout_mut(),
-            page_idx,
-            &book_config,
-            &page_layout_config,
-            files,
-        )
+        solve_inner_page(wls, page_idx, files)
     }
 }
 
 // ── inner pages ───────────────────────────────────────────────────────────────
 
 fn solve_inner_page(
-    layout: &mut [LayoutPage],
+    wls: &mut WriteLayoutState<'_>,
     page_idx: usize,
-    book_config: &BookConfig,
-    page_layout_config: &PageLayoutSolverConfig,
     files: Vec<PhotoFile>,
 ) -> Result<()> {
     let group = photo_group_for_page(page_idx, files);
+    let book_config = wls.config().book.clone();
+    let page_layout_config = wls.config().page_layout_solver.clone();
     let request = Request {
         request_type: RequestType::SinglePage,
         groups: &[group],
-        page_layout_config,
-        canvas_config: book_config,
+        page_layout_config: &page_layout_config,
+        canvas_config: &book_config,
     };
     let result = run_solver(&request)?;
-    apply_result(layout, page_idx, result)
+    apply_result(wls.layout_mut(), page_idx, result)
 }
 
 // ── shared helpers ────────────────────────────────────────────────────────────

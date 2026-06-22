@@ -1,7 +1,4 @@
-use crate::models::{
-    BookConfig, CoverConfig, CoverGeometry, LayoutPage, PageLayoutSolverConfig, PageMode,
-    PhotoFile, PhotoGroup,
-};
+use crate::models::{CoverConfig, CoverGeometry, LayoutPage, PageMode, PhotoFile, PhotoGroup};
 use crate::run_solver;
 use crate::solver::cover_solver::{compute_cover_slots, warn_slot_count_mismatch};
 use crate::solver::{Request, RequestType};
@@ -38,24 +35,17 @@ pub(super) fn update_cover_page(
         .collect();
 
     if wls.config().book.cover.mode.is_free() {
-        let book_config = wls.config().book.clone();
-        let page_layout_config = wls.config().page_layout_solver.clone();
-        update_cover_free(wls.layout_mut(), &book_config, &page_layout_config, files)
+        update_cover_free(wls, files)
     } else {
-        let book_config = wls.config().book.clone();
-        update_cover_structured(wls.layout_mut(), &book_config, files, photo_index)
+        update_cover_structured(wls, files, photo_index)
     }
 }
 
-fn update_cover_free(
-    layout: &mut [LayoutPage],
-    book_config: &BookConfig,
-    page_layout_config: &PageLayoutSolverConfig,
-    files: Vec<PhotoFile>,
-) -> Result<()> {
-    let cover = &book_config.cover;
-    let inner_page_count = layout.len() - 1;
-    let spread_config = CoverGeometry::new(cover, inner_page_count);
+fn update_cover_free(wls: &mut WriteLayoutState<'_>, files: Vec<PhotoFile>) -> Result<()> {
+    let cover = wls.config().book.cover.clone();
+    let page_layout_config = wls.config().page_layout_solver.clone();
+    let inner_page_count = wls.layout().len() - 1;
+    let spread_config = CoverGeometry::new(&cover, inner_page_count);
     let group = PhotoGroup {
         group: "page_0".to_string(),
         sort_key: String::new(),
@@ -64,38 +54,36 @@ fn update_cover_free(
     let request = Request {
         request_type: RequestType::SinglePage,
         groups: &[group],
-        page_layout_config,
+        page_layout_config: &page_layout_config,
         canvas_config: &spread_config,
     };
     let result = run_solver(&request)?;
     if result.is_empty() {
         anyhow::bail!("Solver returned no result for cover page");
     }
-    layout[0].slots = result[0].slots.clone();
-    layout[0].photos = result[0].photos.clone();
+    wls.layout_mut()[0].slots = result[0].slots.clone();
+    wls.layout_mut()[0].photos = result[0].photos.clone();
     Ok(())
 }
 
 fn update_cover_structured(
-    layout: &mut [LayoutPage],
-    book_config: &BookConfig,
+    wls: &mut WriteLayoutState<'_>,
     files: Vec<PhotoFile>,
     photo_index: &HashMap<String, (PhotoFile, String)>,
 ) -> Result<()> {
-    let cover = &book_config.cover;
-    let mode = cover.mode;
-    let inner_page_count = layout.len() - 1;
+    let cover = wls.config().book.cover.clone();
+    let inner_page_count = wls.layout().len() - 1;
 
-    warn_slot_count_mismatch(mode, files.len());
+    warn_slot_count_mismatch(cover.mode, files.len());
 
-    let ratios: Vec<f64> = layout[0]
+    let ratios: Vec<f64> = wls.layout()[0]
         .photos
         .iter()
         .filter_map(|id| photo_index.get(id))
         .map(|(f, _)| f.aspect_ratio())
         .collect();
 
-    layout[0].slots = compute_cover_slots(cover, &ratios, inner_page_count)?;
+    wls.layout_mut()[0].slots = compute_cover_slots(&cover, &ratios, inner_page_count)?;
     Ok(())
 }
 
