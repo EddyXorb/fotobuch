@@ -194,7 +194,6 @@ mod tests {
         let ctx = egui::Context::default();
         let mut project = minimal_project();
         project.layout = vec![fotobuch::models::LayoutPage {
-            page: 0,
             photos: vec![],
             slots: vec![],
             mode: fotobuch::models::PageMode::Auto,
