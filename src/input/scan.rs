@@ -1,5 +1,4 @@
-mod helper;
-mod metadata;
+pub(crate) mod helper;
 mod scanner;
 mod types;
 
@@ -12,7 +11,6 @@ use scanner::Scanner;
 
 // Re-export public API
 pub use helper::parse_timestamp_from_name;
-pub use metadata::enrich_photo_metadata;
 pub use types::{ScanStats, ScannerFilters, ScannerInput, ScannerOutput};
 
 #[cfg(test)]
@@ -65,6 +63,7 @@ pub fn scan_photo_group_dirs(root: &Path) -> Result<Vec<PhotoGroup>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::input::exif::enrich_photo_metadata;
     use crate::models::PhotoFile;
 
     #[test]

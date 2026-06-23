@@ -1,7 +1,7 @@
 //! Preview image cache generation
 
 use crate::cache::common::{is_cache_fresh, preview_path, resize_and_save};
-use crate::input::scan::enrich_photo_metadata;
+use crate::input::exif::enrich_photo_metadata;
 use crate::models::{PhotoFile, ProjectState};
 use anyhow::Result;
 use rayon::prelude::*;

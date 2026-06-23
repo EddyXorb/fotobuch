@@ -4,7 +4,7 @@ use image::metadata::Orientation;
 use std::path::PathBuf;
 use tracing::warn;
 
-use super::helper::{naive_to_utc, parse_timestamp_from_name};
+use crate::input::scan::helper::{naive_to_utc, parse_timestamp_from_name};
 use crate::models::PhotoFile;
 
 /// Tries to read EXIF metadata from a photo to get timestamp and dimensions.

@@ -9,8 +9,8 @@ use crate::models::{PhotoFile, PhotoGroup};
 use super::helper::{
     get_all_dirs_recursive, is_supported_image, naive_to_utc, parse_timestamp_from_name,
 };
-use super::metadata::enrich_photo_metadata;
 use super::types::{ScanStats, ScannerFilters, ScannerInput};
+use crate::input::exif::enrich_photo_metadata;
 
 pub(super) struct Scanner {
     pub(super) filters: ScannerFilters,
