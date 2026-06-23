@@ -6,6 +6,12 @@ use std::path::Path;
 
 use crate::{commands::CommandOutput, git, state_manager::open_readonly, undo_stack};
 
+/// Configuration for undo/redo commands
+#[derive(Debug, Clone)]
+pub struct UndoConfig {
+    pub steps: usize,
+}
+
 #[derive(Debug)]
 pub struct UndoResult {
     /// Whether uncommitted changes were auto-committed as "wip: before undo".
@@ -20,7 +26,8 @@ pub struct UndoResult {
 ///
 /// If the working tree is dirty the changes are committed automatically as
 /// `wip: before undo` so they can be recovered via `redo`.
-pub fn undo(project_root: &Path, steps: usize) -> Result<CommandOutput<UndoResult>> {
+pub fn undo(project_root: &Path, config: &UndoConfig) -> Result<CommandOutput<UndoResult>> {
+    let steps = config.steps;
     if steps == 0 {
         bail!("Steps must be at least 1.");
     }
@@ -65,7 +72,8 @@ pub fn undo(project_root: &Path, steps: usize) -> Result<CommandOutput<UndoResul
 }
 
 /// Redo `steps` commits that were previously undone.
-pub fn redo(project_root: &Path, steps: usize) -> Result<CommandOutput<UndoResult>> {
+pub fn redo(project_root: &Path, config: &UndoConfig) -> Result<CommandOutput<UndoResult>> {
+    let steps = config.steps;
     if steps == 0 {
         bail!("Steps must be at least 1.");
     }
@@ -208,7 +216,7 @@ mod tests {
     #[test]
     fn undo_one_step() {
         let (dir, _repo) = setup_repo_with_commits(3);
-        let result = undo(dir.path(), 1).unwrap();
+        let result = undo(dir.path(), &UndoConfig { steps: 1 }).unwrap();
 
         assert_eq!(result.result.undone_message, "commit 3");
         assert_eq!(result.result.current_message, "commit 2");
@@ -218,7 +226,7 @@ mod tests {
     #[test]
     fn undo_two_steps() {
         let (dir, _repo) = setup_repo_with_commits(3);
-        undo(dir.path(), 2).unwrap();
+        undo(dir.path(), &UndoConfig { steps: 2 }).unwrap();
         assert_eq!(head_content(&dir), "v1");
     }
 
@@ -226,10 +234,10 @@ mod tests {
     fn undo_then_redo() {
         let (dir, _repo) = setup_repo_with_commits(3);
 
-        undo(dir.path(), 1).unwrap();
+        undo(dir.path(), &UndoConfig { steps: 1 }).unwrap();
         assert_eq!(head_content(&dir), "v2");
 
-        let result = redo(dir.path(), 1).unwrap();
+        let result = redo(dir.path(), &UndoConfig { steps: 1 }).unwrap();
         assert_eq!(result.result.current_message, "commit 3");
         assert_eq!(head_content(&dir), "v3");
     }
@@ -238,28 +246,28 @@ mod tests {
     fn redo_clears_after_new_commit() {
         let (dir, repo) = setup_repo_with_commits(3);
 
-        undo(dir.path(), 1).unwrap();
+        undo(dir.path(), &UndoConfig { steps: 1 }).unwrap();
 
         // Make a new commit — redo stack should be cleared
         fs::write(dir.path().join("file.txt"), "new").unwrap();
         git::stage_and_commit(&repo, &["file.txt"], "new commit").unwrap();
 
-        let err = redo(dir.path(), 1).unwrap_err();
+        let err = redo(dir.path(), &UndoConfig { steps: 1 }).unwrap_err();
         assert!(err.to_string().contains("Nothing to redo"));
     }
 
     #[test]
     fn undo_too_many_steps_fails() {
         let (dir, _repo) = setup_repo_with_commits(2);
-        let err = undo(dir.path(), 5).unwrap_err();
+        let err = undo(dir.path(), &UndoConfig { steps: 5 }).unwrap_err();
         assert!(err.to_string().contains("cannot undo"));
     }
 
     #[test]
     fn redo_more_than_available_fails() {
         let (dir, _repo) = setup_repo_with_commits(3);
-        undo(dir.path(), 1).unwrap();
-        let err = redo(dir.path(), 2).unwrap_err();
+        undo(dir.path(), &UndoConfig { steps: 1 }).unwrap();
+        let err = redo(dir.path(), &UndoConfig { steps: 2 }).unwrap_err();
         assert!(err.to_string().contains("Only 1 redo step(s) available"));
     }
 
@@ -270,14 +278,14 @@ mod tests {
         // Modify file without committing
         fs::write(dir.path().join("file.txt"), "dirty").unwrap();
 
-        let result = undo(dir.path(), 1).unwrap();
+        let result = undo(dir.path(), &UndoConfig { steps: 1 }).unwrap();
         assert!(result.result.wip_committed);
 
         // After undo 1: WIP was committed as HEAD, then HEAD~1 = v2
         assert_eq!(head_content(&dir), "v2");
 
         // Redo should restore the WIP commit (content = "dirty")
-        let redo_result = redo(dir.path(), 1).unwrap();
+        let redo_result = redo(dir.path(), &UndoConfig { steps: 1 }).unwrap();
         assert_eq!(redo_result.result.current_message, "wip: before undo");
         assert_eq!(head_content(&dir), "dirty");
     }
@@ -285,12 +293,12 @@ mod tests {
     #[test]
     fn redo_with_dirty_state_fails() {
         let (dir, _repo) = setup_repo_with_commits(3);
-        undo(dir.path(), 1).unwrap();
+        undo(dir.path(), &UndoConfig { steps: 1 }).unwrap();
 
         // Dirty state
         fs::write(dir.path().join("file.txt"), "dirty").unwrap();
 
-        let err = redo(dir.path(), 1).unwrap_err();
+        let err = redo(dir.path(), &UndoConfig { steps: 1 }).unwrap_err();
         assert!(err.to_string().contains("uncommitted changes"));
     }
 
@@ -298,12 +306,12 @@ mod tests {
     fn multiple_undos_then_redo_all() {
         let (dir, _repo) = setup_repo_with_commits(4);
 
-        undo(dir.path(), 1).unwrap(); // → v3
-        undo(dir.path(), 1).unwrap(); // → v2
-        undo(dir.path(), 1).unwrap(); // → v1
+        undo(dir.path(), &UndoConfig { steps: 1 }).unwrap(); // → v3
+        undo(dir.path(), &UndoConfig { steps: 1 }).unwrap(); // → v2
+        undo(dir.path(), &UndoConfig { steps: 1 }).unwrap(); // → v1
         assert_eq!(head_content(&dir), "v1");
 
-        redo(dir.path(), 3).unwrap(); // → v4
+        redo(dir.path(), &UndoConfig { steps: 3 }).unwrap(); // → v4
         assert_eq!(head_content(&dir), "v4");
     }
 }

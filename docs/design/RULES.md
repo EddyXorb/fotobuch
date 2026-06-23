@@ -1,84 +1,69 @@
 # Architektur-Regeln für `src/`
 
-> Projektweite Design-Regeln aus dem Lib-Refactoring.
-> Verbindlich für neuen und geänderten Code. Konkrete Umsetzungspläne liegen
-> in [`lib-refactoring/`](./lib-refactoring/README.md).
+> Verbindlich für neuen und geänderten Code. Pläne: [`lib-refactoring/`](./lib-refactoring/README.md).
 
 ## State-Zugriff über den `StateManager`
 
-**Ziel.** Auf Anhieb erkennbar machen, *was* am State verändert wird und *in
-welchem Umfang*; verändernden Zugriff so eng wie nötig halten; und Schreibrecht
-soll unmittelbar zum Schreiben führen (kein breiter, ungenutzter Zugriff).
+**Ziel:** Footprint einer Änderung von „weitem" sichtbar; Schreibzugriff so schmal
+wie nötig; „verändern können" zieht „verändern" nach sich.
 
-### R1 — Trichotomie des Zugriffs
+- **R1 — Trichotomie.** Domänen-Lesen: `state() -> &ProjectState`. Manager-Lesen
+  (git-Baseline, Pfade): `mgr`-Methoden, nur an der Spitze. Schreiben: über die
+  View-Konstruktoren `mgr.write_*()` (R7); `*_mut()` lebt auf der View, nicht am
+  `StateManager`. Kein `&mut ProjectState`, kein `state_mut()`.
 
-Das Risiko ist asymmetrisch: Lesen kann keine Invariante verletzen, Schreiben
-schon; Lebenszyklus, Pfade und Git-Verwaltung gehören allein dem Manager.
-Daraus ergeben sich drei Zugriffsarten:
+- **R2 — Lesen breit, Schreiben schmal.** Ein breiter `state()`-Getter; Schreiben
+  nur feldweise. (Lesen kann keine Invariante verletzen, Schreiben schon.)
 
-| Zugriff | Accessor | gültig in |
-|---|---|---|
-| **Domänen-Lesen** (aus `ProjectState`) | `mgr.state() -> &ProjectState` | überall, wohin weitergereicht |
-| **Manager-Lesen** (Git-Baseline, Pfade) | `mgr.…()` → *owned* Ergebnis | nur oberste Schicht |
-| **Domänen-Schreiben** | `mgr.get_write_layout_state()` / `get_write_photos_state()` / `get_write_config_state()` | nur oberste Schicht, als schmaler Borrow weitergereicht |
+- **R3 — Wirbelsäule.** `mgr` hält nur die Orchestrierungs-Spitze (Pipeline +
+  direkte Schritt-Helfer) und wird **nie eine Schicht tiefer** gereicht — nur
+  schmale Borrows gehen runter.
 
-`&mut ProjectState` und ein Sammel-`state_mut()` existieren **nicht**.
+- **R4 — Narrow early.** Orchestrator-Muster **Lesen → entscheiden → schreiben**:
+  Lese-Abgeleitetes vorher als *owned* ziehen, dann schreiben.
 
-### R2 — Lesen breit, Schreiben schmal
+- **R5 — Read-only ist ein eigener Typ.** `open()` = voller Lebenszyklus;
+  `open_readonly()` = Lese-Handle (kein `finish`/`*_mut`/Auto-Commit). Kein
+  `readonly`-Flag. State-Reads tiefer unten laufen über `&ProjectState` — **kein**
+  `ReadState`-Typ (R7).
 
-- Genau **ein** breiter Lese-Getter `state() -> &ProjectState`. Keine drei
-  getrennten Lesezugriffe; Lesen ist risikolos.
-- Schreiben **nur über benannte View-Typen** (`WriteLayoutState` usw.). Der
-  Typname ist der sichtbare Footprint.
+- **R6 — Validität zentral.** `finish()` prüft vor dem Commit, `Drop` warnt. Kein
+  Per-Edit-Check.
 
-### R3 — Wirbelsäulenregel
+- **R7 — State-Views statt Parameter-Explosion.** Wrapper über `&mut ProjectState`
+  mit genau *einem* schreibbaren Feld; Typname = Footprint:
+  `WriteLayoutState` / `WritePhotosState` / `WriteConfigState`. Reines Lesen →
+  `&ProjectState`. Erzeugt nur an der Spitze (R3), als *ein* Parameter nach unten.
+  Keine layout+photos-Kombi, bis eine Operation beide gleichzeitig mutabel braucht.
 
-`mgr` hält ausschließlich die **Orchestrierungs-Wirbelsäule** eines Commands:
-die Pipeline-Funktion und ihre direkten Schritt-Helfer (z. B. `refresh_cache`,
-`build_layout`, `finish`). Diese Schicht führt alle Lesezugriffe und
-Write-View-Konstruktoren selbst durch und reicht **nur schmale Borrows** eine
-Ebene tiefer. `mgr` wird **niemals tiefer weitergereicht**.
+  ```rust
+  struct WriteLayoutState<'a>(&'a mut ProjectState);
+  // layout_mut() schreibt; layout()/photos()/config() lesen
+  fn solve_multipage(s: &mut WriteLayoutState, …) -> …
+  ```
 
-### R4 — Erst lesen, dann schreiben
+  *Grenze:* `photos()` und `layout_mut()` nicht gleichzeitig live (beide borgen den
+  View) → Reads vorher als owned ziehen (R4); interner Feld-Split nur als Ausnahme.
 
-Die Verengung geschieht **oben** im Orchestrator, nicht im Blattknoten.
-Muster pro Command: **Lesen → Entscheiden → Schreiben**.
+- **R8 — Einheitlicher Schreib-Flow.** Jeder schreibende Command kapselt
+  `open → Ausführung → finish` über `run_write_command` in seiner Top-Level-Funktion.
+  Die Closure ist die Orchestrierungs-Spitze (R3): sie liest/validiert über `state()`,
+  erzeugt **eine** Write-View (`write_*()`, R7) und übergibt **diese** — nicht den
+  `mgr` — an die eigentliche Schreib-Unterfunktion. So sieht man am Signaturtyp den
+  Footprint, und der Commit-Flow ist über alle Commands gleich.
 
-```rust
-let plan = plan_xyz(mgr.state(), config)?;              // Lesen: &ProjectState → owned Plan
-{
-    let mut wls = mgr.get_write_layout_state();         // Schreiben: Footprint oben sichtbar
-    apply_xyz(wls.layout_mut(), &plan);
-}
-mgr.finish("…")?;
-```
+  ```rust
+  pub fn foo(root: &Path, cfg: &FooConfig) -> Result<CommandOutput<FooResult>> {
+      run_write_command(root, |mgr| {
+          // lesen/entscheiden über mgr.state() (R4)
+          let mut view = mgr.write_layout();
+          let result = apply_foo(&mut view, cfg)?; // Unterfunktion bekommt nur die View
+          Ok((commit_msg, result))
+      })
+  }
+  fn apply_foo(s: &mut WriteLayoutState, cfg: &FooConfig) -> Result<FooResult> { … }
+  ```
 
-Wer den (kurzen) Orchestrator liest, sieht den vollständigen Footprint; die
-Blatt-Helfer (`apply_xyz(layout: &mut Vec<LayoutPage>, …)`) bestätigen ihn nur.
-
-Gleichzeitiges Lesen-A-und-Schreiben-B löst sich über R4 fast immer auf: den
-Lesewert zuerst als *owned* Wert ziehen (Indizes, Pläne), dann schreiben. Nur
-wenn ein Lesewert sich nachweislich nicht als owned Wert ziehen lässt, ist ein
-einzelner maßgeschneiderter Split-Accessor die **dokumentierte Ausnahme**.
-
-### R5 — Read-only-Zugriff ist ein eigener Typ
-
-- `StateManager::open()` = voller Lebenszyklus (Auto-Commit beim Öffnen,
-  `finish`, Drop-Warnung).
-- `StateManager::open_readonly()` liefert einen **eigenen schmalen Lese-Handle**
-  (kein `finish`, kein Write-View, kein Auto-Commit, keine Drop-Warnung). Der
-  eingeschränkte Zugriff ist damit *im Typ* sichtbar und wird vom Compiler erzwungen.
-- Die Lese-Oberfläche lebt einmal in einem gemeinsamen Lesekern, den `StateManager`
-  enthält. Kein `readonly`-Flag (das ließe Schreibzugriffe weiterhin aufrufbar).
-
-### R6 — Validität an einer Stelle
-
-`finish()` validiert autoritativ vor dem Commit; `Drop` warnt bei nicht
-committeten Änderungen. Ein blockierender Check pro Einzel-Bearbeitung ist nicht nötig.
-
-### R7 — Write-Facades nur unterhalb des Einstiegspunkts
-
-Write-State-Facades (`WriteLayoutState` usw.) werden ausschließlich in Ebenen
-unterhalb des Command-Einstiegspunkts eingesetzt — also dann, wenn schmale
-Borrows an Unterfunktionen weitergegeben werden. Gibt es keine Unterfunktionen,
-wird direkt auf `mgr.state` operiert.
+- **R9 — Dateigrößen-Limit.** Kein Modul in `src/` darf mehr als 300 nicht-Test-Zeilen haben.
+  Überschreitet ein Modul diese Grenze, wird es thematisch in Untermods aufgeteilt (Modul-Konvention:
+  gleichnamige Root-Datei + Unterordner mit Submod-Dateien).

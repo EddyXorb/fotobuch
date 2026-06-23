@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-use fotobuch::commands::page::{self as page_cmd, InfoFilter, SlotInfo};
+use fotobuch::commands::page::{self as page_cmd, InfoFilter, PageSlotInfo};
 
 use super::common::project_root;
 use crate::cli::page::parse_api::parse_info_address;
@@ -38,7 +38,7 @@ pub fn handle_info(address: &str, filter: InfoFilter) -> Result<()> {
     Ok(())
 }
 
-fn print_vertical(s: &SlotInfo) {
+fn print_vertical(s: &PageSlotInfo) {
     let ratio = s.width_px as f64 / s.height_px as f64;
     let page_label = if s.is_cover {
         format!("page {} [cover]", s.page)
@@ -65,7 +65,7 @@ fn print_vertical(s: &SlotInfo) {
     }
 }
 
-fn print_table(slots: &[SlotInfo]) {
+fn print_table(slots: &[PageSlotInfo]) {
     struct Row {
         slot: String,
         ratio: String,

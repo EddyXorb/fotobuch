@@ -2,9 +2,9 @@
 
 use std::path::Path;
 
-use crate::commands::CommandOutput;
+use crate::commands::{CommandOutput, run_write_command};
 use crate::models::PageMode;
-use crate::state_manager::StateManager;
+use crate::state_manager::{ReadOnlyState, WriteLayoutState};
 
 use super::{
     helpers::{format_pages_list, page_idx},
@@ -24,34 +24,43 @@ pub fn execute_mode(
     pages: PagesExpr,
     mode: PageMode,
 ) -> Result<CommandOutput<PageModeResult>, PageMoveError> {
-    let mut mgr = StateManager::open(project_root)?;
+    run_write_command(project_root, |mgr| {
+        if pages.pages.is_empty() {
+            return Err(ValidationError::PageNotFound(0).into());
+        }
 
-    if pages.pages.is_empty() {
-        return Err(ValidationError::PageNotFound(0).into());
-    }
+        let mut view = mgr.get_write_layout_state();
+        let pages_changed = set_page_modes(&mut view, &pages.pages, mode)?;
 
+        let mode_str = match mode {
+            PageMode::Auto => "auto",
+            PageMode::Manual => "manual",
+        };
+        let pages_str = format_pages_list(&pages.pages);
+        Ok((
+            format!("page mode {}: {}", pages_str, mode_str),
+            PageModeResult {
+                pages_changed,
+                new_mode: mode,
+            },
+        ))
+    })
+}
+
+/// Set the given pages to `mode`, returning the page numbers that were changed.
+fn set_page_modes(
+    s: &mut WriteLayoutState,
+    pages: &[u32],
+    mode: PageMode,
+) -> Result<Vec<u32>, ValidationError> {
     let mut pages_changed = Vec::new();
-    for &page_num in &pages.pages {
-        let idx = page_idx(page_num, &mgr.state.layout)?;
+    for &page_num in pages {
+        let idx = page_idx(page_num, s.layout())?;
         // Auto is skipped at serialization time; see LayoutPage::mode.
-        mgr.state.layout[idx].mode = mode;
+        s.layout_mut()[idx].mode = mode;
         pages_changed.push(page_num);
     }
-
-    let mode_str = match mode {
-        PageMode::Auto => "auto",
-        PageMode::Manual => "manual",
-    };
-    let pages_str = format_pages_list(&pages.pages);
-    let changed_state = mgr.finish(&format!("page mode {}: {}", pages_str, mode_str))?;
-
-    Ok(CommandOutput {
-        result: PageModeResult {
-            pages_changed,
-            new_mode: mode,
-        },
-        changed_state,
-    })
+    Ok(pages_changed)
 }
 
 #[cfg(test)]

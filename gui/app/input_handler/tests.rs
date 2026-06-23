@@ -187,7 +187,7 @@ fn nav_drag_complete_noop_when_same_page() {
     assert!(cmds.is_empty(), "same page → no-op");
 }
 
-fn layout_page_with_slots(page: usize, n_slots: usize) -> fotobuch::models::LayoutPage {
+fn layout_page_with_slots(n_slots: usize) -> fotobuch::models::LayoutPage {
     use fotobuch::models::{LayoutPage, PageMode, Slot};
     LayoutPage {
         photos: vec![],
@@ -288,10 +288,7 @@ fn data_with_layout(layout: Vec<fotobuch::models::LayoutPage>) -> crate::state::
 fn swap_range_uses_full_selection_when_dragged_slot_selected() {
     let mut state = state_with_selection(0, vec![1, 2, 3]);
     state.interaction.drag.mode = crate::state::DragMode::Swap;
-    let data = data_with_layout(vec![
-        layout_page_with_slots(0, 4),
-        layout_page_with_slots(1, 6),
-    ]);
+    let data = data_with_layout(vec![layout_page_with_slots(4), layout_page_with_slots(6)]);
     state.interaction.hovered = Some(HoveredTarget::Page {
         page: 1,
         slot: Some(0),
@@ -324,10 +321,7 @@ fn swap_range_uses_full_selection_when_dragged_slot_selected() {
 fn swap_range_noop_when_target_too_narrow() {
     let mut state = state_with_selection(0, vec![0, 1, 2]);
     state.interaction.drag.mode = crate::state::DragMode::Swap;
-    let data = data_with_layout(vec![
-        layout_page_with_slots(0, 3),
-        layout_page_with_slots(1, 2),
-    ]);
+    let data = data_with_layout(vec![layout_page_with_slots(3), layout_page_with_slots(2)]);
     state.interaction.hovered = Some(HoveredTarget::Page {
         page: 1,
         slot: Some(0),
@@ -350,10 +344,7 @@ fn swap_range_noop_when_target_too_narrow() {
 fn swap_range_noop_when_selection_not_contiguous() {
     let mut state = state_with_selection(0, vec![0, 2]);
     state.interaction.drag.mode = crate::state::DragMode::Swap;
-    let data = data_with_layout(vec![
-        layout_page_with_slots(0, 4),
-        layout_page_with_slots(1, 4),
-    ]);
+    let data = data_with_layout(vec![layout_page_with_slots(4), layout_page_with_slots(4)]);
     state.interaction.hovered = Some(HoveredTarget::Page {
         page: 1,
         slot: Some(0),
@@ -376,10 +367,7 @@ fn swap_range_noop_when_selection_not_contiguous() {
 fn swap_falls_back_to_single_when_selection_is_one() {
     let mut state = state_with_selection(0, vec![1]);
     state.interaction.drag.mode = crate::state::DragMode::Swap;
-    let data = data_with_layout(vec![
-        layout_page_with_slots(0, 3),
-        layout_page_with_slots(1, 3),
-    ]);
+    let data = data_with_layout(vec![layout_page_with_slots(3), layout_page_with_slots(3)]);
     state.interaction.hovered = Some(HoveredTarget::Page {
         page: 1,
         slot: Some(2),
@@ -489,8 +477,8 @@ fn rebuild_without_selection_opens_confirm_path() {
     ));
 }
 
-fn manual_layout_page(page: usize, n_slots: usize) -> fotobuch::models::LayoutPage {
-    let mut p = layout_page_with_slots(page, n_slots);
+fn manual_layout_page(n_slots: usize) -> fotobuch::models::LayoutPage {
+    let mut p = layout_page_with_slots(n_slots);
     p.mode = fotobuch::models::PageMode::Manual;
     p
 }
@@ -502,7 +490,7 @@ fn move_onto_manual_page_emits_move_to_manual_at_ghost_position() {
     // slot's upper-left at (60-10, 70-20) = (50, 50).
     let mut state = state_with_selection(0, vec![0]);
     state.interaction.drag.mode = crate::state::DragMode::Move;
-    let data = data_with_layout(vec![layout_page_with_slots(0, 1), manual_layout_page(1, 1)]);
+    let data = data_with_layout(vec![layout_page_with_slots(1), manual_layout_page(1)]);
     state.interaction.hovered = Some(HoveredTarget::Page {
         page: 1,
         slot: Some(0),
@@ -539,7 +527,7 @@ fn move_onto_manual_page_emits_move_to_manual_at_ghost_position() {
 fn swap_onto_manual_page_is_allowed() {
     let mut state = state_with_selection(0, vec![0]);
     state.interaction.drag.mode = crate::state::DragMode::Swap;
-    let data = data_with_layout(vec![layout_page_with_slots(0, 1), manual_layout_page(1, 2)]);
+    let data = data_with_layout(vec![layout_page_with_slots(1), manual_layout_page(2)]);
     state.interaction.hovered = Some(HoveredTarget::Page {
         page: 1,
         slot: Some(1),

@@ -9,6 +9,7 @@ mod mode;
 mod move_cmd;
 mod pos;
 mod split;
+mod swap;
 mod types;
 mod weight;
 
@@ -16,7 +17,7 @@ mod weight;
 pub(crate) mod test_fixtures;
 
 pub use combine::execute_combine;
-pub(crate) use helpers::{delete_empty_pages, page_idx, remove_slots, resolve_slots};
+pub(crate) use helpers::{apply_unplace, delete_empty_pages, format_pages_list};
 pub use info::execute_info;
 pub use mode::{PageModeResult, execute_mode};
 pub use move_cmd::execute_move;
@@ -24,6 +25,6 @@ pub use pos::{PosConfig, PosMode, PosResult, SlotChange, execute_pos};
 pub use split::execute_split;
 pub use types::{
     DstMove, DstSwap, InfoFilter, PageInfoResult, PageMoveCmd, PageMoveError, PageMoveResult,
-    PagesExpr, SlotExpr, SlotInfo, SlotItem, Src, ValidationError, WeightAddress,
+    PageSlotInfo, PagesExpr, SlotExpr, SlotItem, Src, ValidationError, WeightAddress,
 };
 pub use weight::execute_weight;

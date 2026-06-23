@@ -1,16 +1,16 @@
 use fotobuch::commands::build::{BuildConfig, BuildPlan, build};
 use fotobuch::commands::config::config_set;
-use fotobuch::commands::undo::{redo, undo};
+use fotobuch::commands::undo::{UndoConfig, redo, undo};
 
 use crate::background::send_command_done;
 use crate::task::BackgroundResult;
 
 pub fn run_undo(rctx: &mut crate::background::RenderCtx<'_>) {
-    run_undo_or_redo(undo(rctx.project_root, 1), rctx);
+    run_undo_or_redo(undo(rctx.project_root, &UndoConfig { steps: 1 }), rctx);
 }
 
 pub fn run_redo(rctx: &mut crate::background::RenderCtx<'_>) {
-    run_undo_or_redo(redo(rctx.project_root, 1), rctx);
+    run_undo_or_redo(redo(rctx.project_root, &UndoConfig { steps: 1 }), rctx);
 }
 
 fn run_undo_or_redo(

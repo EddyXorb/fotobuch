@@ -27,7 +27,7 @@ pub struct ConfigResult {
 /// and the raw YAML value for detecting which fields were explicitly set vs. defaulted.
 ///
 /// StateManager::open() auto-commits any pending user edits before reading config.
-pub fn config(project_root: &Path) -> Result<CommandOutput<ConfigResult>> {
+pub fn current_config(project_root: &Path) -> Result<CommandOutput<ConfigResult>> {
     let mgr = StateManager::open(project_root)?;
 
     Ok(CommandOutput {

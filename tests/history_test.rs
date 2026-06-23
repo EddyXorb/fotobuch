@@ -55,7 +55,8 @@ fn test_history_with_commits() -> Result<()> {
         .current_dir(dir)
         .output()?;
 
-    let entries = fotobuch::commands::history(dir, 0)?.result;
+    let entries =
+        fotobuch::commands::history(dir, &fotobuch::commands::HistoryConfig { count: 0 })?.result;
 
     assert!(!entries.is_empty());
     assert!(entries.len() >= 2);
@@ -72,7 +73,11 @@ fn test_history_with_commits() -> Result<()> {
 #[test]
 fn test_history_no_git_repo() -> Result<()> {
     let temp_dir = TempDir::new()?;
-    let entries = fotobuch::commands::history(temp_dir.path(), 5)?.result;
+    let entries = fotobuch::commands::history(
+        temp_dir.path(),
+        &fotobuch::commands::HistoryConfig { count: 5 },
+    )?
+    .result;
     assert!(entries.is_empty());
     Ok(())
 }
@@ -85,7 +90,11 @@ fn test_history_empty_repo() -> Result<()> {
         .current_dir(temp_dir.path())
         .output()?;
 
-    let entries = fotobuch::commands::history(temp_dir.path(), 5)?.result;
+    let entries = fotobuch::commands::history(
+        temp_dir.path(),
+        &fotobuch::commands::HistoryConfig { count: 5 },
+    )?
+    .result;
     assert!(entries.is_empty());
     Ok(())
 }
@@ -108,8 +117,10 @@ fn test_history_count_limit() -> Result<()> {
             .output()?;
     }
 
-    let all = fotobuch::commands::history(dir, 0)?.result;
-    let limited = fotobuch::commands::history(dir, 5)?.result;
+    let all =
+        fotobuch::commands::history(dir, &fotobuch::commands::HistoryConfig { count: 0 })?.result;
+    let limited =
+        fotobuch::commands::history(dir, &fotobuch::commands::HistoryConfig { count: 5 })?.result;
 
     assert!(all.len() >= 8); // 7 + initial
     assert_eq!(limited.len(), 5);
@@ -123,7 +134,11 @@ fn test_history_timestamp_has_valid_datetime() -> Result<()> {
     let temp_dir = TempDir::new()?;
     init_git_repo(&temp_dir)?;
 
-    let entries = fotobuch::commands::history(temp_dir.path(), 5)?.result;
+    let entries = fotobuch::commands::history(
+        temp_dir.path(),
+        &fotobuch::commands::HistoryConfig { count: 5 },
+    )?
+    .result;
 
     assert!(!entries.is_empty());
     // timestamp is a DateTime<FixedOffset>; year should be >= 2024

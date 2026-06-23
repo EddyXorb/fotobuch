@@ -17,7 +17,7 @@ pub struct StatusConfig {
 
 /// Overall project state
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ProjectState_ {
+pub enum ProjectStatus {
     /// No layout exists yet
     Empty,
     /// Layout exists, nothing changed since last build
@@ -28,7 +28,7 @@ pub enum ProjectState_ {
 
 /// Information about a single photo on a page
 #[derive(Debug, Clone)]
-pub struct SlotInfo {
+pub struct StatusSlotInfo {
     /// Photo ID
     pub photo_id: String,
     /// Aspect ratio (width/height)
@@ -49,16 +49,16 @@ pub struct PageDetail {
     /// Whether this page was modified since last build
     pub modified: bool,
     /// Information about each photo slot
-    pub slots: Vec<SlotInfo>,
+    pub slots: Vec<StatusSlotInfo>,
 }
 
 /// Overall project status report
 #[derive(Debug, Clone)]
-pub struct StatusReport {
+pub struct StatusResult {
     /// Project name
     pub project_name: String,
     /// Overall state (empty/clean/modified)
-    pub state: ProjectState_,
+    pub state: ProjectStatus,
     /// Total number of photos
     pub total_photos: usize,
     /// Number of groups
@@ -77,19 +77,8 @@ pub struct StatusReport {
     pub warnings: Vec<String>,
 }
 
-/// Count photos not placed in layout
 fn count_unplaced(state: &ProjectState) -> usize {
-    let placed_ids: HashSet<&str> = state
-        .layout
-        .iter()
-        .flat_map(|p| p.photos.iter().map(String::as_str))
-        .collect();
-    state
-        .photos
-        .iter()
-        .flat_map(|g| &g.files)
-        .filter(|f| !placed_ids.contains(f.id.as_str()))
-        .count()
+    state.unplaced_photo_files().count()
 }
 
 /// Check consistency between photos and layout
@@ -196,7 +185,7 @@ fn build_page_detail(
     // Check if this page was modified since last build
     let modified = modified_pages.contains(&page_num);
 
-    let slots: Vec<SlotInfo> = page
+    let slots: Vec<StatusSlotInfo> = page
         .photos
         .iter()
         .enumerate()
@@ -206,7 +195,7 @@ fn build_page_detail(
                 .get(i)
                 .map(|s| (s.x_mm, s.y_mm, s.width_mm, s.height_mm))
                 .unwrap_or((0.0, 0.0, 0.0, 0.0));
-            SlotInfo {
+            StatusSlotInfo {
                 photo_id: id.clone(),
                 ratio: ratios[i],
                 swap_group: swap_groups[i],
@@ -224,7 +213,7 @@ fn build_page_detail(
 }
 
 /// Show project status (read-only)
-pub fn status(project_root: &Path, config: &StatusConfig) -> Result<CommandOutput<StatusReport>> {
+pub fn status(project_root: &Path, config: &StatusConfig) -> Result<CommandOutput<StatusResult>> {
     let mgr = StateManager::open(project_root)?;
     let project_name = mgr.project_name().to_owned();
 
@@ -241,13 +230,13 @@ pub fn status(project_root: &Path, config: &StatusConfig) -> Result<CommandOutpu
 
     // Determine project state and changed pages
     let (project_state, page_changes) = if mgr.state.layout.is_empty() {
-        (ProjectState_::Empty, vec![])
+        (ProjectStatus::Empty, vec![])
     } else {
         let modified = mgr.outdated_pages_indices();
         if modified.is_empty() {
-            (ProjectState_::Clean, vec![])
+            (ProjectStatus::Clean, vec![])
         } else {
-            (ProjectState_::Modified, modified)
+            (ProjectStatus::Modified, modified)
         }
     };
 
@@ -261,7 +250,7 @@ pub fn status(project_root: &Path, config: &StatusConfig) -> Result<CommandOutpu
         .transpose()?;
 
     Ok(CommandOutput {
-        result: StatusReport {
+        result: StatusResult {
             project_name,
             state: project_state,
             total_photos,

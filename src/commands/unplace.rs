@@ -2,56 +2,41 @@
 
 use std::path::Path;
 
-use crate::commands::CommandOutput;
-use crate::state_manager::StateManager;
+use crate::commands::page::{PageMoveError, SlotExpr, apply_unplace};
+use crate::commands::{CommandOutput, run_write_command};
 
-use crate::commands::page::{
-    PageMoveError, PageMoveResult, SlotExpr, delete_empty_pages, page_idx, remove_slots,
-    resolve_slots,
-};
+/// Result of unplacing photos.
+#[derive(Debug)]
+pub struct UnplaceResult {
+    pub pages_modified: Vec<u32>,
+    pub pages_inserted: Vec<u32>,
+    pub pages_deleted: Vec<u32>,
+}
 
 /// Remove photos from the layout at the given page:slot address.
 ///
 /// Photos are kept in `state.photos` (they become "unplaced").
-/// Returns the 0-based page numbers that were modified.
 pub fn execute_unplace(
     project_root: &Path,
     page: u32,
     slots: SlotExpr,
-) -> Result<CommandOutput<PageMoveResult>, PageMoveError> {
-    let mut mgr = StateManager::open(project_root)?;
-
-    let slot_indices = resolve_slots(page, &slots, &mgr.state.layout)?;
-    if slot_indices.is_empty() {
-        let changed_state = mgr.finish("")?;
-        return Ok(CommandOutput {
-            result: PageMoveResult {
-                pages_modified: vec![],
+) -> Result<CommandOutput<UnplaceResult>, PageMoveError> {
+    run_write_command(project_root, |mgr| {
+        let mut view = mgr.get_write_layout_state();
+        let (deleted, modified) = apply_unplace(view.layout_mut(), page, &slots)?;
+        let commit_msg = if deleted.is_empty() && modified.is_empty() {
+            String::new()
+        } else {
+            format!("unplace: page {page}")
+        };
+        Ok((
+            commit_msg,
+            UnplaceResult {
+                pages_modified: modified,
                 pages_inserted: vec![],
-                pages_deleted: vec![],
+                pages_deleted: deleted,
             },
-            changed_state,
-        });
-    }
-
-    let page_idx_val = page_idx(page, &mgr.state.layout)?;
-    remove_slots(&mut mgr.state.layout, page_idx_val, slot_indices);
-    let deleted = delete_empty_pages(&mut mgr.state.layout);
-    let modified = if deleted.contains(&page) {
-        vec![]
-    } else {
-        vec![page]
-    };
-
-    let changed_state = mgr.finish(&format!("unplace: page {page}"))?;
-
-    Ok(CommandOutput {
-        result: PageMoveResult {
-            pages_modified: modified,
-            pages_inserted: vec![],
-            pages_deleted: deleted,
-        },
-        changed_state,
+        ))
     })
 }
 

@@ -79,7 +79,7 @@ fn test_status_empty_layout() -> Result<()> {
     let config = StatusConfig { page: None };
     let report = status(&project_root, &config)?.result;
 
-    assert_eq!(report.state, ProjectState_::Empty);
+    assert_eq!(report.state, ProjectStatus::Empty);
     assert_eq!(report.page_count, 0);
     assert_eq!(report.page_changes.len(), 0);
     assert!(report.detail.is_none());
@@ -96,7 +96,7 @@ fn test_status_clean() -> Result<()> {
     let config = StatusConfig { page: None };
     let report = status(&project_root, &config)?.result;
 
-    assert_eq!(report.state, ProjectState_::Clean);
+    assert_eq!(report.state, ProjectStatus::Clean);
     assert!(report.page_count > 0);
     assert_eq!(report.page_changes.len(), 0);
     assert!(report.detail.is_none());
@@ -245,7 +245,7 @@ fn test_status_modified_after_manual_edit() -> Result<()> {
         let report = status(&project_root, &config)?.result;
 
         // Status should show modifications
-        assert_eq!(report.state, ProjectState_::Modified);
+        assert_eq!(report.state, ProjectStatus::Modified);
         assert!(!report.page_changes.is_empty());
     }
 

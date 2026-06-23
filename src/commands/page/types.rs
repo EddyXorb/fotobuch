@@ -124,6 +124,10 @@ pub enum DstSwap {
 }
 
 /// Parsed `page move` command — either a move or a swap.
+///
+/// Intentional exception to the Config/Result pattern: this enum is a CLI
+/// parse-time discriminator, not a general config struct, and is only used
+/// by the CLI layer before dispatching to `execute_move` / `execute_swap`.
 #[derive(Debug, Clone, PartialEq)]
 pub enum PageMoveCmd {
     Move { src: Src, dst: DstMove },
@@ -247,7 +251,7 @@ impl InfoFilter {
 
 /// Per-slot info record returned by `execute_info`.
 #[derive(Debug, Clone)]
-pub struct SlotInfo {
+pub struct PageSlotInfo {
     /// 0-based page number.
     pub page: u32,
     /// 0-based slot number.
@@ -272,7 +276,7 @@ pub struct SlotInfo {
 /// Result of `execute_info`.
 #[derive(Debug)]
 pub struct PageInfoResult {
-    pub slots: Vec<SlotInfo>,
+    pub slots: Vec<PageSlotInfo>,
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────

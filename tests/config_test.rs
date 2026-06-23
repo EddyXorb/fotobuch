@@ -1,7 +1,7 @@
 //! Integration tests for `fotobuch config` command
 
 use anyhow::Result;
-use fotobuch::commands::{config, render_config};
+use fotobuch::commands::{current_config as config, render_config};
 use std::path::PathBuf;
 use tempfile::TempDir;
 

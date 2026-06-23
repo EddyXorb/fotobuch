@@ -19,17 +19,17 @@ pub fn handle(page: Option<usize>) -> Result<()> {
     );
 
     match report.state {
-        commands::ProjectState_::Empty => {
+        commands::ProjectStatus::Empty => {
             info!("Layout: empty (not yet built)");
         }
-        commands::ProjectState_::Clean => {
+        commands::ProjectStatus::Clean => {
             info!(
                 "Layout: {} pages, {:.1} photos/page avg",
                 report.page_count, report.avg_photos_per_page
             );
             info!("Status: clean (no changes since last build)");
         }
-        commands::ProjectState_::Modified => {
+        commands::ProjectStatus::Modified => {
             info!(
                 "Layout: {} pages, {:.1} photos/page avg",
                 report.page_count, report.avg_photos_per_page

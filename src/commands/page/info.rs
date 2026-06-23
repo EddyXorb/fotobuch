@@ -7,7 +7,7 @@ use crate::commands::CommandOutput;
 use crate::models::{CoverGeometry, PhotoFile, ProjectState};
 
 use super::helpers::{page_idx, resolve_slots};
-use super::types::{InfoFilter, PageInfoResult, PageMoveError, SlotInfo, Src};
+use super::types::{InfoFilter, PageInfoResult, PageMoveError, PageSlotInfo, Src};
 
 fn page_dims(state: &ProjectState, idx: usize) -> (bool, f64, f64) {
     let book = &state.config.book;
@@ -55,7 +55,7 @@ pub fn execute_info(
                 let (is_cover, page_width_mm, page_height_mm) = page_dims(&mgr.state, idx);
                 for (i, photo_id) in lp.photos.iter().enumerate() {
                     if let Some(pf) = photo_map.get(photo_id.as_str()) {
-                        slots.push(SlotInfo {
+                        slots.push(PageSlotInfo {
                             page: p,
                             slot: i as u32,
                             id: pf.id.clone(),
@@ -86,7 +86,7 @@ pub fn execute_info(
             for &i in &slot_indices {
                 let photo_id = &lp.photos[i];
                 if let Some(pf) = photo_map.get(photo_id.as_str()) {
-                    slots.push(SlotInfo {
+                    slots.push(PageSlotInfo {
                         page: p,
                         slot: i as u32 + 1,
                         id: pf.id.clone(),

@@ -21,6 +21,9 @@ unsichtbar. (b) setzt die in `RULES.md` festgehaltenen Regeln R1–R6 um.
 - **R4 Narrow early:** Orchestrator-Muster Lesen→entscheiden→schreiben; Lese-
   Abgeleitetes vorher als *owned* ziehen.
 - **R5 Read-only** als eigener Typ via `open_readonly()`.
+- **R7 State-Views:** statt vieler Einzel-Parameter ein Wrapper über
+  `&mut ProjectState` mit *einem* schreibbaren Feld (`WriteLayoutState` /
+  `WritePhotosState` / `WriteConfigState`); Lesen über `&ProjectState`.
 
 ## Was offen ist (verifiziert)
 
@@ -67,16 +70,18 @@ ohne `finish`/`*_mut`/Auto-Commit/Drop-Warnung. `load_project_state` entfällt;
 `undo`/`redo`/`project switch` migrieren auf `open_readonly`.
 *Verify:* read-only-Konsumenten kompilieren; kein Verhaltenswechsel; Tests grün.
 
-**J6 · `refactor(state): channel writes through narrow field accessors`**
-`layout_mut()`/`photos_mut()`/`config_mut()` einführen; `state` von `pub` auf
-`pub(crate)`/privat (Lesen über `state()`). Vorhandene `&mut mgr.state.<feld>`-
-Stellen (~17) darauf umstellen. **Kein** `state_mut()`.
+**J6 · `refactor(state): channel writes through the StateManager`**
+`state` von `pub` auf `pub(crate)`/privat (Lesen über `state()`); vorhandene
+`&mut mgr.state.<feld>`-Stellen (~17) umstellen. **Kein** `state_mut()`. Die erste
+Umsetzung führte bare `layout_mut()`/`photos_mut()`/`config_mut()` am `StateManager`
+ein — diese ersetzt J11 durch die View-Konstruktoren.
 *Verify:* nichts mutiert mehr `state` direkt von außen; Tests grün.
 
 **J7 · `refactor(solver): narrow solve engines off &mut ProjectState`** (R1)
-`solve_multipage`/`solve_single_page`: `&mut ProjectState` → `&mut Vec<LayoutPage>`
-(write) + `&BookConfig`/`&BookLayoutSolverConfig`/`&[PhotoGroup]` (read). `SolverPlan`
-entsprechend mit schmalen Borrows speisen.
+`solve_multipage`/`solve_single_page`: weg von `&mut ProjectState`. Erste Umsetzung
+nutzte schmale Einzel-Borrows — das ließ die Signaturen explodieren (8 Params +
+`#[allow(too_many_arguments)]`). Die Endform ist der View aus J11; J7 kann direkt
+darauf zielen.
 *Verify:* gleiche Layout-Ausgabe (Solver-/Snapshot-Tests); Tests grün.
 
 **J8 · `refactor(build): keep mgr on the spine, pass narrow borrows down`** (R3/R4)
@@ -92,6 +97,22 @@ Edit-Helfer (`place_chronologically`, `place_into_*`, `remove_from_*`, …) von
 `&mut ProjectState` auf das geschriebene Feld + owned Lese-Args verengen; die
 Command-Orchestratoren in Lese-/Schreibphase gliedern (Footprint oben sichtbar).
 *Verify:* unverändertes Verhalten; Tests grün.
+
+**J11 · `refactor(state): collapse exploded signatures into Write*State views`** (R7)
+Die in der ersten 06-Umsetzung entstandenen Vielparameter-Signaturen (v. a.
+`solve_multipage`/`SolverPlan::build`, `too_many_arguments`) durch die View-Typen
+ersetzen:
+- `WriteLayoutState<'a>(&'a mut ProjectState)` mit `layout_mut()` + Lese-Gettern
+  (`layout`/`photos`/`config`); analog `WritePhotosState`, `WriteConfigState`.
+- **Bare `StateManager::{layout,photos,config}_mut()` entfernen** — die
+  Schreib-Oberfläche des `StateManager` ist genau `write_layout()`/`write_photos()`/
+  `write_config()` (Views) + `state()` (Lesen). `*_mut()` lebt nur auf der View.
+- An der Spitze via `mgr.write_layout()` etc. erzeugt (R3), als *ein* Parameter
+  nach unten gereicht. Helfer, die nur ein Feld schreiben, bekommen `&mut Vec<…>`
+  aus `view.layout_mut()`.
+- Reines Lesen bleibt `&ProjectState` (kein `ReadState`). Keine layout+photos-Kombi.
+*Verify:* `too_many_arguments`-`allow`s entfallen; keine bare `*_mut()` mehr am
+`StateManager`; gleiche Ausgabe; Tests grün.
 
 ### Optional
 
