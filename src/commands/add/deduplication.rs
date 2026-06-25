@@ -1,6 +1,6 @@
 //! Duplicate detection for photo files
 
-use crate::input::metadata::compute_partial_hash;
+use crate::input::hashing::compute_partial_hash;
 use crate::models::PhotoFile;
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
@@ -84,7 +84,7 @@ pub fn deduplicate(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::input::metadata::compute_partial_hash;
+    use crate::input::hashing::compute_partial_hash;
     use crate::models::PhotoFile;
     use chrono::Utc;
     use std::collections::{HashMap, HashSet};

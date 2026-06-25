@@ -1,7 +1,7 @@
 # Lib-Refactoring — Strukturvorschläge für `src/`
 
-> Status: teils umgesetzt. Abschnitte 1–6 sind im Kern erledigt (Details in den
-> separaten Plänen `0x-*.md`, siehe Abschnitt 12); Abschnitte 7–11 sind offen.
+> Status: teils umgesetzt. Abschnitte 1–7 sind im Kern erledigt (Details in den
+> separaten Plänen `0x-*.md`, siehe Abschnitt 12); Abschnitte 8–11 sind offen.
 > Reihenfolge je Abschnitt = Priorität. Kein fertiger Code, nur Ideen +
 > Signatur-Skizzen. Befunde mit `Datei:Zeile` belegt (offene Abschnitte gegen den
 > aktuellen Stand geprüft).
@@ -160,7 +160,7 @@ und die Solver-Engines nehmen noch `&mut ProjectState` — beides löst der Plan
 
 ## 7. Commands: Duplizierung, Struktur, Config/Result-Muster
 
-**Status: offen.** Vollständiger Plan: [`07-commands.md`](./07-commands.md).
+**Status: umgesetzt** (#50). Vollständiger Plan: [`07-commands.md`](./07-commands.md).
 Befunde in Kürze:
 
 - **7.1 Duplizierung:** „unplaced finden" 3×, „leere Seiten entfernen" 2×,
@@ -181,33 +181,29 @@ Implementierung zusammenführen. Details im Plan.
 
 ## 8. `input`-Modul
 
-- **Zwei `metadata.rs` auf verschiedenen Ebenen:** `input/metadata.rs` (nur
-  `compute_partial_hash`, Duplikat-Hashing) vs. `input/scan/metadata.rs`
-  (`enrich_photo_metadata`, EXIF/Orientierung). Nur über Pfad unterscheidbar →
-  `input/metadata.rs` → `input/hashing.rs`.
-- **`enrich_photo_metadata` als Teil der Scan-API exportiert**
-  (`scan.rs:16`), ist aber konzeptuell kein Scanner-Output, sondern ein
-  Enricher → Exportpfad korrigieren.
-- **Kommentar-Leiche** `// pub mod grouper; // Will be added in Commit 5`
-  (`input.rs:6`) entfernen.
+**Status: offen.** Vollständiger Plan: [`08-input.md`](./08-input.md). Befunde in
+Kürze:
+
+- **Zwei `metadata.rs`, nur über den Pfad unterscheidbar:** `input/metadata.rs`
+  (`compute_partial_hash`, Hashing) vs. `input/scan/metadata.rs`
+  (`enrich_photo_metadata`, EXIF) → Hashing-Datei umbenennen.
+- **`enrich_photo_metadata` als Scan-API exportiert**, aber auch von
+  `cache/preview_cache.rs` genutzt → als Enricher auf Input-Ebene rehomen.
+- **Kommentar-Leiche** `// pub mod grouper;` (`input.rs:6`).
 
 ---
 
 ## 9. Querschnitt: Namens- & Sprachkonsistenz
 
-- **Deutsch/Englisch gemischt im Code** (Bezeichner englisch, Kommentare
-  teils deutsch), konzentriert in `commands/remove.rs` (`:50,89,101,117,145,
-  150–152,166,249`), `state_manager.rs:25–28`, `commands/page/pos.rs:1`,
-  `commands/build/helpers.rs:46,74`, `output/render.rs:47`. Auf Englisch
-  vereinheitlichen (Prosa-Doku darf deutsch bleiben — aber eine Sprache pro
-  Schicht). Typo `nothting` in `ga_solver/evolution.rs:16`.
-- **Verb-Konvention der Command-Einstiege uneinheitlich:** bare verb
-  (`add`, `remove`, `place`, `status`) vs. `execute_*` (alle `page/`-Commands,
-  `unplace`) vs. `project_*`. Eine Konvention wählen (Empfehlung: bare verb).
-- **`Result` vs. `Report`** (Abschnitt 7.4), **`data_models` vs. `dto_models`**
-  (4.5/5.1), **`Params`-Alias** (4.4): jeweils einen Begriff pro Konzept.
-- **Cache-Verben** uneinheitlich: `ensure_previews` vs. `build_final_cache` vs.
-  `update_preview_cache`/`update_preview_pdf` → ein Verb pro Bedeutung.
+**Status: offen** (mehrere Punkte durch #45/#48/#50 bereits erledigt). Vollständiger
+Plan: [`09-naming.md`](./09-naming.md). Offen:
+
+- **Deutsch im Code** nur noch lokal (`remove/matchers.rs`, `build/helpers.rs`,
+  `output/render.rs`) + Typo `nothting` (`evolution.rs:16`).
+- **Verb-Konvention** dreifach (bare / `execute_*` / `project_*`) → Regel: bare
+  für Top-Level inkl. `unplace`, `execute_*` nur für die `page/`-Familie
+  (keyword-getrieben), `project::new`/`list`/`switch` statt `project_*`.
+- **Cache-Verben** `ensure_previews` vs. `build_final_cache` → ein Verb pro Rolle.
 
 ---
 
@@ -427,9 +423,12 @@ Themenblock in eigenen Dateien neben diesem Dokument:
 - [`06-state-manager.md`](./06-state-manager.md) — `state_manager` aufräumen &
   Kapselung schärfen (Abschnitt 6; umgesetzt, J11 offen).
 - [`07-commands.md`](./07-commands.md) — Commands entdoppeln, Slot-Move-Familie
-  schneiden, Muster vereinheitlichen (Abschnitt 7; offen).
+  schneiden, Muster vereinheitlichen (Abschnitt 7; umgesetzt #50).
+- [`08-input.md`](./08-input.md) — `input`-Modul aufräumen (Abschnitt 8; offen).
+- [`09-naming.md`](./09-naming.md) — Namens- & Sprachkonsistenz (Abschnitt 9;
+  offen).
 
-Weitere Pläne (`input` …) folgen demselben Schema.
+Weitere Pläne (Fehlermeldungen …) folgen demselben Schema.
 
 ---
 
