@@ -3,7 +3,7 @@ use egui::Context;
 use fotobuch::commands::PlaceDst;
 use fotobuch::commands::page::SlotExpr;
 use fotobuch::commands::place::{PlaceConfig, place};
-use fotobuch::commands::unplace::execute_unplace;
+use fotobuch::commands::unplace::unplace;
 
 use crate::task::BackgroundResult;
 
@@ -124,7 +124,7 @@ pub fn run_remove_photos(photo_ids: Vec<String>, rctx: &mut crate::background::R
 
 pub fn run_unplace(page: usize, slots: Vec<usize>, rctx: &mut crate::background::RenderCtx<'_>) {
     let slot_expr = SlotExpr::from_list(slots.iter().map(|&s| s as u32).collect());
-    match execute_unplace(rctx.project_root, page as u32, slot_expr) {
+    match unplace(rctx.project_root, page as u32, slot_expr) {
         Err(e) => {
             let _ = rctx
                 .result_tx

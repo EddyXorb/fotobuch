@@ -15,7 +15,7 @@ use crate::commands::CommandOutput;
 ///
 /// # Returns
 /// * Vector of ProjectInfo structs with name, branch, and is_current flag
-pub fn project_list(project_root: &Path) -> Result<CommandOutput<Vec<super::ProjectInfo>>> {
+pub fn list(project_root: &Path) -> Result<CommandOutput<Vec<super::ProjectInfo>>> {
     use git2::Repository;
 
     let repo = Repository::open(project_root)?;

@@ -55,7 +55,7 @@ fn main() -> eframe::Result<()> {
     }
 
     // First-run: no fotobuch projects in the vault yet.
-    let show_welcome = fotobuch::commands::project::project_list(&vault_path)
+    let show_welcome = fotobuch::commands::project::list(&vault_path)
         .map(|o| o.result.is_empty())
         .unwrap_or(true);
 

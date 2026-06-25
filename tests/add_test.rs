@@ -1,7 +1,7 @@
 //! Integration tests for `fotobuch add` command
 
 use anyhow::Result;
-use fotobuch::commands::project::new::{NewConfig, project_new};
+use fotobuch::commands::project::new::{NewConfig, new};
 use fotobuch::commands::{AddConfig, add};
 use fotobuch::models::read_state_yaml;
 use regex::Regex;
@@ -26,7 +26,7 @@ fn create_test_project(temp_dir: &TempDir) -> Result<PathBuf> {
         margin_mm: 0.0,
         base_config: None,
     };
-    let result = project_new(temp_dir.path(), &config)?;
+    let result = new(temp_dir.path(), &config)?;
     Ok(result.result.project_root)
 }
 

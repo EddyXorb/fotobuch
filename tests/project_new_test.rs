@@ -1,7 +1,7 @@
 //! Integration tests for `fotobuch project new` command
 
 use anyhow::Result;
-use fotobuch::commands::project::new::{NewConfig, project_new, validate_project_name};
+use fotobuch::commands::project::new::{NewConfig, new, validate_project_name};
 use std::fs;
 use tempfile::TempDir;
 
@@ -24,7 +24,7 @@ fn test_project_new_mode1_creates_complete_structure() -> Result<()> {
         base_config: None,
     };
 
-    let result = project_new(temp_dir.path(), &config)?;
+    let result = new(temp_dir.path(), &config)?;
 
     // Check that directory was created
     assert!(result.result.project_root.exists());
@@ -100,7 +100,7 @@ fn test_project_new_mode2_creates_additional_project() -> Result<()> {
         margin_mm: 0.0,
         base_config: None,
     };
-    let result1 = project_new(temp_dir.path(), &config1)?;
+    let result1 = new(temp_dir.path(), &config1)?;
 
     // Create second project in same repository
     let config2 = NewConfig {
@@ -117,7 +117,7 @@ fn test_project_new_mode2_creates_additional_project() -> Result<()> {
         margin_mm: 0.0,
         base_config: None,
     };
-    let result2 = project_new(&result1.result.project_root, &config2)?;
+    let result2 = new(&result1.result.project_root, &config2)?;
 
     // Both projects should share the same root
     assert_eq!(result1.result.project_root, result2.result.project_root);
@@ -165,10 +165,10 @@ fn test_project_new_rejects_duplicate_name() -> Result<()> {
     };
 
     // Create first project
-    project_new(temp_dir.path(), &config)?;
+    new(temp_dir.path(), &config)?;
 
     // Try to create project with same name - should fail
-    let result = project_new(temp_dir.path(), &config);
+    let result = new(temp_dir.path(), &config);
     assert!(result.is_err());
 
     Ok(())
@@ -235,7 +235,7 @@ fn test_project_new_with_different_page_dimensions() -> Result<()> {
             base_config: None,
         };
 
-        let result = project_new(temp_dir.path(), &config)?;
+        let result = new(temp_dir.path(), &config)?;
 
         let yaml_content = fs::read_to_string(&result.result.yaml_path)?;
         assert!(yaml_content.contains(&format!("page_width_mm: {}", width)));

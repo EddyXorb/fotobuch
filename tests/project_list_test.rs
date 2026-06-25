@@ -100,7 +100,7 @@ fn test_project_list_finds_all_fotobuch_branches() -> Result<()> {
     let temp_dir = TempDir::new()?;
     init_git_with_projects(&temp_dir)?;
 
-    let projects = fotobuch::commands::project::project_list(temp_dir.path())?.result;
+    let projects = fotobuch::commands::project::list(temp_dir.path())?.result;
 
     assert_eq!(projects.len(), 3);
 
@@ -126,7 +126,7 @@ fn test_project_list_marks_current_project() -> Result<()> {
         .current_dir(dir)
         .output()?;
 
-    let projects = fotobuch::commands::project::project_list(dir)?.result;
+    let projects = fotobuch::commands::project::list(dir)?.result;
 
     // Find vacation project
     let vacation = projects.iter().find(|p| p.name == "vacation");
@@ -154,7 +154,7 @@ fn test_project_list_ignores_non_fotobuch_branches() -> Result<()> {
         .current_dir(dir)
         .output()?;
 
-    let projects = fotobuch::commands::project::project_list(dir)?.result;
+    let projects = fotobuch::commands::project::list(dir)?.result;
 
     // Should still have only the 3 fotobuch projects
     assert_eq!(projects.len(), 3);
@@ -175,7 +175,7 @@ fn test_project_list_empty_repo() -> Result<()> {
         .current_dir(dir)
         .output()?;
 
-    let projects = fotobuch::commands::project::project_list(dir)?.result;
+    let projects = fotobuch::commands::project::list(dir)?.result;
 
     assert!(projects.is_empty());
 
@@ -188,7 +188,7 @@ fn test_project_list_not_a_git_repo() -> Result<()> {
     let dir = temp_dir.path();
 
     // Don't initialize git
-    let result = fotobuch::commands::project::project_list(dir);
+    let result = fotobuch::commands::project::list(dir);
 
     // Should return error (not a git repo)
     assert!(result.is_err());
@@ -201,7 +201,7 @@ fn test_project_list_sorted_by_name() -> Result<()> {
     let temp_dir = TempDir::new()?;
     init_git_with_projects(&temp_dir)?;
 
-    let projects = fotobuch::commands::project::project_list(temp_dir.path())?.result;
+    let projects = fotobuch::commands::project::list(temp_dir.path())?.result;
 
     // Projects should be sorted alphabetically
     let names: Vec<_> = projects.iter().map(|p| p.name.as_str()).collect();

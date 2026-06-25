@@ -60,7 +60,7 @@ pub fn spawn(
                     commands::run_load_photo_thumbnails(items, &pool, &result_tx, &repaint_ctx);
                 }
                 BackgroundTask::ListProjects => {
-                    let projects = fotobuch::commands::project::project_list(&vault_path)
+                    let projects = fotobuch::commands::project::list(&vault_path)
                         .map(|o| o.result)
                         .unwrap_or_default();
                     let _ = result_tx.send(BackgroundResult::ProjectList { projects });
@@ -70,7 +70,7 @@ pub fn spawn(
                     vault_path = new_path;
                     world_opt = None;
                     fotobuch::vault::ensure_vault(&vault_path).ok();
-                    let projects = fotobuch::commands::project::project_list(&vault_path)
+                    let projects = fotobuch::commands::project::list(&vault_path)
                         .map(|o| o.result)
                         .unwrap_or_default();
                     let _ = result_tx.send(BackgroundResult::VaultSwitched {
@@ -92,7 +92,7 @@ pub fn spawn(
 
                 // ── tasks that recreate the world ─────────────────────────────
                 BackgroundTask::ProjectSwitch { name } => {
-                    match fotobuch::commands::project::project_switch(&vault_path, &name) {
+                    match fotobuch::commands::project::switch(&vault_path, &name) {
                         Err(e) => {
                             let _ = result_tx.send(BackgroundResult::CommandFailed(e.to_string()));
                             repaint_ctx.request_repaint();
@@ -127,17 +127,14 @@ pub fn spawn(
                 }
                 BackgroundTask::ProjectNew { config } => {
                     let new_name = config.name.clone();
-                    match fotobuch::commands::project_new(&vault_path, &config) {
+                    match fotobuch::commands::project::new(&vault_path, &config) {
                         Err(e) => {
                             let _ = result_tx.send(BackgroundResult::CommandFailed(e.to_string()));
                             repaint_ctx.request_repaint();
                         }
                         Ok(_new_output) => {
                             // Switch to the newly created project
-                            match fotobuch::commands::project::project_switch(
-                                &vault_path,
-                                &new_name,
-                            ) {
+                            match fotobuch::commands::project::switch(&vault_path, &new_name) {
                                 Err(e) => {
                                     let _ = result_tx
                                         .send(BackgroundResult::CommandFailed(e.to_string()));

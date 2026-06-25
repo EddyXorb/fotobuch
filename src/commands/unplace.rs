@@ -16,7 +16,7 @@ pub struct UnplaceResult {
 /// Remove photos from the layout at the given page:slot address.
 ///
 /// Photos are kept in `state.photos` (they become "unplaced").
-pub fn execute_unplace(
+pub fn unplace(
     project_root: &Path,
     page: u32,
     slots: SlotExpr,
@@ -56,7 +56,7 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         setup_repo(&tmp, &state);
 
-        let result = execute_unplace(tmp.path(), 0, SlotExpr::single(1)).unwrap();
+        let result = unplace(tmp.path(), 0, SlotExpr::single(1)).unwrap();
         assert_eq!(result.result.pages_modified, vec![0]);
 
         let mgr = StateManager::open(tmp.path()).unwrap();
@@ -71,7 +71,7 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         setup_repo(&tmp, &state);
 
-        let result = execute_unplace(tmp.path(), 0, SlotExpr::single(0)).unwrap();
+        let result = unplace(tmp.path(), 0, SlotExpr::single(0)).unwrap();
         assert!(result.result.pages_deleted.contains(&0));
         assert!(result.result.pages_modified.is_empty());
 
@@ -87,7 +87,7 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         setup_repo(&tmp, &state);
 
-        let result = execute_unplace(tmp.path(), 0, SlotExpr::single(5));
+        let result = unplace(tmp.path(), 0, SlotExpr::single(5));
         assert!(matches!(
             result,
             Err(PageMoveError::Validation(ValidationError::SlotNotFound {
@@ -103,7 +103,7 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         setup_repo(&tmp, &state);
 
-        let result = execute_unplace(tmp.path(), 99, SlotExpr::single(1));
+        let result = unplace(tmp.path(), 99, SlotExpr::single(1));
         assert!(matches!(
             result,
             Err(PageMoveError::Validation(ValidationError::PageNotFound(99)))
