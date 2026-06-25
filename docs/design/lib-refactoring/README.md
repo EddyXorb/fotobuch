@@ -1,8 +1,8 @@
 # Lib-Refactoring — Strukturvorschläge für `src/`
 
-> Status: teils umgesetzt. Abschnitte 1–9 und 11 sind im Kern erledigt (Details in
-> den separaten Plänen `0x-*.md`, siehe Abschnitt 12); offen ist nur noch
-> Abschnitt 10 (Fehlermeldungen).
+> Status: teils umgesetzt. Abschnitte 1–9 sowie Teil B von 10 sind im Kern erledigt
+> (Details in den separaten Plänen `0x-*.md`, siehe Abschnitt 11); offen ist nur
+> noch Teil A von Abschnitt 10 (Fehlermeldungen).
 > Reihenfolge je Abschnitt = Priorität. Kein fertiger Code, nur Ideen +
 > Signatur-Skizzen. Befunde mit `Datei:Zeile` belegt (offene Abschnitte gegen den
 > aktuellen Stand geprüft).
@@ -29,10 +29,9 @@ Inhalt:
 7. Commands: Duplizierung, Struktur, Config/Result-Muster
 8. `input`-Modul
 9. Querschnitt: Namens- & Sprachkonsistenz
-10. Fehlermeldungen: CLI-Begriffe aus dem Lib-Code verbannen
-11. Innerhalb von Methoden
-12. Umsetzungspläne (separate Dokumente) → [`01-build.md`](./01-build.md)
-13. Edit-Commands: Layout-Konsistenz & optionaler Rebuild
+10. Fehlermeldungen & Methoden-Komplexität
+11. Umsetzungspläne (separate Dokumente) → [`01-build.md`](./01-build.md)
+12. Edit-Commands: Layout-Konsistenz & optionaler Rebuild
 
 ---
 
@@ -208,10 +207,12 @@ Plan: [`09-naming.md`](./09-naming.md). Befunde in Kürze:
 
 ---
 
-## 10. Fehlermeldungen: CLI-Begriffe aus dem Lib-Code verbannen
+## 10. Fehlermeldungen & Methoden-Komplexität
 
-**Status: offen.** Vollständiger Plan: [`10-errors.md`](./10-errors.md). Befunde in
-Kürze:
+Vollständiger Plan: [`10-errors-and-methods.md`](./10-errors-and-methods.md).
+Bündelt zwei verwandte Hygiene-Themen.
+
+**Teil A — CLI-Begriffe aus der Lib verbannen (offen).**
 
 - **CLI-Strings in Lib-Laufzeitfehlern:** „Run `fotobuch build` first"
   (`build/build_layout.rs:46,76`, `build/plan.rs:111`, `place.rs:103`),
@@ -221,20 +222,14 @@ Kürze:
   (`switch.rs:34–36`), Next-Steps `WELCOME_MESSAGE` (`project/new.rs`).
 - **Zwei Probleme:** für die GUI (gleiche Lib) sind CLI-Hinweise sinnlos; Flag-
   Namen driften unbemerkt von den clap-Definitionen weg.
+- **Designentscheidung:** Bedingung und Abhilfe trennen. Die Lib gibt *getippte*
+  Fehler zurück (`thiserror`, `#[error]`-Text ohne Kommandos); die CLI übersetzt
+  Variante → Hinweis und liest die Flag-Namen zur Laufzeit aus `Cli::command()`.
+  Gegen Drift: exhaustives `match` ohne `_`-Arm (fehlender Hinweis → Compilefehler)
+  und ein Test, der jeden clap-Lookup auflöst. Mechanismus-Details (clap-`long()`-
+  Helfer, Test) stehen im Plan.
 
-**Designentscheidung:** Bedingung und Abhilfe trennen. Die Lib gibt *getippte*
-Fehler zurück (`thiserror`, `#[error]`-Text ohne Kommandos); die CLI übersetzt
-Variante → Hinweis und liest die Flag-Namen zur Laufzeit aus `Cli::command()`.
-Gegen Drift: exhaustives `match` ohne `_`-Arm (fehlender Hinweis → Compilefehler)
-und ein Test, der jeden clap-Lookup auflöst. Mechanismus-Details (clap-`long()`-
-Helfer, Test) stehen im Plan.
-
----
-
-## 11. Innerhalb von Methoden
-
-**Status: umgesetzt** (mit #50). Vollständiger Plan:
-[`11-within-methods.md`](./11-within-methods.md). Die früheren build-Punkte
+**Teil B — Innerhalb von Methoden (umgesetzt mit #50).** Die früheren build-Punkte
 (`multipage_build`-Zweige, `RenderContext`, `incremental_build`,
 `apply_page_filter`) sind mit Abschnitt 1 erledigt; der letzte Restpunkt
 `execute_move_to` (6 Frühreturns quer durch die Abstraktionsebenen) ist mit der
@@ -243,7 +238,7 @@ Slot-Move-Familie aufgelöst — `move_cmd.rs` (Dispatch) / `standard.rs`
 
 ---
 
-## 12. Umsetzungspläne (separate Dokumente)
+## 11. Umsetzungspläne (separate Dokumente)
 
 Die konkreten, in Conventional Commits gegliederten Umsetzungspläne liegen je
 Themenblock in eigenen Dateien neben diesem Dokument:
@@ -265,14 +260,13 @@ Themenblock in eigenen Dateien neben diesem Dokument:
 - [`08-input.md`](./08-input.md) — `input`-Modul aufräumen (Abschnitt 8; umgesetzt).
 - [`09-naming.md`](./09-naming.md) — Namens- & Sprachkonsistenz (Abschnitt 9;
   umgesetzt #52).
-- [`10-errors.md`](./10-errors.md) — CLI-Begriffe aus Lib-Fehlern verbannen,
-  getippte Fehler + CLI-Hinweise (Abschnitt 10; offen).
-- [`11-within-methods.md`](./11-within-methods.md) — Methoden-Komplexität
-  (Abschnitt 11; umgesetzt mit #50).
+- [`10-errors-and-methods.md`](./10-errors-and-methods.md) — CLI-Begriffe aus
+  Lib-Fehlern verbannen (getippte Fehler + CLI-Hinweise, offen) und
+  Methoden-Komplexität (umgesetzt mit #50) (Abschnitt 10).
 
 ---
 
-## 13. Edit-Commands: Layout-Konsistenz & optionaler Rebuild
+## 12. Edit-Commands: Layout-Konsistenz & optionaler Rebuild
 
 **Hintergrund.** Editier-Commands (`move`, `place`, `remove`, `combine`, `split`,
 `unplace`) ändern die **Fotos** einer Seite, lassen die **Slots** von Auto-Seiten

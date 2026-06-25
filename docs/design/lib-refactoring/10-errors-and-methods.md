@@ -1,9 +1,17 @@
-# Umsetzungsplan 10 — Fehlermeldungen: CLI-Begriffe aus der Lib verbannen
+# Umsetzungsplan 10 — Fehlermeldungen & Methoden-Komplexität
 
-> Konkretisiert Abschnitt 10 des [Hauptdokuments](./README.md).
+> Konkretisiert die Abschnitte 10 und 11 des [Hauptdokuments](./README.md).
 > Stand: gegen den aktuellen Code geprüft.
 
 ## Worum es geht
+
+Zwei verwandte „Hygiene"-Themen in einem Plan: Laufzeitfehler der Lib nennen
+konkrete CLI-Begriffe (Teil A, offen) und einzelne Methoden mischen
+Abstraktionsebenen (Teil B, bereits abgegolten).
+
+---
+
+## Teil A — CLI-Begriffe aus der Lib verbannen (offen)
 
 Laufzeitfehler der Lib nennen konkrete CLI-Kommandos/Flags als String-Literale.
 Zwei Probleme: für Nicht-CLI-Konsumenten (GUI) ist der Hinweis sinnlos, und die
@@ -11,7 +19,7 @@ Flag-Namen driften unbemerkt von den clap-Definitionen weg. **Regel:** die Lib
 beschreibt nur die *Bedingung* (getippter Fehler), die Oberfläche ergänzt die
 *Abhilfe*.
 
-## Was offen ist (verifiziert)
+### Was offen ist (verifiziert)
 
 CLI-Strings in Lib-Laufzeitfehlern (`anyhow::bail!`/`anyhow!`, Display, `println!`):
 
@@ -30,9 +38,9 @@ Heute nutzt die Lib durchweg `anyhow::bail!`; getippte Enums existieren nur
 punktuell (`page/types.rs`, Solver). Die CLI ist eine **eigene Kiste** (`cli/`,
 clap-Derive in `cli/cli.rs`).
 
-## Designentscheidung
+### Designentscheidung
 
-Zweischichtig (Details + Drift-Mechanismen im [README §10](./README.md#10)):
+Zweischichtig (Details + Drift-Mechanismen im [README §10](./README.md#10-fehlermeldungen--methoden-komplexität)):
 
 1. **Lib** gibt getippte Fehler zurück (`thiserror`-Enum je Command), deren
    `#[error(...)]`-Text nur den Sachverhalt nennt — kein Kommando, kein Flag.
@@ -45,7 +53,7 @@ Zweischichtig (Details + Drift-Mechanismen im [README §10](./README.md#10)):
 `project/new.rs`-Next-Steps und `switch.rs`-Hinweise sind reine Oberflächentexte →
 ganz in die CLI verschieben (kein Lib-`println!`).
 
-## Commit-Portionen
+### Commit-Portionen
 
 **N1 · `feat(commands): typed build errors`**
 `BuildError` (`thiserror`) für die build-Pfad-Bedingungen einführen: `NoLayout`,
@@ -73,10 +81,50 @@ Test `hint_lookups_resolve` prüft alle benutzten Lookups. CLI-Fehlerausgabe hä
 den Hinweis an (`error: <bedingung>` / `hint: <abhilfe>`).
 *Verify:* Test schlägt fehl, wenn ein Flag umbenannt/entfernt wird.
 
-## Reihenfolge & Risiko
+### Reihenfolge & Risiko
 
 N1–N4 (Lib) zuerst, je für sich durch Tests gedeckt; N5 (CLI) baut darauf auf und
 schließt die `match`-Vollständigkeit ab. Mittel — die typed-error-Umstellung
 berührt Rückgabetypen mehrerer Commands; Aufrufer in `cli/` im selben Schritt
 nachziehen. Doc-Comments (`//! \`fotobuch …\``) bleiben unverändert (Doku, kein
 Laufzeit-String).
+
+---
+
+## Teil B — Innerhalb von Methoden (abgegolten)
+
+Restpunkt aus „lange Methoden mit Frühreturns über mehrere Abstraktionsebenen".
+Die früheren build-Punkte (`multipage_build`-Zweige, `RenderContext`,
+`incremental_build`, `apply_page_filter`) sind mit Abschnitt 1 erledigt; offen war
+nur noch `execute_move_to`.
+
+### Befund: `execute_move_to` — durch #50 entschärft
+
+Die ursprüngliche Funktion (`move_cmd.rs:33–248`, 6 Frühreturns quer durch
+Validierung/Dispatch/Mutation) existiert so nicht mehr. Mit der Slot-Move-Familie
+(Plan 7, #50) ist `move_cmd.rs` in Submodule geteilt:
+
+- `move_cmd.rs` (`execute_move_to`, jetzt ~25 Z.): nur noch Dispatch — Manual-Ziel
+  und Same-Page-No-Op früh raus, sonst `run_write_command` + Delegation an
+  `standard::apply_move` (RULES R8).
+- `move_cmd/standard.rs::apply_move`: Orchestrierung nach Muster
+  **Lesen → entscheiden → schreiben** (RULES R4); Slot-Indizes werden vor jeder
+  Einfügung als *owned* gezogen, dann mutiert. Mutation in `move_*_to_page`-Helfer.
+- `move_cmd/manual.rs`: Manual-Pfad isoliert.
+
+Damit ist die Vermischung der Abstraktionsebenen aufgelöst: Dispatch, Orchestrierung
+und Mutation liegen getrennt, jede Funktion unter R9 (300 Z.).
+
+### Was bleibt
+
+Kein eigenständiger Umsetzungsschritt nötig. Restliche Methoden-Hygiene hängt an
+größeren Komplexen und wird dort geführt:
+
+- `place.rs` (Orchestrierung + chronologischer Algorithmus vermischt) → Plan 7 K6
+  (`page_placement.rs` herauslösen).
+- Manual-Ziel beim Move braucht einen Slot → §12.1 (bereits umgesetzt, Test
+  `move_slot_into_manual_page_creates_positioned_slot`).
+
+Künftige „lange Methode"-Funde nach demselben Muster behandeln: erst nach
+Abstraktionsebene aufteilen (Dispatch/Orchestrierung/Rechnung), Reads vor Writes
+als owned ziehen (R4), Mutation in einen Helfer.
