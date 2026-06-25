@@ -19,13 +19,12 @@ pub struct PreviewCacheResult {
     pub total: usize,
 }
 
-/// Ensures all preview images are present and up-to-date.
-/// Generates missing or stale previews in parallel using rayon.
-/// Updates each photos metadata if the source image is newer than the cached preview.
+/// Builds the preview cache: generates missing or stale previews in parallel using rayon.
+/// Updates each photo's metadata if the source image is newer than the cached preview.
 ///
 /// # Returns
 /// Statistics about created/skipped images
-pub fn ensure_previews(
+pub fn build_preview_cache(
     state: &mut ProjectState,
     preview_cache_dir: &Path,
 ) -> Result<PreviewCacheResult> {
@@ -157,7 +156,7 @@ mod tests {
     }
 
     #[test]
-    fn test_ensure_previews_creates_missing() {
+    fn test_build_preview_cache_creates_missing() {
         let temp = TempDir::new().unwrap();
         let project_root = temp.path();
         let photos_dir = project_root.join("photos");
@@ -186,7 +185,7 @@ mod tests {
             layout: vec![],
         };
 
-        let result = ensure_previews(&mut state, &cache_dir).unwrap();
+        let result = build_preview_cache(&mut state, &cache_dir).unwrap();
 
         assert_eq!(result.total, 1);
         assert_eq!(result.created, 1);
@@ -201,7 +200,7 @@ mod tests {
     }
 
     #[test]
-    fn test_ensure_previews_skips_fresh() {
+    fn test_build_preview_cache_skips_fresh() {
         let temp = TempDir::new().unwrap();
         let project_root = temp.path();
         let photos_dir = project_root.join("photos");
@@ -235,7 +234,7 @@ mod tests {
             layout: vec![],
         };
 
-        let result = ensure_previews(&mut state, &cache_dir).unwrap();
+        let result = build_preview_cache(&mut state, &cache_dir).unwrap();
 
         assert_eq!(result.total, 1);
         assert_eq!(result.created, 0);
@@ -243,7 +242,7 @@ mod tests {
     }
 
     #[test]
-    fn test_ensure_previews_updates_stale() {
+    fn test_build_preview_cache_updates_stale() {
         let temp = TempDir::new().unwrap();
         let project_root = temp.path();
         let photos_dir = project_root.join("photos");
@@ -277,7 +276,7 @@ mod tests {
             layout: vec![],
         };
 
-        let result = ensure_previews(&mut state, &cache_dir).unwrap();
+        let result = build_preview_cache(&mut state, &cache_dir).unwrap();
 
         assert_eq!(result.total, 1);
         assert_eq!(result.created, 1);

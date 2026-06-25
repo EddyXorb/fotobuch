@@ -1,6 +1,6 @@
 //! Final cache generation for high-quality PDF output
 
-use crate::cache::preview_cache::ensure_previews;
+use crate::cache::preview_cache::build_preview_cache;
 use crate::commands::build::DpiWarning;
 use crate::models::ProjectState;
 use anyhow::Result;
@@ -30,7 +30,7 @@ pub fn build_final_cache(
     progress: &AtomicUsize,
 ) -> Result<FinalCacheResult> {
     // make sure the metadata is up to date by updating the preview cache first (which enriches metadata)
-    ensure_previews(state, final_cache_dir)?;
+    build_preview_cache(state, final_cache_dir)?;
 
     let target_dpi = state.config.book.dpi;
 
