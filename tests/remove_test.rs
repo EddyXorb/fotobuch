@@ -1,7 +1,7 @@
 //! Integration tests for `fotobuch remove` command
 
 use anyhow::Result;
-use fotobuch::commands::project::new::{NewConfig, project_new};
+use fotobuch::commands::project::new::{NewConfig, new};
 use fotobuch::commands::remove::RemoveTarget;
 use fotobuch::commands::{AddConfig, add, build::*, remove::*};
 use fotobuch::models::{read_state_yaml, write_state_yaml};
@@ -25,7 +25,7 @@ fn create_test_project_with_layout(temp_dir: &TempDir) -> Result<PathBuf> {
         margin_mm: 0.0,
         base_config: None,
     };
-    let result = project_new(temp_dir.path(), &config)?;
+    let result = new(temp_dir.path(), &config)?;
     let project_root = result.result.project_root;
 
     // Configure solver for fast tests

@@ -13,7 +13,7 @@ pub trait EvolutionDynamic<I: Individual> {
     #[allow(dead_code)]
     fn are_identical(&self, left: &I, right: &I) -> bool;
 
-    /// Creates new individuals out of nothting; nr is the nr to create
+    /// Creates new individuals out of nothing; nr is the nr to create
     fn create(&self, nr: usize) -> Vec<I>;
 
     /// Selects individuals from the population for reproduction.

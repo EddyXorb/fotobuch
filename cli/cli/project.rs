@@ -62,7 +62,7 @@ pub fn handle(command: ProjectSubcommand) -> Result<()> {
                 base_config: None,
             };
 
-            let output = commands::project_new(parent, &config)?;
+            let output = commands::project::new(parent, &config)?;
 
             info!("✅ Project '{}' created successfully!", name);
             info!("📁 Location: {}", output.result.project_root.display());
@@ -76,7 +76,7 @@ pub fn handle(command: ProjectSubcommand) -> Result<()> {
             let project_root =
                 std::env::current_dir().context("Failed to determine current directory")?;
 
-            let projects = commands::project::project_list(&project_root)?.result;
+            let projects = commands::project::list(&project_root)?.result;
 
             if projects.is_empty() {
                 info!("ℹ️  No projects found.");
@@ -97,7 +97,7 @@ pub fn handle(command: ProjectSubcommand) -> Result<()> {
             let project_root =
                 std::env::current_dir().context("Failed to determine current directory")?;
 
-            commands::project::project_switch(&project_root, &name)?;
+            commands::project::switch(&project_root, &name)?;
             info!("✅ Switched to project '{}'", name);
 
             Ok(())

@@ -4,7 +4,7 @@ mod common;
 
 use anyhow::Result;
 use fotobuch::commands::build::{BuildConfig, BuildPlan, build};
-use fotobuch::commands::project::new::{NewConfig, project_new};
+use fotobuch::commands::project::new::{NewConfig, new};
 use fotobuch::commands::{AddConfig, add};
 use fotobuch::models::{read_state_yaml, write_state_yaml};
 use fotobuch::state_manager::StateManager;
@@ -28,7 +28,7 @@ fn create_test_project_with_photos(temp_dir: &TempDir) -> Result<PathBuf> {
         margin_mm: 0.0,
         base_config: None,
     };
-    let result = project_new(temp_dir.path(), &config)?;
+    let result = new(temp_dir.path(), &config)?;
     let project_root = result.result.project_root;
 
     let mut mgr = StateManager::open(&project_root)?;
@@ -81,7 +81,7 @@ fn create_test_project_with_artificial_photos_3(temp_dir: &TempDir) -> Result<Pa
         margin_mm: 0.0,
         base_config: None,
     };
-    let result = project_new(temp_dir.path(), &config)?;
+    let result = new(temp_dir.path(), &config)?;
     let project_root = result.result.project_root;
 
     let mut mgr = StateManager::open(&project_root)?;
@@ -422,7 +422,7 @@ fn test_build_handles_empty_photo_list() -> Result<()> {
         margin_mm: 0.0,
         base_config: None,
     };
-    let result = project_new(temp_dir.path(), &config)?;
+    let result = new(temp_dir.path(), &config)?;
     let project_root = result.result.project_root;
 
     // Try to build with no photos

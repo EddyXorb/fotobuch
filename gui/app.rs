@@ -37,7 +37,7 @@ impl FotobuchApp {
             let project_state = mgr.state.clone();
             drop(mgr);
 
-            let projects = fotobuch::commands::project::project_list(&vault_path)
+            let projects = fotobuch::commands::project::list(&vault_path)
                 .map(|o| o.result)
                 .unwrap_or_default();
 

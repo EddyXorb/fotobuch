@@ -18,7 +18,7 @@ use crate::state_manager::open_readonly;
 /// # Returns
 /// * Ok(()) if switch successful
 /// * Error if project not found, uncommitted changes, or git error
-pub fn project_switch(project_root: &Path, name: &str) -> Result<CommandOutput<()>> {
+pub fn switch(project_root: &Path, name: &str) -> Result<CommandOutput<()>> {
     use git2::Repository;
 
     // Validate project name

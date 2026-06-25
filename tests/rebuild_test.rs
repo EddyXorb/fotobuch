@@ -3,7 +3,7 @@ mod common;
 
 use anyhow::Result;
 use fotobuch::commands::build::{BuildConfig, BuildPlan, build};
-use fotobuch::commands::project::new::{NewConfig, project_new};
+use fotobuch::commands::project::new::{NewConfig, new};
 use fotobuch::commands::{AddConfig, add};
 use fotobuch::models::{read_state_yaml, write_state_yaml};
 use std::path::PathBuf;
@@ -26,7 +26,7 @@ fn create_test_project_with_build(temp_dir: &TempDir) -> Result<PathBuf> {
         margin_mm: 0.0,
         base_config: None,
     };
-    let result = project_new(temp_dir.path(), &config)?;
+    let result = new(temp_dir.path(), &config)?;
     let project_root = result.result.project_root;
 
     // Restrict book layout solver to force multiple pages with few photos
@@ -480,7 +480,7 @@ fn test_rebuild_without_layout_fails_except_all() -> Result<()> {
         margin_mm: 0.0,
         base_config: None,
     };
-    let result = project_new(temp_dir.path(), &config)?;
+    let result = new(temp_dir.path(), &config)?;
     let project_root = result.result.project_root;
 
     // Add test photos

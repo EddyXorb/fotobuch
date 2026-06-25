@@ -35,7 +35,7 @@ pub fn refresh_preview_cache(
     mgr: &mut StateManager,
 ) -> Result<preview_cache::PreviewCacheResult, anyhow::Error> {
     let preview_cache_dir = mgr.preview_cache_dir();
-    let cache_result = preview_cache::ensure_previews(&mut mgr.state, &preview_cache_dir)?;
+    let cache_result = preview_cache::build_preview_cache(&mut mgr.state, &preview_cache_dir)?;
     if cache_result.created > 0 {
         info!(
             "Preview cache: {} created, {} skipped",
@@ -136,7 +136,7 @@ pub fn render_pdf(ctx: &RenderContext, target: PdfTarget, skip_pdf: bool) -> Res
     }
 }
 
-/// Sammelt alle Fotos aus dem Seitenbereich und rekonstruiert PhotoGroups.
+/// Collects all photos from the page range and reconstructs PhotoGroups.
 ///
 /// # Arguments
 /// * `start` - **0-based** index (inclusive), e.g., 0 for the first page
@@ -144,13 +144,13 @@ pub fn render_pdf(ctx: &RenderContext, target: PdfTarget, skip_pdf: bool) -> Res
 pub fn collect_photos_as_groups(state: &ProjectState, start: usize, end: usize) -> Vec<PhotoGroup> {
     let photo_index = build_photo_index(&state.photos);
 
-    // Photo-IDs aus dem Bereich sammeln
+    // Collect photo IDs from the page range
     let page_photo_ids: Vec<&str> = state.layout[start..end]
         .iter()
         .flat_map(|p| p.photos.iter().map(String::as_str))
         .collect();
 
-    // Nach Originalgruppe aufteilen
+    // Split by original group
     let mut groups_map: HashMap<&str, Vec<PhotoFile>> = HashMap::new();
     for id in &page_photo_ids {
         if let Some((pf, group_name)) = photo_index.get(*id) {

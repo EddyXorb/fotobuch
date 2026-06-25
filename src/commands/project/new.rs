@@ -97,10 +97,7 @@ Happy photobook making! 📷✨
 /// Automatically detects mode:
 /// - Mode 1 (first project): Creates new directory under `parent_dir_or_root`
 /// - Mode 2 (additional project): Creates in repository root at `parent_dir_or_root`
-pub fn project_new(
-    parent_dir_or_root: &Path,
-    config: &NewConfig,
-) -> Result<CommandOutput<NewResult>> {
+pub fn new(parent_dir_or_root: &Path, config: &NewConfig) -> Result<CommandOutput<NewResult>> {
     validate_project_name(&config.name)?;
 
     if config.with_cover && config.spine_grow_per_10_pages_mm.is_none() && config.spine_mm.is_none()
@@ -316,7 +313,7 @@ mod tests {
             base_config: None,
         };
 
-        let result = project_new(temp_dir.path(), &config).unwrap();
+        let result = new(temp_dir.path(), &config).unwrap();
 
         assert!(result.result.project_root.exists());
         assert!(result.result.yaml_path.exists());
@@ -356,7 +353,7 @@ mod tests {
             base_config: None,
         };
 
-        let result = project_new(temp_dir.path(), &config).unwrap();
+        let result = new(temp_dir.path(), &config).unwrap();
 
         let yaml_content = fs::read_to_string(&result.result.yaml_path).unwrap();
         assert!(yaml_content.contains("page_width_mm: 200"));
@@ -382,7 +379,7 @@ mod tests {
             base_config: None,
         };
 
-        let result = project_new(temp_dir.path(), &config).unwrap();
+        let result = new(temp_dir.path(), &config).unwrap();
 
         let typ_content = fs::read_to_string(&result.result.typ_path).unwrap();
         assert!(typ_content.contains(r#"project_name = "mybook""#));
@@ -407,7 +404,7 @@ mod tests {
             base_config: None,
         };
 
-        let result = project_new(temp_dir.path(), &config);
+        let result = new(temp_dir.path(), &config);
         assert!(result.is_err());
     }
 
@@ -430,10 +427,10 @@ mod tests {
         };
 
         // Create first project
-        project_new(temp_dir.path(), &config).unwrap();
+        new(temp_dir.path(), &config).unwrap();
 
         // Try to create same project again
-        let result = project_new(temp_dir.path(), &config);
+        let result = new(temp_dir.path(), &config);
         assert!(result.is_err());
     }
 }
