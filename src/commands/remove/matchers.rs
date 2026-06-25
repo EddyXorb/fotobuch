@@ -12,8 +12,8 @@ pub(super) struct MatchResult {
     pub(super) matched_groups: Vec<String>,
 }
 
-/// Sammelt alle Photo-IDs die mindestens einem Pattern entsprechen.
-/// Patterns können exakte Gruppennamen oder Regex-Patterns sein.
+/// Collects all photo IDs that match at least one pattern.
+/// Patterns can be exact group names or regex patterns.
 pub(super) fn match_photos(state: &ProjectState, patterns: &[String]) -> Result<MatchResult> {
     let mut matched_ids: HashSet<String> = HashSet::new();
     let mut matched_groups: Vec<String> = Vec::new();
@@ -48,8 +48,8 @@ pub(super) struct LayoutRemoveResult {
     pub(super) pages_affected: Vec<usize>,
 }
 
-/// Entfernt gematchte Fotos aus allen Layout-Seiten.
-/// Photos und Slots sind index-gekoppelt — beide werden parallel gefiltert.
+/// Removes matched photos from all layout pages.
+/// Photos and slots are index-coupled — both are filtered in parallel.
 pub(super) fn remove_from_layout(
     layout: &mut [LayoutPage],
     matched_ids: &HashSet<String>,
@@ -101,8 +101,8 @@ pub(super) fn remove_from_layout(
     }
 }
 
-/// Entfernt gematchte Fotos aus state.photos.
-/// Leere Gruppen werden komplett entfernt.
+/// Removes matched photos from state.photos.
+/// Empty groups are removed entirely.
 pub(super) fn remove_from_photos(
     photos: &mut Vec<PhotoGroup>,
     matched_ids: &HashSet<String>,

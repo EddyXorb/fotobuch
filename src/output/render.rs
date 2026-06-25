@@ -44,10 +44,10 @@ pub fn render_pages_with_world(
         .collect()
 }
 
-/// Verkleinert `src` so, dass die längste Kante ≤ `max_edge_px` ist.
+/// Downsamples `src` so that the longest edge is ≤ `max_edge_px`.
 ///
-/// Seitenverhältnis bleibt erhalten. Wenn `src` bereits kleiner ist, wird eine
-/// Kopie mit unveränderter Größe zurückgegeben.
+/// Aspect ratio is preserved. If `src` is already smaller, a copy with
+/// unchanged dimensions is returned.
 pub fn downsample(src: &RenderedPage, max_edge_px: u32) -> RenderedPage {
     let (w, h) = (src.width, src.height);
     let max_edge = w.max(h);
