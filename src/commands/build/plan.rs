@@ -1,5 +1,6 @@
 use super::BuildResult;
 use super::build_layout::{build_full_book, build_outdated_pages, build_page, build_page_range};
+use super::errors::BuildError;
 use super::helpers::{
     CacheRefresh, CommitMode, PdfTarget, RenderContext, refresh_final_cache, refresh_preview_cache,
     render_pdf,
@@ -104,24 +105,20 @@ impl BuildPlan {
     }
 }
 
-// ── pipeline helpers ─────────────────────────────────────────────────────────
+// ── pipeline helpers ──────────────────────────────────────────────────────────────────────────
 
 fn validate_release(mgr: &StateManager, force: bool) -> Result<()> {
     if mgr.state().layout.is_empty() {
-        anyhow::bail!("No layout found. Run `fotobuch build` first to generate layout.");
+        return Err(BuildError::NoLayout.into());
     }
     if !force {
-        let changed: Vec<_> = mgr
+        let pages: Vec<_> = mgr
             .outdated_pages_indices()
             .into_iter()
             .filter(|i| !mgr.state().config.book.cover.active || *i != 0)
             .collect();
-        if !changed.is_empty() {
-            anyhow::bail!(
-                "Layout has changes since last build. Changed pages: {:?}. \
-                 Run `fotobuch build` first or use `fotobuch build release --force`.",
-                changed
-            );
+        if !pages.is_empty() {
+            return Err(BuildError::LayoutDirty { pages }.into());
         }
     }
     Ok(())
@@ -183,13 +180,13 @@ fn commit_message(
     }
 }
 
-// ── tests ─────────────────────────────────────────────────────────────────────
+// ── tests ─────────────────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    // ── BuildPlan variant construction ────────────────────────────────────────
+    // ── BuildPlan variant construction ────────────────────────────────────────────────────────────────────────────
 
     #[test]
     fn build_plan_variants_are_constructible() {

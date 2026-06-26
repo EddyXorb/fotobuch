@@ -1,6 +1,6 @@
 //! Address types, command types, and error/result types for page commands.
 
-// ── PagesExpr ─────────────────────────────────────────────────────────────────
+// ── PagesExpr ─────────────────────────────────────────────────────────────────────────────────
 
 /// A list of page numbers: `3`, `3,5`, or `3..5`.
 #[derive(Debug, Clone, PartialEq)]
@@ -24,7 +24,7 @@ impl PagesExpr {
     }
 }
 
-// ── SlotExpr ──────────────────────────────────────────────────────────────────
+// ── SlotExpr ───────────────────────────────────────────────────────────────────────────────────
 
 /// A single item inside a [`SlotExpr`]: a concrete slot number or a range
 /// with optional bounds (`N..`, `..N`, `N..M`).
@@ -85,7 +85,7 @@ impl SlotExpr {
     }
 }
 
-// ── Source / Destination types ────────────────────────────────────────────────
+// ── Source / Destination types ───────────────────────────────────────────────────────────────────────
 
 /// Source address for `page move` and `page swap`.
 #[derive(Debug, Clone, PartialEq)]
@@ -134,7 +134,7 @@ pub enum PageMoveCmd {
     Swap { left: Src, right: DstSwap },
 }
 
-// ── Error types ───────────────────────────────────────────────────────────────
+// ── Error types ───────────────────────────────────────────────────────────────────────────────
 
 /// Semantic validation errors (checked against the loaded project state).
 #[derive(Debug, Clone, PartialEq)]
@@ -174,12 +174,7 @@ impl std::fmt::Display for ValidationError {
                 write!(f, "cannot split at first slot (would leave page {p} empty)")
             }
             Self::WeightOutOfRange(w) => write!(f, "weight {w} is out of range (must be > 0)"),
-            Self::PageNotManual(p) => {
-                write!(
-                    f,
-                    "page {p} is not in manual mode; use 'page mode {p} m' first"
-                )
-            }
+            Self::PageNotManual(p) => write!(f, "page {p} is not in manual mode"),
         }
     }
 }
@@ -212,7 +207,7 @@ impl From<ValidationError> for PageMoveError {
     }
 }
 
-// ── Result type ───────────────────────────────────────────────────────────────
+// ── Result type ───────────────────────────────────────────────────────────────────────────────
 
 /// Summary of what a page command changed.
 #[derive(Debug)]
@@ -225,7 +220,7 @@ pub struct PageMoveResult {
     pub pages_deleted: Vec<u32>,
 }
 
-// ── Info/Weight address types ─────────────────────────────────────────────────
+// ── Info/Weight address types ─────────────────────────────────────────────────────────────────────
 
 /// Address for `page weight`: either all slots on a page or specific slots.
 #[derive(Debug, Clone, PartialEq)]
@@ -279,7 +274,7 @@ pub struct PageInfoResult {
     pub slots: Vec<PageSlotInfo>,
 }
 
-// ── Tests ─────────────────────────────────────────────────────────────────────
+// ── Tests ─────────────────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
 mod tests {

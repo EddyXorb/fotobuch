@@ -2,15 +2,20 @@
 
 mod cli;
 
-use anyhow::Result;
 use clap::Parser;
 use cli::{Cli, Execute};
 
-fn main() -> Result<()> {
+fn main() {
     let _guard = setup_logging();
 
     let cli = Cli::parse();
-    cli.command.execute()
+    if let Err(err) = cli.command.execute() {
+        eprintln!("error: {err}");
+        if let Some(hint) = cli::hints::hint_for(&err) {
+            eprintln!("hint: {hint}");
+        }
+        std::process::exit(1);
+    }
 }
 
 /// Initialize logging system with environment variable support.

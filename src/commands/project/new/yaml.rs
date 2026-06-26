@@ -107,7 +107,6 @@ mod tests {
             width_mm: 210.0,
             height_mm: 297.0,
             bleed_mm: 3.0,
-            quiet: false,
             with_cover: false,
             cover_width_mm: None,
             cover_height_mm: None,
@@ -178,7 +177,8 @@ mod tests {
 
     #[test]
     fn test_write_yaml() {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new();
+        let temp_dir = temp_dir.unwrap();
         let yaml_path = temp_dir.path().join("test.yaml");
 
         let state = generate_default_state(&test_config());
