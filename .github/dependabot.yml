@@ -3,6 +3,11 @@
 # Ziel: Sicherheitslücken, die `cargo audit` (Workflow "Security Audit")
 # meldet, werden automatisch als PR vorgeschlagen, statt den Audit-Job
 # dauerhaft rot zu lassen.
+#
+# Bewusste Entscheidung: kein Auto-Merge. Dependabot öffnet den Pull Request,
+# gemergt wird ausschließlich von Hand. Deshalb gibt es hier keinen
+# Auto-Merge-Workflow und keine `dependabot merge`-Automatik --
+# `tests/dependabot_config_test.rs` prüft das ab.
 version: 2
 
 updates:

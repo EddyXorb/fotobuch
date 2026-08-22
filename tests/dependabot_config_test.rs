@@ -85,3 +85,38 @@ fn updates_are_grouped() {
         assert!(!groups.is_empty());
     }
 }
+
+/// Dependabot soll ausschließlich Pull Requests öffnen -- gemergt wird von
+/// Hand. GitHub merged nie von selbst; ein Auto-Merge entsteht nur durch einen
+/// zusätzlichen Workflow (`gh pr merge --auto`, `enable-pull-request-automerge`,
+/// `merge_pull_request`). Dieser Test schlägt an, falls so ein Workflow
+/// nachträglich hinzukommt.
+#[test]
+fn no_workflow_merges_dependabot_pull_requests() {
+    let workflows = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(".github/workflows");
+    let markers = [
+        "pr merge",
+        "pull-request-automerge",
+        "automerge",
+        "auto-merge",
+        "merge_pull_request",
+    ];
+
+    for file in std::fs::read_dir(&workflows).expect("no .github/workflows directory") {
+        let path = file.expect("unreadable directory entry").path();
+        if path.extension().and_then(|e| e.to_str()) != Some("yml") {
+            continue;
+        }
+        let content = std::fs::read_to_string(&path)
+            .unwrap_or_else(|e| panic!("cannot read {}: {e}", path.display()))
+            .to_lowercase();
+
+        for marker in markers {
+            assert!(
+                !content.contains(marker),
+                "{} enthält `{marker}` -- Dependabot-PRs sollen von Hand gemergt werden",
+                path.display()
+            );
+        }
+    }
+}
