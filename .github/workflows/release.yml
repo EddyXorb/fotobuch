@@ -162,6 +162,24 @@ jobs:
       - name: Generate release notes
         run: git-cliff --config cliff.toml --latest --strip header --output RELEASE_NOTES.md
 
+      - name: Append install notes
+        run: |
+          cat >> RELEASE_NOTES.md <<'EOF'
+
+          ### macOS
+
+          The macOS binaries are not notarized by Apple, so Gatekeeper blocks them
+          after a browser download ("Apple could not verify ..."). Install from the
+          terminal instead — `curl` does not quarantine downloads:
+
+          ```bash
+          curl -fsSL https://github.com/EddyXorb/fotobuch/releases/latest/download/fotobuch-macos-arm64.tar.gz | tar -xz
+          ```
+
+          Already downloaded? Run `xattr -dr com.apple.quarantine <folder>` once.
+          Details: https://eddyxorb.github.io/fotobuch/cli/installation.html
+          EOF
+
       - name: Create GitHub Release draft
         run: |
           gh release create "${{ github.ref_name }}" \
