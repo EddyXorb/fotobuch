@@ -2,7 +2,7 @@
 mod common;
 
 use anyhow::Result;
-use fotobuch::commands::build::{BuildConfig, BuildPlan, build};
+use fotobuch::commands::build::{BuildConfig, BuildError, BuildPlan, build};
 use fotobuch::commands::project::new::{NewConfig, new};
 use fotobuch::commands::{AddConfig, add};
 use fotobuch::models::{read_state_yaml, write_state_yaml};
@@ -17,7 +17,6 @@ fn create_test_project_with_build(temp_dir: &TempDir) -> Result<PathBuf> {
         width_mm: 200.0,
         height_mm: 250.0,
         bleed_mm: 3.0,
-        quiet: true,
         with_cover: false,
         cover_width_mm: None,
         cover_height_mm: None,
@@ -184,7 +183,7 @@ fn test_rebuild_single_page_invalid_page_index() -> Result<()> {
     );
     let err = result.unwrap_err();
     assert!(
-        err.to_string().contains("Invalid page"),
+        err.to_string().contains("invalid page index"),
         "Error should mention invalid page"
     );
 
@@ -471,7 +470,6 @@ fn test_rebuild_without_layout_fails_except_all() -> Result<()> {
         width_mm: 200.0,
         height_mm: 250.0,
         bleed_mm: 3.0,
-        quiet: true,
         with_cover: false,
         cover_width_mm: None,
         cover_height_mm: None,
@@ -521,7 +519,7 @@ fn test_rebuild_without_layout_fails_except_all() -> Result<()> {
     );
     let err = result.unwrap_err();
     assert!(
-        err.to_string().contains("No layout exists"),
+        matches!(err.downcast_ref::<BuildError>(), Some(BuildError::NoLayout)),
         "Error should mention missing layout"
     );
 
@@ -541,7 +539,7 @@ fn test_rebuild_without_layout_fails_except_all() -> Result<()> {
     assert!(result.is_err(), "Range rebuild without layout should fail");
     let err = result.unwrap_err();
     assert!(
-        err.to_string().contains("No layout exists"),
+        matches!(err.downcast_ref::<BuildError>(), Some(BuildError::NoLayout)),
         "Error should mention missing layout"
     );
 

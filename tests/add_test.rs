@@ -17,7 +17,6 @@ fn create_test_project(temp_dir: &TempDir) -> Result<PathBuf> {
         width_mm: 200.0,
         height_mm: 250.0,
         bleed_mm: 3.0,
-        quiet: true,
         with_cover: false,
         cover_width_mm: None,
         cover_height_mm: None,
