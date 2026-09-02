@@ -87,7 +87,9 @@ fn body(ui: &mut egui::Ui, s: &mut NewProjectDialogState, cmds: &mut Vec<Backgro
         if btn.clicked()
             && let Some(cfg) = config
         {
-            cmds.push(BackgroundTask::ProjectNew { config: cfg });
+            cmds.push(BackgroundTask::ProjectNew {
+                config: Box::new(cfg),
+            });
             cmds.push(BackgroundTask::ListProjects);
             s.open = false;
         }
