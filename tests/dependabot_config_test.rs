@@ -142,3 +142,30 @@ fn no_workflow_merges_dependabot_pull_requests() {
         }
     }
 }
+
+/// `include: scope` laesst Dependabot den Scope selbst anhaengen -- aus
+/// `prefix: chore` wird `chore(deps): ...`. Traegt der Praefix die Klammer
+/// bereits, entsteht der doppelte Scope `chore(deps)(deps): ...`.
+#[test]
+fn commit_prefixes_do_not_duplicate_the_scope() {
+    let config = dependabot_config();
+
+    for entry in updates(&config) {
+        let commit_message = &entry["commit-message"];
+        if commit_message["include"].as_str() != Some("scope") {
+            continue;
+        }
+
+        for key in ["prefix", "prefix-development"] {
+            let Some(prefix) = commit_message[key].as_str() else {
+                continue;
+            };
+            assert!(
+                !prefix.contains('('),
+                "ecosystem {:?}: `{key}: {prefix}` traegt schon einen Scope, \
+                 zusammen mit `include: scope` ergibt das {prefix}(deps)",
+                entry["package-ecosystem"]
+            );
+        }
+    }
+}

@@ -25,9 +25,12 @@ updates:
     allow:
       - dependency-type: all
     open-pull-requests-limit: 10
+    # `include: scope` haengt den Scope selbst an -- ergibt chore(deps) bzw.
+    # chore(deps-dev). Der Praefix darf die Klammer deshalb NICHT schon
+    # enthalten, sonst entsteht "chore(deps)(deps): ...".
     commit-message:
-      prefix: "chore(deps)"
-      prefix-development: "chore(deps-dev)"
+      prefix: "chore"
+      prefix-development: "chore"
       include: scope
     groups:
       # Ein Sammel-PR für alles, was ohne Breaking Change durchgeht.
@@ -52,7 +55,7 @@ updates:
       timezone: Europe/Berlin
     open-pull-requests-limit: 5
     commit-message:
-      prefix: "chore(deps)"
+      prefix: "chore"
       include: scope
     groups:
       uv-minor-patch:
@@ -75,7 +78,7 @@ updates:
       timezone: Europe/Berlin
     open-pull-requests-limit: 5
     commit-message:
-      prefix: "ci(deps)"
+      prefix: "ci"
       include: scope
     groups:
       github-actions:
