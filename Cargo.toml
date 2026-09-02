@@ -101,7 +101,7 @@ version = "0.34"
 optional = true
 
 [dependencies.rfd]
-version = "0.14"
+version = "0.17"
 optional = true
 
 [dependencies.egui_commonmark]
