@@ -143,29 +143,23 @@ fn no_workflow_merges_dependabot_pull_requests() {
     }
 }
 
-/// `include: scope` laesst Dependabot den Scope selbst anhaengen -- aus
-/// `prefix: chore` wird `chore(deps): ...`. Traegt der Praefix die Klammer
-/// bereits, entsteht der doppelte Scope `chore(deps)(deps): ...`.
+/// Dependabot erkennt den Conventional-Commit-Stil des Repositories selbst und
+/// setzt `chore(deps): ...` bereits von sich aus -- belegt durch PR #56/#57/#58,
+/// die entstanden, bevor `.github/dependabot.yml` existierte. Ein zusaetzliches
+/// `include: scope` haengt einen zweiten Scope an, woraus
+/// `chore(deps)(deps): ...` wird und damit kein gueltiger Conventional Commit
+/// mehr.
 #[test]
-fn commit_prefixes_do_not_duplicate_the_scope() {
+fn commit_message_scope_is_left_to_dependabot() {
     let config = dependabot_config();
 
     for entry in updates(&config) {
         let commit_message = &entry["commit-message"];
-        if commit_message["include"].as_str() != Some("scope") {
-            continue;
-        }
-
-        for key in ["prefix", "prefix-development"] {
-            let Some(prefix) = commit_message[key].as_str() else {
-                continue;
-            };
-            assert!(
-                !prefix.contains('('),
-                "ecosystem {:?}: `{key}: {prefix}` traegt schon einen Scope, \
-                 zusammen mit `include: scope` ergibt das {prefix}(deps)",
-                entry["package-ecosystem"]
-            );
-        }
+        assert!(
+            commit_message.is_null(),
+            "ecosystem {:?} setzt einen commit-message-Block; Dependabot setzt \
+             Typ und Scope selbst, jede eigene Angabe verdoppelt den Scope",
+            entry["package-ecosystem"]
+        );
     }
 }

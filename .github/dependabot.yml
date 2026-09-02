@@ -8,6 +8,11 @@
 # gemergt wird ausschließlich von Hand. Deshalb gibt es hier keinen
 # Auto-Merge-Workflow und keine `dependabot merge`-Automatik --
 # `tests/dependabot_config_test.rs` prüft das ab.
+# Kein `commit-message`-Block: Dependabot erkennt den Conventional-Commit-Stil
+# des Repositories selbst und setzt "chore(deps): ..." bereits von sich aus --
+# nachweisbar an PR #56/#57/#58, die entstanden, bevor es diese Datei gab. Ein
+# zusaetzliches `include: scope` haengt einen zweiten Scope an und erzeugt
+# "chore(deps)(deps): ...".
 version: 2
 
 updates:
@@ -25,13 +30,6 @@ updates:
     allow:
       - dependency-type: all
     open-pull-requests-limit: 10
-    # `include: scope` haengt den Scope selbst an -- ergibt chore(deps) bzw.
-    # chore(deps-dev). Der Praefix darf die Klammer deshalb NICHT schon
-    # enthalten, sonst entsteht "chore(deps)(deps): ...".
-    commit-message:
-      prefix: "chore"
-      prefix-development: "chore"
-      include: scope
     groups:
       # Ein Sammel-PR für alles, was ohne Breaking Change durchgeht.
       cargo-minor-patch:
@@ -54,9 +52,6 @@ updates:
       time: "06:00"
       timezone: Europe/Berlin
     open-pull-requests-limit: 5
-    commit-message:
-      prefix: "chore"
-      include: scope
     groups:
       uv-minor-patch:
         applies-to: version-updates
@@ -77,9 +72,6 @@ updates:
       time: "06:00"
       timezone: Europe/Berlin
     open-pull-requests-limit: 5
-    commit-message:
-      prefix: "ci"
-      include: scope
     groups:
       github-actions:
         patterns:
