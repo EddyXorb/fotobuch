@@ -318,8 +318,7 @@ fn test_place_invalid_filter_pattern() -> Result<()> {
 
     assert!(
         error_message.contains("Invalid filter pattern"),
-        "Actual: {}",
-        &error_message
+        "Actual: {error_message}"
     );
 
     Ok(())

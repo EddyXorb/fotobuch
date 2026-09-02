@@ -33,9 +33,11 @@ mod tests {
 
     #[test]
     fn reset_keeps_open_flag() {
-        let mut s = NewProjectDialogState::default();
-        s.open = true;
-        s.name = "old".to_string();
+        let mut s = NewProjectDialogState {
+            open: true,
+            name: "old".to_string(),
+            ..Default::default()
+        };
         s.reset();
         assert!(s.open);
         assert!(s.name.is_empty());

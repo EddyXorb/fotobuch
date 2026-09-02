@@ -447,11 +447,6 @@ impl<'a> WriteLayoutState<'a> {
     pub fn layout_mut(&mut self) -> &mut Vec<crate::models::LayoutPage> {
         &mut self.state.layout
     }
-
-    #[cfg(test)]
-    pub(crate) fn for_test(state: &'a mut ProjectState) -> Self {
-        WriteLayoutState { state }
-    }
 }
 
 impl inner::Inner for WriteLayoutState<'_> {

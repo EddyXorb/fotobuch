@@ -18,8 +18,19 @@ fn ci_workflow() -> String {
 fn ci_compiles_all_features() {
     let workflow = ci_workflow();
     assert!(
-        workflow.contains("cargo check --all-features --all-targets"),
+        workflow.contains("--all-features --all-targets"),
         "ci.yml baut nicht alle Features -- Brüche im gui-Feature bleiben unbemerkt"
+    );
+}
+
+/// Warnungen dürfen nicht zurückkriechen: der Clippy-Schritt muss über alle
+/// Features und Targets laufen und Warnungen als Fehler behandeln.
+#[test]
+fn clippy_covers_all_targets_and_denies_warnings() {
+    let workflow = ci_workflow();
+    assert!(
+        workflow.contains("cargo clippy --all-features --all-targets -- -D warnings"),
+        "der Clippy-Schritt in ci.yml deckt nicht alle Targets ab oder erlaubt Warnungen"
     );
 }
 
