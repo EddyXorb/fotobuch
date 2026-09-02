@@ -6,6 +6,8 @@
 use clap::{Command, CommandFactory};
 use fotobuch::commands::build::BuildError;
 use fotobuch::commands::project::ProjectError;
+use fotobuch::solver::CoverSolverError;
+use fotobuch::state_manager::StateError;
 
 use super::Cli;
 
@@ -16,6 +18,12 @@ pub fn hint_for(err: &anyhow::Error) -> Option<String> {
     }
     if let Some(e) = err.downcast_ref::<ProjectError>() {
         return Some(project_hint(e));
+    }
+    if let Some(e) = err.downcast_ref::<StateError>() {
+        return Some(state_hint(e));
+    }
+    if let Some(e) = err.downcast_ref::<CoverSolverError>() {
+        return Some(cover_hint(e));
     }
     None
 }
@@ -39,9 +47,35 @@ fn build_hint(err: &BuildError) -> String {
 }
 
 fn project_hint(err: &ProjectError) -> String {
+    let cmd = Cli::command();
     match err {
         ProjectError::NotFound { .. } => {
             "use `fotobuch project list` to see available projects".to_string()
+        }
+        ProjectError::CoverWithoutSpine => {
+            let path = &["project", "new"];
+            let grow = flag_long(&cmd, path, "spine_grow_per_10_pages_mm");
+            let fixed = flag_long(&cmd, path, "spine_mm");
+            let cover = flag_long(&cmd, path, "with_cover");
+            format!("pass `{grow} <mm>` or `{fixed} <mm>` together with `{cover}`")
+        }
+    }
+}
+
+fn state_hint(err: &StateError) -> String {
+    match err {
+        StateError::NotOnProjectBranch { .. } => {
+            "use `fotobuch project switch <name>` to check out a project".to_string()
+        }
+    }
+}
+
+fn cover_hint(err: &CoverSolverError) -> String {
+    let cmd = Cli::command();
+    match err {
+        CoverSolverError::MissingPhoto { .. } => {
+            let into = flag_long(&cmd, &["place"], "into");
+            format!("assign the missing photo with `fotobuch place <photo> {into} 0`")
         }
     }
 }
@@ -80,5 +114,9 @@ mod tests {
         let cmd = Cli::command();
         flag_long(&cmd, &["build", "release"], "force");
         flag_long(&cmd, &["rebuild"], "page");
+        flag_long(&cmd, &["project", "new"], "spine_grow_per_10_pages_mm");
+        flag_long(&cmd, &["project", "new"], "spine_mm");
+        flag_long(&cmd, &["project", "new"], "with_cover");
+        flag_long(&cmd, &["place"], "into");
     }
 }
