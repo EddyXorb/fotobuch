@@ -33,13 +33,35 @@ fn config_uses_schema_version_2() {
     assert_eq!(dependabot_config()["version"].as_u64(), Some(2));
 }
 
+/// Jedes Ökosystem, das im Repository tatsächlich vorkommt, muss abgedeckt
+/// sein -- sonst laufen für dessen Abhängigkeiten keine Wochen-Updates.
+/// `tests/tools` ist ein uv-Projekt (pyproject.toml + uv.lock).
 #[test]
-fn cargo_and_github_actions_are_covered() {
+fn all_ecosystems_in_the_repository_are_covered() {
     let config = dependabot_config();
-    for ecosystem in ["cargo", "github-actions"] {
+    for (ecosystem, directory) in [
+        ("cargo", "/"),
+        ("github-actions", "/"),
+        ("uv", "/tests/tools"),
+    ] {
         let entry = entry_for(&config, ecosystem);
-        assert_eq!(entry["directory"].as_str(), Some("/"));
+        assert_eq!(
+            entry["directory"].as_str(),
+            Some(directory),
+            "ecosystem `{ecosystem}` watches the wrong directory"
+        );
     }
+}
+
+/// Guard gegen ein neues Manifest ohne passenden Dependabot-Eintrag.
+#[test]
+fn python_tooling_manifest_still_lives_where_dependabot_looks() {
+    let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/tools/pyproject.toml");
+    assert!(
+        manifest.is_file(),
+        "{} fehlt -- dependabot.yml zeigt ins Leere",
+        manifest.display()
+    );
 }
 
 #[test]
