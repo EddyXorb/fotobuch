@@ -24,9 +24,20 @@
 //! the spine is centred at `canvas_w / 2`.
 
 use anyhow::{Result, bail};
+use thiserror::Error;
 use tracing::warn;
 
 use crate::models::{CoverConfig, CoverGeometry, CoverMode, Slot};
+
+/// Typed cover solver failures whose remediation is surface-specific.
+///
+/// The `#[error]` text names only the condition; the hint is added by the
+/// surface (see `cli/cli/hints.rs`).
+#[derive(Debug, Error)]
+pub enum CoverSolverError {
+    #[error("cover needs a photo at index {index} but only has {available}")]
+    MissingPhoto { index: usize, available: usize },
+}
 
 // ── public entry point ───────────────────────────────────────────────────────
 
@@ -222,11 +233,11 @@ fn fill(area: &Rect) -> Slot {
 /// Extract the aspect ratio at `index` from the slice, or error with a clear message.
 fn photo_ratio(ratios: &[f64], index: usize) -> Result<f64> {
     ratios.get(index).copied().ok_or_else(|| {
-        anyhow::anyhow!(
-            "Cover solver expected a photo at index {index} but only {} photo(s) are on the cover. \
-             Assign the correct number of photos with `fotobuch place <photo> --into 0`.",
-            ratios.len()
-        )
+        CoverSolverError::MissingPhoto {
+            index,
+            available: ratios.len(),
+        }
+        .into()
     })
 }
 
@@ -428,5 +439,29 @@ mod tests {
             slots[0].width_mm,
             slots[1].width_mm
         );
+    }
+
+    #[test]
+    fn too_few_photos_yield_typed_missing_photo_error() {
+        let cover = base_cover(CoverMode::Split);
+        let Err(err) = compute_cover_slots(&cover, &[1.0], INNER) else {
+            panic!("split cover with one photo must fail");
+        };
+        assert!(matches!(
+            err.downcast_ref::<CoverSolverError>(),
+            Some(CoverSolverError::MissingPhoto {
+                index: 1,
+                available: 1
+            })
+        ));
+    }
+
+    #[test]
+    fn cover_solver_error_messages_contain_no_cli_commands() {
+        let err = CoverSolverError::MissingPhoto {
+            index: 1,
+            available: 0,
+        };
+        assert!(!err.to_string().contains("fotobuch"));
     }
 }
