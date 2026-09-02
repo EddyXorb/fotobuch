@@ -208,8 +208,8 @@ mod tests {
             });
 
         harness.run();
-        let w = *width.lock().unwrap();
-        w
+
+        *width.lock().unwrap()
     }
 
     #[test]

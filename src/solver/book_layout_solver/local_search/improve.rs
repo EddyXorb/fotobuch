@@ -336,7 +336,7 @@ mod tests {
         let groups = create_test_groups();
         let mut params = create_test_params();
         params.search_timeout = Duration::from_secs(1);
-        let mut evaluator = MockEvaluator { ideal_count: 6 };
+        let evaluator = MockEvaluator { ideal_count: 6 };
 
         // Initial: [0, 4, 8, 12] → 3 pages of 4 photos each (deviation=2 from ideal 6)
         // Due to min-page-size=4, most perturbations are infeasible, so assignment may stay.
@@ -349,7 +349,7 @@ mod tests {
             &photos,
             &groups,
             &params,
-            &mut evaluator,
+            &evaluator,
         );
 
         assert!(result.iterations > 0, "Expected at least one iteration");
@@ -367,13 +367,13 @@ mod tests {
         let groups = create_test_groups();
         let mut params = create_test_params();
         params.search_timeout = Duration::from_millis(1);
-        let mut evaluator = MockEvaluator { ideal_count: 6 };
+        let evaluator = MockEvaluator { ideal_count: 6 };
 
         let initial = PageAssignment::new(vec![0, 4, 8, 12]);
         let layouts = eval_pages(&initial, &photos, &evaluator);
 
         let start = Instant::now();
-        let _ = improve(initial, layouts, &photos, &groups, &params, &mut evaluator);
+        let _ = improve(initial, layouts, &photos, &groups, &params, &evaluator);
         let elapsed = start.elapsed();
 
         assert!(
@@ -387,7 +387,7 @@ mod tests {
         let photos = create_test_photos(12);
         let groups = create_test_groups();
         let params = create_test_params();
-        let mut evaluator = MockEvaluator { ideal_count: 6 };
+        let evaluator = MockEvaluator { ideal_count: 6 };
 
         // Already optimal: 2 pages of 6 photos each → coverage = 0.0
         let initial = PageAssignment::new(vec![0, 6, 12]);
@@ -399,7 +399,7 @@ mod tests {
             &photos,
             &groups,
             &params,
-            &mut evaluator,
+            &evaluator,
         );
 
         assert_eq!(result.assignment.cuts(), initial.cuts());
@@ -413,11 +413,11 @@ mod tests {
         let photos = create_test_photos(12);
         let groups = create_test_groups();
         let params = create_test_params();
-        let mut evaluator = MockEvaluator { ideal_count: 6 };
+        let evaluator = MockEvaluator { ideal_count: 6 };
 
         let initial = PageAssignment::new(vec![0, 6, 12]);
         let layouts = eval_pages(&initial, &photos, &evaluator);
-        let result = improve(initial, layouts, &photos, &groups, &params, &mut evaluator);
+        let result = improve(initial, layouts, &photos, &groups, &params, &evaluator);
 
         // One final layout is returned for each page of the final assignment.
         assert_eq!(
@@ -430,13 +430,13 @@ mod tests {
     #[test]
     fn test_find_candidate_cuts_returns_all_movable_cuts() {
         let photos = create_test_photos(12);
-        let mut evaluator = MockEvaluator { ideal_count: 6 };
+        let evaluator = MockEvaluator { ideal_count: 6 };
         let mut cache: PhotoCombinationCache<PageLayoutResult> = PhotoCombinationCache::new();
 
         // [0, 4, 8, 12] → 4 cuts, index 0 is immutable → 3 candidates
         let assignment = PageAssignment::new(vec![0, 4, 8, 12]);
 
-        let candidates = find_candidate_cuts(&assignment, &photos, &mut cache, &mut evaluator);
+        let candidates = find_candidate_cuts(&assignment, &photos, &mut cache, &evaluator);
 
         assert_eq!(candidates.len(), 2, "All movable cuts should be candidates");
     }
@@ -447,13 +447,13 @@ mod tests {
         // ideal=10: deviations for pages [0..4]=6, [4..8]=6, [8..12]=6 → all equal
         // ideal=4: pages [0..4]=0, [4..8]=0, [8..12]=0 → all zero
         // Use asymmetric assignment to get different coverages
-        let mut evaluator = MockEvaluator { ideal_count: 10 };
+        let evaluator = MockEvaluator { ideal_count: 10 };
         let mut cache: PhotoCombinationCache<PageLayoutResult> = PhotoCombinationCache::new();
 
         // [0, 4, 8, 12] → pages of 4, 4, 4 (all deviation=6 from ideal 10)
         let assignment = PageAssignment::new(vec![0, 4, 8, 12]);
 
-        let candidates = find_candidate_cuts(&assignment, &photos, &mut cache, &mut evaluator);
+        let candidates = find_candidate_cuts(&assignment, &photos, &mut cache, &evaluator);
 
         assert!(!candidates.is_empty());
         // All have equal coverage so order doesn't matter, but count should be 2
