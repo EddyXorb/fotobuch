@@ -7,19 +7,21 @@ on:
       - 'Cargo.toml'
       - 'Cargo.lock'
       - '.cargo/**'
+      - '.github/workflows/**'
   pull_request:
     paths:
       - 'src/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
       - '.cargo/**'
+      - '.github/workflows/**'
 
 jobs:
   test:
     name: Test & Coverage
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -42,7 +44,7 @@ jobs:
         run: cargo llvm-cov --lcov --output-path lcov.info
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
           files: lcov.info
           token: ${{ secrets.CODECOV_TOKEN }}

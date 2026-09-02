@@ -15,7 +15,7 @@ pub(super) fn apply_crossover<R: Rng>(
 ) -> Vec<LayoutIndividual> {
     let mut offspring = Vec::with_capacity(parents.len());
 
-    for chunk in parents.chunks_exact(2) {
+    for chunk in parents.as_chunks::<2>().0 {
         if rng.r#gen::<f64>() < crossover_rate {
             crossover_pair(chunk, context, rng, &mut offspring);
         } else {

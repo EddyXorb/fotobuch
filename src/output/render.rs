@@ -77,7 +77,7 @@ pub fn downsample(src: &RenderedPage, max_edge_px: u32) -> RenderedPage {
 }
 
 fn premultiplied_to_straight(pixels: &mut [u8]) {
-    for chunk in pixels.chunks_exact_mut(4) {
+    for chunk in pixels.as_chunks_mut::<4>().0 {
         let a = chunk[3] as f32 / 255.0;
         if a > 0.0 {
             chunk[0] = (chunk[0] as f32 / a).min(255.0) as u8;
