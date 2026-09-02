@@ -35,7 +35,11 @@ pub(super) fn draw_pages(
     let mut sa = egui::ScrollArea::vertical()
         .auto_shrink([false; 2])
         .scroll_source(egui::containers::scroll_area::ScrollSource {
-            drag: !rmbactive,
+            drag: if rmbactive {
+                egui::containers::scroll_area::DragScroll::Never
+            } else {
+                egui::containers::scroll_area::DragScroll::Always
+            },
             scroll_bar: true,
             mouse_wheel: true,
         });
