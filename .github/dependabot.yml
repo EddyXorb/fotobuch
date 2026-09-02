@@ -1,0 +1,83 @@
+# Wöchentliche Abhängigkeits-Updates.
+#
+# Ziel: Sicherheitslücken, die `cargo audit` (Workflow "Security Audit")
+# meldet, werden automatisch als PR vorgeschlagen, statt den Audit-Job
+# dauerhaft rot zu lassen.
+#
+# Bewusste Entscheidung: kein Auto-Merge. Dependabot öffnet den Pull Request,
+# gemergt wird ausschließlich von Hand. Deshalb gibt es hier keinen
+# Auto-Merge-Workflow und keine `dependabot merge`-Automatik --
+# `tests/dependabot_config_test.rs` prüft das ab.
+version: 2
+
+updates:
+  # Rust-Abhängigkeiten (Cargo.toml + Cargo.lock)
+  - package-ecosystem: cargo
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Berlin
+    # `cargo audit` prüft die komplette Cargo.lock. Viele Advisories
+    # (z. B. quick-xml, crossbeam-epoch, webbrowser) betreffen transitive
+    # Crates, die Dependabot ohne "all" nicht anfassen würde.
+    allow:
+      - dependency-type: all
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "chore(deps)"
+      prefix-development: "chore(deps-dev)"
+      include: scope
+    groups:
+      # Ein Sammel-PR für alles, was ohne Breaking Change durchgeht.
+      cargo-minor-patch:
+        applies-to: version-updates
+        update-types:
+          - minor
+          - patch
+      # Sicherheitsupdates gebündelt, damit sie zusammen gemergt werden.
+      cargo-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
+
+  # Python-Hilfswerkzeuge der Tests (uv-Projekt: pyproject.toml + uv.lock)
+  - package-ecosystem: uv
+    directory: /tests/tools
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Berlin
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+      include: scope
+    groups:
+      uv-minor-patch:
+        applies-to: version-updates
+        update-types:
+          - minor
+          - patch
+      uv-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
+
+  # Versionen der verwendeten GitHub Actions
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Berlin
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "ci(deps)"
+      include: scope
+    groups:
+      github-actions:
+        patterns:
+          - "*"
