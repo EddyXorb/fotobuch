@@ -1,8 +1,8 @@
 # Lib-Refactoring — Strukturvorschläge für `src/`
 
-> Status: teils umgesetzt. Abschnitte 1–9 sowie Teil B von 10 sind im Kern erledigt
-> (Details in den separaten Plänen `0x-*.md`, siehe Abschnitt 11); offen ist nur
-> noch Teil A von Abschnitt 10 (Fehlermeldungen).
+> Status: Abschnitte 1–10 sind im Kern umgesetzt (Details in den separaten Plänen
+> `0x-*.md`, siehe Abschnitt 11). Offen sind nur noch Nachzieh-Punkte: J11 aus
+> Abschnitt 6, die Restfundstellen aus Abschnitt 10 Teil A und Abschnitt 12.
 > Reihenfolge je Abschnitt = Priorität. Kein fertiger Code, nur Ideen +
 > Signatur-Skizzen. Befunde mit `Datei:Zeile` belegt (offene Abschnitte gegen den
 > aktuellen Stand geprüft).
@@ -212,14 +212,16 @@ Plan: [`09-naming.md`](./09-naming.md). Befunde in Kürze:
 Vollständiger Plan: [`10-errors-and-methods.md`](./10-errors-and-methods.md).
 Bündelt zwei verwandte Hygiene-Themen.
 
-**Teil A — CLI-Begriffe aus der Lib verbannen (offen).**
+**Teil A — CLI-Begriffe aus der Lib verbannen (umgesetzt mit #53).** Die im Plan
+gelisteten Fundstellen im build-Pfad, in `page/types.rs`, `project/switch.rs` und
+`project/new.rs` sind auf getippte Fehler (`BuildError`, `ProjectError`,
+`ValidationError`) bzw. auf CLI-Ausgabe umgestellt; die Hinweise liegen in
+`cli/cli/hints.rs` und lesen ihre Flag-Namen aus `Cli::command()`.
 
-- **CLI-Strings in Lib-Laufzeitfehlern:** „Run `fotobuch build` first"
-  (`build/build_layout.rs:46,76`, `build/plan.rs:111`, `place.rs:103`),
-  „`page mode {} a`" (`build_layout.rs:57–62`), „`rebuild --page 0`"
-  (`build_layout.rs:113,118`), „`build release --force`" (`plan.rs:120–124`),
-  „`page mode {p} m`" (`page/types.rs:180`), „`fotobuch project list`"
-  (`switch.rs:34–36`), Next-Steps `WELCOME_MESSAGE` (`project/new.rs`).
+**Restfundstellen** derselben Regel, im Plan noch nicht erfasst:
+`project/new.rs:73` (`--with-cover`/`--spine-*`), `solver/cover_solver.rs:227`
+(`fotobuch place … --into`), `state_manager.rs:73,542` (`fotobuch project switch`).
+
 - **Zwei Probleme:** für die GUI (gleiche Lib) sind CLI-Hinweise sinnlos; Flag-
   Namen driften unbemerkt von den clap-Definitionen weg.
 - **Designentscheidung:** Bedingung und Abhilfe trennen. Die Lib gibt *getippte*
@@ -261,7 +263,7 @@ Themenblock in eigenen Dateien neben diesem Dokument:
 - [`09-naming.md`](./09-naming.md) — Namens- & Sprachkonsistenz (Abschnitt 9;
   umgesetzt #52).
 - [`10-errors-and-methods.md`](./10-errors-and-methods.md) — CLI-Begriffe aus
-  Lib-Fehlern verbannen (getippte Fehler + CLI-Hinweise, offen) und
+  Lib-Fehlern verbannen (getippte Fehler + CLI-Hinweise, umgesetzt #53) und
   Methoden-Komplexität (umgesetzt mit #50) (Abschnitt 10).
 
 ---

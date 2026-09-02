@@ -6,12 +6,12 @@
 ## Worum es geht
 
 Zwei verwandte „Hygiene"-Themen in einem Plan: Laufzeitfehler der Lib nennen
-konkrete CLI-Begriffe (Teil A, offen) und einzelne Methoden mischen
+konkrete CLI-Begriffe (Teil A, umgesetzt mit #53) und einzelne Methoden mischen
 Abstraktionsebenen (Teil B, bereits abgegolten).
 
 ---
 
-## Teil A — CLI-Begriffe aus der Lib verbannen (offen)
+## Teil A — CLI-Begriffe aus der Lib verbannen (umgesetzt mit #53)
 
 Laufzeitfehler der Lib nennen konkrete CLI-Kommandos/Flags als String-Literale.
 Zwei Probleme: für Nicht-CLI-Konsumenten (GUI) ist der Hinweis sinnlos, und die
@@ -19,7 +19,7 @@ Flag-Namen driften unbemerkt von den clap-Definitionen weg. **Regel:** die Lib
 beschreibt nur die *Bedingung* (getippter Fehler), die Oberfläche ergänzt die
 *Abhilfe*.
 
-### Was offen ist (verifiziert)
+### Was war offen (verifiziert, inzwischen umgesetzt)
 
 CLI-Strings in Lib-Laufzeitfehlern (`anyhow::bail!`/`anyhow!`, Display, `println!`):
 
@@ -80,6 +80,22 @@ In `cli/`: `hint(&err) -> String` je Lib-Fehler-Enum, exhaustives `match` ohne
 Test `hint_lookups_resolve` prüft alle benutzten Lookups. CLI-Fehlerausgabe hängt
 den Hinweis an (`error: <bedingung>` / `hint: <abhilfe>`).
 *Verify:* Test schlägt fehl, wenn ein Flag umbenannt/entfernt wird.
+
+### Umsetzungsstand
+
+N1–N5 sind umgesetzt (#53): `BuildError` (`commands/build/errors.rs`),
+`ProjectError` (`commands/project/errors.rs`), CLI-freier
+`ValidationError`-Text (`page/types.rs`), Next-Steps in der CLI
+(`cli/cli/project.rs`) und `hint_for`/`flag_long` samt Test
+`hint_lookups_resolve` (`cli/cli/hints.rs`). Die Variante `PagesWithRelease`
+entfiel — die Bedingung deckt `LayoutDirty` mit ab.
+
+**Nicht erfasste Restfundstellen** derselben Regel (eigener Folgeschritt):
+
+- `project/new.rs:73` nennt `--with-cover`, `--spine-grow-per-10-pages-mm`,
+  `--spine-mm`.
+- `solver/cover_solver.rs:227` nennt `fotobuch place <photo> --into 0`.
+- `state_manager.rs:73,542` nennen `fotobuch project switch <name>`.
 
 ### Reihenfolge & Risiko
 
