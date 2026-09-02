@@ -34,11 +34,11 @@ pub fn generate_default_state(config: &NewConfig) -> ProjectState {
 
     let cover = if *with_cover {
         let cw = cover_width_mm.unwrap_or_else(|| {
-            warn!("--with-cover set but --cover-width not provided, using page_width * 2");
+            warn!("cover active but no cover width given, using page width * 2");
             width_mm * 2.0
         });
         let ch = cover_height_mm.unwrap_or_else(|| {
-            warn!("--with-cover set but --cover-height not provided, using page_height");
+            warn!("cover active but no cover height given, using page height");
             *height_mm
         });
         let spine_config = if let Some(rate) = spine_grow_per_10_pages_mm {
@@ -47,7 +47,7 @@ pub fn generate_default_state(config: &NewConfig) -> ProjectState {
             }
         } else {
             SpineConfig::Fixed {
-                spine_width_mm: spine_mm.expect("validated in CLI handler"),
+                spine_width_mm: spine_mm.expect("validated by ProjectError::CoverWithoutSpine"),
             }
         };
         CoverConfig {

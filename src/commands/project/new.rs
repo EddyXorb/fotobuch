@@ -70,7 +70,7 @@ pub fn new(parent_dir_or_root: &Path, config: &NewConfig) -> Result<CommandOutpu
 
     if config.with_cover && config.spine_grow_per_10_pages_mm.is_none() && config.spine_mm.is_none()
     {
-        anyhow::bail!("--with-cover requires either --spine-grow-per-10-pages-mm or --spine-mm");
+        return Err(super::ProjectError::CoverWithoutSpine.into());
     }
 
     // Detect mode: an existing git repo means "add project here" (vault or
@@ -390,5 +390,47 @@ mod tests {
         // Try to create same project again
         let result = new(temp_dir.path(), &config);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn cover_without_spine_is_typed_error() {
+        let temp_dir = TempDir::new().unwrap();
+        let config = NewConfig {
+            name: "vacation".to_string(),
+            width_mm: 210.0,
+            height_mm: 297.0,
+            bleed_mm: 3.0,
+            with_cover: true,
+            cover_width_mm: None,
+            cover_height_mm: None,
+            spine_grow_per_10_pages_mm: None,
+            spine_mm: None,
+            margin_mm: 0.0,
+            base_config: None,
+        };
+
+        let Err(err) = new(temp_dir.path(), &config) else {
+            panic!("an active cover without spine config must fail");
+        };
+        assert!(matches!(
+            err.downcast_ref::<super::super::ProjectError>(),
+            Some(super::super::ProjectError::CoverWithoutSpine)
+        ));
+    }
+
+    #[test]
+    fn project_error_messages_contain_no_cli_commands() {
+        let cases: &[super::super::ProjectError] = &[
+            super::super::ProjectError::NotFound {
+                name: "x".to_owned(),
+            },
+            super::super::ProjectError::CoverWithoutSpine,
+        ];
+        for err in cases {
+            assert!(
+                !err.to_string().contains("fotobuch") && !err.to_string().contains("--"),
+                "ProjectError::{err:?} contains CLI wording"
+            );
+        }
     }
 }
