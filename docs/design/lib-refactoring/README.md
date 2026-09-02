@@ -1,8 +1,8 @@
 # Lib-Refactoring — Strukturvorschläge für `src/`
 
-> Status: Abschnitte 1–10 sind im Kern umgesetzt (Details in den separaten Plänen
+> Status: Abschnitte 1–10 sind umgesetzt (Details in den separaten Plänen
 > `0x-*.md`, siehe Abschnitt 11). Offen sind nur noch Nachzieh-Punkte: J11 aus
-> Abschnitt 6, die Restfundstellen aus Abschnitt 10 Teil A und Abschnitt 12.
+> Abschnitt 6, die Benennung aus Abschnitt 3 und Abschnitt 12.2/12.3.
 > Reihenfolge je Abschnitt = Priorität. Kein fertiger Code, nur Ideen +
 > Signatur-Skizzen. Befunde mit `Datei:Zeile` belegt (offene Abschnitte gegen den
 > aktuellen Stand geprüft).
@@ -52,17 +52,17 @@ zuletzt umgesetzten Phase E): [`01-build.md`](./01-build.md).
 
 ## 2. Cover-Logik konsolidieren
 
-**Status: Konsolidierung erledigt.** Die früher über `multipage_build` und
+**Status: umgesetzt.** Die früher über `multipage_build` und
 `rebuild_single_page` verstreute Cover-Logik (Fallunterscheidung *free vs.
 structured*, `split_cover_photos`, `build_cover_page`, `update_cover_page`) liegt
 jetzt gebündelt in `commands/build/build_layout/cover_page.rs`.
 
-**Offen bleibt** die Cover-**Geometrie** (`spread_width_mm`, `spine_width_mm`,
-`resolved_spine_text`), die weiterhin als Berechnungslogik auf dem Daten-DTO
-`CoverConfig` (`cover_config.rs:144–173`) liegt statt in einem eigenen Wertobjekt
-— dazu kommt eine tote, irreführende zweite `impl CanvasConfig for CoverConfig`
-(`cover_config.rs:176`, ohne Consumer). Plan: [`02-cover.md`](./02-cover.md)
-(verwandt mit Abschnitt 5.2).
+**Ebenfalls erledigt** (#44) ist die Cover-**Geometrie**: `spread_width_mm` und
+`spine_width_mm` liegen jetzt im Wertobjekt `CoverGeometry` (`models/cover.rs`),
+das `CoverConfig` an einen konkreten `inner_page_count` bindet und `CanvasConfig`
+implementiert; `CoverConfig` ist wieder ein reines Daten-DTO ohne
+`CanvasConfig`-Impl. Plan: [`02-cover.md`](./02-cover.md) (verwandt mit
+Abschnitt 5.2).
 
 ---
 
@@ -218,9 +218,11 @@ gelisteten Fundstellen im build-Pfad, in `page/types.rs`, `project/switch.rs` un
 `ValidationError`) bzw. auf CLI-Ausgabe umgestellt; die Hinweise liegen in
 `cli/cli/hints.rs` und lesen ihre Flag-Namen aus `Cli::command()`.
 
-**Restfundstellen** derselben Regel, im Plan noch nicht erfasst:
-`project/new.rs:73` (`--with-cover`/`--spine-*`), `solver/cover_solver.rs:227`
-(`fotobuch place … --into`), `state_manager.rs:73,542` (`fotobuch project switch`).
+Im selben PR nachgezogen (Nachtrag N6 im Plan): die im ursprünglichen Befund
+fehlenden Fundstellen unterhalb der Command-Ebene — `ProjectError::CoverWithoutSpine`
+(`project/new.rs`), `CoverSolverError::MissingPhoto` (`solver/cover_solver.rs`)
+und `StateError::NotOnProjectBranch` (`state_manager.rs`, beide Stellen über
+einen Helfer zusammengeführt).
 
 - **Zwei Probleme:** für die GUI (gleiche Lib) sind CLI-Hinweise sinnlos; Flag-
   Namen driften unbemerkt von den clap-Definitionen weg.
@@ -284,23 +286,28 @@ noch auf **Manual**-Seiten (dort sind Slots autoritativ); auf Auto-Seiten ist ei
 Mismatch ein legaler „needs rebuild"-Zustand. Verwandt: §6 (`state_manager`,
 Invarianten), §7.1 (`run_command`-Wrapper), §1 (`BuildPlan`).
 
-### 13.1 Manual-Ziel beim `move` braucht einen Slot (Bug, umzusetzen)
+### 12.1 Manual-Ziel beim `move` braucht einen Slot (Bug, offen)
 
-`execute_move_to` pusht beim Ziel `DstMove::Page` Fotos ohne Slot
-(`move_cmd.rs:188–190` für die Slots-Variante, `:225–227` für die Pages-Variante).
-Für Auto-Ziele ist das korrekt (der Rebuild regeneriert die Slots). Ist das
-**Ziel aber eine Manual-Seite**, entsteht eine echte, dauerhafte Inkonsistenz:
-Manual-Seiten werden nie neu gelöst, also bleibt `photos > slots` bestehen — und
-`check_validity` meldet das nach dem Fix nun zu Recht.
+Der Standard-Move pusht beim Ziel `DstMove::Page` Fotos ohne Slot
+(`move_cmd/standard.rs:154` für die Slots-Variante, `:194` für die
+Pages-Variante). Für Auto-Ziele ist das korrekt (der Rebuild regeneriert die
+Slots). Ist das **Ziel aber eine Manual-Seite**, entsteht eine echte, dauerhafte
+Inkonsistenz: Manual-Seiten werden nie neu gelöst, also bleibt `photos > slots`
+bestehen — und `check_validity` meldet das zu Recht.
+
+Der Befund gilt nach #50 unverändert; verifiziert mit `DstMove::Page(1)` auf eine
+Manual-Seite → `photos=2, slots=1`. Der vorhandene Test
+`move_slot_into_manual_page_creates_positioned_slot` deckt nur den expliziten
+Pfad `DstMove::ManualAt` ab, nicht diesen.
 
 **Fix:** Beim Verschieben auf eine Manual-Seite je Foto einen Slot erzeugen,
-analog zu `execute_move_to_manual` (`move_cmd.rs:316–326`), das Foto + Slot bereits
-paarweise anhängt. Slot-Größe aus der Quell-Seite übernehmen bzw. `default_manual_
-slot_size` (`move_cmd.rs:350`) als Fallback. Alternativ den Move auf ein
-Manual-Ziel über `DstMove::Page` ablehnen und auf `DstMove::ManualAt` verweisen.
-Empfehlung: Slot erzeugen (deckt CLI- und GUI-Pfad gleich ab).
+analog zu `apply_move_to_manual` (`move_cmd/manual.rs:84–85`), das Foto + Slot
+bereits paarweise anhängt. Slot-Größe aus der Quell-Seite übernehmen bzw.
+`default_manual_slot_size` (`move_cmd/manual.rs:111`) als Fallback. Alternativ den
+Move auf ein Manual-Ziel über `DstMove::Page` ablehnen und auf `DstMove::ManualAt`
+verweisen. Empfehlung: Slot erzeugen (deckt CLI- und GUI-Pfad gleich ab).
 
-### 13.2 CLI-Rückmeldung: welche Seiten einen Rebuild brauchen (umzusetzen)
+### 12.2 CLI-Rückmeldung: welche Seiten einen Rebuild brauchen (offen)
 
 Nach einem Edit sieht der CLI-Nutzer nicht deutlich, dass betroffene Seiten neu
 gebaut werden müssen. Die Information liegt vor — `outdated_pages_indices()`
@@ -316,7 +323,7 @@ unauffällig.
 - In der Nutzer-Doku (`docs/book`) erklären: Auto-Slots sind ein Cache; nach
   einem Edit ist ein `build` nötig, damit Layout/PDF stimmen.
 
-### 13.3 Idee: `move` + `rebuild` in einem (Entscheidung offen)
+### 12.3 Idee: `move` + `rebuild` in einem (Entscheidung offen)
 
 > **Status: noch nicht entschieden.** Ob und wie das umgesetzt wird, muss der
 > Eigentümer abnehmen. Dieser Abschnitt sammelt nur Optionen.

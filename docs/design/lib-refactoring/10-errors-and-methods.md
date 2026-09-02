@@ -90,12 +90,29 @@ N1–N5 sind umgesetzt (#53): `BuildError` (`commands/build/errors.rs`),
 `hint_lookups_resolve` (`cli/cli/hints.rs`). Die Variante `PagesWithRelease`
 entfiel — die Bedingung deckt `LayoutDirty` mit ab.
 
-**Nicht erfasste Restfundstellen** derselben Regel (eigener Folgeschritt):
+### Nachtrag N6 — im Plan nicht erfasste Restfundstellen (umgesetzt mit #53)
 
-- `project/new.rs:73` nennt `--with-cover`, `--spine-grow-per-10-pages-mm`,
-  `--spine-mm`.
-- `solver/cover_solver.rs:227` nennt `fotobuch place <photo> --into 0`.
-- `state_manager.rs:73,542` nennen `fotobuch project switch <name>`.
+Die ursprüngliche Bestandsaufnahme deckte nur die Command-Ebene ab. Drei
+Fundstellen derselben Regel lagen darunter bzw. daneben und sind nach demselben
+Muster (getippter Fehler in der Lib, Hinweis in der CLI) nachgezogen:
+
+| Fundstelle | war | jetzt |
+| --- | --- | --- |
+| `project/new.rs` | `--with-cover requires either --spine-…` | `ProjectError::CoverWithoutSpine` |
+| `solver/cover_solver.rs` | „…with `fotobuch place <photo> --into 0`" | `CoverSolverError::MissingPhoto` |
+| `state_manager.rs` (2×) | „run 'fotobuch project switch <name>' first" | `StateError::NotOnProjectBranch` |
+
+Nebenbefunde im selben Zug:
+
+- Die beiden `state_manager`-Stellen waren dupliziert → ein Helfer
+  `project_name_from_branch`.
+- `project/new/yaml.rs` nannte `--with-cover`/`--cover-width`/`--cover-height` in
+  `warn!`-Zeilen → auf Sachverhalt gekürzt.
+
+`StateError` liegt in `state_manager/errors.rs`, `CoverSolverError` neben dem
+Solver in `solver/cover_solver.rs` — bewusst *nicht* in `commands/`, damit die
+untere Schicht nicht nach oben zeigt. `hint_for` in `cli/cli/hints.rs` kennt
+jetzt vier Fehler-Enums; jedes hat ein exhaustives `match` ohne `_`-Arm.
 
 ### Reihenfolge & Risiko
 
@@ -138,8 +155,10 @@ größeren Komplexen und wird dort geführt:
 
 - `place.rs` (Orchestrierung + chronologischer Algorithmus vermischt) → Plan 7 K6
   (`page_placement.rs` herauslösen).
-- Manual-Ziel beim Move braucht einen Slot → §12.1 (bereits umgesetzt, Test
-  `move_slot_into_manual_page_creates_positioned_slot`).
+- Manual-Ziel beim Move braucht einen Slot → §12.1 (**noch offen**). Der Test
+  `move_slot_into_manual_page_creates_positioned_slot` deckt nur `DstMove::ManualAt`
+  ab; über `DstMove::Page` auf eine Manual-Seite entsteht weiterhin
+  `photos > slots`.
 
 Künftige „lange Methode"-Funde nach demselben Muster behandeln: erst nach
 Abstraktionsebene aufteilen (Dispatch/Orchestrierung/Rechnung), Reads vor Writes
