@@ -77,8 +77,7 @@ fn place_hotkey_emits_place_with_hovered_page() {
         slot: None,
         cursor_mm: (0.0, 0.0),
     });
-    let mut cmds = Vec::new();
-    cmds.push(BackgroundTask::Place {
+    let cmd = BackgroundTask::Place {
         photo_ids: state.interaction.selections.photos.ids(),
         dst: match state
             .interaction
@@ -89,8 +88,8 @@ fn place_hotkey_emits_place_with_hovered_page() {
             Some(p) => PlaceDst::Page(p),
             None => PlaceDst::Auto,
         },
-    });
-    let BackgroundTask::Place { dst, .. } = cmds.first().unwrap() else {
+    };
+    let BackgroundTask::Place { dst, .. } = &cmd else {
         panic!()
     };
     assert_eq!(*dst, PlaceDst::Page(2));
@@ -100,8 +99,7 @@ fn place_hotkey_emits_place_with_hovered_page() {
 fn place_hotkey_emits_place_without_target_when_no_hover() {
     let mut state = state_with_pool_selection(vec!["a.jpg"]);
     state.interaction.hovered = None;
-    let mut cmds = Vec::new();
-    cmds.push(BackgroundTask::Place {
+    let cmd = BackgroundTask::Place {
         photo_ids: state.interaction.selections.photos.ids(),
         dst: match state
             .interaction
@@ -112,8 +110,8 @@ fn place_hotkey_emits_place_without_target_when_no_hover() {
             Some(p) => PlaceDst::Page(p),
             None => PlaceDst::Auto,
         },
-    });
-    let BackgroundTask::Place { dst, .. } = cmds.first().unwrap() else {
+    };
+    let BackgroundTask::Place { dst, .. } = &cmd else {
         panic!()
     };
     assert_eq!(*dst, PlaceDst::Auto);
@@ -271,8 +269,10 @@ fn cross_page_move_with_selection_moves_all_selected_slots() {
 }
 
 fn data_with_layout(layout: Vec<fotobuch::models::LayoutPage>) -> crate::state::DataState {
-    let mut project = ProjectState::default();
-    project.layout = layout;
+    let project = ProjectState {
+        layout,
+        ..Default::default()
+    };
     crate::state::DataState {
         derived: crate::state::DerivedState::rebuild(&project),
         pages: crate::state::PageCache::new(project.layout.len()),
@@ -440,11 +440,13 @@ fn handle_delete_prefers_slot_selection_over_hovered_page() {
 #[test]
 fn handle_delete_noop_on_cover_when_active() {
     use fotobuch::models::{BookConfig, CoverConfig, ProjectConfig};
-    let mut project = ProjectState::default();
-    project.config = ProjectConfig {
-        book: BookConfig {
-            cover: CoverConfig {
-                active: true,
+    let project = ProjectState {
+        config: ProjectConfig {
+            book: BookConfig {
+                cover: CoverConfig {
+                    active: true,
+                    ..Default::default()
+                },
                 ..Default::default()
             },
             ..Default::default()
