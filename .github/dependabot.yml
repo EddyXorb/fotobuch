@@ -31,6 +31,29 @@ updates:
       - dependency-type: all
     open-pull-requests-limit: 10
     groups:
+      # Crate-Familien, die nur im Gleichschritt funktionieren. Wird nur ein
+      # Mitglied angehoben, liegen zwei Versionen derselben Bibliothek im
+      # Abhängigkeitsbaum und identisch benannte Typen sind nicht mehr
+      # zuweisungskompatibel ("expected typst::layout::Page, found
+      # typst_layout::document::Page"). Solche PRs können einzeln gar nicht
+      # grün werden -- siehe PR #64/#66/#70.
+      #
+      # Dependabot ordnet jede Abhängigkeit der *ersten* passenden Gruppe zu,
+      # deshalb stehen diese Gruppen vor `cargo-minor-patch`. Ohne
+      # `update-types` erfasst eine Gruppe alle Update-Arten, also auch
+      # Breaking Changes wie 0.14 -> 0.15.
+      typst:
+        applies-to: version-updates
+        patterns:
+          - "typst"
+          - "typst-*"
+      egui:
+        applies-to: version-updates
+        patterns:
+          - "eframe"
+          - "egui"
+          - "egui-*"
+          - "egui_*"
       # Ein Sammel-PR für alles, was ohne Breaking Change durchgeht.
       cargo-minor-patch:
         applies-to: version-updates
