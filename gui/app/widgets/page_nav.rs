@@ -14,7 +14,7 @@ pub fn draw(
         .min_size(100.0)
         .max_size(200.0)
         .default_size(120.0)
-        .show_inside(ui, |ui| show(ui, data, interaction, cmds));
+        .show(ui, |ui| show(ui, data, interaction, cmds));
 }
 
 fn show(

@@ -19,7 +19,7 @@ pub fn draw(
 ) {
     let resp = egui::CentralPanel::default()
         .frame(egui::Frame::new().fill(FbTheme::BG))
-        .show_inside(ui, |ui| {
+        .show(ui, |ui| {
             if let Some(h) = draw_pages::draw_pages(ui, data, interaction, cmds) {
                 interaction.hovered = Some(h);
             }

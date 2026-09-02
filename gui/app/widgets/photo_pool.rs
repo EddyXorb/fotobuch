@@ -9,7 +9,7 @@ pub fn draw(ui: &mut egui::Ui, data: &DataState, interaction: &mut InteractionSt
         .resizable(true)
         .min_size(120.0)
         .default_size(260.0)
-        .show_inside(ui, |ui| show(ui, data, interaction));
+        .show(ui, |ui| show(ui, data, interaction));
 }
 
 fn draw_pool_drag_ghost(ctx: &egui::Context, data: &DataState, interaction: &InteractionState) {
@@ -84,7 +84,11 @@ fn show(ui: &mut egui::Ui, data: &DataState, interaction: &mut InteractionState)
             ..egui::Margin::ZERO
         })
         .scroll_source(egui::containers::scroll_area::ScrollSource {
-            drag: !rmbactive,
+            drag: if rmbactive {
+                egui::containers::scroll_area::DragScroll::Never
+            } else {
+                egui::containers::scroll_area::DragScroll::Always
+            },
             scroll_bar: true,
             mouse_wheel: true,
         })
@@ -149,7 +153,7 @@ mod tests {
                     d.insert_persisted(
                         id,
                         egui::containers::panel::PanelState {
-                            rect: egui::Rect::from_min_size(
+                            outer_rect: egui::Rect::from_min_size(
                                 egui::pos2(0.0, 0.0),
                                 egui::vec2(MIN, 600.0),
                             ),
@@ -161,7 +165,7 @@ mod tests {
                     .resizable(true)
                     .min_size(MIN)
                     .default_size(260.0)
-                    .show_inside(ui, |ui| {
+                    .show(ui, |ui| {
                         egui::ScrollArea::vertical()
                             .auto_shrink([false; 2])
                             .show(ui, |ui| {
