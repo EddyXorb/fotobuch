@@ -34,15 +34,13 @@ jobs:
       - name: Check formatting
         run: cargo fmt --check
 
-      - name: Clippy
-        run: cargo clippy -- -D warnings
-
-      # Die Coverage-Laeufe unten bauen nur die Default-Features. Optionale
+      # Der Coverage-Lauf unten baut nur die Default-Features. Optionale
       # Features (gui, cli-docs, slow-tests) blieben dadurch ungetestet -- ein
       # Dependency-Update konnte den GUI-Build brechen, ohne die CI rot zu
-      # faerben. Dieser Schritt kompiliert alle Features und alle Targets.
-      - name: Check all features
-        run: cargo check --all-features --all-targets
+      # faerben. Clippy deckt hier alle Features und alle Targets ab und
+      # ersetzt damit einen separaten Build-Schritt.
+      - name: Clippy
+        run: cargo clippy --all-features --all-targets -- -D warnings
 
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
