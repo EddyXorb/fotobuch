@@ -31,8 +31,8 @@ use crate::models::{CoverConfig, CoverGeometry, CoverMode, Slot};
 
 /// Typed cover solver failures whose remediation is surface-specific.
 ///
-/// The `#[error]` text names only the condition; the hint is added by the
-/// surface (see `cli/cli/hints.rs`).
+/// The `#[error]` text names only the condition; how to remedy it depends on the
+/// consuming surface and is worded there.
 #[derive(Debug, Error)]
 pub enum CoverSolverError {
     #[error("cover needs a photo at index {index} but only has {available}")]

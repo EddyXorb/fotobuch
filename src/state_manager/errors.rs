@@ -1,7 +1,7 @@
 //! Typed errors of the state layer.
 //!
-//! The `#[error]` texts name only the *condition*; the remediation hint is
-//! added by the surface (see `cli/cli/hints.rs`).
+//! The `#[error]` texts name only the *condition*; how to remedy it depends on
+//! the consuming surface and is worded there.
 
 use thiserror::Error;
 
