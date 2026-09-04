@@ -105,7 +105,7 @@ impl BuildPlan {
     }
 }
 
-// ── pipeline helpers ──────────────────────────────────────────────────────────────────────────
+// ── pipeline helpers ─────────────────────────────────────────────────────────
 
 fn validate_release(mgr: &StateManager, force: bool) -> Result<()> {
     if mgr.state().layout.is_empty() {
@@ -180,13 +180,13 @@ fn commit_message(
     }
 }
 
-// ── tests ─────────────────────────────────────────────────────────────────────────────────
+// ── tests ─────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    // ── BuildPlan variant construction ────────────────────────────────────────────────────────────────────────────
+    // ── BuildPlan variant construction ────────────────────────────────────────
 
     #[test]
     fn build_plan_variants_are_constructible() {
