@@ -376,9 +376,14 @@ mod tests {
         let _ = improve(initial, layouts, &photos, &groups, &params, &evaluator);
         let elapsed = start.elapsed();
 
+        // Geprueft wird, dass improve die Deadline ueberhaupt auswertet und nicht
+        // durchlaeuft -- nicht, wie exakt sie eingehalten wird. Die Schranke muss
+        // deshalb weit ueber dem 1-ms-Timeout liegen: in der CI laeuft der Test
+        // unter llvm-cov-Instrumentierung auf geteilten Runnern, wo schon eine
+        // einzelne Iteration ein Vielfaches der lokalen Zeit braucht.
         assert!(
-            elapsed < Duration::from_millis(50),
-            "Should respect timeout"
+            elapsed < Duration::from_millis(500),
+            "Should respect timeout, took {elapsed:?}"
         );
     }
 
