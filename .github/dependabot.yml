@@ -8,6 +8,11 @@
 # gemergt wird ausschließlich von Hand. Deshalb gibt es hier keinen
 # Auto-Merge-Workflow und keine `dependabot merge`-Automatik --
 # `tests/dependabot_config_test.rs` prüft das ab.
+# Kein `commit-message`-Block: Dependabot erkennt den Conventional-Commit-Stil
+# des Repositories selbst und setzt "chore(deps): ..." bereits von sich aus --
+# nachweisbar an PR #56/#57/#58, die entstanden, bevor es diese Datei gab. Ein
+# zusaetzliches `include: scope` haengt einen zweiten Scope an und erzeugt
+# "chore(deps)(deps): ...".
 version: 2
 
 updates:
@@ -25,14 +30,30 @@ updates:
     allow:
       - dependency-type: all
     open-pull-requests-limit: 10
-    # `include: scope` haengt den Scope selbst an -- ergibt chore(deps) bzw.
-    # chore(deps-dev). Der Praefix darf die Klammer deshalb NICHT schon
-    # enthalten, sonst entsteht "chore(deps)(deps): ...".
-    commit-message:
-      prefix: "chore"
-      prefix-development: "chore"
-      include: scope
     groups:
+      # Crate-Familien, die nur im Gleichschritt funktionieren. Wird nur ein
+      # Mitglied angehoben, liegen zwei Versionen derselben Bibliothek im
+      # Abhängigkeitsbaum und identisch benannte Typen sind nicht mehr
+      # zuweisungskompatibel ("expected typst::layout::Page, found
+      # typst_layout::document::Page"). Solche PRs können einzeln gar nicht
+      # grün werden -- siehe PR #64/#66/#70.
+      #
+      # Dependabot ordnet jede Abhängigkeit der *ersten* passenden Gruppe zu,
+      # deshalb stehen diese Gruppen vor `cargo-minor-patch`. Ohne
+      # `update-types` erfasst eine Gruppe alle Update-Arten, also auch
+      # Breaking Changes wie 0.14 -> 0.15.
+      typst:
+        applies-to: version-updates
+        patterns:
+          - "typst"
+          - "typst-*"
+      egui:
+        applies-to: version-updates
+        patterns:
+          - "eframe"
+          - "egui"
+          - "egui-*"
+          - "egui_*"
       # Ein Sammel-PR für alles, was ohne Breaking Change durchgeht.
       cargo-minor-patch:
         applies-to: version-updates
@@ -54,9 +75,6 @@ updates:
       time: "06:00"
       timezone: Europe/Berlin
     open-pull-requests-limit: 5
-    commit-message:
-      prefix: "chore"
-      include: scope
     groups:
       uv-minor-patch:
         applies-to: version-updates
@@ -77,9 +95,6 @@ updates:
       time: "06:00"
       timezone: Europe/Berlin
     open-pull-requests-limit: 5
-    commit-message:
-      prefix: "ci"
-      include: scope
     groups:
       github-actions:
         patterns:

@@ -91,21 +91,21 @@ cli-docs = ["dep:clap-markdown"]
 slow-tests = []
 
 [dependencies.eframe]
-version = "0.34"
+version = "0.35"
 optional = true
 default-features = false
 features = ["default_fonts", "glow", "x11"]
 
 [dependencies.egui]
-version = "0.34"
+version = "0.35"
 optional = true
 
 [dependencies.rfd]
-version = "0.14"
+version = "0.17"
 optional = true
 
 [dependencies.egui_commonmark]
-version = "0.23"
+version = "0.24"
 optional = true
 
 [dependencies.include_dir]
@@ -134,7 +134,7 @@ codegen-units = 1
 [dev-dependencies]
 approx = "0.5"
 assert_cmd = "2"
-egui_kittest = "0.34"
+egui_kittest = "0.35"
 predicates = "3"
 proptest = "1"
 rand_chacha = "0.3"

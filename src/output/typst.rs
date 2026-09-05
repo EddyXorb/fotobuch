@@ -390,7 +390,9 @@ mod tests {
 
         let has_opaque = page
             .pixels
-            .chunks_exact(4)
+            .as_chunks::<4>()
+            .0
+            .iter()
             .any(|p| p[3] == 255 && p[0] == 255 && p[1] == 255 && p[2] == 255);
         assert!(has_opaque, "expected at least one white opaque pixel");
     }

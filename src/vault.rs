@@ -102,8 +102,10 @@ mod tests {
         std::fs::create_dir_all(&cwd_path).unwrap();
         std::fs::create_dir_all(&settings_path).unwrap();
 
-        let mut settings = AppSettings::default();
-        settings.last_vault = Some(settings_path.clone());
+        let settings = AppSettings {
+            last_vault: Some(settings_path.clone()),
+            ..Default::default()
+        };
 
         // 1. CLI wins over everything
         let result = resolve_vault(
@@ -123,9 +125,11 @@ mod tests {
         assert_eq!(result, settings_path);
 
         // 4. Default when nothing matches
-        let mut empty_s = AppSettings::default();
         // Point last_vault at non-existent path so it's skipped
-        empty_s.last_vault = Some(tmp.path().join("nonexistent"));
+        let empty_s = AppSettings {
+            last_vault: Some(tmp.path().join("nonexistent")),
+            ..Default::default()
+        };
         let result = resolve_vault(None, None, &cwd_path, &empty_s);
         assert_eq!(result, default_vault_path());
     }
@@ -141,8 +145,10 @@ mod tests {
         let repo = git::open_repo(tmp.path()).unwrap();
         git::create_branch(&repo, "fotobuch/testproject").unwrap();
 
-        let mut settings = AppSettings::default();
-        settings.last_vault = Some(settings_vault.clone());
+        let settings = AppSettings {
+            last_vault: Some(settings_vault.clone()),
+            ..Default::default()
+        };
 
         // cwd = tmp.path() which has fotobuch branches → wins over settings
         let result = resolve_vault(None, None, tmp.path(), &settings);

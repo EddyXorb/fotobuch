@@ -10,7 +10,7 @@ pub fn draw(
     interaction: &mut InteractionState,
 ) -> Vec<BackgroundTask> {
     egui::Panel::top("toolbar")
-        .show_inside(ui, |ui| show(ui, data, interaction))
+        .show(ui, |ui| show(ui, data, interaction))
         .inner
 }
 

@@ -52,7 +52,7 @@ fn draw_contents(ui: &mut egui::Ui, interaction: &mut InteractionState) {
     egui::Panel::left("help_sidebar")
         .resizable(true)
         .default_size(140.0)
-        .show_inside(ui, |ui| {
+        .show(ui, |ui| {
             egui::ScrollArea::vertical()
                 .id_salt("help_sidebar_scroll")
                 .show(ui, |ui| {
