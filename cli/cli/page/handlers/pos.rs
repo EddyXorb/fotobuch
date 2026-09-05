@@ -2,7 +2,7 @@ use anyhow::Result;
 
 use fotobuch::commands::page::{self as page_cmd, PosConfig, PosMode};
 
-use super::common::project_root;
+use super::common::{project_root, to_anyhow};
 use crate::cli::page::parse_api::parse_pos_address;
 
 /// Handler for `fotobuch page pos <address> [--by dx,dy] [--at x,y] [--scale s]`.
@@ -30,8 +30,8 @@ pub fn handle_pos(
 
     let config = PosConfig { position, scale };
 
-    let output = page_cmd::execute_pos(&project_root()?, page, slots, &config)
-        .map_err(|e| anyhow::anyhow!("{}", e))?;
+    let output =
+        page_cmd::execute_pos(&project_root()?, page, slots, &config).map_err(to_anyhow)?;
 
     println!(
         "Moved {} slot(s) on page {}.",

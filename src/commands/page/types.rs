@@ -195,6 +195,10 @@ impl std::fmt::Display for PageMoveError {
     }
 }
 
+/// Lets the surface recover the typed variant after the error crossed into
+/// `anyhow`, so it can attach a remediation hint.
+impl std::error::Error for PageMoveError {}
+
 impl From<anyhow::Error> for PageMoveError {
     fn from(e: anyhow::Error) -> Self {
         Self::Other(e)

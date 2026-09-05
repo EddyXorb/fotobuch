@@ -2,14 +2,14 @@ use anyhow::Result;
 
 use fotobuch::commands::unplace::unplace;
 
-use super::common::project_root;
+use super::common::{project_root, to_anyhow};
 use crate::cli::page::parse_api::parse_unplace_addr;
 
 /// Handler for `fotobuch unplace <address>`.
 pub fn handle_unplace(address: &str) -> Result<()> {
     let (page, slots) = parse_unplace_addr(address)
         .map_err(|e| anyhow::anyhow!("Invalid address '{}': {}", address, e))?;
-    let output = unplace(&project_root()?, page, slots).map_err(|e| anyhow::anyhow!("{}", e))?;
+    let output = unplace(&project_root()?, page, slots).map_err(to_anyhow)?;
     if output.result.pages_modified.is_empty() {
         println!("Nothing to unplace.");
     } else {

@@ -3,7 +3,7 @@ use anyhow::Result;
 use fotobuch::commands::page;
 use fotobuch::models::PageMode;
 
-use super::common::{format_page_list, project_root};
+use super::common::{format_page_list, project_root, to_anyhow};
 use crate::cli::page::parse_api::parse_pages_expr;
 
 /// Handler for `fotobuch page mode <pages> <mode>`.
@@ -22,8 +22,7 @@ pub fn handle_mode(pages_str: &str, mode_str: &str) -> Result<()> {
         }
     };
 
-    let output =
-        page::execute_mode(&project_root()?, pages, mode).map_err(|e| anyhow::anyhow!("{}", e))?;
+    let output = page::execute_mode(&project_root()?, pages, mode).map_err(to_anyhow)?;
 
     let mode_name = match output.result.new_mode {
         PageMode::Auto => "auto",
