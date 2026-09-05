@@ -9,8 +9,11 @@
 //! - Saving + committing on `finish()` / `finish_always()`
 //! - Warning in `Drop` when programmatic changes were never committed
 
+pub mod errors;
 mod page_change_detection;
 mod state_diff;
+
+pub use errors::StateError;
 
 use anyhow::{Context, Result, bail};
 use serde_yaml::Value;
@@ -67,12 +70,7 @@ impl StateManager {
     pub fn open(project_root: &Path) -> Result<Self> {
         let repo = git::open_repo(project_root)?;
         let branch = git::current_branch(&repo)?;
-        let project_name = branch
-            .strip_prefix("fotobuch/")
-            .with_context(|| {
-                format!("Current branch '{branch}' does not start with 'fotobuch/' — run 'fotobuch project switch <name>' first")
-            })?
-            .to_owned();
+        let project_name = project_name_from_branch(&branch)?.to_owned();
 
         let yaml_path = project_root.join(format!("{project_name}.yaml"));
         let mut state = read_state_yaml(&yaml_path)
@@ -531,18 +529,22 @@ impl ReadHandle {
 pub fn open_readonly(project_root: &Path) -> Result<ReadHandle> {
     let repo = git::open_repo(project_root)?;
     let branch = git::current_branch(&repo)?;
-    let project_name = branch.strip_prefix("fotobuch/").with_context(|| {
-        format!(
-            "Current branch '{branch}' does not start with 'fotobuch/' — \
-                 run 'fotobuch project switch <name>' first"
-        )
-    })?;
+    let project_name = project_name_from_branch(&branch)?;
     let yaml_path = project_root.join(format!("{project_name}.yaml"));
     let state = read_state_yaml(&yaml_path)?;
     Ok(ReadHandle { state })
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────
+
+/// Extracts the project name from a `fotobuch/<name>` branch name.
+fn project_name_from_branch(branch: &str) -> Result<&str, StateError> {
+    branch
+        .strip_prefix("fotobuch/")
+        .ok_or_else(|| StateError::NotOnProjectBranch {
+            branch: branch.to_owned(),
+        })
+}
 
 fn load_raw_config(yaml_path: &Path) -> Result<Value> {
     let content = std::fs::read_to_string(yaml_path)
@@ -753,8 +755,29 @@ mod tests {
         std::fs::write(tmp.path().join("x.txt"), "x").unwrap();
         git::stage_and_commit(&repo, &["x.txt"], "init").unwrap();
         // Still on master — not a fotobuch branch
-        let result = StateManager::open(tmp.path());
-        assert!(result.is_err());
+        let Err(err) = StateManager::open(tmp.path()) else {
+            panic!("opening a non-project branch must fail");
+        };
+        assert!(matches!(
+            err.downcast_ref::<StateError>(),
+            Some(StateError::NotOnProjectBranch { .. })
+        ));
+    }
+
+    #[test]
+    fn project_name_from_branch_strips_prefix() {
+        assert_eq!(
+            project_name_from_branch("fotobuch/urlaub").unwrap(),
+            "urlaub"
+        );
+    }
+
+    #[test]
+    fn state_error_text_is_surface_agnostic() {
+        let err = StateError::NotOnProjectBranch {
+            branch: "master".to_owned(),
+        };
+        assert!(!err.to_string().contains("fotobuch project"));
     }
 
     #[test]

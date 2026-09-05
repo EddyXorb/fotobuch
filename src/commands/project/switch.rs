@@ -3,6 +3,7 @@
 use anyhow::{Result, bail};
 use std::path::Path;
 
+use super::errors::ProjectError;
 use crate::commands::CommandOutput;
 use crate::state_manager::open_readonly;
 
@@ -30,11 +31,8 @@ pub fn switch(project_root: &Path, name: &str) -> Result<CommandOutput<()>> {
     // Check if branch exists
     let _branch = repo
         .find_branch(&branch_name, git2::BranchType::Local)
-        .map_err(|_| {
-            anyhow::anyhow!(
-                "Project '{}' not found. Use 'fotobuch project list' to see available projects.",
-                name
-            )
+        .map_err(|_| ProjectError::NotFound {
+            name: name.to_owned(),
         })?;
 
     // Check for uncommitted changes (dirty working tree)

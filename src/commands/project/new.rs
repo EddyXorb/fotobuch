@@ -29,8 +29,6 @@ pub struct NewConfig {
     pub height_mm: f64,
     /// Bleed distance in millimeters
     pub bleed_mm: f64,
-    /// Quiet mode (suppress welcome message)
-    pub quiet: bool,
     /// Create project with active cover
     pub with_cover: bool,
     /// Cover width (defaults to width_mm * 2 if with_cover and not provided)
@@ -62,36 +60,6 @@ pub struct NewResult {
     pub typ_path: PathBuf,
 }
 
-const WELCOME_MESSAGE: &str = r#"
-╔══════════════════════════════════════════════════════════════════════════════╗
-║                           Welcome to fotobuch!                               ║
-╚══════════════════════════════════════════════════════════════════════════════╝
-
-Your new photobook project has been created! Here's what you need to know:
-
-📁 Project Structure:
-   - <name>.yaml: Contains your project configuration and layout
-   - <name>.typ:  Typst template for rendering your photobook
-   - .fotobuch/:  Cache directory (not tracked in git)
-
-📝 Workflow:
-   1. fotobuch add <photos>    - Add photos to your project
-   2. fotobuch build           - Generate preview PDF
-   3. fotobuch place <photo>   - Manually adjust photo placement
-   4. fotobuch build release   - Generate final PDF for printing
-
-🔧 Configuration:
-   You can edit <name>.yaml and <name>.typ to customize your photobook.
-   All changes in between two fotobuch-command calls are tracked in git, so you can undo anything!
-
-💡 Tips:
-   - The project directory can be renamed, but don't rename .yaml or .typ files
-   - Use 'git log' to see your project history
-   - Each project lives on its own branch: fotobuch/<name>
-
-Happy photobook making! 📷✨
-"#;
-
 /// Create a new photobook project
 ///
 /// Automatically detects mode:
@@ -102,7 +70,7 @@ pub fn new(parent_dir_or_root: &Path, config: &NewConfig) -> Result<CommandOutpu
 
     if config.with_cover && config.spine_grow_per_10_pages_mm.is_none() && config.spine_mm.is_none()
     {
-        anyhow::bail!("--with-cover requires either --spine-grow-per-10-pages-mm or --spine-mm");
+        return Err(super::ProjectError::CoverWithoutSpine.into());
     }
 
     // Detect mode: an existing git repo means "add project here" (vault or
@@ -191,11 +159,6 @@ log*
 
     // 8. Create and switch to project branch
     git::create_branch(&repo, &branch_name)?;
-
-    // 9. Print welcome message
-    if !config.quiet {
-        println!("{}", WELCOME_MESSAGE); //intentionally avoid logging this
-    }
 
     let result = NewResult {
         project_root,
@@ -303,7 +266,6 @@ mod tests {
             width_mm: 210.0,
             height_mm: 297.0,
             bleed_mm: 3.0,
-            quiet: true,
             with_cover: false,
             cover_width_mm: None,
             cover_height_mm: None,
@@ -343,7 +305,6 @@ mod tests {
             width_mm: 200.0,
             height_mm: 250.0,
             bleed_mm: 5.0,
-            quiet: true,
             with_cover: false,
             cover_width_mm: None,
             cover_height_mm: None,
@@ -369,7 +330,6 @@ mod tests {
             width_mm: 210.0,
             height_mm: 297.0,
             bleed_mm: 3.0,
-            quiet: true,
             with_cover: false,
             cover_width_mm: None,
             cover_height_mm: None,
@@ -394,7 +354,6 @@ mod tests {
             width_mm: 210.0,
             height_mm: 297.0,
             bleed_mm: 3.0,
-            quiet: true,
             with_cover: false,
             cover_width_mm: None,
             cover_height_mm: None,
@@ -416,7 +375,6 @@ mod tests {
             width_mm: 210.0,
             height_mm: 297.0,
             bleed_mm: 3.0,
-            quiet: true,
             with_cover: false,
             cover_width_mm: None,
             cover_height_mm: None,
@@ -432,5 +390,47 @@ mod tests {
         // Try to create same project again
         let result = new(temp_dir.path(), &config);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn cover_without_spine_is_typed_error() {
+        let temp_dir = TempDir::new().unwrap();
+        let config = NewConfig {
+            name: "vacation".to_string(),
+            width_mm: 210.0,
+            height_mm: 297.0,
+            bleed_mm: 3.0,
+            with_cover: true,
+            cover_width_mm: None,
+            cover_height_mm: None,
+            spine_grow_per_10_pages_mm: None,
+            spine_mm: None,
+            margin_mm: 0.0,
+            base_config: None,
+        };
+
+        let Err(err) = new(temp_dir.path(), &config) else {
+            panic!("an active cover without spine config must fail");
+        };
+        assert!(matches!(
+            err.downcast_ref::<super::super::ProjectError>(),
+            Some(super::super::ProjectError::CoverWithoutSpine)
+        ));
+    }
+
+    #[test]
+    fn project_error_messages_contain_no_cli_commands() {
+        let cases: &[super::super::ProjectError] = &[
+            super::super::ProjectError::NotFound {
+                name: "x".to_owned(),
+            },
+            super::super::ProjectError::CoverWithoutSpine,
+        ];
+        for err in cases {
+            assert!(
+                !err.to_string().contains("fotobuch") && !err.to_string().contains("--"),
+                "ProjectError::{err:?} contains CLI wording"
+            );
+        }
     }
 }

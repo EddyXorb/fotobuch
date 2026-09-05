@@ -1,7 +1,8 @@
 # Lib-Refactoring — Strukturvorschläge für `src/`
 
-> Status: teils umgesetzt. Abschnitte 1–7 sind im Kern erledigt (Details in den
-> separaten Plänen `0x-*.md`, siehe Abschnitt 12); Abschnitte 8–11 sind offen.
+> Status: Abschnitte 1–10 sind umgesetzt (Details in den separaten Plänen
+> `0x-*.md`, siehe Abschnitt 11). Offen sind nur noch Nachzieh-Punkte: J11 aus
+> Abschnitt 6, die Benennung aus Abschnitt 3 und Abschnitt 12.2/12.3.
 > Reihenfolge je Abschnitt = Priorität. Kein fertiger Code, nur Ideen +
 > Signatur-Skizzen. Befunde mit `Datei:Zeile` belegt (offene Abschnitte gegen den
 > aktuellen Stand geprüft).
@@ -28,10 +29,9 @@ Inhalt:
 7. Commands: Duplizierung, Struktur, Config/Result-Muster
 8. `input`-Modul
 9. Querschnitt: Namens- & Sprachkonsistenz
-10. Fehlermeldungen: CLI-Begriffe aus dem Lib-Code verbannen
-11. Innerhalb von Methoden
-12. Umsetzungspläne (separate Dokumente) → [`01-build.md`](./01-build.md)
-13. Edit-Commands: Layout-Konsistenz & optionaler Rebuild
+10. Fehlermeldungen & Methoden-Komplexität
+11. Umsetzungspläne (separate Dokumente) → [`01-build.md`](./01-build.md)
+12. Edit-Commands: Layout-Konsistenz & optionaler Rebuild
 
 ---
 
@@ -52,17 +52,17 @@ zuletzt umgesetzten Phase E): [`01-build.md`](./01-build.md).
 
 ## 2. Cover-Logik konsolidieren
 
-**Status: Konsolidierung erledigt.** Die früher über `multipage_build` und
+**Status: umgesetzt.** Die früher über `multipage_build` und
 `rebuild_single_page` verstreute Cover-Logik (Fallunterscheidung *free vs.
 structured*, `split_cover_photos`, `build_cover_page`, `update_cover_page`) liegt
 jetzt gebündelt in `commands/build/build_layout/cover_page.rs`.
 
-**Offen bleibt** die Cover-**Geometrie** (`spread_width_mm`, `spine_width_mm`,
-`resolved_spine_text`), die weiterhin als Berechnungslogik auf dem Daten-DTO
-`CoverConfig` (`cover_config.rs:144–173`) liegt statt in einem eigenen Wertobjekt
-— dazu kommt eine tote, irreführende zweite `impl CanvasConfig for CoverConfig`
-(`cover_config.rs:176`, ohne Consumer). Plan: [`02-cover.md`](./02-cover.md)
-(verwandt mit Abschnitt 5.2).
+**Ebenfalls erledigt** (#44) ist die Cover-**Geometrie**: `spread_width_mm` und
+`spine_width_mm` liegen jetzt im Wertobjekt `CoverGeometry` (`models/cover.rs`),
+das `CoverConfig` an einen konkreten `inner_page_count` bindet und `CanvasConfig`
+implementiert; `CoverConfig` ist wieder ein reines Daten-DTO ohne
+`CanvasConfig`-Impl. Plan: [`02-cover.md`](./02-cover.md) (verwandt mit
+Abschnitt 5.2).
 
 ---
 
@@ -181,8 +181,8 @@ Implementierung zusammenführen. Details im Plan.
 
 ## 8. `input`-Modul
 
-**Status: offen.** Vollständiger Plan: [`08-input.md`](./08-input.md). Befunde in
-Kürze:
+**Status: umgesetzt** (`763866a`). Vollständiger Plan: [`08-input.md`](./08-input.md).
+Befunde in Kürze:
 
 - **Zwei `metadata.rs`, nur über den Pfad unterscheidbar:** `input/metadata.rs`
   (`compute_partial_hash`, Hashing) vs. `input/scan/metadata.rs`
@@ -195,8 +195,8 @@ Kürze:
 
 ## 9. Querschnitt: Namens- & Sprachkonsistenz
 
-**Status: offen** (mehrere Punkte durch #45/#48/#50 bereits erledigt). Vollständiger
-Plan: [`09-naming.md`](./09-naming.md). Offen:
+**Status: umgesetzt** (#52; weitere Punkte schon durch #45/#48/#50). Vollständiger
+Plan: [`09-naming.md`](./09-naming.md). Befunde in Kürze:
 
 - **Deutsch im Code** nur noch lokal (`remove/matchers.rs`, `build/helpers.rs`,
   `output/render.rs`) + Typo `nothting` (`evolution.rs:16`).
@@ -207,205 +207,42 @@ Plan: [`09-naming.md`](./09-naming.md). Offen:
 
 ---
 
-## 10. Fehlermeldungen: CLI-Begriffe aus dem Lib-Code verbannen
+## 10. Fehlermeldungen & Methoden-Komplexität
 
-### Befund
+Vollständiger Plan: [`10-errors-and-methods.md`](./10-errors-and-methods.md).
+Bündelt zwei verwandte Hygiene-Themen.
 
-Mehrere Laufzeitfehler in der Lib nennen konkrete CLI-Kommandos und -Flags:
+**Teil A — CLI-Begriffe aus der Lib verbannen (umgesetzt mit #53).** Die im Plan
+gelisteten Fundstellen im build-Pfad, in `page/types.rs`, `project/switch.rs` und
+`project/new.rs` sind auf getippte Fehler (`BuildError`, `ProjectError`,
+`ValidationError`) bzw. auf CLI-Ausgabe umgestellt; die Hinweise liegen in
+`cli/cli/hints.rs` und lesen ihre Flag-Namen aus `Cli::command()`.
 
-- `build/build_layout.rs:57,87` / `place.rs:101` „Run `fotobuch build` first."
-- `build/build_layout.rs:70` „`page mode {} a`" und `:123,128` „`rebuild --page 0`"
-- `build/plan.rs:120` „`fotobuch build release --force`"
-- `page/types.rs:176` „`page mode {p} m`"
-- `project/switch.rs:35` „`fotobuch project list`"
+Im selben PR nachgezogen (Nachtrag N6 im Plan): die im ursprünglichen Befund
+fehlenden Fundstellen unterhalb der Command-Ebene — `ProjectError::CoverWithoutSpine`
+(`project/new.rs`), `CoverSolverError::MissingPhoto` (`solver/cover_solver.rs`)
+und `StateError::NotOnProjectBranch` (`state_manager.rs`, beide Stellen über
+einen Helfer zusammengeführt).
 
-Zwei Probleme:
+- **Zwei Probleme:** für die GUI (gleiche Lib) sind CLI-Hinweise sinnlos; Flag-
+  Namen driften unbemerkt von den clap-Definitionen weg.
+- **Designentscheidung:** Bedingung und Abhilfe trennen. Die Lib gibt *getippte*
+  Fehler zurück (`thiserror`, `#[error]`-Text ohne Kommandos); die CLI übersetzt
+  Variante → Hinweis und liest die Flag-Namen zur Laufzeit aus `Cli::command()`.
+  Gegen Drift: exhaustives `match` ohne `_`-Arm (fehlender Hinweis → Compilefehler)
+  und ein Test, der jeden clap-Lookup auflöst. Mechanismus-Details (clap-`long()`-
+  Helfer, Test) stehen im Plan.
 
-1. **Falscher Kontext für Nicht-CLI-Konsumenten.** Die GUI nutzt dieselbe Lib;
-   ein GUI-Nutzer bekommt „Run `fotobuch build` first" — sinnlos.
-2. **Drift.** Flag-/Kommandonamen (`--flex`, `--page`, `release --force`) liegen
-   als String-Literale weit weg von den clap-Definitionen. Wird ein Flag
-   umbenannt, bleiben die Strings stehen; nichts erzwingt Konsistenz.
-
-### Grundidee: Bedingung und Abhilfe trennen
-
-Eine Fehlermeldung wie „Run `fotobuch build` first" vermischt **zwei** Dinge:
-
-- **die Bedingung** — *was* ist schiefgelaufen? („es gibt noch kein Layout")
-- **die Abhilfe** — *wie* behebt der Nutzer es? („führe `fotobuch build` aus")
-
-Die Bedingung ist allgemeingültig und gehört in die Lib. Die Abhilfe ist
-oberflächenspezifisch: ein CLI-Nutzer soll einen Befehl tippen, ein GUI-Nutzer
-auf einen Knopf klicken. Heute steht beides als ein fixer String in der Lib —
-deshalb ist er für die GUI falsch und enthält CLI-Wissen, das die Lib nichts
-angeht.
-
-**Regel:** Die Lib beschreibt nur die Bedingung. Die jeweilige Oberfläche (CLI,
-GUI) ergänzt die Abhilfe.
-
-### Schritt 1 — Lib: getippte, CLI-freie Fehler
-
-Statt `anyhow::bail!("… Run \`fotobuch build\` first")` gibt die Lib einen
-*getippten* Fehler zurück (`thiserror`-Enum je Command oder gemeinsam):
-
-```rust
-#[derive(Debug, thiserror::Error)]
-pub enum BuildError {
-    #[error("no layout exists yet")]
-    NoLayout,
-    #[error("layout has uncommitted changes on pages {pages:?}")]
-    LayoutDirty { pages: Vec<usize> },
-    #[error("page {idx} is in manual mode")]
-    PageIsManual { idx: usize },
-    #[error("page selection is not allowed for a release build")]
-    PagesWithRelease,
-}
-```
-
-Jede Variante ist eine **maschinenlesbare** Fehlerursache; der `#[error(...)]`-Text
-nennt nur den Sachverhalt, keine Befehle. Die GUI kann diesen Text direkt
-anzeigen und zusätzlich anhand der Variante einen eigenen Knopf vorschlagen.
-
-### Schritt 2 — CLI: Abhilfe mit echten Flags anhängen
-
-Die CLI fängt den getippten Fehler ab und hängt einen Hinweis an. Beispiel-Ablauf
-für `BuildError::NoLayout`:
-
-```text
-Lib gibt zurück:   Err(BuildError::NoLayout)
-CLI zeigt:         error: no layout exists yet
-                   hint:  run `fotobuch build` first
-GUI zeigt:         "No layout exists yet."  + [Build]-Knopf
-```
-
-Die Übersetzung Variante → Hinweis lebt ausschließlich in der CLI-Kiste:
-
-```rust
-// nur in der CLI-Kiste, direkt neben den clap-Definitionen
-fn hint(err: &BuildError) -> String {
-    match err {
-        BuildError::NoLayout       => format!("run `{BUILD}` first"),
-        BuildError::LayoutDirty{..} => format!("run `{BUILD}` or `{BUILD} {RELEASE} --{FORCE}`"),
-        BuildError::PagesWithRelease => format!("`--{PAGES}` cannot be combined with `{RELEASE}`"),
-        BuildError::PageIsManual{idx} => format!("switch it first: `{PAGE} mode {idx} a`"),
-    }
-}
-```
-
-Die Bezeichner `BUILD`/`PAGE`/… sind hier **keine** freien Literale: sie werden
-zur Laufzeit aus clap gelesen (siehe Mechanismus 2), damit der Hinweis denselben
-Namen zeigt wie Help und Parser.
-
-### Das Drift-Problem genau benannt
-
-„Drift" heißt: Hinweistext und tatsächliche CLI laufen auseinander, **ohne dass
-es jemand merkt.** Es gibt zwei Spielarten:
-
-- **Spielart A — falscher Name.** Jemand benennt das Flag `--page` in `--single`
-  um (in der clap-Definition). Der hartkodierte String „`rebuild --page 0`" bleibt
-  stehen. Ergebnis: die Meldung empfiehlt ein Flag, das es nicht mehr gibt. Kein
-  Compilerfehler, kein Testfehler — niemand merkt es.
-- **Spielart B — fehlender Hinweis.** Jemand fügt eine neue Fehlerbedingung
-  hinzu (`BuildError::CoverLocked`), vergisst aber, ihr eine Meldung zu geben. Der
-  Nutzer bekommt im besten Fall einen nichtssagenden Standardtext.
-
-### Lösung gegen Drift — zwei Mechanismen
-
-**Mechanismus 1 gegen Spielart B: exhaustives `match` ohne `_`-Arm.**
-Die `hint`-Funktion oben behandelt jede Variante einzeln und hat **keinen**
-Auffang-Arm (`_ => …`). Fügt jemand `BuildError::CoverLocked` hinzu, ist das
-`match` nicht mehr vollständig → **die CLI kompiliert nicht**, bis der Hinweis
-ergänzt ist. Der Compiler erzwingt, dass jede Fehlerursache eine
-Nutzer-Abhilfe bekommt.
-
-**Mechanismus 2 gegen Spielart A: clap bleibt die einzige Quelle — Namen werden
-*aus* clap gelesen, nicht hineingegeben.**
-
-Wichtig vorweg: An clap ändert sich **nichts**. Die Flags bleiben per Derive
-definiert (`#[arg(long)]`), und **Help wird unverändert aus genau diesen echten
-Definitionen erzeugt.** Wir füttern clap *nicht* mit Konstanten — das wäre genau
-die schlechte Variante, bei der Help von der Definition abkoppelt.
-
-Stattdessen holt sich der Hinweis den anzuzeigenden Namen zur Laufzeit aus dem
-bereits gebauten Command-Baum (clap-Derive liefert `Cli::command()`):
-
-```rust
-/// Liefert das echte `--long` eines Args (per Arg-Id) aus dem clap-Baum.
-/// Findet es das Arg nicht, schlägt es fehl — wird vom Test unten erkannt.
-fn long(cmd: &clap::Command, sub_path: &[&str], arg_id: &str) -> String {
-    let sub = sub_path.iter().fold(cmd, |c, name| {
-        c.find_subcommand(name).expect("unbekanntes Subcommand")
-    });
-    let arg = sub
-        .get_arguments()
-        .find(|a| a.get_id() == arg_id)
-        .expect("unbekannte Arg-Id");
-    format!("--{}", arg.get_long().expect("Arg hat kein --long"))
-}
-```
-
-Der angezeigte Name stammt damit buchstäblich aus clap und kann gar nicht von
-Help/Parser abweichen. Im `hint()`-Code steht nur noch die **Id** (z. B.
-`"force"`), nie der sichtbare Name:
-
-```rust
-let cmd = Cli::command();
-let force = long(&cmd, &["build"], "force");   // ergibt "--force" laut clap
-format!("run `fotobuch build {force}`")
-```
-
-Bei clap-Derive ist die Arg-Id standardmäßig der Feldname. Wird das Feld
-umbenannt, passt die Id `"force"` nicht mehr → `long(...)` findet nichts.
-
-**Absicherung per Test:** damit dieser Fehlschlag nicht erst beim Nutzer
-auftritt, prüft ein Test alle vom Hinweis benutzten Lookups gegen den echten
-clap-Baum:
-
-```rust
-#[test]
-fn hint_lookups_resolve() {
-    let cmd = Cli::command();
-    long(&cmd, &["build"], "force");   // schlägt fehl, falls entfernt/umbenannt
-    long(&cmd, &["build"], "pages");
-    // … je benutztem Lookup eine Zeile
-}
-```
-
-Optional die Lookup-Liste (`(sub_path, arg_id)`) einmal zentral halten und sowohl
-von `hint()` als auch vom Test durchlaufen — dann kann auch diese Liste nicht
-auseinanderlaufen. So bleibt clap die alleinige Namensquelle, Help kommt
-unverändert aus den echten Flags, und der Hinweis spiegelt sie nur wider.
-
-### Zusammengefasst
-
-- **Lib:** sagt nur, *was* falsch ist (getippter Fehler, kein CLI-Text).
-- **CLI:** sagt, *wie* man es behebt (Hinweis mit echten Flags).
-- **Spielart B** (fehlender Hinweis) fängt das exhaustive `match` zur Compilezeit.
-- **Spielart A** (falscher Name): clap bleibt einzige Quelle — der Hinweis liest
-  den Namen aus clap heraus; ein Test stellt sicher, dass jeder Lookup auflöst.
-
-### Umfang
-
-Betrifft v. a. `commands/`: die `bail!`/`anyhow!`-Stellen aus dem Befund auf
-getippte Fehler umstellen; Next-Steps-Ausgaben wie `project/new.rs:78–81` und
-`switch.rs:35` aus der Lib in die CLI verschieben. Doc-Comments (`//! \`fotobuch
-…\``) dürfen bleiben — sie sind Dokumentation, keine Laufzeit-Strings.
+**Teil B — Innerhalb von Methoden (umgesetzt mit #50).** Die früheren build-Punkte
+(`multipage_build`-Zweige, `RenderContext`, `incremental_build`,
+`apply_page_filter`) sind mit Abschnitt 1 erledigt; der letzte Restpunkt
+`execute_move_to` (6 Frühreturns quer durch die Abstraktionsebenen) ist mit der
+Slot-Move-Familie aufgelöst — `move_cmd.rs` (Dispatch) / `standard.rs`
+(Orchestrierung, R4) / `manual.rs` (Manual-Pfad) sind getrennt.
 
 ---
 
-## 11. Innerhalb von Methoden
-
-Die früheren build-Punkte (`multipage_build`-Zweige, `RenderContext`,
-`incremental_build`, `apply_page_filter`) sind mit Abschnitt 1 **erledigt**.
-Offen bleibt:
-
-- **`execute_move_to`** (`move_cmd.rs:33–248`) hat 6 Frühreturns über mehrere
-  Abstraktionsebenen → Validierung/Dispatch/Mutation trennen (gehört zum noch
-  offenen Commands-Komplex, Abschnitt 7.2).
-
----
-
-## 12. Umsetzungspläne (separate Dokumente)
+## 11. Umsetzungspläne (separate Dokumente)
 
 Die konkreten, in Conventional Commits gegliederten Umsetzungspläne liegen je
 Themenblock in eigenen Dateien neben diesem Dokument:
@@ -424,15 +261,16 @@ Themenblock in eigenen Dateien neben diesem Dokument:
   Kapselung schärfen (Abschnitt 6; umgesetzt, J11 offen).
 - [`07-commands.md`](./07-commands.md) — Commands entdoppeln, Slot-Move-Familie
   schneiden, Muster vereinheitlichen (Abschnitt 7; umgesetzt #50).
-- [`08-input.md`](./08-input.md) — `input`-Modul aufräumen (Abschnitt 8; offen).
+- [`08-input.md`](./08-input.md) — `input`-Modul aufräumen (Abschnitt 8; umgesetzt).
 - [`09-naming.md`](./09-naming.md) — Namens- & Sprachkonsistenz (Abschnitt 9;
-  offen).
-
-Weitere Pläne (Fehlermeldungen …) folgen demselben Schema.
+  umgesetzt #52).
+- [`10-errors-and-methods.md`](./10-errors-and-methods.md) — CLI-Begriffe aus
+  Lib-Fehlern verbannen (getippte Fehler + CLI-Hinweise, umgesetzt #53) und
+  Methoden-Komplexität (umgesetzt mit #50) (Abschnitt 10).
 
 ---
 
-## 13. Edit-Commands: Layout-Konsistenz & optionaler Rebuild
+## 12. Edit-Commands: Layout-Konsistenz & optionaler Rebuild
 
 **Hintergrund.** Editier-Commands (`move`, `place`, `remove`, `combine`, `split`,
 `unplace`) ändern die **Fotos** einer Seite, lassen die **Slots** von Auto-Seiten
@@ -448,23 +286,28 @@ noch auf **Manual**-Seiten (dort sind Slots autoritativ); auf Auto-Seiten ist ei
 Mismatch ein legaler „needs rebuild"-Zustand. Verwandt: §6 (`state_manager`,
 Invarianten), §7.1 (`run_command`-Wrapper), §1 (`BuildPlan`).
 
-### 13.1 Manual-Ziel beim `move` braucht einen Slot (Bug, umzusetzen)
+### 12.1 Manual-Ziel beim `move` braucht einen Slot (Bug, offen)
 
-`execute_move_to` pusht beim Ziel `DstMove::Page` Fotos ohne Slot
-(`move_cmd.rs:188–190` für die Slots-Variante, `:225–227` für die Pages-Variante).
-Für Auto-Ziele ist das korrekt (der Rebuild regeneriert die Slots). Ist das
-**Ziel aber eine Manual-Seite**, entsteht eine echte, dauerhafte Inkonsistenz:
-Manual-Seiten werden nie neu gelöst, also bleibt `photos > slots` bestehen — und
-`check_validity` meldet das nach dem Fix nun zu Recht.
+Der Standard-Move pusht beim Ziel `DstMove::Page` Fotos ohne Slot
+(`move_cmd/standard.rs:154` für die Slots-Variante, `:194` für die
+Pages-Variante). Für Auto-Ziele ist das korrekt (der Rebuild regeneriert die
+Slots). Ist das **Ziel aber eine Manual-Seite**, entsteht eine echte, dauerhafte
+Inkonsistenz: Manual-Seiten werden nie neu gelöst, also bleibt `photos > slots`
+bestehen — und `check_validity` meldet das zu Recht.
+
+Der Befund gilt nach #50 unverändert; verifiziert mit `DstMove::Page(1)` auf eine
+Manual-Seite → `photos=2, slots=1`. Der vorhandene Test
+`move_slot_into_manual_page_creates_positioned_slot` deckt nur den expliziten
+Pfad `DstMove::ManualAt` ab, nicht diesen.
 
 **Fix:** Beim Verschieben auf eine Manual-Seite je Foto einen Slot erzeugen,
-analog zu `execute_move_to_manual` (`move_cmd.rs:316–326`), das Foto + Slot bereits
-paarweise anhängt. Slot-Größe aus der Quell-Seite übernehmen bzw. `default_manual_
-slot_size` (`move_cmd.rs:350`) als Fallback. Alternativ den Move auf ein
-Manual-Ziel über `DstMove::Page` ablehnen und auf `DstMove::ManualAt` verweisen.
-Empfehlung: Slot erzeugen (deckt CLI- und GUI-Pfad gleich ab).
+analog zu `apply_move_to_manual` (`move_cmd/manual.rs:84–85`), das Foto + Slot
+bereits paarweise anhängt. Slot-Größe aus der Quell-Seite übernehmen bzw.
+`default_manual_slot_size` (`move_cmd/manual.rs:111`) als Fallback. Alternativ den
+Move auf ein Manual-Ziel über `DstMove::Page` ablehnen und auf `DstMove::ManualAt`
+verweisen. Empfehlung: Slot erzeugen (deckt CLI- und GUI-Pfad gleich ab).
 
-### 13.2 CLI-Rückmeldung: welche Seiten einen Rebuild brauchen (umzusetzen)
+### 12.2 CLI-Rückmeldung: welche Seiten einen Rebuild brauchen (offen)
 
 Nach einem Edit sieht der CLI-Nutzer nicht deutlich, dass betroffene Seiten neu
 gebaut werden müssen. Die Information liegt vor — `outdated_pages_indices()`
@@ -480,7 +323,7 @@ unauffällig.
 - In der Nutzer-Doku (`docs/book`) erklären: Auto-Slots sind ein Cache; nach
   einem Edit ist ein `build` nötig, damit Layout/PDF stimmen.
 
-### 13.3 Idee: `move` + `rebuild` in einem (Entscheidung offen)
+### 12.3 Idee: `move` + `rebuild` in einem (Entscheidung offen)
 
 > **Status: noch nicht entschieden.** Ob und wie das umgesetzt wird, muss der
 > Eigentümer abnehmen. Dieser Abschnitt sammelt nur Optionen.

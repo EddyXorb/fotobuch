@@ -1,6 +1,7 @@
 //! Integration tests for `fotobuch project switch` command
 
 use anyhow::Result;
+use fotobuch::commands::project::ProjectError;
 use fotobuch::models::ProjectState;
 use std::process::Command;
 use tempfile::TempDir;
@@ -126,9 +127,11 @@ fn test_project_switch_to_non_existent() -> Result<()> {
     // Try to switch to non-existent project
     let result = fotobuch::commands::project::switch(dir, "nonexistent");
 
-    // Should be an error
-    assert!(result.is_err());
-    assert!(result.unwrap_err().to_string().contains("not found"));
+    let err = result.expect_err("switching to a missing project must fail");
+    assert!(matches!(
+        err.downcast_ref::<ProjectError>(),
+        Some(ProjectError::NotFound { name }) if name == "nonexistent"
+    ));
 
     Ok(())
 }

@@ -140,7 +140,6 @@ fn parse_config(s: &NewProjectDialogState) -> Option<NewConfig> {
         width_mm,
         height_mm,
         bleed_mm,
-        quiet: true,
         with_cover: s.with_cover,
         cover_width_mm: None,
         cover_height_mm: None,

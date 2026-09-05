@@ -1,8 +1,10 @@
 //! `fotobuch build` command
 mod build_layout;
+pub mod errors;
 mod helpers;
 pub mod plan;
 
+pub use errors::BuildError;
 pub use plan::BuildPlan;
 
 use crate::state_manager::StateManager;

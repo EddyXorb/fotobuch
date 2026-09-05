@@ -11,6 +11,7 @@ mod single_page;
 
 use self::multi_page::solve_multipage;
 use self::single_page::solve_single_page;
+use super::errors::BuildError;
 use super::helpers::collect_photos_as_groups;
 use crate::models::{PageMode, build_photo_index};
 use crate::state_manager::{ReadOnlyState, WriteLayoutState};
@@ -43,7 +44,7 @@ pub(super) fn build_outdated_pages(
 
 pub(super) fn build_page(wls: &mut WriteLayoutState<'_>, idx: usize) -> Result<Vec<usize>> {
     if wls.layout().is_empty() {
-        anyhow::bail!("No layout exists. Run `fotobuch build` first.");
+        return Err(BuildError::NoLayout.into());
     }
     if idx >= wls.layout().len() {
         anyhow::bail!(
@@ -54,12 +55,7 @@ pub(super) fn build_page(wls: &mut WriteLayoutState<'_>, idx: usize) -> Result<V
         );
     }
     if wls.layout()[idx].mode == PageMode::Manual {
-        anyhow::bail!(
-            "Cannot rebuild page {}: page is in manual mode. \
-             Use `page mode {} a` to switch to auto mode first.",
-            idx,
-            idx
-        );
+        return Err(BuildError::PageIsManual { idx }.into());
     }
     let photo_index = build_photo_index(wls.photos());
     solve_single_page(wls, idx, &photo_index)?;
@@ -73,7 +69,7 @@ pub(super) fn build_page_range(
     flex: usize,
 ) -> Result<Vec<usize>> {
     if wls.layout().is_empty() {
-        anyhow::bail!("No layout exists. Run `fotobuch build` first.");
+        return Err(BuildError::NoLayout.into());
     }
     if start > end || end >= wls.layout().len() {
         anyhow::bail!(
@@ -108,15 +104,9 @@ pub(super) fn skip_cover_if_needed(has_cover: bool, start: usize, end: usize) ->
     if !has_cover || start != 0 {
         return Ok(start);
     }
-    warn!(
-        "Cover page (index 0) is excluded from this rebuild. \
-         Use `rebuild --page 0` to rebuild it explicitly."
-    );
+    warn!("cover page (index 0) is excluded from this rebuild");
     if end == 0 {
-        anyhow::bail!(
-            "Range 0-0 contains only the cover page. \
-             Use `rebuild --page 0` to rebuild it explicitly."
-        );
+        return Err(BuildError::CoverExcluded.into());
     }
     Ok(1)
 }
@@ -144,7 +134,25 @@ mod tests {
     }
 
     #[test]
-    fn skip_cover_range_zero_zero_errors() {
-        assert!(skip_cover_if_needed(true, 0, 0).is_err());
+    fn skip_cover_range_zero_zero_is_cover_excluded_error() {
+        let err = skip_cover_if_needed(true, 0, 0).unwrap_err();
+        assert!(err.downcast_ref::<BuildError>().is_some());
+        assert!(!err.to_string().contains("fotobuch"));
+    }
+
+    #[test]
+    fn build_error_messages_contain_no_cli_commands() {
+        let cases: &[BuildError] = &[
+            BuildError::NoLayout,
+            BuildError::LayoutDirty { pages: vec![1, 2] },
+            BuildError::PageIsManual { idx: 3 },
+            BuildError::CoverExcluded,
+        ];
+        for err in cases {
+            assert!(
+                !err.to_string().contains("fotobuch"),
+                "BuildError::{err:?} contains CLI command name"
+            );
+        }
     }
 }

@@ -9,6 +9,7 @@ use std::path::PathBuf;
 pub mod add;
 pub mod build;
 pub mod config;
+pub mod hints;
 pub mod history;
 pub mod page;
 pub mod place;
