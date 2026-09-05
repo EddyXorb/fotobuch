@@ -86,9 +86,8 @@ den Hinweis an (`error: <bedingung>` / `hint: <abhilfe>`).
 N1–N5 sind umgesetzt (#53): `BuildError` (`commands/build/errors.rs`),
 `ProjectError` (`commands/project/errors.rs`), CLI-freier
 `ValidationError`-Text (`page/types.rs`), Next-Steps in der CLI
-(`cli/cli/project.rs`) und `hint_for`/`flag_long` samt Test
-`hint_lookups_resolve` (`cli/cli/hints.rs`). Die Variante `PagesWithRelease`
-entfiel — die Bedingung deckt `LayoutDirty` mit ab.
+(`cli/cli/project.rs`) und `hint_for`/`flag_long` (`cli/cli/hints.rs`). Die
+Variante `PagesWithRelease` entfiel — die Bedingung deckt `LayoutDirty` mit ab.
 
 ### Nachtrag N6 — im Plan nicht erfasste Restfundstellen (umgesetzt mit #53)
 
@@ -112,7 +111,42 @@ Nebenbefunde im selben Zug:
 `StateError` liegt in `state_manager/errors.rs`, `CoverSolverError` neben dem
 Solver in `solver/cover_solver.rs` — bewusst *nicht* in `commands/`, damit die
 untere Schicht nicht nach oben zeigt. `hint_for` in `cli/cli/hints.rs` kennt
-jetzt vier Fehler-Enums; jedes hat ein exhaustives `match` ohne `_`-Arm.
+fünf Fehler-Enums; jedes hat ein exhaustives `match` ohne `_`-Arm.
+
+### Nachtrag N7 — `ValidationError` erreicht die Oberfläche (umgesetzt mit #53)
+
+N2 kürzte den `PageNotManual`-Text auf die Bedingung, N5 legte den Hinweis dazu
+aber nie an: `hint_for` kannte `ValidationError` nicht, und die CLI-Handler
+plätteten den Fehler ohnehin mit `anyhow!("{e}")` zu einem Text — jeder
+`downcast_ref` wäre ins Leere gelaufen. Behoben:
+
+- `PageMoveError` implementiert `std::error::Error`, bleibt also downcastbar.
+- Der CLI-Helfer `to_anyhow` (`cli/cli/page/handlers/common.rs`) ersetzt die neun
+  `anyhow!("{e}")`-Stellen: `Validation` bleibt getippt, `Other` wird auf den
+  inneren Fehler ausgepackt, damit dessen Ursachenkette überlebt.
+- `validation_hint` deckt alle `ValidationError`-Varianten exhaustiv ab; nur
+  `PageNotManual` trägt eine Abhilfe, der Rest ist bewusst `None`.
+
+### Nachtrag N8 — Drift-Schutz ohne Panic (umgesetzt mit #53)
+
+Der ursprüngliche `hint_lookups_resolve` war eine handgepflegte Parallelliste zu
+`hint_for` und `flag_long` panickte bei einem toten Lookup — mitten im
+Fehlerpfad der CLI, also Exit-Code 101 statt 1. Jetzt:
+
+- `flag_long` gibt `Option<String>` zurück; ein toter Lookup lässt den Hinweis
+  entfallen, statt den Prozess abzubrechen.
+- Der Test `hints_exist_for_remediable_errors` führt jede Fehlervariante durch
+  `hint_for` und verlangt einen Hinweis. Damit läuft **jeder** Lookup, den der
+  Produktivcode benutzt, durch den Test — die Liste ist nicht mehr parallel
+  gepflegt, sondern folgt den `match`-Armen.
+- Verifiziert per Mutation: `#[arg(id = "target")]` auf `place --into` lässt den
+  Test fehlschlagen („no hint for …"), ohne die Mutation ist er grün.
+
+Was damit **nicht** erzwungen ist: dass eine *neue* Variante auch in
+`remediable_errors()` landet. Das exhaustive `match` erzwingt den Hinweis-Arm zur
+Compilezeit, die Testliste bleibt manuell. Vollständige Kopplung ginge nur über
+einen Variantenschleifen-Derive (`strum::EnumIter`) — eine Extra-Dependency für
+einen Testkomfort, bewusst nicht genommen.
 
 ### Reihenfolge & Risiko
 
