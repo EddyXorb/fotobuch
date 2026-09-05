@@ -498,5 +498,10 @@ fn test_performance_large_instance() {
     let elapsed = start.elapsed();
 
     assert_eq!(assignment.total_photos(), 1000);
-    assert!(elapsed < Duration::from_secs(2), "took {elapsed:?}");
+
+    // Die Schranke faengt Groessenordnungs-Regressionen, nicht Millisekunden:
+    // der Test laeuft in der CI unter llvm-cov-Instrumentierung auf geteilten
+    // Runnern, wo dieselbe Rechnung um ein Vielfaches schwanken kann. Bei 2 s
+    // lag sie auf der Kippe und wurde sporadisch rot (gemessen: 2,06 s).
+    assert!(elapsed < Duration::from_secs(5), "took {elapsed:?}");
 }
