@@ -183,7 +183,7 @@ fn test_rebuild_single_page_invalid_page_index() -> Result<()> {
     );
     let err = result.unwrap_err();
     assert!(
-        err.to_string().contains("invalid page index"),
+        err.to_string().contains("Invalid page index"),
         "Error should mention invalid page"
     );
 

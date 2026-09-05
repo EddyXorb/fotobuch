@@ -177,8 +177,7 @@ mod tests {
 
     #[test]
     fn test_write_yaml() {
-        let temp_dir = TempDir::new();
-        let temp_dir = temp_dir.unwrap();
+        let temp_dir = TempDir::new().unwrap();
         let yaml_path = temp_dir.path().join("test.yaml");
 
         let state = generate_default_state(&test_config());

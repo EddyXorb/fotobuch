@@ -48,7 +48,7 @@ pub(super) fn build_page(wls: &mut WriteLayoutState<'_>, idx: usize) -> Result<V
     }
     if idx >= wls.layout().len() {
         anyhow::bail!(
-            "invalid page index {} (layout has {} pages, indices 0..{})",
+            "Invalid page index {} (layout has {} pages, indices 0..{})",
             idx,
             wls.layout().len(),
             wls.layout().len().saturating_sub(1),
