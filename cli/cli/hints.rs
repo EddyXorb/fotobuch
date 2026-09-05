@@ -1,122 +1,202 @@
 //! CLI-layer error hints.
 //!
 //! Translates typed lib errors into surface-specific remediation text.
-//! Flag names are read from the live clap tree so renaming a flag breaks the test.
+//! Flag names are read from the live clap tree, so a renamed flag turns into a
+//! missing hint — which `hints_exist_for_remediable_errors` reports as a failure.
 
 use clap::{Command, CommandFactory};
 use fotobuch::commands::build::BuildError;
+use fotobuch::commands::page::{PageMoveError, ValidationError};
 use fotobuch::commands::project::ProjectError;
 use fotobuch::solver::CoverSolverError;
 use fotobuch::state_manager::StateError;
 
 use super::Cli;
 
-/// Returns a hint string for a known typed lib error, or `None` for unknown errors.
+/// Returns the remediation hint for a known typed lib error.
+///
+/// `None` means either an unknown error type or a condition the user cannot act
+/// on in a single step.
 pub fn hint_for(err: &anyhow::Error) -> Option<String> {
     if let Some(e) = err.downcast_ref::<BuildError>() {
-        return Some(build_hint(e));
+        return build_hint(e);
     }
     if let Some(e) = err.downcast_ref::<ProjectError>() {
-        return Some(project_hint(e));
+        return project_hint(e);
     }
     if let Some(e) = err.downcast_ref::<StateError>() {
-        return Some(state_hint(e));
+        return state_hint(e);
     }
     if let Some(e) = err.downcast_ref::<CoverSolverError>() {
-        return Some(cover_hint(e));
+        return cover_hint(e);
+    }
+    if let Some(e) = err.downcast_ref::<PageMoveError>() {
+        return page_hint(e);
     }
     None
 }
 
-fn build_hint(err: &BuildError) -> String {
+fn build_hint(err: &BuildError) -> Option<String> {
     let cmd = Cli::command();
     match err {
-        BuildError::NoLayout => "run `fotobuch build` first".to_string(),
+        BuildError::NoLayout => Some("run `fotobuch build` first".to_string()),
         BuildError::LayoutDirty { .. } => {
-            let force = flag_long(&cmd, &["build", "release"], "force");
-            format!("run `fotobuch build` first, or `fotobuch build release {force}` to force")
+            let force = flag_long(&cmd, &["build", "release"], "force")?;
+            Some(format!(
+                "run `fotobuch build` first, or `fotobuch build release {force}` to force"
+            ))
         }
-        BuildError::PageIsManual { idx } => {
-            format!("use `fotobuch page mode {idx} a` to switch to auto mode")
-        }
+        BuildError::PageIsManual { idx } => Some(format!(
+            "use `fotobuch page mode {idx} a` to switch to auto mode"
+        )),
         BuildError::CoverExcluded => {
-            let page = flag_long(&cmd, &["rebuild"], "page");
-            format!("use `fotobuch rebuild {page} 0` to rebuild the cover explicitly")
+            let page = flag_long(&cmd, &["rebuild"], "page")?;
+            Some(format!(
+                "use `fotobuch rebuild {page} 0` to rebuild the cover explicitly"
+            ))
         }
     }
 }
 
-fn project_hint(err: &ProjectError) -> String {
-    let cmd = Cli::command();
+fn project_hint(err: &ProjectError) -> Option<String> {
     match err {
         ProjectError::NotFound { .. } => {
-            "use `fotobuch project list` to see available projects".to_string()
+            Some("use `fotobuch project list` to see available projects".to_string())
         }
         ProjectError::CoverWithoutSpine => {
+            let cmd = Cli::command();
             let path = &["project", "new"];
-            let grow = flag_long(&cmd, path, "spine_grow_per_10_pages_mm");
-            let fixed = flag_long(&cmd, path, "spine_mm");
-            let cover = flag_long(&cmd, path, "with_cover");
-            format!("pass `{grow} <mm>` or `{fixed} <mm>` together with `{cover}`")
+            let grow = flag_long(&cmd, path, "spine_grow_per_10_pages_mm")?;
+            let fixed = flag_long(&cmd, path, "spine_mm")?;
+            let cover = flag_long(&cmd, path, "with_cover")?;
+            Some(format!(
+                "pass `{grow} <mm>` or `{fixed} <mm>` together with `{cover}`"
+            ))
         }
     }
 }
 
-fn state_hint(err: &StateError) -> String {
+fn state_hint(err: &StateError) -> Option<String> {
     match err {
         StateError::NotOnProjectBranch { .. } => {
-            "use `fotobuch project switch <name>` to check out a project".to_string()
+            Some("use `fotobuch project switch <name>` to check out a project".to_string())
         }
     }
 }
 
-fn cover_hint(err: &CoverSolverError) -> String {
-    let cmd = Cli::command();
+fn cover_hint(err: &CoverSolverError) -> Option<String> {
     match err {
         CoverSolverError::MissingPhoto { .. } => {
-            let into = flag_long(&cmd, &["place"], "into");
-            format!("assign the missing photo with `fotobuch place <photo> {into} 0`")
+            let cmd = Cli::command();
+            let into = flag_long(&cmd, &["place"], "into")?;
+            Some(format!(
+                "assign the missing photo with `fotobuch place <photo> {into} 0`"
+            ))
         }
     }
 }
 
-/// Returns the `--flag-name` string for `arg_id` in the subcommand reached by `sub_path`.
+fn page_hint(err: &PageMoveError) -> Option<String> {
+    match err {
+        PageMoveError::Validation(e) => validation_hint(e),
+        // `to_anyhow` unwraps this variant, so the inner error is normally
+        // classified on its own; this arm only covers direct construction.
+        PageMoveError::Other(inner) => hint_for(inner),
+    }
+}
+
+/// Most validation errors state a condition the message already resolves
+/// ("page 7 does not exist"); only a few have a next step worth naming.
+fn validation_hint(err: &ValidationError) -> Option<String> {
+    match err {
+        ValidationError::PageNotManual(page) => Some(format!(
+            "use `fotobuch page mode {page} m` to switch to manual mode"
+        )),
+        ValidationError::PageNotFound(_)
+        | ValidationError::SlotNotFound { .. }
+        | ValidationError::SlotEmpty { .. }
+        | ValidationError::SwapRangesOverlap
+        | ValidationError::SwapNonContiguous
+        | ValidationError::CombineSinglePage(_)
+        | ValidationError::SplitAtFirstSlot(_)
+        | ValidationError::WeightOutOfRange(_) => None,
+    }
+}
+
+/// Returns the `--flag-name` for `arg_id` in the subcommand reached by
+/// `sub_path`, or `None` when the path or the argument does not exist.
 ///
-/// Panics if the path or argument does not exist — caught by `hint_lookups_resolve`.
-pub fn flag_long(cmd: &Command, sub_path: &[&str], arg_id: &str) -> String {
-    let mut current = cmd.clone();
+/// A hint must never take the process down, so a failed lookup drops the hint
+/// rather than panicking. The tests below turn such a lookup into a failure.
+fn flag_long(cmd: &Command, sub_path: &[&str], arg_id: &str) -> Option<String> {
+    let mut current = cmd;
     for &sub in sub_path {
-        current = {
-            let found = current
-                .get_subcommands()
-                .find(|c| c.get_name() == sub)
-                .unwrap_or_else(|| panic!("subcommand '{sub}' not found in hint lookup"));
-            found.clone()
-        };
+        current = current.get_subcommands().find(|c| c.get_name() == sub)?;
     }
     let arg = current
         .get_arguments()
-        .find(|a| a.get_id().as_str() == arg_id)
-        .unwrap_or_else(|| panic!("argument '{arg_id}' not found in hint lookup"));
-    format!(
-        "--{}",
-        arg.get_long()
-            .unwrap_or_else(|| panic!("argument '{arg_id}' has no long flag"))
-    )
+        .find(|a| a.get_id().as_str() == arg_id)?;
+    Some(format!("--{}", arg.get_long()?))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    /// One sample per error variant that carries a remediation.
+    ///
+    /// Every clap lookup used by a hint runs through here, so a renamed or
+    /// removed flag surfaces as a missing hint instead of a wrong one.
+    fn remediable_errors() -> Vec<anyhow::Error> {
+        vec![
+            BuildError::NoLayout.into(),
+            BuildError::LayoutDirty { pages: vec![1, 2] }.into(),
+            BuildError::PageIsManual { idx: 3 }.into(),
+            BuildError::CoverExcluded.into(),
+            ProjectError::NotFound {
+                name: "urlaub".to_owned(),
+            }
+            .into(),
+            ProjectError::CoverWithoutSpine.into(),
+            StateError::NotOnProjectBranch {
+                branch: "master".to_owned(),
+            }
+            .into(),
+            CoverSolverError::MissingPhoto {
+                index: 1,
+                available: 0,
+            }
+            .into(),
+            anyhow::Error::new(PageMoveError::Validation(ValidationError::PageNotManual(2))),
+        ]
+    }
+
     #[test]
-    fn hint_lookups_resolve() {
+    fn hints_exist_for_remediable_errors() {
+        for err in remediable_errors() {
+            assert!(
+                hint_for(&err).is_some(),
+                "no hint for `{err}` — a clap lookup probably stopped resolving"
+            );
+        }
+    }
+
+    #[test]
+    fn unknown_errors_have_no_hint() {
+        let err = anyhow::anyhow!("something the CLI knows nothing about");
+        assert!(hint_for(&err).is_none());
+    }
+
+    #[test]
+    fn validation_errors_without_a_next_step_have_no_hint() {
+        let err = anyhow::Error::new(PageMoveError::Validation(ValidationError::PageNotFound(9)));
+        assert!(hint_for(&err).is_none());
+    }
+
+    #[test]
+    fn flag_long_returns_none_for_unknown_lookups() {
         let cmd = Cli::command();
-        flag_long(&cmd, &["build", "release"], "force");
-        flag_long(&cmd, &["rebuild"], "page");
-        flag_long(&cmd, &["project", "new"], "spine_grow_per_10_pages_mm");
-        flag_long(&cmd, &["project", "new"], "spine_mm");
-        flag_long(&cmd, &["project", "new"], "with_cover");
-        flag_long(&cmd, &["place"], "into");
+        assert!(flag_long(&cmd, &["does-not-exist"], "force").is_none());
+        assert!(flag_long(&cmd, &["build", "release"], "no-such-arg").is_none());
     }
 }
