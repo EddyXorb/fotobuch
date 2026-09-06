@@ -1,4 +1,6 @@
-//! `fotobuch build` command
+//! `fotobuch build` command and its rebuild variants (`BuildPlan::All`,
+//! `Page`, `Range`, `Release`), all served through the single [`build`] entry
+//! point.
 mod cache;
 pub mod errors;
 mod layout;
