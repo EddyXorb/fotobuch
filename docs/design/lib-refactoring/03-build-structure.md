@@ -1,9 +1,37 @@
 # Umsetzungsplan 3 — Datei- & Modulstruktur des build-Pfads
 
 > Konkretisiert Abschnitt 3 des [Hauptdokuments](./README.md).
-> Stand: nach dem umgesetzten build-Refactoring (inkl. Phase E).
+> Stand: G1–G5 umgesetzt — dieser Plan ist vollständig abgeschlossen.
 
-## Status: was bereits erledigt ist
+## Status: G1–G5 umgesetzt
+
+Alle fünf Commit-Portionen aus diesem Plan sind umgesetzt:
+
+- **G1** — `helpers.rs` aufgelöst in `build/cache.rs` (Cache) und
+  `build/render.rs` (PDF); `CommitMode` liegt jetzt in `plan.rs`.
+- **G2** — Modul `build_layout` → `layout` (Pfad `commands::build::layout`);
+  Methode `BuildPlan::build_layout()` → `resolve_layout()`.
+- **G3** — `collect_photos_as_groups` liegt jetzt in `models/photos.rs` neben
+  `build_photo_index`; deutsche Kommentare übersetzt.
+- **G4** — Engine `build_cover_page` → `solve_cover_page` (einheitliches
+  `solve_*`); Layout-Schicht einheitlich auf `*_layout` umbenannt:
+  `full_book_layout`/`outdated_pages_layout`/`page_layout`/`page_range_layout`.
+- **G5** — Doc-Comment in `build.rs:1` deckt jetzt auch die rebuild-Varianten ab.
+
+Aktuelle Struktur:
+
+```
+commands/build.rs                Einstieg: build(), BuildConfig, BuildResult, DpiWarning
+commands/build/plan.rs            BuildPlan + run-Pipeline + resolve_layout() + commit/pdf/cache-Glue
+commands/build/cache.rs           CacheRefresh, refresh_preview_cache, refresh_final_cache, log_dpi_warnings
+commands/build/render.rs          RenderContext, PdfTarget, render_pdf
+commands/build/errors.rs          BuildError
+commands/build/layout.rs          full_book_layout / outdated_pages_layout / page_layout / page_range_layout
+commands/build/layout/{multi_page,single_page,cover_page}.rs   solve_*-Engines (update_cover_page bleibt Update)
+models/photos.rs                  build_photo_index, collect_photos_as_groups
+```
+
+## Status: was bereits erledigt ist (Ausgangslage)
 
 Alle ursprünglichen Befunde aus Abschnitt 3 sind **umgesetzt**:
 
@@ -25,7 +53,7 @@ commands/build/build_layout.rs        build_full_book / _outdated_pages / _page 
 commands/build/build_layout/{multi_page,single_page,cover_page}.rs   Solver-Engines
 ```
 
-## Was noch offen ist: Benennung & Kohäsion
+## Ausgangsbefund (historisch): Benennung & Kohäsion
 
 Die Aufteilung ist gut, aber drei Namens-/Kohäsionsprobleme bleiben.
 
