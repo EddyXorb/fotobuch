@@ -1,7 +1,7 @@
 use super::BuildResult;
 use super::cache::{CacheRefresh, refresh_final_cache, refresh_preview_cache};
 use super::errors::BuildError;
-use super::layout::{build_full_book, build_outdated_pages, build_page, build_page_range};
+use super::layout::{full_book_layout, outdated_pages_layout, page_layout, page_range_layout};
 use super::render::{PdfTarget, RenderContext, render_pdf};
 use crate::commands::CommandOutput;
 use crate::state_manager::StateManager;
@@ -40,19 +40,19 @@ impl BuildPlan {
         match self {
             BuildPlan::Auto { pages } => {
                 if mgr.state().layout.is_empty() {
-                    build_full_book(&mut mgr.get_write_layout_state())
+                    full_book_layout(&mut mgr.get_write_layout_state())
                 } else {
                     let mut outdated = mgr.outdated_pages_indices();
                     if let Some(filter) = pages.as_deref() {
                         outdated.retain(|p| filter.contains(p));
                     }
-                    build_outdated_pages(&mut mgr.get_write_layout_state(), &outdated)
+                    outdated_pages_layout(&mut mgr.get_write_layout_state(), &outdated)
                 }
             }
-            BuildPlan::All => build_full_book(&mut mgr.get_write_layout_state()),
-            BuildPlan::Page(idx) => build_page(&mut mgr.get_write_layout_state(), *idx),
+            BuildPlan::All => full_book_layout(&mut mgr.get_write_layout_state()),
+            BuildPlan::Page(idx) => page_layout(&mut mgr.get_write_layout_state(), *idx),
             BuildPlan::Range { start, end, flex } => {
-                build_page_range(&mut mgr.get_write_layout_state(), *start, *end, *flex)
+                page_range_layout(&mut mgr.get_write_layout_state(), *start, *end, *flex)
             }
             BuildPlan::Release { .. } => Ok(Vec::new()),
         }
