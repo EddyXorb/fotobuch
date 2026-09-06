@@ -54,8 +54,8 @@ zuletzt umgesetzten Phase E): [`01-build.md`](./01-build.md).
 
 **Status: umgesetzt.** Die früher über `multipage_build` und
 `rebuild_single_page` verstreute Cover-Logik (Fallunterscheidung *free vs.
-structured*, `split_cover_photos`, `build_cover_page`, `update_cover_page`) liegt
-jetzt gebündelt in `commands/build/build_layout/cover_page.rs`.
+structured*, `split_cover_photos`, `solve_cover_page`, `update_cover_page`) liegt
+jetzt gebündelt in `commands/build/layout/cover_page.rs`.
 
 **Ebenfalls erledigt** (#44) ist die Cover-**Geometrie**: `spread_width_mm` und
 `spine_width_mm` liegen jetzt im Wertobjekt `CoverGeometry` (`models/cover.rs`),
