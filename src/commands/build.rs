@@ -1,7 +1,6 @@
 //! `fotobuch build` command
 mod cache;
 pub mod errors;
-mod helpers;
 mod layout;
 pub mod plan;
 mod render;

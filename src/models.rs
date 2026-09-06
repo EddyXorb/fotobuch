@@ -24,6 +24,6 @@ pub use config::{
 };
 pub use cover::CoverGeometry;
 pub use layout::{LayoutPage, PageMode, Slot};
-pub use photos::{PhotoFile, PhotoGroup, build_photo_index};
+pub use photos::{PhotoFile, PhotoGroup, build_photo_index, collect_photos_as_groups};
 pub use state::ProjectState;
 pub use state_io::{read_state_yaml, write_state_yaml};
