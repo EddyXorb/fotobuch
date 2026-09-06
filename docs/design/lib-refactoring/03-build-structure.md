@@ -14,8 +14,14 @@ Alle fünf Commit-Portionen aus diesem Plan sind umgesetzt:
 - **G3** — `collect_photos_as_groups` liegt jetzt in `models/photos.rs` neben
   `build_photo_index`; deutsche Kommentare übersetzt.
 - **G4** — Engine `build_cover_page` → `solve_cover_page` (einheitliches
-  `solve_*`); Layout-Schicht einheitlich auf `*_layout` umbenannt:
-  `full_book_layout`/`outdated_pages_layout`/`page_layout`/`page_range_layout`.
+  `solve_*`); Layout-Schicht einheitlich auf `resolve_*_layout`:
+  `resolve_full_book_layout`/`resolve_outdated_pages_layout`/
+  `resolve_page_layout`/`resolve_page_range_layout`. Abweichend vom
+  ursprünglichen Vorschlag `*_layout` (siehe G4 unten) tragen die
+  Schicht-Funktionen ein Verb — ein reines `page_layout` ist ein
+  Substantiv und benennt keine Handlung. `resolve_` passt zur
+  aufrufenden Methode `BuildPlan::resolve_layout()`, sodass weiterhin
+  gilt: `solve_* = Engine`, `resolve_* = Schicht`.
 - **G5** — Doc-Comment in `build.rs:1` deckt jetzt auch die rebuild-Varianten ab.
 
 Aktuelle Struktur:
@@ -26,7 +32,7 @@ commands/build/plan.rs            BuildPlan + run-Pipeline + resolve_layout() + 
 commands/build/cache.rs           CacheRefresh, refresh_preview_cache, refresh_final_cache, log_dpi_warnings
 commands/build/render.rs          RenderContext, PdfTarget, render_pdf
 commands/build/errors.rs          BuildError
-commands/build/layout.rs          full_book_layout / outdated_pages_layout / page_layout / page_range_layout
+commands/build/layout.rs          resolve_full_book_layout / resolve_outdated_pages_layout / resolve_page_layout / resolve_page_range_layout
 commands/build/layout/{multi_page,single_page,cover_page}.rs   solve_*-Engines (update_cover_page bleibt Update)
 models/photos.rs                  build_photo_index, collect_photos_as_groups
 ```

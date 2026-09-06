@@ -19,7 +19,7 @@ pub(super) fn solve_multipage(
     custom_config: Option<BookLayoutSolverConfig>,
 ) -> Result<Vec<usize>> {
     let mut plan = SolverPlan::build(wls, groups, range, custom_config);
-    let solved = run_solver(&plan.request())?;
+    let solved = run_solver(&plan.create_request())?;
     let pages = plan.assemble(solved)?;
     plan.apply(wls, pages)
 }
@@ -77,7 +77,7 @@ impl SolverPlan {
     }
 
     /// The solver request, borrowing this plan's owned inputs.
-    fn request(&self) -> Request<'_, BookConfig> {
+    fn create_request(&self) -> Request<'_, BookConfig> {
         Request {
             request_type: RequestType::MultiPage {
                 config: &self.solver_config,

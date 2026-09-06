@@ -1,7 +1,10 @@
 use super::BuildResult;
 use super::cache::{CacheRefresh, refresh_final_cache, refresh_preview_cache};
 use super::errors::BuildError;
-use super::layout::{full_book_layout, outdated_pages_layout, page_layout, page_range_layout};
+use super::layout::{
+    resolve_full_book_layout, resolve_outdated_pages_layout, resolve_page_layout,
+    resolve_page_range_layout,
+};
 use super::render::{PdfTarget, RenderContext, render_pdf};
 use crate::commands::CommandOutput;
 use crate::state_manager::StateManager;
@@ -42,19 +45,19 @@ impl BuildPlan {
         match self {
             BuildPlan::Auto { pages } => {
                 if mgr.state().layout.is_empty() {
-                    full_book_layout(&mut mgr.get_write_layout_state())
+                    resolve_full_book_layout(&mut mgr.get_write_layout_state())
                 } else {
                     let mut outdated = mgr.outdated_pages_indices();
                     if let Some(filter) = pages.as_deref() {
                         outdated.retain(|p| filter.contains(p));
                     }
-                    outdated_pages_layout(&mut mgr.get_write_layout_state(), &outdated)
+                    resolve_outdated_pages_layout(&mut mgr.get_write_layout_state(), &outdated)
                 }
             }
-            BuildPlan::All => full_book_layout(&mut mgr.get_write_layout_state()),
-            BuildPlan::Page(idx) => page_layout(&mut mgr.get_write_layout_state(), *idx),
+            BuildPlan::All => resolve_full_book_layout(&mut mgr.get_write_layout_state()),
+            BuildPlan::Page(idx) => resolve_page_layout(&mut mgr.get_write_layout_state(), *idx),
             BuildPlan::Range { start, end, flex } => {
-                page_range_layout(&mut mgr.get_write_layout_state(), *start, *end, *flex)
+                resolve_page_range_layout(&mut mgr.get_write_layout_state(), *start, *end, *flex)
             }
             BuildPlan::Release { .. } => Ok(Vec::new()),
         }
@@ -84,8 +87,8 @@ impl BuildPlan {
         let total_photos: usize = mgr.state().layout.iter().map(|p| p.photos.len()).sum();
 
         // 4. Commit
-        let msg = commit_message(&self, &changed_pages, page_count, total_photos);
-        let changed_state = match commit_mode(&self) {
+        let msg = format_commit_message(&self, &changed_pages, page_count, total_photos);
+        let changed_state = match determine_commit_mode(&self) {
             CommitMode::Always => Some(mgr.finish_always(&msg)?),
             CommitMode::Auto => mgr.finish(&msg)?,
         };
@@ -94,7 +97,7 @@ impl BuildPlan {
         let effective_skip = matches!(self, BuildPlan::Release { .. })
             .then_some(false)
             .unwrap_or(skip_pdf);
-        let pdf_path = render_pdf(&ctx, pdf_target(&self), effective_skip)?;
+        let pdf_path = render_pdf(&ctx, determine_pdf_target(&self), effective_skip)?;
 
         Ok(CommandOutput {
             result: BuildResult {
@@ -144,7 +147,7 @@ fn refresh_cache(
     Ok(CacheRefresh::images_only(result.created))
 }
 
-fn commit_mode(plan: &BuildPlan) -> CommitMode {
+fn determine_commit_mode(plan: &BuildPlan) -> CommitMode {
     match plan {
         BuildPlan::Auto { .. } => CommitMode::Auto,
         BuildPlan::All
@@ -154,7 +157,7 @@ fn commit_mode(plan: &BuildPlan) -> CommitMode {
     }
 }
 
-fn pdf_target(plan: &BuildPlan) -> PdfTarget {
+fn determine_pdf_target(plan: &BuildPlan) -> PdfTarget {
     if matches!(plan, BuildPlan::Release { .. }) {
         PdfTarget::Final
     } else {
@@ -162,7 +165,7 @@ fn pdf_target(plan: &BuildPlan) -> PdfTarget {
     }
 }
 
-fn commit_message(
+fn format_commit_message(
     plan: &BuildPlan,
     changed_pages: &[usize],
     page_count: usize,

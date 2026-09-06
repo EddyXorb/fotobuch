@@ -74,7 +74,7 @@ Einstieg aufgegangen, `build_photo_index` und `collect_photos_as_groups` leben
 in `models/photos.rs`. Benennung & Kohäsion sind ebenfalls bereinigt:
 `helpers.rs` ist in `build/cache.rs`/`build/render.rs` aufgelöst (`CommitMode`
 in `plan.rs`), Modul `build_layout` → `layout` (Methode `resolve_layout()`),
-Layout-Schicht einheitlich auf `*_layout` umbenannt, Engines einheitlich auf
+Layout-Schicht einheitlich auf `resolve_*_layout`, Engines einheitlich auf
 `solve_*`. Plan: [`03-build-structure.md`](./03-build-structure.md).
 
 ---
