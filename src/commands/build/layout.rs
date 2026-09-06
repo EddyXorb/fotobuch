@@ -12,13 +12,12 @@ mod single_page;
 use self::multi_page::solve_multipage;
 use self::single_page::solve_single_page;
 use super::errors::BuildError;
-use super::helpers::collect_photos_as_groups;
-use crate::models::{PageMode, build_photo_index};
+use crate::models::{PageMode, build_photo_index, collect_photos_as_groups};
 use crate::state_manager::{ReadOnlyState, WriteLayoutState};
 use anyhow::Result;
 use tracing::warn;
 
-pub(super) fn build_full_book(wls: &mut WriteLayoutState<'_>) -> Result<Vec<usize>> {
+pub(super) fn resolve_full_book_layout(wls: &mut WriteLayoutState<'_>) -> Result<Vec<usize>> {
     let layout_len = wls.layout().len();
     if layout_len > 0 && wls.config().book.cover.active {
         let effective_start = skip_cover_if_needed(true, 0, layout_len - 1)?;
@@ -29,7 +28,7 @@ pub(super) fn build_full_book(wls: &mut WriteLayoutState<'_>) -> Result<Vec<usiz
     solve_multipage(wls, &groups, None, None)
 }
 
-pub(super) fn build_outdated_pages(
+pub(super) fn resolve_outdated_pages_layout(
     wls: &mut WriteLayoutState<'_>,
     pages: &[usize],
 ) -> Result<Vec<usize>> {
@@ -42,7 +41,10 @@ pub(super) fn build_outdated_pages(
     Ok(pages.to_vec())
 }
 
-pub(super) fn build_page(wls: &mut WriteLayoutState<'_>, idx: usize) -> Result<Vec<usize>> {
+pub(super) fn resolve_page_layout(
+    wls: &mut WriteLayoutState<'_>,
+    idx: usize,
+) -> Result<Vec<usize>> {
     if wls.layout().is_empty() {
         return Err(BuildError::NoLayout.into());
     }
@@ -62,7 +64,7 @@ pub(super) fn build_page(wls: &mut WriteLayoutState<'_>, idx: usize) -> Result<V
     Ok(vec![idx])
 }
 
-pub(super) fn build_page_range(
+pub(super) fn resolve_page_range_layout(
     wls: &mut WriteLayoutState<'_>,
     start: usize,
     end: usize,

@@ -1,4 +1,4 @@
-use super::cover_page::{build_cover_page, split_cover_photos, update_cover_page};
+use super::cover_page::{solve_cover_page, split_cover_photos, update_cover_page};
 use crate::models::{
     BookConfig, BookLayoutSolverConfig, LayoutPage, PageLayoutSolverConfig, PageMode, PhotoFile,
     PhotoGroup, build_photo_index,
@@ -19,7 +19,7 @@ pub(super) fn solve_multipage(
     custom_config: Option<BookLayoutSolverConfig>,
 ) -> Result<Vec<usize>> {
     let mut plan = SolverPlan::build(wls, groups, range, custom_config);
-    let solved = run_solver(&plan.request())?;
+    let solved = run_solver(&plan.create_request())?;
     let pages = plan.assemble(solved)?;
     plan.apply(wls, pages)
 }
@@ -77,7 +77,7 @@ impl SolverPlan {
     }
 
     /// The solver request, borrowing this plan's owned inputs.
-    fn request(&self) -> Request<'_, BookConfig> {
+    fn create_request(&self) -> Request<'_, BookConfig> {
         Request {
             request_type: RequestType::MultiPage {
                 config: &self.solver_config,
@@ -91,7 +91,7 @@ impl SolverPlan {
     /// Merges the carved-out cover and manual pages back into the solver output.
     fn assemble(&mut self, mut pages: Vec<LayoutPage>) -> Result<Vec<LayoutPage>> {
         if let Some(cover_files) = self.cover_files.take() {
-            let cover_page = build_cover_page(&self.book_config.cover, cover_files, pages.len())?;
+            let cover_page = solve_cover_page(&self.book_config.cover, cover_files, pages.len())?;
             pages.insert(0, cover_page);
         }
 
