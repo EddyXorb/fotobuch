@@ -1,8 +1,10 @@
 //! `fotobuch build` command
 mod build_layout;
+mod cache;
 pub mod errors;
 mod helpers;
 pub mod plan;
+mod render;
 
 pub use errors::BuildError;
 pub use plan::BuildPlan;

@@ -1,13 +1,16 @@
 use super::BuildResult;
 use super::build_layout::{build_full_book, build_outdated_pages, build_page, build_page_range};
+use super::cache::{CacheRefresh, refresh_final_cache, refresh_preview_cache};
 use super::errors::BuildError;
-use super::helpers::{
-    CacheRefresh, CommitMode, PdfTarget, RenderContext, refresh_final_cache, refresh_preview_cache,
-    render_pdf,
-};
+use super::render::{PdfTarget, RenderContext, render_pdf};
 use crate::commands::CommandOutput;
 use crate::state_manager::StateManager;
 use anyhow::Result;
+
+pub enum CommitMode {
+    Auto,
+    Always,
+}
 
 /// Describes the layout-change strategy for one build or rebuild invocation.
 #[derive(Debug, Clone)]
