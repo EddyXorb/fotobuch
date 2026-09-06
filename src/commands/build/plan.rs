@@ -7,7 +7,9 @@ use crate::commands::CommandOutput;
 use crate::state_manager::StateManager;
 use anyhow::Result;
 
-pub enum CommitMode {
+/// Whether the build commits only when the layout changed (`Auto`) or
+/// unconditionally (`Always`).
+enum CommitMode {
     Auto,
     Always,
 }
