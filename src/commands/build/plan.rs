@@ -1,7 +1,7 @@
 use super::BuildResult;
-use super::build_layout::{build_full_book, build_outdated_pages, build_page, build_page_range};
 use super::cache::{CacheRefresh, refresh_final_cache, refresh_preview_cache};
 use super::errors::BuildError;
+use super::layout::{build_full_book, build_outdated_pages, build_page, build_page_range};
 use super::render::{PdfTarget, RenderContext, render_pdf};
 use crate::commands::CommandOutput;
 use crate::state_manager::StateManager;
@@ -36,7 +36,7 @@ impl BuildPlan {
     ///
     /// Pure layout step: no cache update, no commit, no PDF.
     /// Returns 0-based indices of pages that were modified.
-    pub fn build_layout(&self, mgr: &mut StateManager) -> Result<Vec<usize>> {
+    pub fn resolve_layout(&self, mgr: &mut StateManager) -> Result<Vec<usize>> {
         match self {
             BuildPlan::Auto { pages } => {
                 if mgr.state().layout.is_empty() {
@@ -75,7 +75,7 @@ impl BuildPlan {
         let cache = refresh_cache(&self, &mut mgr, skip_cache_update)?;
 
         // 2. Build layout (pure)
-        let changed_pages = self.build_layout(&mut mgr)?;
+        let changed_pages = self.resolve_layout(&mut mgr)?;
 
         let ctx = RenderContext::capture(&mgr);
         let page_count = mgr.state().layout.len();
