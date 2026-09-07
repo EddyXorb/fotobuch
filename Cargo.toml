@@ -44,7 +44,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "chrono"] }
 tracing-appender = "0.2"
 
 # Genetic algorithm dependencies
-rand = "0.8"
+rand = "0.9"
 rayon = "1"
 crossbeam = "0.8"
 
