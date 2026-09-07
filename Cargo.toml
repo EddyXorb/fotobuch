@@ -29,7 +29,7 @@ kamadak-exif = "0.6"
 image = "0.25"
 
 # Typst compiler + PDF export
-typst = "0.14"
+typst = "0.15"
 typst-pdf = "0.14"
 typst-render = "0.14"
 typst-kit = { version = "0.14", features = ["fonts", "embed-fonts"] }
