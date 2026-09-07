@@ -54,8 +54,8 @@ zuletzt umgesetzten Phase E): [`01-build.md`](./01-build.md).
 
 **Status: umgesetzt.** Die früher über `multipage_build` und
 `rebuild_single_page` verstreute Cover-Logik (Fallunterscheidung *free vs.
-structured*, `split_cover_photos`, `build_cover_page`, `update_cover_page`) liegt
-jetzt gebündelt in `commands/build/build_layout/cover_page.rs`.
+structured*, `split_cover_photos`, `solve_cover_page`, `update_cover_page`) liegt
+jetzt gebündelt in `commands/build/layout/cover_page.rs`.
 
 **Ebenfalls erledigt** (#44) ist die Cover-**Geometrie**: `spread_width_mm` und
 `spine_width_mm` liegen jetzt im Wertobjekt `CoverGeometry` (`models/cover.rs`),
@@ -68,16 +68,14 @@ Abschnitt 5.2).
 
 ## 3. Datei- & Modulstruktur des build-Pfads
 
-**Status: ursprüngliche Befunde erledigt.** `build/core/` und `build/core.rs`
-sind weg (Pfad verflacht), `rebuild.rs` ist als `BuildPlan`-Variante in den einen
-`build()`-Einstieg aufgegangen, `build_photo_index` lebt jetzt in
-`dto_models/photos.rs` (von `place`/`status` dort importiert), die driftende
-Doc-Numerierung ist mit `rebuild.rs` verschwunden.
-
-**Offen bleibt** Benennung & Kohäsion im jetzt gut geschnittenen Pfad:
-`helpers.rs` ist ein Sammelname mit vier Themen, Modul `build_layout` kollidiert
-mit der Methode `BuildPlan::build_layout()`, und die Layout-Schicht mischt die
-Verben `build_`/`solve_`/`update_`. Plan: [`03-build-structure.md`](./03-build-structure.md).
+**Status: umgesetzt.** `build/core/` und `build/core.rs` sind weg (Pfad
+verflacht), `rebuild.rs` ist als `BuildPlan`-Variante in den einen `build()`-
+Einstieg aufgegangen, `build_photo_index` und `collect_photos_as_groups` leben
+in `models/photos.rs`. Benennung & Kohäsion sind ebenfalls bereinigt:
+`helpers.rs` ist in `build/cache.rs`/`build/render.rs` aufgelöst (`CommitMode`
+in `plan.rs`), Modul `build_layout` → `layout` (Methode `resolve_layout()`),
+Layout-Schicht einheitlich auf `resolve_*_layout`, Engines einheitlich auf
+`solve_*`. Plan: [`03-build-structure.md`](./03-build-structure.md).
 
 ---
 
@@ -252,7 +250,7 @@ Themenblock in eigenen Dateien neben diesem Dokument:
 - [`02-cover.md`](./02-cover.md) — Cover-Geometrie aus dem DTO lösen
   (Abschnitt 2 / 5.2; Konsolidierung bereits erledigt).
 - [`03-build-structure.md`](./03-build-structure.md) — Benennung & Kohäsion im
-  build-Pfad (Abschnitt 3; Strukturbefunde bereits erledigt).
+  build-Pfad (Abschnitt 3; umgesetzt).
 - [`04-solver.md`](./04-solver.md) — Modul-/Namensstruktur des Solvers
   (Abschnitt 4; umgesetzt).
 - [`05-dto-models.md`](./05-dto-models.md) — Domänenmodell entlogiken & Typen
