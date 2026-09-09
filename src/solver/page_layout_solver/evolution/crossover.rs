@@ -16,7 +16,7 @@ pub(super) fn apply_crossover<R: Rng>(
     let mut offspring = Vec::with_capacity(parents.len());
 
     for chunk in parents.as_chunks::<2>().0 {
-        if rng.r#gen::<f64>() < crossover_rate {
+        if rng.random::<f64>() < crossover_rate {
             crossover_pair(chunk, context, rng, &mut offspring);
         } else {
             offspring.extend_from_slice(chunk);
@@ -73,7 +73,7 @@ pub(crate) fn crossover<R: Rng>(
     }
 
     // Pick a random compatible pair
-    let &(node_a, node_b) = pairs.get(rng.gen_range(0..pairs.len()))?;
+    let &(node_a, node_b) = pairs.get(rng.random_range(0..pairs.len()))?;
 
     // Step 3: Extract subtree topologies
     let (topo_a, labels_a) = extract_subtree(tree_a, node_a);

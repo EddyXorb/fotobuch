@@ -38,11 +38,11 @@ where
     R: Rng,
 {
     let actual_size = tournament_size.min(population.len());
-    let mut best = &population[rng.gen_range(0..population.len())];
+    let mut best = &population[rng.random_range(0..population.len())];
     let mut best_fitness = best.fitness();
 
     for _ in 1..actual_size {
-        let candidate = &population[rng.gen_range(0..population.len())];
+        let candidate = &population[rng.random_range(0..population.len())];
         let candidate_fitness = candidate.fitness();
 
         if candidate_fitness < best_fitness {
