@@ -7,7 +7,7 @@ use anyhow::Result;
 use std::collections::HashMap;
 
 /// Creates a new cover `LayoutPage` using the deterministic cover solver (structured mode only).
-pub(super) fn build_cover_page(
+pub(super) fn solve_cover_page(
     cover: &CoverConfig,
     files: Vec<PhotoFile>,
     inner_page_count: usize,
