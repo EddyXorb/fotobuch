@@ -14,7 +14,7 @@ pub(super) fn apply_mutation<R: Rng>(
     enforce_order: bool,
 ) {
     for individual in individuals.iter_mut() {
-        if rng.r#gen::<f64>() < mutation_rate {
+        if rng.random::<f64>() < mutation_rate {
             mutate_individual(individual, context, rng, enforce_order);
         }
     }
@@ -60,7 +60,7 @@ pub(crate) fn mutate<R: Rng>(tree: &mut SlicingTree, rng: &mut R, enforce_order:
             .collect();
 
         if !internal_indices.is_empty() {
-            let idx = internal_indices[rng.gen_range(0..internal_indices.len())];
+            let idx = internal_indices[rng.random_range(0..internal_indices.len())];
             if let Node::Internal { cut, .. } = tree.node_mut(idx) {
                 *cut = match cut {
                     Cut::V => Cut::H,
@@ -99,10 +99,10 @@ fn collect_node_indices(tree: &SlicingTree) -> (Vec<u16>, Vec<u16>) {
 /// Swaps the photo indices of two randomly selected leaf nodes.
 fn swap_random_leaves<R: Rng>(tree: &mut SlicingTree, leaf_indices: &[u16], rng: &mut R) {
     // Pick two different random leaves
-    let i1 = rng.gen_range(0..leaf_indices.len());
-    let mut i2 = rng.gen_range(0..leaf_indices.len());
+    let i1 = rng.random_range(0..leaf_indices.len());
+    let mut i2 = rng.random_range(0..leaf_indices.len());
     while i2 == i1 && leaf_indices.len() > 1 {
-        i2 = rng.gen_range(0..leaf_indices.len());
+        i2 = rng.random_range(0..leaf_indices.len());
     }
 
     let idx1 = leaf_indices[i1];
@@ -139,10 +139,10 @@ fn set_photo_index(tree: &mut SlicingTree, idx: u16, photo_idx: u16) {
 /// Swaps the cut types of two randomly selected internal nodes.
 fn swap_random_internals<R: Rng>(tree: &mut SlicingTree, internal_indices: &[u16], rng: &mut R) {
     // Pick two different random internal nodes
-    let i1 = rng.gen_range(0..internal_indices.len());
-    let mut i2 = rng.gen_range(0..internal_indices.len());
+    let i1 = rng.random_range(0..internal_indices.len());
+    let mut i2 = rng.random_range(0..internal_indices.len());
     while i2 == i1 && internal_indices.len() > 1 {
-        i2 = rng.gen_range(0..internal_indices.len());
+        i2 = rng.random_range(0..internal_indices.len());
     }
 
     let idx1 = internal_indices[i1];

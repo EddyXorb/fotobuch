@@ -61,7 +61,7 @@ pub(crate) fn random_tree<R: Rng>(n: usize, rng: &mut R, enforce_order: bool) ->
     // Add N-1 internal nodes
     for _ in 0..n - 1 {
         // Pick a random leaf to replace
-        let leaf_pos = rng.gen_range(0..leaves.len());
+        let leaf_pos = rng.random_range(0..leaves.len());
         let leaf_idx = leaves[leaf_pos];
 
         // Remember the old parent before we overwrite this node
@@ -81,7 +81,7 @@ pub(crate) fn random_tree<R: Rng>(n: usize, rng: &mut R, enforce_order: bool) ->
         });
 
         // Replace the old leaf with an internal node
-        let cut = if rng.gen_bool(0.5) { Cut::V } else { Cut::H };
+        let cut = if rng.random_bool(0.5) { Cut::V } else { Cut::H };
         nodes[leaf_idx as usize] = Node::Internal {
             cut,
             left: left_idx,
@@ -105,7 +105,7 @@ pub(crate) fn random_tree<R: Rng>(n: usize, rng: &mut R, enforce_order: bool) ->
         // Fisher-Yates shuffle for random assignment (legacy behavior)
         let mut photo_indices: Vec<u16> = (0..n as u16).collect();
         for i in (1..photo_indices.len()).rev() {
-            let j = rng.gen_range(0..=i);
+            let j = rng.random_range(0..=i);
             photo_indices.swap(i, j);
         }
 
