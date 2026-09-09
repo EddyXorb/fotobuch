@@ -2,19 +2,25 @@ use anyhow::Result;
 use image::imageops::FilterType;
 
 use crate::output::typst::{RenderedPage, TypstWorld};
-use typst::layout::PagedDocument;
+use typst_layout::PagedDocument;
 
 /// Rasterises a single page from an already-compiled document.
 /// Stateless and parallelisable — the caller decides the scheduling.
 pub fn rasterize_page(doc: &PagedDocument, page: usize, pixel_per_pt: f32) -> Result<RenderedPage> {
-    let p = doc.pages.get(page).ok_or_else(|| {
+    let p = doc.pages().get(page).ok_or_else(|| {
         anyhow::anyhow!(
             "page index {page} out of range (document has {} page(s))",
-            doc.pages.len()
+            doc.pages().len()
         )
     })?;
 
-    let pixmap = typst_render::render(p, pixel_per_pt);
+    let pixmap = typst_render::render(
+        p,
+        &typst_render::RenderOptions {
+            pixel_per_pt: typst::utils::Scalar::new(pixel_per_pt as f64),
+            ..Default::default()
+        },
+    );
 
     let width = pixmap.width();
     let height = pixmap.height();
