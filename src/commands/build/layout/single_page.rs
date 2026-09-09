@@ -48,7 +48,7 @@ fn solve_inner_page(
     page_idx: usize,
     files: Vec<PhotoFile>,
 ) -> Result<()> {
-    let group = photo_group_for_page(page_idx, files);
+    let group = make_photo_group_for_page(page_idx, files);
     let book_config = wls.config().book.clone();
     let page_layout_config = wls.config().page_layout_solver.clone();
     let request = Request {
@@ -63,7 +63,7 @@ fn solve_inner_page(
 
 // ── shared helpers ────────────────────────────────────────────────────────────
 
-fn photo_group_for_page(page_idx: usize, files: Vec<PhotoFile>) -> PhotoGroup {
+fn make_photo_group_for_page(page_idx: usize, files: Vec<PhotoFile>) -> PhotoGroup {
     PhotoGroup {
         group: format!("page_{page_idx}"),
         sort_key: String::new(),
