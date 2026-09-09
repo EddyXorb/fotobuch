@@ -82,7 +82,7 @@ impl<'a> EvolutionDynamic<LayoutIndividual> for LayoutEvolution<'a> {
             population,
             self.tournament_size,
             population.len(),
-            &mut rand::thread_rng(),
+            &mut rand::rng(),
         )
     }
 
@@ -91,7 +91,7 @@ impl<'a> EvolutionDynamic<LayoutIndividual> for LayoutEvolution<'a> {
             parents,
             self.crossover_rate,
             &self.context,
-            &mut rand::thread_rng(),
+            &mut rand::rng(),
         )
     }
 
@@ -100,7 +100,7 @@ impl<'a> EvolutionDynamic<LayoutIndividual> for LayoutEvolution<'a> {
             individuals,
             self.mutation_rate,
             &self.context,
-            &mut rand::thread_rng(),
+            &mut rand::rng(),
             self.context.enforce_order,
         );
     }

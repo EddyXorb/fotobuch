@@ -75,7 +75,7 @@ fn test_project_new_mode1_creates_complete_structure() -> Result<()> {
     let repo = git2::Repository::open(&result.result.project_root)?;
     let head = repo.head()?;
     assert!(head.is_branch());
-    assert_eq!(head.shorthand(), Some("fotobuch/vacation2024"));
+    assert_eq!(head.shorthand().ok(), Some("fotobuch/vacation2024"));
 
     Ok(())
 }
@@ -133,7 +133,7 @@ fn test_project_new_mode2_creates_additional_project() -> Result<()> {
     // Verify we're on second branch
     let repo = git2::Repository::open(&result2.result.project_root)?;
     let head = repo.head()?;
-    assert_eq!(head.shorthand(), Some("fotobuch/second"));
+    assert_eq!(head.shorthand().ok(), Some("fotobuch/second"));
 
     // Verify both branches exist
     let _ = repo.find_branch("fotobuch/first", git2::BranchType::Local)?;

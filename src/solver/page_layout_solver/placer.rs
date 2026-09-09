@@ -463,7 +463,7 @@ mod tests {
 
             let photos: Vec<Photo> = (0..n)
                 .map(|_| {
-                    let ar = rng.gen_range(0.5..2.0);
+                    let ar = rng.random_range(0.5..2.0);
                     make_photo(ar)
                 })
                 .collect();

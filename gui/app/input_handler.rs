@@ -51,7 +51,7 @@ fn handle_os_dropped_files(ctx: &egui::Context, cmds: &mut Vec<BackgroundTask>) 
         i.raw
             .dropped_files
             .iter()
-            .filter_map(|f| f.path.clone())
+            .map(|f| f.path().to_path_buf())
             .collect()
     });
     if paths.is_empty() {

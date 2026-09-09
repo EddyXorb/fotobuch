@@ -57,7 +57,7 @@ pub fn switch(project_root: &Path, name: &str) -> Result<CommandOutput<()>> {
 
     // Get current HEAD
     let is_already_on_branch = if let Ok(head) = repo.head() {
-        head.shorthand() == Some(&branch_name[..])
+        head.shorthand().ok() == Some(&branch_name[..])
     } else {
         false
     };
