@@ -1,4 +1,5 @@
-.cargo
+.cargo/*
+!.cargo/audit.toml
 target*
 /output*
 *.pdf
