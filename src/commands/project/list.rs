@@ -24,7 +24,7 @@ pub fn list(project_root: &Path) -> Result<CommandOutput<Vec<super::ProjectInfo>
     let current_branch = repo
         .head()
         .ok()
-        .and_then(|head| head.shorthand().map(|s| s.to_string()));
+        .and_then(|head| head.shorthand().ok().map(|s| s.to_string()));
 
     let mut projects = Vec::new();
 
