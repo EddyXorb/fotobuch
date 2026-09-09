@@ -29,10 +29,11 @@ kamadak-exif = "0.6"
 image = "0.25"
 
 # Typst compiler + PDF export
-typst = "0.14"
-typst-pdf = "0.14"
-typst-render = "0.14"
-typst-kit = { version = "0.14", features = ["fonts", "embed-fonts"] }
+typst = "0.15"
+typst-pdf = "0.15"
+typst-render = "0.15"
+typst-layout = "0.15"
+typst-kit = { version = "0.15", features = ["scan-fonts", "embedded-fonts"] }
 comemo = "0.5"
 
 # PDF post-processing (TrimBox/BleedBox)
