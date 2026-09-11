@@ -17,4 +17,11 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@cargo-audit
+      - name: Check RUSTSEC ignore-list expiry
+        run: |
+          review_by="2026-12-09"
+          if [[ "$(date -u +%F)" > "$review_by" ]]; then
+            echo "::error::.cargo/audit.toml's ignore list was due for review on $review_by. Check whether the ignored RUSTSEC advisories are now fixed upstream (see comments in .cargo/audit.toml) and either update dependencies or extend the review date."
+            exit 1
+          fi
       - run: cargo audit
