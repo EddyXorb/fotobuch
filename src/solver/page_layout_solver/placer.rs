@@ -285,7 +285,7 @@ mod tests {
     use crate::solver::page_layout_solver::tree::create::random_tree;
     use crate::solver::page_layout_solver::tree::validate::validate_tree;
     use approx::assert_relative_eq;
-    use rand::Rng;
+    use rand::RngExt;
     use rand::SeedableRng;
     use rand_chacha::ChaCha8Rng;
 

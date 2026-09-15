@@ -1,7 +1,7 @@
 //! Selection operators for genetic algorithm.
 
 use crate::solver::algorithms::genetic_algorithm::Individual;
-use rand::Rng;
+use rand::{Rng, RngExt};
 
 /// Performs tournament selection on a population.
 ///
