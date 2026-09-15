@@ -4,7 +4,7 @@ use super::super::individual::LayoutIndividual;
 use super::super::tree::create::assign_photos_by_dfs;
 use super::EvaluationContext;
 use crate::solver::page_layout_solver::tree::{Cut, Node, SlicingTree};
-use rand::Rng;
+use rand::{Rng, RngExt};
 
 /// Applies crossover to parents with given rate.
 pub(super) fn apply_crossover<R: Rng>(
