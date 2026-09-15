@@ -1,7 +1,7 @@
 //! Functions for building random slicing trees.
 
 use super::{Cut, Node, SlicingTree};
-use rand::Rng;
+use rand::{Rng, RngExt};
 
 /// Assigns photo indices to tree leaves in DFS preorder.
 ///
