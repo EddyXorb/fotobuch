@@ -3,7 +3,7 @@
 use super::super::individual::LayoutIndividual;
 use super::EvaluationContext;
 use crate::solver::page_layout_solver::tree::{Cut, Node, SlicingTree};
-use rand::Rng;
+use rand::{Rng, RngExt};
 
 /// Applies mutation to individuals with given rate.
 pub(super) fn apply_mutation<R: Rng>(
