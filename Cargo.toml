@@ -138,7 +138,7 @@ assert_cmd = "2"
 egui_kittest = "0.36"
 predicates = "3"
 proptest = "1"
-rand_chacha = "0.9"
+rand_chacha = "0.10"
 tempfile = "3.10"
 
 [lints.rust]
