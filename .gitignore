@@ -1,4 +1,6 @@
 .cargo
+.catraz
+
 target*
 /output*
 *.pdf
