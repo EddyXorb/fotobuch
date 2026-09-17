@@ -1,7 +1,7 @@
 use crate::state::{ActiveDrag, DataState, HoveredTarget, InteractionState};
 
 pub fn draw(ui: &mut egui::Ui, data: &DataState, interaction: &InteractionState) {
-    egui::Panel::bottom("statusbar").show_inside(ui, |ui| show(ui, data, interaction));
+    egui::Panel::bottom("statusbar").show(ui, |ui| show(ui, data, interaction));
 }
 
 fn show(ui: &mut egui::Ui, data: &DataState, interaction: &InteractionState) {

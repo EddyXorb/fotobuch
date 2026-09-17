@@ -22,6 +22,7 @@ pub fn current_branch(repo: &Repository) -> Result<String> {
     let head = repo.head().context("Failed to read HEAD")?;
     if head.is_branch() {
         head.shorthand()
+            .ok()
             .map(str::to_owned)
             .context("Branch name is not valid UTF-8")
     } else {

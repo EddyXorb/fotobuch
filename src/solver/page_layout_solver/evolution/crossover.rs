@@ -4,7 +4,7 @@ use super::super::individual::LayoutIndividual;
 use super::super::tree::create::assign_photos_by_dfs;
 use super::EvaluationContext;
 use crate::solver::page_layout_solver::tree::{Cut, Node, SlicingTree};
-use rand::Rng;
+use rand::{Rng, RngExt};
 
 /// Applies crossover to parents with given rate.
 pub(super) fn apply_crossover<R: Rng>(
@@ -15,8 +15,8 @@ pub(super) fn apply_crossover<R: Rng>(
 ) -> Vec<LayoutIndividual> {
     let mut offspring = Vec::with_capacity(parents.len());
 
-    for chunk in parents.chunks_exact(2) {
-        if rng.r#gen::<f64>() < crossover_rate {
+    for chunk in parents.as_chunks::<2>().0 {
+        if rng.random::<f64>() < crossover_rate {
             crossover_pair(chunk, context, rng, &mut offspring);
         } else {
             offspring.extend_from_slice(chunk);
@@ -73,7 +73,7 @@ pub(crate) fn crossover<R: Rng>(
     }
 
     // Pick a random compatible pair
-    let &(node_a, node_b) = pairs.get(rng.gen_range(0..pairs.len()))?;
+    let &(node_a, node_b) = pairs.get(rng.random_range(0..pairs.len()))?;
 
     // Step 3: Extract subtree topologies
     let (topo_a, labels_a) = extract_subtree(tree_a, node_a);

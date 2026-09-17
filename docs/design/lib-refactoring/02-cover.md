@@ -7,9 +7,9 @@
 
 Die in Abschnitt 2 beschriebene **Konsolidierung der verstreuten Cover-Logik ist
 abgeschlossen.** Sie liegt jetzt gebündelt in
-`src/commands/build/build_layout/cover_page.rs`:
+`src/commands/build/layout/cover_page.rs`:
 
-- `build_cover_page` — neue Cover-Seite (structured).
+- `solve_cover_page` — neue Cover-Seite (structured).
 - `update_cover_page` — verzweigt sauber in `update_cover_free` /
   `update_cover_structured`.
 - `split_cover_photos` — Cover-Fotos abspalten.

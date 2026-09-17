@@ -7,19 +7,21 @@ on:
       - 'Cargo.toml'
       - 'Cargo.lock'
       - '.cargo/**'
+      - '.github/workflows/**'
   pull_request:
     paths:
       - 'src/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
       - '.cargo/**'
+      - '.github/workflows/**'
 
 jobs:
   test:
     name: Test & Coverage
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -32,8 +34,13 @@ jobs:
       - name: Check formatting
         run: cargo fmt --check
 
+      # Der Coverage-Lauf unten baut nur die Default-Features. Optionale
+      # Features (gui, cli-docs, slow-tests) blieben dadurch ungetestet -- ein
+      # Dependency-Update konnte den GUI-Build brechen, ohne die CI rot zu
+      # faerben. Clippy deckt hier alle Features und alle Targets ab und
+      # ersetzt damit einen separaten Build-Schritt.
       - name: Clippy
-        run: cargo clippy -- -D warnings
+        run: cargo clippy --all-features --all-targets -- -D warnings
 
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
@@ -42,7 +49,7 @@ jobs:
         run: cargo llvm-cov --lcov --output-path lcov.info
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
           files: lcov.info
           token: ${{ secrets.CODECOV_TOKEN }}

@@ -39,7 +39,7 @@ pub(super) fn render_pages(rctx: &mut super::RenderCtx<'_>, pages: Vec<usize>) {
         }
     };
     let compile_duration = t_compile.elapsed();
-    let doc_page_count = doc.pages.len();
+    let doc_page_count = doc.pages().len();
 
     let _ = rctx
         .result_tx

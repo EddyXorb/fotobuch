@@ -7,6 +7,7 @@ mod selection;
 use anyhow::Result;
 use std::path::Path;
 
+use crate::commands::build::BuildError;
 use crate::commands::page::format_pages_list;
 use crate::commands::{CommandOutput, run_write_command};
 use crate::models::ProjectState;
@@ -100,7 +101,7 @@ pub fn place(project_root: &Path, config: &PlaceConfig) -> Result<CommandOutput<
 /// Reject destinations that cannot apply to the current layout.
 fn validate_destination(state: &ProjectState, dst: &PlaceDst) -> Result<()> {
     if state.layout.is_empty() && !matches!(dst, PlaceDst::NewPageAt(_)) {
-        anyhow::bail!("No layout yet. Run `fotobuch build` first.");
+        return Err(BuildError::NoLayout.into());
     }
     match dst {
         PlaceDst::Page(page) if *page >= state.layout.len() => {

@@ -107,7 +107,9 @@ pub enum BackgroundTask {
     },
     /// Create a new project in the vault and switch to it.
     ProjectNew {
-        config: NewConfig,
+        /// Geboxt: `NewConfig` ist mit Abstand die groesste Variante (712 vs.
+        /// 64 Byte) und wuerde sonst jeden `BackgroundTask` aufblaehen.
+        config: Box<NewConfig>,
     },
     /// Switch to a different project branch.
     ProjectSwitch {

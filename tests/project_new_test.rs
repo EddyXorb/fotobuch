@@ -14,7 +14,6 @@ fn test_project_new_mode1_creates_complete_structure() -> Result<()> {
         width_mm: 1234.0,
         height_mm: 1234.0,
         bleed_mm: 1234.0,
-        quiet: true,
         with_cover: false,
         cover_width_mm: None,
         cover_height_mm: None,
@@ -76,7 +75,7 @@ fn test_project_new_mode1_creates_complete_structure() -> Result<()> {
     let repo = git2::Repository::open(&result.result.project_root)?;
     let head = repo.head()?;
     assert!(head.is_branch());
-    assert_eq!(head.shorthand(), Some("fotobuch/vacation2024"));
+    assert_eq!(head.shorthand().ok(), Some("fotobuch/vacation2024"));
 
     Ok(())
 }
@@ -91,7 +90,6 @@ fn test_project_new_mode2_creates_additional_project() -> Result<()> {
         width_mm: 200.0,
         height_mm: 250.0,
         bleed_mm: 2.0,
-        quiet: true,
         with_cover: false,
         cover_width_mm: None,
         cover_height_mm: None,
@@ -108,7 +106,6 @@ fn test_project_new_mode2_creates_additional_project() -> Result<()> {
         width_mm: 180.0,
         height_mm: 240.0,
         bleed_mm: 4.0,
-        quiet: true,
         with_cover: false,
         cover_width_mm: None,
         cover_height_mm: None,
@@ -136,7 +133,7 @@ fn test_project_new_mode2_creates_additional_project() -> Result<()> {
     // Verify we're on second branch
     let repo = git2::Repository::open(&result2.result.project_root)?;
     let head = repo.head()?;
-    assert_eq!(head.shorthand(), Some("fotobuch/second"));
+    assert_eq!(head.shorthand().ok(), Some("fotobuch/second"));
 
     // Verify both branches exist
     let _ = repo.find_branch("fotobuch/first", git2::BranchType::Local)?;
@@ -154,7 +151,6 @@ fn test_project_new_rejects_duplicate_name() -> Result<()> {
         width_mm: 210.0,
         height_mm: 297.0,
         bleed_mm: 3.0,
-        quiet: true,
         with_cover: false,
         cover_width_mm: None,
         cover_height_mm: None,
@@ -225,7 +221,6 @@ fn test_project_new_with_different_page_dimensions() -> Result<()> {
             width_mm: width,
             height_mm: height,
             bleed_mm: bleed,
-            quiet: true,
             with_cover: false,
             cover_width_mm: None,
             cover_height_mm: None,

@@ -19,8 +19,8 @@ pub struct RenderedPage {
     pub pixels: Vec<u8>,
 }
 
-/// Compiles a Typst template to a `typst::layout::PagedDocument`.
-fn compile_to_intermediate_document(template_path: &Path) -> Result<typst::layout::PagedDocument> {
+/// Compiles a Typst template to a `typst_layout::PagedDocument`.
+fn compile_to_intermediate_document(template_path: &Path) -> Result<typst_layout::PagedDocument> {
     let mut world = TypstWorld::from_template_path(template_path)?;
     world.reload()?;
     world.compile_document()
@@ -390,7 +390,9 @@ mod tests {
 
         let has_opaque = page
             .pixels
-            .chunks_exact(4)
+            .as_chunks::<4>()
+            .0
+            .iter()
             .any(|p| p[3] == 255 && p[0] == 255 && p[1] == 255 && p[2] == 255);
         assert!(has_opaque, "expected at least one white opaque pixel");
     }

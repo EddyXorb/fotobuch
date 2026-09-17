@@ -2,15 +2,36 @@
 
 mod cli;
 
-use anyhow::Result;
 use clap::Parser;
 use cli::{Cli, Execute};
+use std::process::ExitCode;
 
-fn main() -> Result<()> {
+fn main() -> ExitCode {
     let _guard = setup_logging();
 
     let cli = Cli::parse();
-    cli.command.execute()
+    match cli.command.execute() {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(err) => {
+            report_error(&err);
+            ExitCode::FAILURE
+        }
+    }
+}
+
+/// Print the error, every cause behind it, and the hint for its condition.
+///
+/// `Display` on an `anyhow::Error` shows only the outermost message, so the
+/// causes are walked explicitly — otherwise context such as which file failed
+/// to parse would never reach the user.
+fn report_error(err: &anyhow::Error) {
+    eprintln!("error: {err}");
+    for cause in err.chain().skip(1) {
+        eprintln!("  caused by: {cause}");
+    }
+    if let Some(hint) = cli::hints::hint_for(err) {
+        eprintln!("hint: {hint}");
+    }
 }
 
 /// Initialize logging system with environment variable support.

@@ -1,0 +1,101 @@
+# Wöchentliche Abhängigkeits-Updates.
+#
+# Ziel: Sicherheitslücken, die `cargo audit` (Workflow "Security Audit")
+# meldet, werden automatisch als PR vorgeschlagen, statt den Audit-Job
+# dauerhaft rot zu lassen.
+#
+# Bewusste Entscheidung: kein Auto-Merge. Dependabot öffnet den Pull Request,
+# gemergt wird ausschließlich von Hand. Deshalb gibt es hier keinen
+# Auto-Merge-Workflow und keine `dependabot merge`-Automatik --
+# `tests/dependabot_config_test.rs` prüft das ab.
+# Kein `commit-message`-Block: Dependabot erkennt den Conventional-Commit-Stil
+# des Repositories selbst und setzt "chore(deps): ..." bereits von sich aus --
+# nachweisbar an PR #56/#57/#58, die entstanden, bevor es diese Datei gab. Ein
+# zusaetzliches `include: scope` haengt einen zweiten Scope an und erzeugt
+# "chore(deps)(deps): ...".
+version: 2
+
+updates:
+  # Rust-Abhängigkeiten (Cargo.toml + Cargo.lock)
+  - package-ecosystem: cargo
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Berlin
+    # `cargo audit` prüft die komplette Cargo.lock. Viele Advisories
+    # (z. B. quick-xml, crossbeam-epoch, webbrowser) betreffen transitive
+    # Crates, die Dependabot ohne "all" nicht anfassen würde.
+    allow:
+      - dependency-type: all
+    open-pull-requests-limit: 10
+    groups:
+      # Crate-Familien, die nur im Gleichschritt funktionieren. Wird nur ein
+      # Mitglied angehoben, liegen zwei Versionen derselben Bibliothek im
+      # Abhängigkeitsbaum und identisch benannte Typen sind nicht mehr
+      # zuweisungskompatibel ("expected typst::layout::Page, found
+      # typst_layout::document::Page"). Solche PRs können einzeln gar nicht
+      # grün werden -- siehe PR #64/#66/#70.
+      #
+      # Dependabot ordnet jede Abhängigkeit der *ersten* passenden Gruppe zu,
+      # deshalb stehen diese Gruppen vor `cargo-minor-patch`. Ohne
+      # `update-types` erfasst eine Gruppe alle Update-Arten, also auch
+      # Breaking Changes wie 0.14 -> 0.15.
+      typst:
+        applies-to: version-updates
+        patterns:
+          - "typst"
+          - "typst-*"
+      egui:
+        applies-to: version-updates
+        patterns:
+          - "eframe"
+          - "egui"
+          - "egui-*"
+          - "egui_*"
+      # Ein Sammel-PR für alles, was ohne Breaking Change durchgeht.
+      cargo-minor-patch:
+        applies-to: version-updates
+        update-types:
+          - minor
+          - patch
+      # Sicherheitsupdates gebündelt, damit sie zusammen gemergt werden.
+      cargo-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
+
+  # Python-Hilfswerkzeuge der Tests (uv-Projekt: pyproject.toml + uv.lock)
+  - package-ecosystem: uv
+    directory: /tests/tools
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Berlin
+    open-pull-requests-limit: 5
+    groups:
+      uv-minor-patch:
+        applies-to: version-updates
+        update-types:
+          - minor
+          - patch
+      uv-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
+
+  # Versionen der verwendeten GitHub Actions
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Berlin
+    open-pull-requests-limit: 5
+    groups:
+      github-actions:
+        patterns:
+          - "*"

@@ -2,7 +2,7 @@ use anyhow::Result;
 
 use fotobuch::commands::page::{self as page_cmd, InfoFilter, PageSlotInfo};
 
-use super::common::project_root;
+use super::common::{project_root, to_anyhow};
 use crate::cli::page::parse_api::parse_info_address;
 
 /// Handler for `fotobuch page info <address> [--weights|--ids|--pixels]`.
@@ -10,7 +10,7 @@ pub fn handle_info(address: &str, filter: InfoFilter) -> Result<()> {
     let addr = parse_info_address(address)
         .map_err(|e| anyhow::anyhow!("Invalid address '{}': {}", address, e))?;
     let result = page_cmd::execute_info(&project_root()?, addr, filter.clone())
-        .map_err(|e| anyhow::anyhow!("{}", e))?
+        .map_err(to_anyhow)?
         .result;
 
     if result.slots.is_empty() {

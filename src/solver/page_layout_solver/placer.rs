@@ -285,7 +285,7 @@ mod tests {
     use crate::solver::page_layout_solver::tree::create::random_tree;
     use crate::solver::page_layout_solver::tree::validate::validate_tree;
     use approx::assert_relative_eq;
-    use rand::Rng;
+    use rand::RngExt;
     use rand::SeedableRng;
     use rand_chacha::ChaCha8Rng;
 
@@ -463,7 +463,7 @@ mod tests {
 
             let photos: Vec<Photo> = (0..n)
                 .map(|_| {
-                    let ar = rng.gen_range(0.5..2.0);
+                    let ar = rng.random_range(0.5..2.0);
                     make_photo(ar)
                 })
                 .collect();

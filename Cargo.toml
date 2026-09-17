@@ -29,14 +29,15 @@ kamadak-exif = "0.6"
 image = "0.25"
 
 # Typst compiler + PDF export
-typst = "0.14"
-typst-pdf = "0.14"
-typst-render = "0.14"
-typst-kit = { version = "0.14", features = ["fonts", "embed-fonts"] }
+typst = "0.15"
+typst-pdf = "0.15"
+typst-render = "0.15"
+typst-layout = "0.15"
+typst-kit = { version = "0.15", features = ["scan-fonts", "embedded-fonts"] }
 comemo = "0.5"
 
 # PDF post-processing (TrimBox/BleedBox)
-lopdf = "0.35"
+lopdf = "0.45"
 
 # Logging
 tracing = "0.1"
@@ -44,7 +45,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "chrono"] }
 tracing-appender = "0.2"
 
 # Genetic algorithm dependencies
-rand = "0.8"
+rand = "0.10"
 rayon = "1"
 crossbeam = "0.8"
 
@@ -60,13 +61,13 @@ regex = "1.10"
 blake3 = "1.5"
 
 # Git integration
-git2 = { version = "0.20", default-features = false }
+git2 = { version = "0.21", default-features = false }
 
 # OS directories (config/pictures/home)
 dirs = "5"
 
 # TOML for app settings serialization
-toml = "0.8"
+toml = "1.1"
 
 [[bin]]
 name = "fotobuch-gui"
@@ -91,21 +92,21 @@ cli-docs = ["dep:clap-markdown"]
 slow-tests = []
 
 [dependencies.eframe]
-version = "0.34"
+version = "0.36"
 optional = true
 default-features = false
 features = ["default_fonts", "glow", "x11"]
 
 [dependencies.egui]
-version = "0.34"
+version = "0.36"
 optional = true
 
 [dependencies.rfd]
-version = "0.14"
+version = "0.17"
 optional = true
 
 [dependencies.egui_commonmark]
-version = "0.23"
+version = "0.25"
 optional = true
 
 [dependencies.include_dir]
@@ -134,8 +135,13 @@ codegen-units = 1
 [dev-dependencies]
 approx = "0.5"
 assert_cmd = "2"
-egui_kittest = "0.34"
+egui_kittest = "0.36"
 predicates = "3"
 proptest = "1"
-rand_chacha = "0.3"
+rand_chacha = "0.10"
 tempfile = "3.10"
+
+[lints.rust]
+# cargo-llvm-cov setzt beim Coverage-Lauf `--cfg=coverage`. Ohne diese
+# Deklaration meldet rustc das cfg als unbekannt und `-D warnings` bricht die CI.
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage)'] }

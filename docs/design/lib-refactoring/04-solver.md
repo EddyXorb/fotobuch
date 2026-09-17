@@ -78,7 +78,7 @@ Reine Verschiebung.
 `config: &BookLayoutSolverConfig` ist für `RequestType::SinglePage` ein ungenutztes
 Pflichtfeld. Variante: `RequestType` trägt variantenspezifische Daten
 (`MultiPage { config }` vs. `SinglePage`), oder die beiden Configs in einen
-`SolverConfig` bündeln. Alle Aufrufer mitziehen (`build_layout/single_page.rs`,
+`SolverConfig` bündeln. Alle Aufrufer mitziehen (`layout/single_page.rs`,
 `multi_page.rs`, `cover_page.rs`).
 *Verify:* Aufrufer kompilieren; Tests grün.
 

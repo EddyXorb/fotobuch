@@ -1,4 +1,7 @@
-.cargo
+
+.cargo/*
+!.cargo/audit.toml
+
 .catraz
 
 target*

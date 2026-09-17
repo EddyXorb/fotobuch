@@ -498,5 +498,19 @@ fn test_performance_large_instance() {
     let elapsed = start.elapsed();
 
     assert_eq!(assignment.total_photos(), 1000);
-    assert!(elapsed < Duration::from_secs(2), "took {elapsed:?}");
+    assert!(elapsed < performance_budget(), "took {elapsed:?}");
+}
+
+/// Zeitschranke für [`test_performance_large_instance`].
+///
+/// Coverage-Instrumentierung verlangsamt den Solver um gut den Faktor zwei. Ohne
+/// angehobene Schranke misst der Test unter `cargo llvm-cov` die Laufzeit der
+/// Instrumentierung statt der Solver-Performance; die eigentliche Aussage gilt
+/// unverändert für uninstrumentierte Läufe.
+const fn performance_budget() -> Duration {
+    if cfg!(coverage) {
+        Duration::from_secs(6)
+    } else {
+        Duration::from_secs(2)
+    }
 }

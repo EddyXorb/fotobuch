@@ -11,12 +11,12 @@ use std::time::SystemTime;
 use anyhow::Result;
 use typst::diag::{FileError, FileResult};
 use typst::foundations::{Bytes, Datetime};
-use typst::layout::PagedDocument;
-use typst::syntax::{FileId, Source, VirtualPath};
+use typst::syntax::{FileId, RootedPath, Source, VirtualPath, VirtualRoot};
 use typst::text::{Font, FontBook};
 use typst::utils::LazyHash;
 use typst::{Library, LibraryExt, World};
-use typst_kit::fonts::{FontSlot, Fonts};
+use typst_kit::fonts::FontStore;
+use typst_layout::PagedDocument;
 
 const EVICT_MAX_AGE: usize = 10;
 
@@ -59,8 +59,7 @@ pub struct TypstWorld {
     root: PathBuf,
     main_id: FileId,
     library: LazyHash<Library>,
-    book: LazyHash<FontBook>,
-    fonts: Vec<FontSlot>,
+    fonts: FontStore,
     slots: Mutex<HashMap<FileId, FileSlot>>,
     revision: AtomicU32,
     /// Number of disk reads (test instrumentation).
@@ -87,18 +86,19 @@ impl TypstWorld {
     }
 
     fn from_root_and_main(root: PathBuf, main_path: &Path) -> Result<Self> {
-        let fonts = Fonts::searcher().search();
+        let mut fonts = FontStore::new();
+        fonts.extend(typst_kit::fonts::embedded());
+        fonts.extend(typst_kit::fonts::system());
 
-        let vpath = VirtualPath::within_root(main_path, &root)
-            .ok_or_else(|| anyhow::anyhow!("template path is not within root"))?;
-        let main_id = FileId::new(None, vpath);
+        let vpath = VirtualPath::virtualize(&root, main_path)
+            .map_err(|_| anyhow::anyhow!("template path is not within root"))?;
+        let main_id = RootedPath::new(VirtualRoot::Project, vpath).intern();
 
         Ok(Self {
             root,
             main_id,
             library: LazyHash::new(Library::default()),
-            book: LazyHash::new(fonts.book),
-            fonts: fonts.fonts,
+            fonts,
             slots: Mutex::new(HashMap::new()),
             revision: AtomicU32::new(0),
             #[cfg(test)]
@@ -118,7 +118,7 @@ impl TypstWorld {
 
         let mut slots = self.slots.lock().unwrap();
         for (id, slot) in slots.iter_mut() {
-            let path = self.root.join(id.vpath().as_rootless_path());
+            let path = self.root.join(id.vpath().get_without_slash());
             if let Ok(meta) = fs::metadata(&path) {
                 let mtime = meta.modified().unwrap_or(SystemTime::UNIX_EPOCH);
                 let len = meta.len();
@@ -155,7 +155,7 @@ impl TypstWorld {
     }
 
     fn path_for_id(&self, id: FileId) -> PathBuf {
-        self.root.join(id.vpath().as_rootless_path())
+        self.root.join(id.vpath().get_without_slash())
     }
 
     fn load_source(&self, id: FileId) -> FileResult<Source> {
@@ -216,7 +216,7 @@ impl World for TypstWorld {
     }
 
     fn book(&self) -> &LazyHash<FontBook> {
-        &self.book
+        self.fonts.book()
     }
 
     fn main(&self) -> FileId {
@@ -232,10 +232,10 @@ impl World for TypstWorld {
     }
 
     fn font(&self, index: usize) -> Option<Font> {
-        self.fonts.get(index).and_then(|slot| slot.get())
+        self.fonts.font(index)
     }
 
-    fn today(&self, _offset: Option<i64>) -> Option<Datetime> {
+    fn today(&self, _offset: Option<typst::foundations::Duration>) -> Option<Datetime> {
         Datetime::from_ymd(2026, 1, 1)
     }
 }
@@ -269,7 +269,7 @@ mod tests {
         world.reload().unwrap();
         let doc = world.compile_document();
         assert!(doc.is_ok(), "{:?}", doc.err());
-        assert_eq!(doc.unwrap().pages.len(), 1);
+        assert_eq!(doc.unwrap().pages().len(), 1);
     }
 
     #[test]
@@ -298,7 +298,7 @@ mod tests {
 
         world.reload().unwrap();
         let doc1 = world.compile_document().unwrap();
-        assert_eq!(doc1.pages.len(), 1);
+        assert_eq!(doc1.pages().len(), 1);
 
         // Longer content → different len even on 1-s mtime filesystems.
         fs::write(
@@ -309,7 +309,7 @@ mod tests {
 
         world.reload().unwrap();
         let doc2 = world.compile_document().unwrap();
-        assert_eq!(doc2.pages.len(), 2, "should see new content after reload");
+        assert_eq!(doc2.pages().len(), 2, "should see new content after reload");
     }
 
     #[test]

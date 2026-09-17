@@ -1,0 +1,19 @@
+# cargo-audit configuration. See .github/workflows/audit.yml for the
+# expiry check that turns CI red again once REVIEW_BY (below) has passed.
+
+[advisories]
+ignore = [
+    # quick-xml 0.38.4, pulled in transitively via
+    # citationberg 0.7.0 -> hayagriva 0.10.1 -> typst-library 0.15.1,
+    # which pins quick-xml = "^0.38.1". citationberg 0.7.0 is the newest
+    # version on crates.io (as of 2026-09-09); no fixed release exists yet.
+    # The fix (quick-xml 0.38 -> 0.41) is already merged into citationberg's
+    # main branch (PR #44, 2026-07-08) but not yet published to crates.io;
+    # see https://github.com/typst/citationberg/issues/49 (open, asks
+    # maintainers to cut a release). Once released, `cargo update` should
+    # pick it up automatically since hayagriva depends on "^0.7.0".
+    # Review by 2026-12-09 (see audit.yml) whether a newer citationberg/
+    # hayagriva release allows quick-xml >=0.41 and update if so.
+    "RUSTSEC-2026-0194", # quick-xml: quadratic run time on duplicate attribute names
+    "RUSTSEC-2026-0195", # quick-xml: unbounded namespace-declaration allocation (DoS)
+]

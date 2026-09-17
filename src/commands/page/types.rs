@@ -174,12 +174,7 @@ impl std::fmt::Display for ValidationError {
                 write!(f, "cannot split at first slot (would leave page {p} empty)")
             }
             Self::WeightOutOfRange(w) => write!(f, "weight {w} is out of range (must be > 0)"),
-            Self::PageNotManual(p) => {
-                write!(
-                    f,
-                    "page {p} is not in manual mode; use 'page mode {p} m' first"
-                )
-            }
+            Self::PageNotManual(p) => write!(f, "page {p} is not in manual mode"),
         }
     }
 }
@@ -199,6 +194,10 @@ impl std::fmt::Display for PageMoveError {
         }
     }
 }
+
+/// Lets the surface recover the typed variant after the error crossed into
+/// `anyhow`, so it can attach a remediation hint.
+impl std::error::Error for PageMoveError {}
 
 impl From<anyhow::Error> for PageMoveError {
     fn from(e: anyhow::Error) -> Self {

@@ -98,7 +98,7 @@ Ausnahme dokumentieren.
 **K9 · `refactor(commands): run_command wrapper for open/finish`** (7.1)
 Open → Ausführung → finish + „nothing to do"-Frühreturn in einen Wrapper. Der
 Wrapper **ist** die Orchestrierungs-Spitze (RULES R3) — er hält `mgr` und reicht
-schmale Borrows/Views nach unten. Optionaler Hook für Autobuild-after-edit (§13).
+schmale Borrows/Views nach unten. Optionaler Hook für Autobuild-after-edit (§12.3).
 
 ## Reihenfolge & Risiko
 

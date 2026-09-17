@@ -2,7 +2,7 @@ use anyhow::Result;
 
 use fotobuch::commands::page::{self as page_cmd, PageMoveCmd};
 
-use super::common::{format_page_list, project_root};
+use super::common::{format_page_list, project_root, to_anyhow};
 use crate::cli::page::parse_api::{parse_move_cmd, parse_swap_addrs};
 
 /// Handler for `fotobuch page move <args...>`.
@@ -10,8 +10,7 @@ pub fn handle_move(args: &[String]) -> Result<()> {
     let raw = args.join(" ");
     let cmd = parse_move_cmd(&raw)
         .map_err(|e| anyhow::anyhow!("Invalid move expression '{}': {}", raw, e))?;
-    let output =
-        page_cmd::execute_move(&project_root()?, cmd).map_err(|e| anyhow::anyhow!("{}", e))?;
+    let output = page_cmd::execute_move(&project_root()?, cmd).map_err(to_anyhow)?;
     if output.result.pages_deleted.is_empty() {
         println!(
             "Moved photos. Modified pages: {}",
@@ -46,8 +45,7 @@ pub fn handle_swap(left: &str, right: &str) -> Result<()> {
         left: left_src,
         right: right_dst,
     };
-    let output =
-        page_cmd::execute_move(&project_root()?, cmd).map_err(|e| anyhow::anyhow!("{}", e))?;
+    let output = page_cmd::execute_move(&project_root()?, cmd).map_err(to_anyhow)?;
     println!(
         "Swapped photos. Modified pages: {}",
         format_page_list(&output.result.pages_modified)

@@ -50,7 +50,7 @@ pub fn history(
             let git_time = commit.time();
             let offset = FixedOffset::east_opt(git_time.offset_minutes() * 60)?;
             let timestamp = DateTime::from_timestamp(git_time.seconds(), 0)?.with_timezone(&offset);
-            let message = commit.summary().unwrap_or("").to_string();
+            let message = commit.summary().ok().flatten().unwrap_or("").to_string();
             Some(HistoryEntry { timestamp, message })
         })
         .collect();

@@ -23,7 +23,7 @@ Wechselt zum Branch `fotobuch/<name>`. Der Working Tree zeigt danach `<name>.yam
 
 | Situation                                | Verhalten                                                                                    |
 | ---------------------------------------- | -------------------------------------------------------------------------------------------- |
-| Branch `fotobuch/<name>` existiert nicht | Fehler: `Project '<name>' not found. Use 'fotobuch project list' to see available projects.` |
+| Branch `fotobuch/<name>` existiert nicht | `error: project '<name>' not found` plus `hint: use fotobuch project list to see available projects` |
 | Uncommitted Changes                      | Fehler: `Working tree has uncommitted changes. Commit or stash before switching.`            |
 | Bereits auf dem Ziel-Branch              | Hinweis: `Already on project '<name>'` (kein Fehler)                                         |
 | Ungültiger Projektname                   | Fehler aus Namensvalidierung                                                                 |

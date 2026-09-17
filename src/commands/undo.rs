@@ -43,7 +43,12 @@ pub fn undo(project_root: &Path, config: &UndoConfig) -> Result<CommandOutput<Un
     };
 
     let head_commit = repo.head()?.peel_to_commit()?;
-    let undone_message = head_commit.summary().unwrap_or("").to_string();
+    let undone_message = head_commit
+        .summary()
+        .ok()
+        .flatten()
+        .unwrap_or("")
+        .to_string();
     let head_sha = head_commit.id().to_string();
 
     let target = walk_back(&repo, steps)?;
@@ -53,7 +58,7 @@ pub fn undo(project_root: &Path, config: &UndoConfig) -> Result<CommandOutput<Un
     repo.reset(target.as_object(), ResetType::Hard, None)
         .context("Failed to reset working tree")?;
 
-    let current_message = target.summary().unwrap_or("").to_string();
+    let current_message = target.summary().ok().flatten().unwrap_or("").to_string();
 
     let changed_state = Some(
         open_readonly(project_root)
@@ -96,6 +101,8 @@ pub fn redo(project_root: &Path, config: &UndoConfig) -> Result<CommandOutput<Un
         .head()?
         .peel_to_commit()?
         .summary()
+        .ok()
+        .flatten()
         .unwrap_or("")
         .to_string();
 
@@ -112,7 +119,7 @@ pub fn redo(project_root: &Path, config: &UndoConfig) -> Result<CommandOutput<Un
     repo.reset(commit.as_object(), ResetType::Hard, None)
         .context("Failed to reset working tree")?;
 
-    let current_message = commit.summary().unwrap_or("").to_string();
+    let current_message = commit.summary().ok().flatten().unwrap_or("").to_string();
 
     let changed_state = Some(
         open_readonly(project_root)

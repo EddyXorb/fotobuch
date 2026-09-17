@@ -6,6 +6,19 @@ use super::super::theme::FbTheme;
 pub(super) const HUD_HEIGHT: f32 = 20.0;
 pub(super) const HUD_GAP: f32 = 10.0;
 
+/// Geometrie- und Animationswerte eines HUD-Durchlaufs. Die Zeichenfunktionen
+/// teilen sich diese Werte; als Einzelparameter waren es acht bis zwoelf.
+#[derive(Clone, Copy)]
+struct HudFrame {
+    dot_center_x: f32,
+    center_y: f32,
+    pill_width: f32,
+    gap: f32,
+    alpha_u8: u8,
+    actions_alpha: f32,
+    actions_offset: f32,
+}
+
 /// `t` is the hover animation progress in `[0, 1]` (0 = idle, 1 = hovered).
 pub(super) fn draw_hud(
     ui: &mut egui::Ui,
@@ -29,18 +42,19 @@ pub(super) fn draw_hud(
     const BTN_SIZE: f32 = 22.0;
     const GAP: f32 = 10.0;
 
-    draw_page_label(
-        ui,
+    let frame = HudFrame {
         dot_center_x,
         center_y,
         pill_width,
-        GAP,
-        LABEL_W,
+        gap: GAP,
         alpha_u8,
-        page_idx,
-    );
+        actions_alpha,
+        actions_offset,
+    };
 
-    let pill_rect = draw_mode_pill(ui, dot_center_x, center_y, mode, pill_width, alpha_u8);
+    draw_page_label(ui, &frame, LABEL_W, page_idx);
+
+    let pill_rect = draw_mode_pill(ui, &frame, mode);
 
     let pointer = ui
         .ctx()
@@ -57,33 +71,20 @@ pub(super) fn draw_hud(
     }
 
     if actions_alpha > 0.001 {
-        draw_action_buttons(
-            ui,
-            dot_center_x,
-            center_y,
-            pill_width,
-            GAP,
-            BTN_SIZE,
-            actions_alpha,
-            actions_offset,
-            alpha_u8,
-            page_idx,
-            pointer,
-            cmds,
-        );
+        draw_action_buttons(ui, &frame, BTN_SIZE, page_idx, pointer, cmds);
     }
 }
 
-fn draw_page_label(
-    ui: &egui::Ui,
-    dot_center_x: f32,
-    center_y: f32,
-    pill_width: f32,
-    gap: f32,
-    label_w: f32,
-    alpha_u8: u8,
-    page_idx: usize,
-) {
+fn draw_page_label(ui: &egui::Ui, frame: &HudFrame, label_w: f32, page_idx: usize) {
+    let HudFrame {
+        dot_center_x,
+        center_y,
+        pill_width,
+        gap,
+        alpha_u8,
+        ..
+    } = *frame;
+
     let label_str = format!("{}", page_idx + 1);
     let label_center = egui::pos2(
         dot_center_x - pill_width / 2.0 - gap - label_w / 2.0,
@@ -98,14 +99,15 @@ fn draw_page_label(
     );
 }
 
-fn draw_mode_pill(
-    ui: &egui::Ui,
-    dot_center_x: f32,
-    center_y: f32,
-    mode: PageMode,
-    pill_width: f32,
-    alpha_u8: u8,
-) -> egui::Rect {
+fn draw_mode_pill(ui: &egui::Ui, frame: &HudFrame, mode: PageMode) -> egui::Rect {
+    let HudFrame {
+        dot_center_x,
+        center_y,
+        pill_width,
+        alpha_u8,
+        ..
+    } = *frame;
+
     let mode_color = match mode {
         PageMode::Auto => FbTheme::AUTO,
         PageMode::Manual => FbTheme::MANUAL,
@@ -159,21 +161,24 @@ fn draw_mode_pill(
     pill_rect
 }
 
-#[allow(clippy::too_many_arguments)]
 fn draw_action_buttons(
     ui: &egui::Ui,
-    dot_center_x: f32,
-    center_y: f32,
-    pill_width: f32,
-    gap: f32,
+    frame: &HudFrame,
     btn_size: f32,
-    actions_alpha: f32,
-    actions_offset: f32,
-    alpha_u8: u8,
     page_idx: usize,
     pointer: Option<egui::Pos2>,
     cmds: &mut Vec<BackgroundTask>,
 ) {
+    let HudFrame {
+        dot_center_x,
+        center_y,
+        pill_width,
+        gap,
+        alpha_u8,
+        actions_alpha,
+        actions_offset,
+    } = *frame;
+
     let act_alpha = (actions_alpha * alpha_u8 as f32) as u8;
     let btn_x = dot_center_x + pill_width / 2.0 + gap + actions_offset;
 

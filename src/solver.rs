@@ -15,6 +15,7 @@ pub(crate) mod prelude;
 
 use crate::models::{BookLayoutSolverConfig, CanvasConfig, LayoutPage, PhotoGroup};
 pub use book_layout_solver::SolverError;
+pub use cover_solver::CoverSolverError;
 use prelude::*;
 
 /// Solver mode, carrying any variant-specific configuration.

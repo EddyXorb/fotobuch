@@ -126,11 +126,7 @@ pub(super) fn handle_drag_complete(
                         cursor_mm_at_drag_start,
                     );
                 }
-                DragSource::NavPage {
-                    src_page,
-                    src_pages: _,
-                    ..
-                } => {
+                DragSource::NavPage { src_page, .. } => {
                     complete_nav_drag(data, interaction, cmds, src_page);
                 }
                 DragSource::Pool { photo_ids } => {
