@@ -92,8 +92,9 @@ Further key principles:
 
 ## Installation
 
-Pre-built binaries for Linux and Windows are available on the
-[Releases page](https://github.com/EddyXorb/fotobuch/releases/latest).
+Pre-built binaries for Linux, Windows and macOS (Apple Silicon) are available on
+the [Releases page](https://github.com/EddyXorb/fotobuch/releases/latest).
+For problems during macOS installation and further installation infos have a look at the [installation guide](https://eddyxorb.github.io/fotobuch/general/installation.html).
 
 ### Build from source
 
@@ -106,10 +107,10 @@ cargo build --release --features gui
 # GUI:  ./target/release/fotobuch-gui
 # CLI:  ./target/release/fotobuch
 ```
+
 ## Documentation
 
 The full documentation can be found [here](https://eddyxorb.github.io/fotobuch).
-
 
 ## Quick Start
 
