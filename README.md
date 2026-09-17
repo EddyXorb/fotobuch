@@ -94,26 +94,7 @@ Further key principles:
 
 Pre-built binaries for Linux, Windows and macOS (Apple Silicon) are available on
 the [Releases page](https://github.com/EddyXorb/fotobuch/releases/latest).
-
-### macOS: "Apple could not verify ..."
-
-The macOS binaries are not signed with an Apple Developer ID, so Gatekeeper
-refuses to open them after a browser download. Install from the terminal
-instead — files fetched with `curl` are never quarantined:
-
-```bash
-curl -fsSL https://github.com/EddyXorb/fotobuch/releases/latest/download/fotobuch-macos-arm64.tar.gz | tar -xz
-./fotobuch --version
-```
-
-Already downloaded via the browser? Drop the quarantine flag once:
-
-```bash
-xattr -dr com.apple.quarantine ~/Downloads/fotobuch-macos-arm64
-```
-
-See the [installation guide](https://eddyxorb.github.io/fotobuch/cli/installation.html)
-for the click-only alternative.
+For problems during macOS installation and further installation infos have a look at the [installation guide](https://eddyxorb.github.io/fotobuch/general/installation.html).
 
 ### Build from source
 
@@ -126,10 +107,10 @@ cargo build --release --features gui
 # GUI:  ./target/release/fotobuch-gui
 # CLI:  ./target/release/fotobuch
 ```
+
 ## Documentation
 
 The full documentation can be found [here](https://eddyxorb.github.io/fotobuch).
-
 
 ## Quick Start
 
