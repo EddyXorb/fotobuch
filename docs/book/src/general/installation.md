@@ -14,10 +14,45 @@ Download the latest binary for your platform from the
 Each archive contains both binaries: `fotobuch` (CLI) and `fotobuch-gui` (GUI).
 Extract the archive and place them somewhere on your `PATH`.
 
+## Build from source
+
+Requirements: [Rust (stable)](https://rustup.rs).
+
+```bash
+git clone https://github.com/EddyXorb/fotobuch.git
+cd fotobuch
+cargo build --release --features gui
+# binaries:
+#   cli: ./target/release/fotobuch
+#   gui: ./target/release/fotobuch-gui
+```
+
+## Working with the CLI
+
 **Verify the install:**
 
 ```
 fotobuch --version
+```
+
+### Recommended editor setup
+
+fotobuch writes a [Typst](https://typst.app/) source file alongside the PDF.
+For a live preview while you work, install
+[VS Code](https://code.visualstudio.com/) with the
+[Typst Preview](https://marketplace.visualstudio.com/items?itemName=mgt19937.typst-preview)
+extension. Open the `.typ` file and the preview updates every time you run
+`fotobuch build`.
+
+Alternatively, just keep any PDF viewer open and reload after each build.
+
+### Shell completions
+
+```bash
+fotobuch completions --shell bash   >> ~/.bash_completion
+fotobuch completions --shell zsh    >> ~/.zshrc
+fotobuch completions --shell fish   > ~/.config/fish/completions/fotobuch.fish
+fotobuch completions --shell powershell >> $PROFILE
 ```
 
 ## macOS: "Apple could not verify that fotobuch is free of malware"
@@ -58,34 +93,3 @@ binary — `fotobuch` and `fotobuch-gui` are separate executables.
 
 > Apple Silicon only: the release contains an `arm64` build. Intel Macs need a
 > [build from source](#build-from-source).
-
-## Build from source
-
-Requirements: [Rust (stable)](https://rustup.rs).
-
-```bash
-git clone https://github.com/EddyXorb/fotobuch.git
-cd fotobuch
-cargo build --release
-# binary: ./target/release/fotobuch
-```
-
-## Recommended editor setup
-
-fotobuch writes a [Typst](https://typst.app/) source file alongside the PDF.
-For a live preview while you work, install
-[VS Code](https://code.visualstudio.com/) with the
-[Typst Preview](https://marketplace.visualstudio.com/items?itemName=mgt19937.typst-preview)
-extension. Open the `.typ` file and the preview updates every time you run
-`fotobuch build`.
-
-Alternatively, just keep any PDF viewer open and reload after each build.
-
-## Shell completions
-
-```bash
-fotobuch completions --shell bash   >> ~/.bash_completion
-fotobuch completions --shell zsh    >> ~/.zshrc
-fotobuch completions --shell fish   > ~/.config/fish/completions/fotobuch.fish
-fotobuch completions --shell powershell >> $PROFILE
-```

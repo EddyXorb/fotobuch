@@ -6,6 +6,7 @@
 
 # General
 
+- [Installation](general/installation.md)
 - [Core Concepts](general/concepts.md)
 - [Vaults and Multiple Projects](general/vault.md)
 - [Configuration](general/configuration.md)
@@ -40,7 +41,6 @@
 
 # CLI
 
-- [Installation](cli/installation.md)
 - [Quickstart](cli/quickstart.md)
 - [Commands](cli/commands.md)
 - [CLI Concepts](cli/concepts.md)
