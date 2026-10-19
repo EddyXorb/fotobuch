@@ -64,7 +64,7 @@ blake3 = "1.5"
 git2 = { version = "0.21", default-features = false }
 
 # OS directories (config/pictures/home)
-dirs = "5"
+dirs = "6"
 
 # TOML for app settings serialization
 toml = "1.1"
