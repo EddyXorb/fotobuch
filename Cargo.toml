@@ -135,7 +135,7 @@ codegen-units = 1
 [dev-dependencies]
 approx = "0.5"
 assert_cmd = "2"
-egui_kittest = "0.36"
+egui_kittest = "0.37"
 predicates = "3"
 proptest = "1"
 rand_chacha = "0.10"
