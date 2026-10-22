@@ -10,7 +10,7 @@ pub fn show(ctx: &egui::Context, interaction: &mut InteractionState, num_pages: 
         .collapsible(false)
         .resizable(false)
         .show(ctx, |ui| {
-            let id = egui::Id::new("goto_buffer");
+            let id = egui::Id::unique("goto_buffer");
             let mut buffer = ui.memory(|m| m.data.get_temp::<String>(id).unwrap_or_default());
             let resp = ui.text_edit_singleline(&mut buffer);
             ui.memory_mut(|m| m.data.insert_temp(id, buffer.clone()));

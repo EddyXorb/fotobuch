@@ -48,7 +48,7 @@ pub(super) fn draw_drag_ghosts(
     let scale = dims.page_scale(page_rect);
     let painter = ui.ctx().layer_painter(egui::LayerId::new(
         egui::Order::Tooltip,
-        egui::Id::new("drag_ghosts"),
+        egui::Id::unique("drag_ghosts"),
     ));
 
     // Determine the ghost rect for the drag source slot.

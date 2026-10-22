@@ -19,7 +19,7 @@ pub fn show(
         ContextMenu::PoolItem { screen_pos, .. } => *screen_pos,
     };
 
-    let area_id = egui::Id::new("ctx_menu");
+    let area_id = egui::Id::unique("ctx_menu");
     let resp = egui::Area::new(area_id)
         .fixed_pos(pos)
         .order(egui::Order::Foreground)

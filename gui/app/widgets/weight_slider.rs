@@ -18,7 +18,7 @@ pub fn show(
 
     let mut current_value = value;
 
-    let resp = egui::Area::new(egui::Id::new("weight_slider"))
+    let resp = egui::Area::new(egui::Id::unique("weight_slider"))
         .fixed_pos(pos)
         .order(egui::Order::Foreground)
         .show(ctx, |ui| {
