@@ -101,9 +101,14 @@ features = ["default_fonts", "glow", "x11"]
 version = "0.36"
 optional = true
 
+# eframe runs on X11 only, so rfd's "wayland" feature is never used. Since
+# egui 0.37 nothing enables wayland-sys's "dlopen" anymore, so keeping that
+# feature would require libwayland-client at build and link time.
 [dependencies.rfd]
 version = "0.17"
 optional = true
+default-features = false
+features = ["xdg-portal"]
 
 [dependencies.egui_commonmark]
 version = "0.25"
