@@ -106,7 +106,7 @@ version = "0.17"
 optional = true
 
 [dependencies.egui_commonmark]
-version = "0.25"
+version = "0.26"
 optional = true
 
 [dependencies.include_dir]
