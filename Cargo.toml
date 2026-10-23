@@ -92,21 +92,26 @@ cli-docs = ["dep:clap-markdown"]
 slow-tests = []
 
 [dependencies.eframe]
-version = "0.36"
+version = "0.37"
 optional = true
 default-features = false
 features = ["default_fonts", "glow", "x11"]
 
 [dependencies.egui]
-version = "0.36"
+version = "0.37"
 optional = true
 
+# eframe runs on X11 only, so rfd's "wayland" feature is never used. Since
+# egui 0.37 nothing enables wayland-sys's "dlopen" anymore, so keeping that
+# feature would require libwayland-client at build and link time.
 [dependencies.rfd]
 version = "0.17"
 optional = true
+default-features = false
+features = ["xdg-portal"]
 
 [dependencies.egui_commonmark]
-version = "0.25"
+version = "0.26"
 optional = true
 
 [dependencies.include_dir]
@@ -135,7 +140,7 @@ codegen-units = 1
 [dev-dependencies]
 approx = "0.5"
 assert_cmd = "2"
-egui_kittest = "0.36"
+egui_kittest = "0.37"
 predicates = "3"
 proptest = "1"
 rand_chacha = "0.10"

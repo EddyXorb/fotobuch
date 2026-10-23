@@ -23,7 +23,7 @@ pub(super) fn draw_row(
     );
 
     let mut badge_hovered = false;
-    let row_response = ui.push_id(egui::Id::new(("pool_row", id)), |ui| {
+    let row_response = ui.push_id(egui::Id::unique(("pool_row", id)), |ui| {
         let inner = ui.horizontal(|ui| {
             draw_thumb_cell(ui, data, id);
             // Reserve room for the trailing badge so the truncating filename does
@@ -42,7 +42,7 @@ pub(super) fn draw_row(
         let interact_rect = inner.response.rect.with_max_x(inner.inner);
         ui.interact(
             interact_rect,
-            egui::Id::new(("pool_row_interact", id)),
+            egui::Id::unique(("pool_row_interact", id)),
             egui::Sense::click_and_drag(),
         )
     });

@@ -29,7 +29,7 @@ pub(super) fn draw(
         .unwrap_or(false);
     let active_and_hovered = any_valid_drag && pointer_over;
 
-    let anim_id = ui.id().with(("dropzone_anim", at_position));
+    let anim_id = ui.scope_id().with(("dropzone_anim", at_position));
     let t = ui
         .ctx()
         .animate_bool_with_time(anim_id, active_and_hovered, 0.15);

@@ -17,7 +17,7 @@ pub fn show(ctx: &egui::Context, toasts: &mut ToastQueue) -> bool {
         screen.max.y - total_h - MARGIN,
     );
 
-    egui::Area::new(egui::Id::new("error_toasts"))
+    egui::Area::new(egui::Id::unique("error_toasts"))
         .fixed_pos(pos)
         .order(egui::Order::Foreground)
         .show(ctx, |ui| {

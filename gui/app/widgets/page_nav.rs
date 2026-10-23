@@ -195,7 +195,7 @@ fn draw_nav_drag_ghost(ctx: &egui::Context, data: &DataState, interaction: &Inte
     };
     let painter = ctx.layer_painter(egui::LayerId::new(
         egui::Order::Tooltip,
-        egui::Id::new("nav_drag_ghost"),
+        egui::Id::unique("nav_drag_ghost"),
     ));
     let ghost_w = 80.0_f32;
     let ghost_h = if let Some(Some(tex)) = data.pages.thumb_textures.get(src_page) {

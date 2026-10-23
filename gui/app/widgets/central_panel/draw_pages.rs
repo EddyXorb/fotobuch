@@ -90,7 +90,7 @@ pub(super) fn draw_pages(
             ui.add_space(60.0);
         });
     });
-    interaction.viewport.scroll.scroll_y = output.state.offset.y;
+    interaction.viewport.scroll.scroll_y = output.state.clamped_offset().y;
     interaction.viewport.scroll.viewport_top = output.inner_rect.min.y;
 
     if interaction.viewport.fit_pending && num_pages > 0 {
