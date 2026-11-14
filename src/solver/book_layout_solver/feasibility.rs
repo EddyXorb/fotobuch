@@ -75,7 +75,7 @@ pub fn check_feasibility(
         let page_size = assignment.page_size(page_idx);
 
         // 2a. Page size bounds
-        if page_size < params.photos_per_page_min || page_size > params.photos_per_page_max {
+        if !params.is_page_size_allowed(page_size) {
             return Err(ConstraintViolation::PageSizeOutOfRange {
                 page_index: page_idx,
                 page_size,
@@ -170,6 +170,7 @@ mod tests {
             page_max: 5,
             photos_per_page_min: 3,
             photos_per_page_max: 10,
+            photos_per_page_exclude: Vec::new(),
             group_max_per_page: 3,
             group_min_photos: 3,
             weight_even: 1.0,

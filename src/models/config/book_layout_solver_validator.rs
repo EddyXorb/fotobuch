@@ -30,6 +30,15 @@ pub fn validate_book_layout_solver_config(
         });
     }
 
+    if !(config.photos_per_page_min..=config.photos_per_page_max)
+        .any(|p| config.is_page_size_allowed(p))
+    {
+        return Err(ValidationError::PhotosPerPageAllExcluded {
+            photos_per_page_min: config.photos_per_page_min,
+            photos_per_page_max: config.photos_per_page_max,
+        });
+    }
+
     if config.photos_per_page_min < config.group_min_photos {
         return Err(ValidationError::PhotosPerPageMinTooSmall {
             photos_per_page_min: config.photos_per_page_min,
