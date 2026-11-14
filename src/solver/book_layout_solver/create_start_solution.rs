@@ -103,6 +103,7 @@ mod tests {
             page_max: 10,
             photos_per_page_min: 2,
             photos_per_page_max: 8,
+            photos_per_page_exclude: Vec::new(),
             group_max_per_page: 3,
             group_min_photos: 2,
             weight_even: 1.0,
