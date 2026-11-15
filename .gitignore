@@ -21,3 +21,5 @@ test_hash
 MEMORY.md
 .claude*
 .venv
+__pycache__/
+/THIRD-PARTY-LICENSES.txt

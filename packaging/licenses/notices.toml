@@ -1,0 +1,35 @@
+# License notices that cargo-about does not detect on its own: assets
+# (fonts, data) embedded into the binaries. The generator fails if a listed
+# crate or file is missing, so a dependency update cannot silently drop a
+# notice.
+#
+# NOTICE / THIRD-PARTY files at the root of dependency crates are picked up
+# automatically and need no entry here.
+
+# Files inside a dependency crate (paths relative to the crate root).
+[[crate_files]]
+crate = "epaint_default_fonts"
+reason = "Fonts embedded by egui (feature `default_fonts`)."
+paths = [
+    "fonts/Hack-Regular.txt",
+    "fonts/emoji-icon-font-mit-license.txt",
+    "fonts/egui-icons.txt",
+]
+
+[[crate_files]]
+crate = "hayro-cmap"
+reason = "Adobe CMap resources embedded by hayro-cmap (feature `embed-cmaps`)."
+paths = ["assets/LICENSE.txt"]
+
+# Files in this repository (paths relative to the repository root).
+[[files]]
+title = "DejaVu Sans (gui/assets/DejaVuSans.ttf, embedded by fotobuch-gui)"
+path = "gui/assets/DejaVuSans-LICENSE.txt"
+
+[[files]]
+title = "Foxit fonts embedded by hayro-interpret"
+path = "packaging/licenses/notices/foxit-pdfium.txt"
+
+[[files]]
+title = "Hyphenation patterns embedded by hypher"
+path = "packaging/licenses/notices/hypher-patterns.txt"
