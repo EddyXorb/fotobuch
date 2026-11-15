@@ -1,0 +1,8 @@
+The hypher crate embeds hyphenation patterns into the binary. The patterns are
+not part of the published crate; they are subject to the individual licenses
+stated in the files of the upstream repository:
+
+    https://github.com/typst/hypher/tree/main/patterns
+
+According to hypher's README, hypher includes only patterns available under
+permissive licenses (LPPL, MPL, MIT, BSD-3-Clause).

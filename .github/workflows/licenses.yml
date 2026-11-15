@@ -1,0 +1,51 @@
+name: Licenses
+
+on:
+  push:
+    paths:
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'about.toml'
+      - 'deny.toml'
+      - 'gui/assets/**'
+      - 'packaging/licenses/**'
+      - '.github/workflows/licenses.yml'
+  pull_request:
+    paths:
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'about.toml'
+      - 'deny.toml'
+      - 'gui/assets/**'
+      - 'packaging/licenses/**'
+      - '.github/workflows/licenses.yml'
+
+jobs:
+  deny:
+    name: Dependency licenses (cargo-deny)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: taiki-e/install-action@cargo-deny
+      - run: cargo deny check licenses
+
+  notices:
+    name: Third-party notice file (cargo-about)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: taiki-e/install-action@cargo-about
+
+      - name: Unit tests of the generator
+        run: python3 -m unittest discover -s packaging/licenses
+
+      # Fails if a license cannot be resolved or a configured notice is
+      # missing -- catches problems before a release is cut.
+      - name: Generate THIRD-PARTY-LICENSES.txt
+        run: python3 packaging/licenses/generate_third_party_licenses.py -o THIRD-PARTY-LICENSES.txt

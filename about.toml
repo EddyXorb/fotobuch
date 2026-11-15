@@ -1,0 +1,35 @@
+# cargo-about configuration: collects the license texts of all dependencies
+# that end up in the distributed binaries.
+# Generate the notice file with `packaging/licenses/generate_third_party_licenses.py`.
+
+# Priority order: for `A OR B` expressions the first accepted license wins.
+# Keep in sync with `allow` in deny.toml.
+accepted = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Zlib",
+    "0BSD",
+    "Unicode-3.0",
+    "MPL-2.0",
+    "OFL-1.1",
+    "Ubuntu-font-1.0",
+]
+
+# The targets of the release workflow.
+targets = [
+    "x86_64-unknown-linux-gnu",
+    "x86_64-pc-windows-msvc",
+    "aarch64-apple-darwin",
+]
+
+# Build and dev dependencies are not part of the distributed binaries.
+ignore-build-dependencies = true
+ignore-dev-dependencies = true
+
+# fotobuch itself; filtered out of the notice file by the generator script.
+[fotobuch]
+accepted = ["AGPL-3.0-or-later"]

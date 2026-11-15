@@ -7,8 +7,30 @@ on:
   workflow_dispatch:
 
 jobs:
+  licenses:
+    name: Generate third-party licenses
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-about
+        uses: taiki-e/install-action@cargo-about
+
+      - name: Generate THIRD-PARTY-LICENSES.txt
+        run: python3 packaging/licenses/generate_third_party_licenses.py -o THIRD-PARTY-LICENSES.txt
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: third-party-licenses
+          path: THIRD-PARTY-LICENSES.txt
+
   build:
     name: Build ${{ matrix.name }}
+    needs: licenses
     strategy:
       matrix:
         include:
@@ -54,12 +76,17 @@ jobs:
         shell: bash
         run: ./target/${{ matrix.target }}/dist/${{ matrix.binary }} --version
 
+      - name: Download third-party licenses
+        uses: actions/download-artifact@v8
+        with:
+          name: third-party-licenses
+
       - name: Package (Linux)
         if: runner.os == 'Linux'
         run: |
           cp target/${{ matrix.target }}/dist/fotobuch fotobuch
           cp target/${{ matrix.target }}/dist/fotobuch-gui fotobuch-gui
-          tar -czf ${{ matrix.artifact }}.tar.gz fotobuch fotobuch-gui
+          tar -czf ${{ matrix.artifact }}.tar.gz fotobuch fotobuch-gui LICENSE THIRD-PARTY-LICENSES.txt
           sha256sum ${{ matrix.artifact }}.tar.gz > ${{ matrix.artifact }}.tar.gz.sha256
 
       - name: Package (macOS)
@@ -67,7 +94,7 @@ jobs:
         run: |
           cp target/${{ matrix.target }}/dist/fotobuch fotobuch
           cp target/${{ matrix.target }}/dist/fotobuch-gui fotobuch-gui
-          tar -czf ${{ matrix.artifact }}.tar.gz fotobuch fotobuch-gui
+          tar -czf ${{ matrix.artifact }}.tar.gz fotobuch fotobuch-gui LICENSE THIRD-PARTY-LICENSES.txt
           shasum -a 256 ${{ matrix.artifact }}.tar.gz > ${{ matrix.artifact }}.tar.gz.sha256
 
       - name: Package (Windows)
@@ -76,7 +103,7 @@ jobs:
         run: |
           Copy-Item "target\${{ matrix.target }}\dist\fotobuch.exe" "fotobuch.exe"
           Copy-Item "target\${{ matrix.target }}\dist\fotobuch-gui.exe" "fotobuch-gui.exe"
-          Compress-Archive -Path fotobuch.exe, fotobuch-gui.exe -DestinationPath "${{ matrix.artifact }}.zip"
+          Compress-Archive -Path fotobuch.exe, fotobuch-gui.exe, LICENSE, THIRD-PARTY-LICENSES.txt -DestinationPath "${{ matrix.artifact }}.zip"
           $hash = (Get-FileHash "${{ matrix.artifact }}.zip" -Algorithm SHA256).Hash
           "$hash  ${{ matrix.artifact }}.zip" | Out-File "${{ matrix.artifact }}.zip.sha256" -Encoding ascii
 
@@ -88,6 +115,7 @@ jobs:
 
   appimage:
     name: Build AppImage (Linux GUI)
+    needs: licenses
     runs-on: ubuntu-22.04 # oldest supported glibc baseline
     env:
       target: x86_64-unknown-linux-gnu
@@ -111,6 +139,14 @@ jobs:
 
       - name: Build (GUI)
         run: cargo build --profile dist --features gui --bin fotobuch-gui --target ${{ env.target }}
+
+      - name: Download third-party licenses
+        uses: actions/download-artifact@v8
+        with:
+          name: third-party-licenses
+
+      - name: Add license files to AppDir
+        run: install -Dm644 -t AppDir/usr/share/doc/fotobuch-gui LICENSE THIRD-PARTY-LICENSES.txt
 
       - name: Download linuxdeploy
         run: |
