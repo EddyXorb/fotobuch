@@ -1,8 +1,38 @@
 # Contributing to fotobuch
 
 Thank you for considering a contribution. Please read this document before
-opening a pull request — in particular the [Contribution Terms](#contribution-terms),
-which every contribution is subject to.
+opening a pull request — in particular the [Use of AI](#use-of-ai) policy and
+the [Contribution Terms](#contribution-terms), which every contribution is
+subject to.
+
+## Use of AI
+
+This policy applies to external contributors.
+
+Using AI (i.e., LLMs) as a tool for coding is welcome. However, a high bar is
+held for all contributions: you remain responsible for any code you submit, and
+the maintainer remains responsible for any code that is merged and released.
+
+- **You must understand every change you submit.** You are expected to be able
+  to explain the proposed changes in your own words — in the pull request body
+  and when answering questions. Pull requests containing LLM-generated work the
+  author does not understand will be closed.
+- **Comments must be written by humans.** Do not use AI to generate pull
+  request descriptions, review replies or issue comments, and do not copy AI
+  responses when answering questions from the maintainer. Comments believed to
+  be AI-generated may be hidden without notice.
+- **No autonomous agents.** A human in the loop is required. Pull requests that
+  appear to be created autonomously will be closed, possibly without notice.
+- **Disclose AI context.** If you want to share context from an interaction
+  with an AI, put the relevant part in a quote block (`>`), mark it as
+  AI-generated, and add your own commentary on why it is relevant. Do not share
+  long snippets.
+- **Translations are fine.** If you use AI to translate your comments, write in
+  your native language and include the AI translation in a quote block
+  beneath it.
+
+This policy was adapted from
+[ripgrep's AI policy](https://github.com/BurntSushi/ripgrep/blob/master/AI_POLICY.md).
 
 ## Workflow
 

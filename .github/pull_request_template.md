@@ -4,6 +4,7 @@
 
 ## Checklist
 
+- [ ] I understand every change in this pull request and can explain it in my own words (see [Use of AI](https://github.com/EddyXorb/fotobuch/blob/main/CONTRIBUTING.md#use-of-ai))
 - [ ] Commits follow [Conventional Commits](https://www.conventionalcommits.org/)
 - [ ] New features come with unit tests
 - [ ] `cargo fmt --check`, `cargo clippy --all-features --all-targets -- -D warnings` and `cargo test` pass
