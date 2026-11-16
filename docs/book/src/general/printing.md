@@ -39,5 +39,22 @@ inside (spine) edge**, e.g. CEWE (3 mm outside/top/bottom, 0 mm at the spine).
 Set `config.book.bleed_inside_mm: 0` for this. As in any left-bound book,
 fotobuch treats the first inner page as a right-hand page. A 290 × 290 mm book
 then gets 293 × 296 mm inner pages whose TrimBox reaches the page edge on the
-spine side. Projects created before this option was added need their `.typ`
-template regenerated; otherwise the build stops with an error.
+spine side. Projects created before this option was added still have the old
+`.typ` template, which does not know the option, and the build stops with an
+error. Copy `<name>.typ` from a newly created project with the same name over
+the old one (the template only depends on the project name) and re-apply any
+edits you made to the old template.
+
+You can set the value in three ways:
+
+- when creating the project: `fotobuch project new mybook --width 290 --height 290 --bleed 3 --bleed-inside 0`
+  (also works with `fotobuch init`)
+- in an existing project: `fotobuch config set book.bleed_inside_mm 0`; set it to
+  `null` to go back to `bleed_mm` on all sides
+- in the GUI: the *Bleed inside (mm)* field of the *New Project* dialog (empty
+  means the same as *Bleed*), or `book.bleed_inside_mm` in the *Config* window
+
+You do not set anything per page. fotobuch derives the side of each page from
+its position: inner pages 1, 3, 5, … are right-hand pages (spine on the left),
+pages 2, 4, 6, … are left-hand pages (spine on the right). The cover does not
+count as an inner page and keeps the same bleed on all sides.

@@ -506,6 +506,7 @@ Create a new photobook project
 * `--bleed <BLEED>` — Bleed margin in millimeters
 
   Default value: `3`
+* `--bleed-inside <BLEED_INSIDE>` — Bleed on the inside (spine) edge of inner pages in millimeters (default: --bleed)
 * `--parent-dir <PARENT_DIR>` — Parent directory where project will be created (default: current directory)
 * `--quiet` — Suppress welcome message
 
@@ -560,6 +561,7 @@ Create a new photobook project (alias for `project new`)
 * `--bleed <BLEED>` — Bleed margin in millimeters
 
   Default value: `3`
+* `--bleed-inside <BLEED_INSIDE>` — Bleed on the inside (spine) edge of inner pages in millimeters (default: --bleed)
 * `--parent-dir <PARENT_DIR>` — Parent directory where project will be created (default: current directory)
 * `--quiet` — Suppress welcome message
 
