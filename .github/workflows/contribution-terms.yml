@@ -4,8 +4,15 @@ name: Contribution Terms
 # from .github/pull_request_template.md (see CONTRIBUTING.md).
 # Mark the `terms-accepted` job as a required status check for `main`.
 # No `paths` filter: a required check that never runs would block merging.
+#
+# `pull_request_target` runs this file from the base branch instead of the
+# pull request's merge commit. That merge commit can be stale (it then lacks
+# this workflow) or missing on merge conflicts, and fork runs would need
+# approval. Safe here because no pull request code is checked out, the token
+# has no permissions and the body is only read via an environment variable.
+# Note: changes to this file only take effect once they are on `main`.
 on:
-  pull_request:
+  pull_request_target:
     types: [opened, edited, reopened, synchronize]
 
 permissions: {}
