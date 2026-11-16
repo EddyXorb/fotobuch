@@ -71,6 +71,20 @@ impl ProjectState {
         }
     }
 
+    /// Returns `(left, right)` bleed in mm for the given page index.
+    ///
+    /// Inner pages use `bleed_inside_mm` on the spine edge (see [`PageSide`]);
+    /// the cover uses its own bleed on both sides.
+    pub fn page_bleed_left_right_mm(&self, page: usize) -> (f64, f64) {
+        match self.page_side(page) {
+            Some(side) => self.config.book.bleed_left_right_mm(side),
+            None => {
+                let (bleed, _) = self.page_bleed_margin_mm(page);
+                (bleed, bleed)
+            }
+        }
+    }
+
     /// Iterator over photos not placed in any layout page.
     pub fn unplaced_photo_files(&self) -> impl Iterator<Item = &PhotoFile> {
         let placed: std::collections::HashSet<String> = self
@@ -245,6 +259,7 @@ mod tests {
                     page_width_mm: 420.0,
                     page_height_mm: 297.0,
                     bleed_mm: 3.0,
+                    bleed_inside_mm: None,
                     margin_mm: 10.0,
                     gap_mm: 5.0,
                     bleed_threshold_mm: 3.0,
@@ -296,6 +311,7 @@ mod tests {
                     page_width_mm: 420.0,
                     page_height_mm: 297.0,
                     bleed_mm: 3.0,
+                    bleed_inside_mm: None,
                     margin_mm: 10.0,
                     gap_mm: 5.0,
                     bleed_threshold_mm: 3.0,

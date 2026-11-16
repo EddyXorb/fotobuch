@@ -132,6 +132,7 @@ mod tests {
                 page_width_mm: width,
                 page_height_mm: height,
                 bleed_mm: bleed,
+                bleed_inside_mm: None,
                 margin_mm: margin,
                 gap_mm: gap,
                 bleed_threshold_mm: 3.0,

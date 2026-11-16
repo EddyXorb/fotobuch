@@ -578,6 +578,7 @@ mod tests {
                     page_width_mm: 420.0,
                     page_height_mm: 297.0,
                     bleed_mm: 3.0,
+                    bleed_inside_mm: None,
                     margin_mm: 10.0,
                     gap_mm: 5.0,
                     bleed_threshold_mm: 3.0,
