@@ -139,4 +139,19 @@ mod tests {
         let cfg: BookConfig = serde_yaml::from_str(&format!("{yaml}bleed_inside_mm: 0\n")).unwrap();
         assert_eq!(cfg.bleed_inside_mm, Some(0.0));
     }
+
+    #[test]
+    fn config_without_bleed_inside_key_keeps_symmetric_bleed() {
+        // YAML written before bleed_inside_mm existed.
+        let yaml = "title: t\npage_width_mm: 290\npage_height_mm: 290\nbleed_mm: 3\n";
+        let cfg: BookConfig = serde_yaml::from_str(yaml).unwrap();
+        assert_eq!(cfg.effective_bleed_inside_mm(), 3.0);
+        assert_eq!(cfg.bleed_left_right_mm(PageSide::Right), (3.0, 3.0));
+        assert_eq!(cfg.bleed_left_right_mm(PageSide::Left), (3.0, 3.0));
+
+        let cfg: BookConfig =
+            serde_yaml::from_str(&format!("{yaml}bleed_inside_mm: null\n")).unwrap();
+        assert_eq!(cfg.bleed_inside_mm, None);
+        assert_eq!(cfg.effective_bleed_inside_mm(), 3.0);
+    }
 }

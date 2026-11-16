@@ -163,4 +163,74 @@ mod tests {
     fn template_renders_inside_bleed_with_cover() {
         render_facing(true);
     }
+
+    /// A project YAML written before `bleed_inside_mm` existed (no key at all)
+    /// must render exactly as before: 296 mm wide, symmetric TrimBox.
+    #[test]
+    fn template_renders_symmetric_bleed_without_bleed_inside_key() {
+        use crate::models::{LayoutPage, ProjectState, write_state_yaml};
+        use crate::output::typst::{BleedSpec, compile_preview};
+        use lopdf::Document;
+
+        let temp = tempfile::TempDir::new().unwrap();
+        let mut state = ProjectState::default();
+        state.config.book.page_width_mm = 290.0;
+        state.config.book.page_height_mm = 290.0;
+        state.config.book.bleed_mm = 3.0;
+        state.layout = vec![
+            LayoutPage {
+                photos: vec![],
+                slots: vec![],
+                mode: Default::default(),
+            };
+            2
+        ];
+        let yaml_path = temp.path().join("book.yaml");
+        write_state_yaml(&state, &yaml_path).unwrap();
+        let yaml = std::fs::read_to_string(&yaml_path).unwrap();
+        let old_yaml: String = yaml
+            .lines()
+            .filter(|l| !l.contains("bleed_inside_mm"))
+            .map(|l| format!("{l}\n"))
+            .collect();
+        assert_ne!(
+            yaml, old_yaml,
+            "key must have been present before stripping"
+        );
+        std::fs::write(&yaml_path, old_yaml).unwrap();
+        std::fs::write(
+            temp.path().join("book.typ"),
+            generate_template("book").unwrap(),
+        )
+        .unwrap();
+
+        let spec = BleedSpec::from_book(&state.config.book);
+        let pdf = compile_preview(temp.path(), "book", &spec).unwrap();
+        let doc = Document::load(&pdf).unwrap();
+        let mm = |v: &lopdf::Object| v.as_float().unwrap() / (72.0 / 25.4);
+        for id in doc.get_pages().values() {
+            let page = doc.get_object(*id).unwrap().as_dict().unwrap();
+            let media: Vec<f32> = page
+                .get(b"MediaBox")
+                .unwrap()
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(mm)
+                .collect();
+            let trim: Vec<f32> = page
+                .get(b"TrimBox")
+                .unwrap()
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(mm)
+                .collect();
+            assert!((media[2] - 296.0).abs() < 0.01, "{media:?}");
+            assert!(
+                (trim[0] - 3.0).abs() < 0.01 && (trim[2] - 293.0).abs() < 0.01,
+                "{trim:?}"
+            );
+        }
+    }
 }
