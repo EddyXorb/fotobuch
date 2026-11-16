@@ -507,6 +507,9 @@ Create a new photobook project
 
   Default value: `3`
 * `--bleed-inside <BLEED_INSIDE>` — Bleed on the inside (spine) edge of inner pages in millimeters (default: --bleed)
+* `--first-page-side <SIDE>` — Side of the first inner page: right (inside covers unprinted) or left
+
+  Default value: `right`
 * `--parent-dir <PARENT_DIR>` — Parent directory where project will be created (default: current directory)
 * `--quiet` — Suppress welcome message
 
@@ -562,6 +565,9 @@ Create a new photobook project (alias for `project new`)
 
   Default value: `3`
 * `--bleed-inside <BLEED_INSIDE>` — Bleed on the inside (spine) edge of inner pages in millimeters (default: --bleed)
+* `--first-page-side <SIDE>` — Side of the first inner page: right (inside covers unprinted) or left
+
+  Default value: `right`
 * `--parent-dir <PARENT_DIR>` — Parent directory where project will be created (default: current directory)
 * `--quiet` — Suppress welcome message
 

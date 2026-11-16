@@ -36,10 +36,8 @@ The default 3 mm works for the majority of European providers.
 
 Some services lay out inner pages as facing pages and expect **no bleed on the
 inside (spine) edge**, e.g. CEWE (3 mm outside/top/bottom, 0 mm at the spine).
-For these, set `config.book.bleed_inside_mm: 0`. As in any left-bound book,
-fotobuch treats the first inner page as a right-hand page. A 290 × 290 mm book
-then gets 293 × 296 mm inner pages whose TrimBox reaches the page edge on the
-spine side.
+For these, set `config.book.bleed_inside_mm: 0`. A 290 × 290 mm book then gets
+293 × 296 mm inner pages whose TrimBox reaches the page edge on the spine side.
 
 Besides editing the YAML, you can set the value:
 
@@ -55,10 +53,21 @@ After changing it in an existing project, run `fotobuch build` (or rebuild in
 the GUI) to get the new PDF.
 
 You do not set anything per page. fotobuch derives the side of each page from
-its position. Counting inner pages from 1 like printed page numbers (not the
-0-based layout index), pages 1, 3, 5, … are right-hand pages (spine on the
+its position and from `config.book.first_page_side`. Counting inner pages from 1
+like printed page numbers (not the 0-based layout index), with the default
+`first_page_side: right` pages 1, 3, 5, … are right-hand pages (spine on the
 left) and pages 2, 4, 6, … are left-hand pages (spine on the right). The cover
 does not count as an inner page and keeps the same bleed on all sides.
+
+`right` fits products whose inside covers stay unprinted: the first inner page
+faces the inside of the front cover, as with CEWE. If your product also prints
+the inside of the front cover, the first inner page is a left-hand page. Set
+`first_page_side: left` for this, and all sides swap:
+
+- when creating the project: `--first-page-side left` (`project new` and `init`)
+- in an existing project: `fotobuch config set book.first_page_side left`
+- in the GUI: *First page* in the *New Project* dialog, or
+  `book.first_page_side` in the *Config* window
 
 Projects created before this option existed still use the old `.typ` template.
 That template does not know the option, and the build stops with an error as
