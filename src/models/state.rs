@@ -23,6 +23,12 @@ impl ProjectState {
         self.config.book.cover.active
     }
 
+    /// Left/right side of the page with layout index `page`; `None` for the cover.
+    /// See [`PageSide`] for the parity convention.
+    pub fn page_side(&self, page: usize) -> Option<PageSide> {
+        PageSide::for_page(page, self.has_cover())
+    }
+
     /// Indices of pages that the solver may touch. Manual pages are
     /// excluded — they are explicitly pinned by the user.
     pub fn auto_page_indices(&self) -> impl Iterator<Item = usize> + '_ {

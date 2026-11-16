@@ -8,6 +8,7 @@
 mod config;
 mod cover;
 mod layout;
+mod page_side;
 mod photos;
 mod state;
 mod state_io;
@@ -24,6 +25,7 @@ pub use config::{
 };
 pub use cover::CoverGeometry;
 pub use layout::{LayoutPage, PageMode, Slot};
+pub use page_side::PageSide;
 pub use photos::{PhotoFile, PhotoGroup, build_photo_index, collect_photos_as_groups};
 pub use state::ProjectState;
 pub use state_io::{read_state_yaml, write_state_yaml};
