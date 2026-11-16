@@ -19,6 +19,11 @@ pub struct BookConfig {
     /// and the GUI config window can find the key.
     #[serde(default)]
     pub bleed_inside_mm: Option<f64>,
+    /// Side of the first inner page: `right` (default, inside covers unprinted,
+    /// e.g. CEWE) or `left` (product also prints the inside of the front cover).
+    /// The sides alternate from there; see [`PageSide`].
+    #[serde(default)]
+    pub first_page_side: PageSide,
     #[serde(default = "default_margin_mm")]
     pub margin_mm: f64,
     #[serde(default = "default_gap_mm")]
@@ -94,6 +99,7 @@ impl Default for BookConfig {
             page_height_mm: 297.0,
             bleed_mm: 3.0,
             bleed_inside_mm: None,
+            first_page_side: PageSide::default(),
             margin_mm: default_margin_mm(),
             gap_mm: default_gap_mm(),
             bleed_threshold_mm: default_bleed_threshold_mm(),
@@ -153,5 +159,20 @@ mod tests {
             serde_yaml::from_str(&format!("{yaml}bleed_inside_mm: null\n")).unwrap();
         assert_eq!(cfg.bleed_inside_mm, None);
         assert_eq!(cfg.effective_bleed_inside_mm(), 3.0);
+    }
+
+    #[test]
+    fn first_page_side_defaults_to_right() {
+        let yaml = "title: t\npage_width_mm: 290\npage_height_mm: 290\nbleed_mm: 3\n";
+        let cfg: BookConfig = serde_yaml::from_str(yaml).unwrap();
+        assert_eq!(cfg.first_page_side, PageSide::Right);
+        assert!(
+            serde_yaml::to_string(&cfg)
+                .unwrap()
+                .contains("first_page_side: right")
+        );
+        let cfg: BookConfig =
+            serde_yaml::from_str(&format!("{yaml}first_page_side: left\n")).unwrap();
+        assert_eq!(cfg.first_page_side, PageSide::Left);
     }
 }

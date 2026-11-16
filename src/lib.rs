@@ -27,6 +27,7 @@
 //!     page_height_mm: 210.0,
 //!     bleed_mm: 3.0,
 //!     bleed_inside_mm: None,
+//!     first_page_side: PageSide::Right,
 //!     margin_mm: 10.0,
 //!     gap_mm: 5.0,
 //!     bleed_threshold_mm: 3.0,

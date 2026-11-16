@@ -57,11 +57,12 @@
 #let has_cover = cover_or_none != none and cover_or_none.at("active", default: false)
 
 // Page size and margins from YAML (including bleed)
-// Inner pages are facing pages of a left-bound book: the first inner page is
-// a right-hand page (inside/spine edge left), then the sides alternate. The
-// inside edge gets `bleed_inside_mm` (default: bleed_mm). Typst counts
-// physical pages including the cover, so the binding flips when a cover is
-// present.
+// Inner pages are facing pages of a left-bound book. The first inner page is
+// on side `first_page_side` (default: right, inside/spine edge left), then the
+// sides alternate. The inside edge gets `bleed_inside_mm` (default: bleed_mm).
+// Typst's `binding: left` puts the inside on the left of odd physical pages,
+// and physical pages include the cover, so the binding depends on both.
+#let first_page_right = data.config.book.at("first_page_side", default: "right") != "left"
 #let bleed = data.config.book.bleed_mm * 1mm
 #let bleed_inside = {
   let bi = data.config.book.at("bleed_inside_mm", default: none)
@@ -72,13 +73,14 @@
   width: data.config.book.page_width_mm * 1mm + bleed + bleed_inside,
   height: data.config.book.page_height_mm * 1mm + 2 * bleed,
   margin: (inside: bleed_inside + margin, outside: bleed + margin, y: bleed + margin),
-  binding: if has_cover { right } else { left },
+  binding: if (not has_cover) == first_page_right { left } else { right },
 )
 
 // Returns (left, right) bleed of the inner page with layout index `page_index`
 #let inner_bleed_lr(page_index) = {
   let inner_idx = if has_cover { page_index - 1 } else { page_index }
-  if calc.even(inner_idx) { (bleed_inside, bleed) } else { (bleed, bleed_inside) }
+  let is_right_hand = calc.even(inner_idx) == first_page_right
+  if is_right_hand { (bleed_inside, bleed) } else { (bleed, bleed_inside) }
 }
 
 // ── Utility functions ────────────────────────────────────────────────

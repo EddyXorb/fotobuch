@@ -63,6 +63,8 @@ pub struct BleedSpec {
     pub bleed_mm: f64,
     pub bleed_inside_mm: f64,
     pub has_cover: bool,
+    /// Side of the first inner page.
+    pub first_page_side: PageSide,
     /// Trim width of inner pages; used to detect templates that do not
     /// render `bleed_inside_mm`.
     pub inner_trim_width_mm: f64,
@@ -84,6 +86,7 @@ impl BleedSpec {
             bleed_mm: book.bleed_mm,
             bleed_inside_mm: book.effective_bleed_inside_mm(),
             has_cover: book.cover.active,
+            first_page_side: book.first_page_side,
             inner_trim_width_mm: book.page_width_mm,
         }
     }
@@ -100,7 +103,8 @@ impl BleedSpec {
     /// Pages after the layout (e.g. the appendix) continue the parity.
     fn edges(&self, pdf_page: usize) -> EdgeBleed {
         let b = self.bleed_mm;
-        let (left, right) = match PageSide::for_page(pdf_page, self.has_cover) {
+        let (left, right) = match PageSide::for_page(pdf_page, self.has_cover, self.first_page_side)
+        {
             Some(side) => side.to_left_right(self.bleed_inside_mm, b),
             None => (b, b),
         };
@@ -369,6 +373,7 @@ mod tests {
                 bleed_mm,
                 bleed_inside_mm: bleed_mm,
                 has_cover: false,
+                first_page_side: PageSide::Right,
                 inner_trim_width_mm: 0.0,
             }
         }
@@ -406,6 +411,7 @@ mod tests {
             bleed_mm: 3.0,
             bleed_inside_mm: 0.0,
             has_cover,
+            first_page_side: PageSide::Right,
             inner_trim_width_mm: 290.0,
         }
     }
@@ -424,6 +430,25 @@ mod tests {
         for (id, trim) in ids.iter().zip(expected_trim) {
             assert_box_mm(boxes_mm(&doc, *id, b"MediaBox"), [0.0, 0.0, 293.0, 296.0]);
             assert_box_mm(boxes_mm(&doc, *id, b"BleedBox"), [0.0, 0.0, 293.0, 296.0]);
+            assert_box_mm(boxes_mm(&doc, *id, b"TrimBox"), trim);
+        }
+    }
+
+    #[test]
+    fn inside_bleed_boxes_first_page_left() {
+        let spec = BleedSpec {
+            first_page_side: PageSide::Left,
+            ..cewe_spec(false)
+        };
+        let doc = facing_pdf(&[(293.0, 296.0); 3], &spec);
+        let ids: Vec<_> = doc.get_pages().values().copied().collect();
+        // Page 1 (left-hand): spine right. Page 2 (right-hand): spine left.
+        let expected_trim = [
+            [3.0, 3.0, 293.0, 293.0],
+            [0.0, 3.0, 290.0, 293.0],
+            [3.0, 3.0, 293.0, 293.0],
+        ];
+        for (id, trim) in ids.iter().zip(expected_trim) {
             assert_box_mm(boxes_mm(&doc, *id, b"TrimBox"), trim);
         }
     }

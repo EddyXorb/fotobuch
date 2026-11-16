@@ -200,8 +200,9 @@ fn find_metadata_changed_photos(
     changed
 }
 
-/// `bleed_inside_mm` is deliberately not compared: slots are relative to the
-/// trim box and do not depend on it, only the PDF output changes.
+/// `bleed_inside_mm` and `first_page_side` are deliberately not compared: slots
+/// are relative to the trim box and do not depend on them, only the PDF output
+/// changes.
 fn inner_canvas_changed(reference: &ProjectState, new: &ProjectState) -> bool {
     let r = &reference.config.book;
     let n = &new.config.book;
@@ -268,6 +269,7 @@ mod tests {
                     page_height_mm: 297.0,
                     bleed_mm: 3.0,
                     bleed_inside_mm: None,
+                    first_page_side: Default::default(),
                     margin_mm: 10.0,
                     gap_mm: 5.0,
                     bleed_threshold_mm: 3.0,
@@ -832,7 +834,7 @@ mod tests {
     }
 
     #[test]
-    fn test_bleed_inside_change_keeps_pages_up_to_date() {
+    fn test_bleed_inside_and_first_page_side_change_keep_pages_up_to_date() {
         let slot = make_slot(0.0, 0.0, 100.0, 100.0);
         let pages = vec![make_page(0, vec!["A".to_string()], vec![slot])];
         let mut reference = make_state("ref", pages.clone());
@@ -844,6 +846,7 @@ mod tests {
         let mut new = make_state("new", pages);
         new.photos = reference.photos.clone();
         new.config.book.bleed_inside_mm = Some(0.0);
+        new.config.book.first_page_side = crate::models::PageSide::Left;
 
         assert!(compute_outdated_pages(&reference, &new).is_empty());
     }

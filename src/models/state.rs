@@ -24,9 +24,9 @@ impl ProjectState {
     }
 
     /// Left/right side of the page with layout index `page`; `None` for the cover.
-    /// See [`PageSide`] for the parity convention.
+    /// Uses `book.first_page_side`; see [`PageSide`] for the parity convention.
     pub fn page_side(&self, page: usize) -> Option<PageSide> {
-        PageSide::for_page(page, self.has_cover())
+        PageSide::for_page(page, self.has_cover(), self.config.book.first_page_side)
     }
 
     /// Indices of pages that the solver may touch. Manual pages are
@@ -260,6 +260,7 @@ mod tests {
                     page_height_mm: 297.0,
                     bleed_mm: 3.0,
                     bleed_inside_mm: None,
+                    first_page_side: Default::default(),
                     margin_mm: 10.0,
                     gap_mm: 5.0,
                     bleed_threshold_mm: 3.0,
@@ -312,6 +313,7 @@ mod tests {
                     page_height_mm: 297.0,
                     bleed_mm: 3.0,
                     bleed_inside_mm: None,
+                    first_page_side: Default::default(),
                     margin_mm: 10.0,
                     gap_mm: 5.0,
                     bleed_threshold_mm: 3.0,

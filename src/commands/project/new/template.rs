@@ -69,7 +69,7 @@ mod tests {
 
     /// Renders the real template with `bleed_inside_mm: 0` and checks that page
     /// size, PDF boxes and the inside edge (Typst binding) agree per page.
-    fn render_facing(has_cover: bool) {
+    fn render_facing(has_cover: bool, first_page_side: crate::models::PageSide) {
         use crate::models::{LayoutPage, PageSide, ProjectState, write_state_yaml};
         use crate::output::typst::{
             BleedSpec, TypstWorld, compile_preview, render_pages_with_world,
@@ -84,6 +84,7 @@ mod tests {
         book.bleed_mm = 3.0;
         book.bleed_inside_mm = Some(0.0);
         book.cover.active = has_cover;
+        book.first_page_side = first_page_side;
         let empty = LayoutPage {
             photos: vec![],
             slots: vec![],
@@ -156,12 +157,22 @@ mod tests {
 
     #[test]
     fn template_renders_inside_bleed_without_cover() {
-        render_facing(false);
+        render_facing(false, crate::models::PageSide::Right);
     }
 
     #[test]
     fn template_renders_inside_bleed_with_cover() {
-        render_facing(true);
+        render_facing(true, crate::models::PageSide::Right);
+    }
+
+    #[test]
+    fn template_renders_inside_bleed_first_page_left_without_cover() {
+        render_facing(false, crate::models::PageSide::Left);
+    }
+
+    #[test]
+    fn template_renders_inside_bleed_first_page_left_with_cover() {
+        render_facing(true, crate::models::PageSide::Left);
     }
 
     /// A project YAML written before `bleed_inside_mm` existed (no key at all)

@@ -133,6 +133,7 @@ mod tests {
                 page_height_mm: height,
                 bleed_mm: bleed,
                 bleed_inside_mm: None,
+                first_page_side: Default::default(),
                 margin_mm: margin,
                 gap_mm: gap,
                 bleed_threshold_mm: 3.0,
