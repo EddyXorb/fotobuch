@@ -2,8 +2,10 @@
 
 /// Physical side of a book page when the book lies open.
 ///
-/// Convention (as used by print services such as CEWE): the **first inner page
-/// is a right-hand page**, the second a left-hand page, and so on.
+/// Follows the convention of left-bound books: the first inner page faces the
+/// inside of the front cover and is therefore a **right-hand page**; from there
+/// the sides alternate. Print services with facing-page layouts (e.g. CEWE)
+/// use the same convention.
 ///
 /// Mapping to the 0-based layout index (`layout[i]`):
 /// - with cover: `layout[0]` is the cover (no side), `layout[1]` is the first

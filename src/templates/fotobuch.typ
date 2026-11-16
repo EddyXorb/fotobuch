@@ -57,10 +57,11 @@
 #let has_cover = cover_or_none != none and cover_or_none.at("active", default: false)
 
 // Page size and margins from YAML (including bleed)
-// Inner pages are facing pages: the first inner page is a right-hand page
-// (inside/spine edge left). The inside edge gets `bleed_inside_mm`
-// (default: bleed_mm). Typst counts physical pages including the cover, so
-// the binding flips when a cover is present.
+// Inner pages are facing pages of a left-bound book: the first inner page is
+// a right-hand page (inside/spine edge left), then the sides alternate. The
+// inside edge gets `bleed_inside_mm` (default: bleed_mm). Typst counts
+// physical pages including the cover, so the binding flips when a cover is
+// present.
 #let bleed = data.config.book.bleed_mm * 1mm
 #let bleed_inside = {
   let bi = data.config.book.at("bleed_inside_mm", default: none)

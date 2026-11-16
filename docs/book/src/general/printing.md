@@ -35,8 +35,9 @@ Most print-on-demand services accept standard PDF with bleed. Adjust
 The default 3 mm works for the majority of European providers.
 
 Some services lay out inner pages as facing pages and expect **no bleed on the
-inside (spine) edge**, e.g. CEWE: 3 mm outside/top/bottom, 0 mm at the spine,
-page 1 is a right-hand page. Set `config.book.bleed_inside_mm: 0` for this. A
-290 × 290 mm book then gets 293 × 296 mm inner pages with the TrimBox on the
-spine edge of each page. Projects created before this option was added need
-their `.typ` template regenerated; otherwise the build stops with an error.
+inside (spine) edge**, e.g. CEWE (3 mm outside/top/bottom, 0 mm at the spine).
+Set `config.book.bleed_inside_mm: 0` for this. As in any left-bound book,
+fotobuch treats the first inner page as a right-hand page. A 290 × 290 mm book
+then gets 293 × 296 mm inner pages whose TrimBox reaches the page edge on the
+spine side. Projects created before this option was added need their `.typ`
+template regenerated; otherwise the build stops with an error.
