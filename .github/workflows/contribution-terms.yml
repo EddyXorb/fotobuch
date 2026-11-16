@@ -1,0 +1,31 @@
+name: Contribution Terms
+
+# Ensures external pull requests confirm the Contribution Terms checkbox
+# from .github/pull_request_template.md (see CONTRIBUTING.md).
+# Mark the `terms-accepted` job as a required status check for `main`.
+# No `paths` filter: a required check that never runs would block merging.
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+permissions: {}
+
+jobs:
+  terms-accepted:
+    # Dependabot and the maintainer are exempt; a skipped job counts as passed.
+    if: >-
+      github.event.pull_request.user.login != 'dependabot[bot]' &&
+      github.event.pull_request.user.login != github.repository_owner
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Contribution Terms checkbox
+        env:
+          # Passed via env to avoid script injection from the PR body.
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          if grep -qiE '^\s*- \[x\] I have read and agree to the \[Contribution Terms' <<< "$PR_BODY"; then
+            echo "Contribution Terms accepted."
+          else
+            echo "::error::Please tick the Contribution Terms checkbox in the pull request description."
+            exit 1
+          fi
