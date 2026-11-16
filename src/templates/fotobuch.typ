@@ -354,9 +354,9 @@
       align(horizon + center, rotate(-90deg, box(
         stroke: if is_final or not show_borders_on_preview { none } else { green },
         width: cover_h * 1mm,
-        align(left, text(
+        align(center, text(
           size: calc.min(20mm, spine_w * 0.9 * 1mm),
-          h(0.05 * cover_h * 1mm) + spine_text_content,
+          spine_text_content,
         )),
       ))),
     ))
