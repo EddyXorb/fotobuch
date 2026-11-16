@@ -44,6 +44,11 @@ fn body(ui: &mut egui::Ui, s: &mut NewProjectDialogState, cmds: &mut Vec<Backgro
             ui.text_edit_singleline(&mut s.bleed_mm);
             ui.end_row();
 
+            ui.label("Bleed inside (mm)")
+                .on_hover_text("Bleed on the spine edge of inner pages. Empty = same as Bleed.");
+            ui.add(egui::TextEdit::singleline(&mut s.bleed_inside_mm).hint_text("= Bleed"));
+            ui.end_row();
+
             ui.label("Margin (mm)");
             ui.text_edit_singleline(&mut s.margin_mm);
             ui.end_row();
@@ -79,6 +84,7 @@ fn body(ui: &mut egui::Ui, s: &mut NewProjectDialogState, cmds: &mut Vec<Backgro
     let dims_valid = s.width_mm.parse::<f64>().is_ok()
         && s.height_mm.parse::<f64>().is_ok()
         && s.bleed_mm.parse::<f64>().is_ok()
+        && parse_optional_mm(&s.bleed_inside_mm).is_ok()
         && s.margin_mm.parse::<f64>().is_ok();
     let can_submit = name_valid && dims_valid && spine_valid;
 
@@ -103,10 +109,21 @@ fn body(ui: &mut egui::Ui, s: &mut NewProjectDialogState, cmds: &mut Vec<Backgro
     });
 }
 
+/// Parses an optional mm value: empty (or whitespace) → `None`.
+fn parse_optional_mm(s: &str) -> Result<Option<f64>, std::num::ParseFloatError> {
+    let s = s.trim();
+    if s.is_empty() {
+        Ok(None)
+    } else {
+        s.parse().map(Some)
+    }
+}
+
 fn parse_config(s: &NewProjectDialogState) -> Option<NewConfig> {
     let width_mm = s.width_mm.parse::<f64>().ok()?;
     let height_mm = s.height_mm.parse::<f64>().ok()?;
     let bleed_mm = s.bleed_mm.parse::<f64>().ok()?;
+    let bleed_inside_mm = parse_optional_mm(&s.bleed_inside_mm).ok()?;
     let margin_mm = s.margin_mm.parse::<f64>().ok()?;
 
     let (spine_grow_per_10_pages_mm, spine_mm) = if s.with_cover {
@@ -140,6 +157,7 @@ fn parse_config(s: &NewProjectDialogState) -> Option<NewConfig> {
         width_mm,
         height_mm,
         bleed_mm,
+        bleed_inside_mm,
         with_cover: s.with_cover,
         cover_width_mm: None,
         cover_height_mm: None,
@@ -148,4 +166,17 @@ fn parse_config(s: &NewProjectDialogState) -> Option<NewConfig> {
         margin_mm,
         base_config: Some(base_config),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn optional_mm_empty_is_none() {
+        assert_eq!(parse_optional_mm(""), Ok(None));
+        assert_eq!(parse_optional_mm("  "), Ok(None));
+        assert_eq!(parse_optional_mm("0"), Ok(Some(0.0)));
+        assert!(parse_optional_mm("x").is_err());
+    }
 }

@@ -198,6 +198,9 @@ pub enum Commands {
         /// Bleed margin in millimeters
         #[arg(long, default_value = "3")]
         bleed: f64,
+        /// Bleed on the inside (spine) edge of inner pages in millimeters (default: --bleed)
+        #[arg(long)]
+        bleed_inside: Option<f64>,
         /// Parent directory where project will be created (default: current directory)
         #[arg(long)]
         parent_dir: Option<PathBuf>,
@@ -407,6 +410,9 @@ pub enum ProjectCommands {
         /// Bleed margin in millimeters
         #[arg(long, default_value = "3")]
         bleed: f64,
+        /// Bleed on the inside (spine) edge of inner pages in millimeters (default: --bleed)
+        #[arg(long)]
+        bleed_inside: Option<f64>,
 
         /// Parent directory where project will be created (default: current directory)
         #[arg(long)]
@@ -513,6 +519,7 @@ impl Execute for Commands {
                 width,
                 height,
                 bleed,
+                bleed_inside,
                 parent_dir,
                 quiet,
                 with_cover,
@@ -526,6 +533,7 @@ impl Execute for Commands {
                 width: *width,
                 height: *height,
                 bleed: *bleed,
+                bleed_inside: *bleed_inside,
                 parent_dir: parent_dir.clone(),
                 quiet: *quiet,
                 with_cover: *with_cover,
@@ -591,6 +599,7 @@ impl Execute for ProjectCommands {
                 width,
                 height,
                 bleed,
+                bleed_inside,
                 parent_dir,
                 quiet,
                 with_cover,
@@ -604,6 +613,7 @@ impl Execute for ProjectCommands {
                 width: *width,
                 height: *height,
                 bleed: *bleed,
+                bleed_inside: *bleed_inside,
                 parent_dir: parent_dir.clone(),
                 quiet: *quiet,
                 with_cover: *with_cover,
