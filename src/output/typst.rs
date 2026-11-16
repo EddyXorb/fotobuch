@@ -357,6 +357,93 @@ mod tests {
         assert!((ty1 - (my1 - bleed_pt)).abs() < 0.01);
     }
 
+    /// Returns `(MediaBox, TrimBox)` of every page as `[x0, y0, x1, y1]` in pt.
+    fn media_and_trim_boxes(pdf: &[u8]) -> Vec<([f32; 4], [f32; 4])> {
+        let doc = Document::load_mem(pdf).unwrap();
+        let read_box = |page: &lopdf::Dictionary, key: &[u8]| -> [f32; 4] {
+            let arr = page.get(key).unwrap().as_array().unwrap();
+            std::array::from_fn(|i| arr[i].as_float().unwrap())
+        };
+        doc.get_pages()
+            .values()
+            .map(|&id| {
+                let page = doc.get_object(id).unwrap().as_dict().unwrap();
+                (read_box(page, b"MediaBox"), read_box(page, b"TrimBox"))
+            })
+            .collect()
+    }
+
+    fn assert_trim_inset(media: [f32; 4], trim: [f32; 4], bleed_mm: f64) {
+        let inset = bleed_mm as f32 * (72.0 / 25.4);
+        let expected = [
+            media[0] + inset,
+            media[1] + inset,
+            media[2] - inset,
+            media[3] - inset,
+        ];
+        for (t, e) in trim.iter().zip(expected) {
+            assert!(
+                (t - e).abs() < 0.01,
+                "TrimBox {trim:?} != expected {expected:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_add_pdf_boxes_uses_cover_bleed_for_first_page() {
+        let temp = TempDir::new().unwrap();
+        let template = temp.path().join("cover_bleed_test.typ");
+        fs::write(
+            &template,
+            "#set page(width: 420mm, height: 270mm)\nCover\n\
+             #page(width: 206mm, height: 256mm)[Inner]",
+        )
+        .unwrap();
+        let pdf_bytes = compile_to_pdf_bytes(&template).unwrap();
+
+        let bleed = PageBleed {
+            cover_mm: Some(10.0),
+            inner_mm: 3.0,
+        };
+        let annotated = add_pdf_boxes(&pdf_bytes, bleed).unwrap();
+
+        let boxes = media_and_trim_boxes(&annotated);
+        assert_eq!(boxes.len(), 2, "expected cover + one inner page");
+        assert_trim_inset(boxes[0].0, boxes[0].1, 10.0);
+        assert_trim_inset(boxes[1].0, boxes[1].1, 3.0);
+    }
+
+    #[test]
+    fn test_page_bleed_for_page() {
+        let with_cover = PageBleed {
+            cover_mm: Some(10.0),
+            inner_mm: 3.0,
+        };
+        assert_eq!(with_cover.for_page(0), 10.0);
+        assert_eq!(with_cover.for_page(1), 3.0);
+        assert_eq!(with_cover.for_page(7), 3.0);
+
+        let no_cover = PageBleed::uniform(3.0);
+        assert_eq!(no_cover.for_page(0), 3.0);
+        assert_eq!(no_cover.for_page(1), 3.0);
+    }
+
+    #[test]
+    fn test_page_bleed_any_positive() {
+        assert!(!PageBleed::uniform(0.0).any_positive());
+        assert!(PageBleed::uniform(3.0).any_positive());
+        let cover_only = PageBleed {
+            cover_mm: Some(5.0),
+            inner_mm: 0.0,
+        };
+        assert!(cover_only.any_positive());
+        let zero_cover = PageBleed {
+            cover_mm: Some(0.0),
+            inner_mm: 0.0,
+        };
+        assert!(!zero_cover.any_positive());
+    }
+
     #[test]
     fn test_render_pages_correct_dimensions() {
         let temp = TempDir::new().unwrap();
