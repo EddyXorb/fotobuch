@@ -1,7 +1,7 @@
 use crate::state::{InteractionState, NewProjectDialogState};
 use crate::task::BackgroundTask;
 use fotobuch::commands::project::new::{NewConfig, validate_project_name};
-use fotobuch::models::{PreviewConfig, ProjectConfig};
+use fotobuch::models::{PageSide, PreviewConfig, ProjectConfig};
 
 pub fn show(
     ctx: &egui::Context,
@@ -47,6 +47,16 @@ fn body(ui: &mut egui::Ui, s: &mut NewProjectDialogState, cmds: &mut Vec<Backgro
             ui.label("Bleed inside (mm)")
                 .on_hover_text("Bleed on the spine edge of inner pages. Empty = same as Bleed.");
             ui.add(egui::TextEdit::singleline(&mut s.bleed_inside_mm).hint_text("= Bleed"));
+            ui.end_row();
+
+            ui.label("First page").on_hover_text(
+                "Side of the first inner page. Right: inside covers stay unprinted (e.g. CEWE). \
+                 Left: the product also prints the inside of the front cover.",
+            );
+            ui.horizontal(|ui| {
+                ui.radio_value(&mut s.first_page_side, PageSide::Right, "Right");
+                ui.radio_value(&mut s.first_page_side, PageSide::Left, "Left");
+            });
             ui.end_row();
 
             ui.label("Margin (mm)");
@@ -158,6 +168,7 @@ fn parse_config(s: &NewProjectDialogState) -> Option<NewConfig> {
         height_mm,
         bleed_mm,
         bleed_inside_mm,
+        first_page_side: s.first_page_side,
         with_cover: s.with_cover,
         cover_width_mm: None,
         cover_height_mm: None,

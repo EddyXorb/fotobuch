@@ -150,6 +150,64 @@ fn project_new_with_bleed_inside_writes_config() {
 }
 
 #[test]
+fn project_new_with_first_page_side_left() {
+    let dir = TempDir::new().unwrap();
+    cmd()
+        .current_dir(dir.path())
+        .args([
+            "project",
+            "new",
+            "lf",
+            "--width",
+            "290",
+            "--height",
+            "290",
+            "--bleed-inside",
+            "0",
+            "--first-page-side",
+            "left",
+            "--quiet",
+        ])
+        .assert()
+        .success();
+    let yaml = project_yaml(&dir.path().join("lf"), "lf");
+    assert!(yaml.contains("first_page_side: left"), "{yaml}");
+}
+
+#[test]
+fn project_new_rejects_invalid_first_page_side() {
+    let dir = TempDir::new().unwrap();
+    cmd()
+        .current_dir(dir.path())
+        .args([
+            "project",
+            "new",
+            "x",
+            "--width",
+            "290",
+            "--height",
+            "290",
+            "--first-page-side",
+            "up",
+        ])
+        .assert()
+        .failure();
+}
+
+#[test]
+fn config_set_first_page_side() {
+    let dir = TempDir::new().unwrap();
+    let project = create_project(&dir, "my-book");
+    assert!(project_yaml(&project, "my-book").contains("first_page_side: right"));
+    cmd()
+        .current_dir(&project)
+        .args(["config", "set", "book.first_page_side", "left"])
+        .assert()
+        .success();
+    assert!(project_yaml(&project, "my-book").contains("first_page_side: left"));
+}
+
+#[test]
 fn project_new_without_bleed_inside_writes_null() {
     let dir = TempDir::new().unwrap();
     let project = create_project(&dir, "my-book");

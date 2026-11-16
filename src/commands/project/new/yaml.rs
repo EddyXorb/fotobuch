@@ -21,6 +21,7 @@ pub fn generate_default_state(config: &NewConfig) -> ProjectState {
         height_mm,
         bleed_mm,
         bleed_inside_mm,
+        first_page_side,
         with_cover,
         cover_width_mm,
         cover_height_mm,
@@ -76,6 +77,7 @@ pub fn generate_default_state(config: &NewConfig) -> ProjectState {
                 page_height_mm: *height_mm,
                 bleed_mm: *bleed_mm,
                 bleed_inside_mm: *bleed_inside_mm,
+                first_page_side: *first_page_side,
                 margin_mm: *margin_mm,
                 cover,
                 ..base.book
@@ -110,6 +112,7 @@ mod tests {
             height_mm: 297.0,
             bleed_mm: 3.0,
             bleed_inside_mm: None,
+            first_page_side: Default::default(),
             with_cover: false,
             cover_width_mm: None,
             cover_height_mm: None,
@@ -185,6 +188,18 @@ mod tests {
         assert_eq!(
             generate_default_state(&config).config.book.bleed_inside_mm,
             Some(0.0)
+        );
+    }
+
+    #[test]
+    fn test_first_page_side_is_passed_through() {
+        let config = NewConfig {
+            first_page_side: crate::models::PageSide::Left,
+            ..test_config()
+        };
+        assert_eq!(
+            generate_default_state(&config).config.book.first_page_side,
+            crate::models::PageSide::Left
         );
     }
 

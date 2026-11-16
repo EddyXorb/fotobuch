@@ -31,6 +31,8 @@ pub struct NewConfig {
     pub bleed_mm: f64,
     /// Bleed on the inside (spine) edge of inner pages; `None` → `bleed_mm`
     pub bleed_inside_mm: Option<f64>,
+    /// Side of the first inner page
+    pub first_page_side: crate::models::PageSide,
     /// Create project with active cover
     pub with_cover: bool,
     /// Cover width (defaults to width_mm * 2 if with_cover and not provided)
@@ -269,6 +271,7 @@ mod tests {
             height_mm: 297.0,
             bleed_mm: 3.0,
             bleed_inside_mm: None,
+            first_page_side: Default::default(),
             with_cover: false,
             cover_width_mm: None,
             cover_height_mm: None,
@@ -309,6 +312,7 @@ mod tests {
             height_mm: 250.0,
             bleed_mm: 5.0,
             bleed_inside_mm: None,
+            first_page_side: Default::default(),
             with_cover: false,
             cover_width_mm: None,
             cover_height_mm: None,
@@ -335,6 +339,7 @@ mod tests {
             height_mm: 297.0,
             bleed_mm: 3.0,
             bleed_inside_mm: None,
+            first_page_side: Default::default(),
             with_cover: false,
             cover_width_mm: None,
             cover_height_mm: None,
@@ -360,6 +365,7 @@ mod tests {
             height_mm: 297.0,
             bleed_mm: 3.0,
             bleed_inside_mm: None,
+            first_page_side: Default::default(),
             with_cover: false,
             cover_width_mm: None,
             cover_height_mm: None,
@@ -382,6 +388,7 @@ mod tests {
             height_mm: 297.0,
             bleed_mm: 3.0,
             bleed_inside_mm: None,
+            first_page_side: Default::default(),
             with_cover: false,
             cover_width_mm: None,
             cover_height_mm: None,
@@ -408,6 +415,7 @@ mod tests {
             height_mm: 297.0,
             bleed_mm: 3.0,
             bleed_inside_mm: None,
+            first_page_side: Default::default(),
             with_cover: true,
             cover_width_mm: None,
             cover_height_mm: None,

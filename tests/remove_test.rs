@@ -17,6 +17,7 @@ fn create_test_project_with_layout(temp_dir: &TempDir) -> Result<PathBuf> {
         height_mm: 250.0,
         bleed_mm: 3.0,
         bleed_inside_mm: None,
+        first_page_side: Default::default(),
         with_cover: false,
         cover_width_mm: None,
         cover_height_mm: None,
