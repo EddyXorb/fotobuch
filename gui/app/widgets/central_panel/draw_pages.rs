@@ -99,9 +99,7 @@ pub(super) fn draw_pages(
             const MM_TO_PT: f32 = 72.0 / 25.4;
             let max_w_pts = (0..num_pages)
                 .map(|i| {
-                    let (w_mm, _) = data.project.page_dimensions_mm(i);
-                    let (bleed_mm, _) = data.project.page_bleed_margin_mm(i);
-                    (w_mm + 2.0 * bleed_mm) as f32 * MM_TO_PT
+                    PageDimensions::for_page(&data.project, i).full_width_mm() as f32 * MM_TO_PT
                 })
                 .fold(0.0_f32, f32::max);
             if max_w_pts > 0.0 {
@@ -118,13 +116,6 @@ fn page_display_width(data: &DataState, interaction: &InteractionState, page_idx
     if page_idx >= data.pages.textures.len() {
         return 300.0;
     }
-    let (width_mm, height_mm) = data.project.page_dimensions_mm(page_idx);
-    let (bleed_mm, margin_mm) = data.project.page_bleed_margin_mm(page_idx);
-    let dims = PageDimensions {
-        width_mm,
-        height_mm,
-        bleed_mm,
-        margin_mm,
-    };
+    let dims = PageDimensions::for_page(&data.project, page_idx);
     helpers::page_display_size(interaction.viewport.zoom, dims).x
 }
