@@ -11,11 +11,13 @@ pub struct BookConfig {
     pub page_height_mm: f64,
     /// Bleed in mm (added around the content area, cut off in final PDF)
     pub bleed_mm: f64,
-    /// Bleed in mm on the inside (spine) edge of inner pages. `None` → `bleed_mm`.
+    /// Bleed in mm on the inside (spine) edge of inner pages. `None` (`null`) → `bleed_mm`.
     ///
     /// Print services with facing pages (e.g. CEWE) expect 0 mm here. The cover
     /// is not affected. Which edge is the inside edge follows [`PageSide`].
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// Always serialized (as `null` when unset) so `config set`, `config show`
+    /// and the GUI config window can find the key.
+    #[serde(default)]
     pub bleed_inside_mm: Option<f64>,
     #[serde(default = "default_margin_mm")]
     pub margin_mm: f64,
@@ -124,14 +126,14 @@ mod tests {
     }
 
     #[test]
-    fn bleed_inside_yaml_roundtrip_is_opt_in() {
+    fn bleed_inside_unset_serializes_as_null() {
         let yaml = "title: t\npage_width_mm: 290\npage_height_mm: 290\nbleed_mm: 3\n";
         let cfg: BookConfig = serde_yaml::from_str(yaml).unwrap();
         assert_eq!(cfg.bleed_inside_mm, None);
         assert!(
-            !serde_yaml::to_string(&cfg)
+            serde_yaml::to_string(&cfg)
                 .unwrap()
-                .contains("bleed_inside_mm")
+                .contains("bleed_inside_mm: null")
         );
 
         let cfg: BookConfig = serde_yaml::from_str(&format!("{yaml}bleed_inside_mm: 0\n")).unwrap();
