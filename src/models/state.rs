@@ -23,6 +23,12 @@ impl ProjectState {
         self.config.book.cover.active
     }
 
+    /// Left/right side of the page with layout index `page`; `None` for the cover.
+    /// Uses `book.first_page_side`; see [`PageSide`] for the parity convention.
+    pub fn page_side(&self, page: usize) -> Option<PageSide> {
+        PageSide::for_page(page, self.has_cover(), self.config.book.first_page_side)
+    }
+
     /// Indices of pages that the solver may touch. Manual pages are
     /// excluded — they are explicitly pinned by the user.
     pub fn auto_page_indices(&self) -> impl Iterator<Item = usize> + '_ {
@@ -62,6 +68,20 @@ impl ProjectState {
             )
         } else {
             (self.config.book.bleed_mm, self.config.book.margin_mm)
+        }
+    }
+
+    /// Returns `(left, right)` bleed in mm for the given page index.
+    ///
+    /// Inner pages use `bleed_inside_mm` on the spine edge (see [`PageSide`]);
+    /// the cover uses its own bleed on both sides.
+    pub fn page_bleed_left_right_mm(&self, page: usize) -> (f64, f64) {
+        match self.page_side(page) {
+            Some(side) => self.config.book.bleed_left_right_mm(side),
+            None => {
+                let (bleed, _) = self.page_bleed_margin_mm(page);
+                (bleed, bleed)
+            }
         }
     }
 
@@ -239,6 +259,8 @@ mod tests {
                     page_width_mm: 420.0,
                     page_height_mm: 297.0,
                     bleed_mm: 3.0,
+                    bleed_inside_mm: None,
+                    first_page_side: Default::default(),
                     margin_mm: 10.0,
                     gap_mm: 5.0,
                     bleed_threshold_mm: 3.0,
@@ -290,6 +312,8 @@ mod tests {
                     page_width_mm: 420.0,
                     page_height_mm: 297.0,
                     bleed_mm: 3.0,
+                    bleed_inside_mm: None,
+                    first_page_side: Default::default(),
                     margin_mm: 10.0,
                     gap_mm: 5.0,
                     bleed_threshold_mm: 3.0,

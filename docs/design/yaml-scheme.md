@@ -7,6 +7,8 @@ config:
     page_width_mm: 420.0
     page_height_mm: 297.0
     bleed_mm: 3.0
+    bleed_inside_mm: 0.0            # optional, default = bleed_mm; Beschnitt an der Bundkante der Innenseiten
+    first_page_side: right          # optional, default right; Seite der ersten Innenseite (right = Umschlag-Innenseiten unbedruckt, left = vordere Umschlag-Innenseite wird mitgedruckt)
     # margin_mm, gap_mm, bleed_threshold_mm: defaulted
     cover:                          # optional — fehlt dieser Block, gibt es kein Cover
       active: true                  # false = Cover-Block vorhanden aber deaktiviert

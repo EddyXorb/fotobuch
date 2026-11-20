@@ -18,14 +18,7 @@ pub(super) fn draw_page(
     page_idx: usize,
     cmds: &mut Vec<BackgroundTask>,
 ) -> (Option<usize>, bool, egui::Rect, (f32, f32)) {
-    let (width_mm, height_mm) = data.project.page_dimensions_mm(page_idx);
-    let (bleed_mm, margin_mm) = data.project.page_bleed_margin_mm(page_idx);
-    let dims = PageDimensions {
-        width_mm,
-        height_mm,
-        bleed_mm,
-        margin_mm,
-    };
+    let dims = PageDimensions::for_page(&data.project, page_idx);
     let page_size = helpers::page_display_size(interaction.viewport.zoom, dims);
 
     let page_rect = render_page_image(ui, data, page_idx, page_size);
@@ -61,7 +54,7 @@ pub(super) fn draw_page(
 
     use fotobuch::models::PageMode;
     if layout_page.mode == PageMode::Manual {
-        let full_w_mm = dims.width_mm + 2.0 * dims.bleed_mm;
+        let full_w_mm = dims.full_width_mm();
         let pixel_per_mm = if full_w_mm > 0.0 {
             page_rect.width() as f64 / full_w_mm
         } else {
@@ -144,8 +137,8 @@ fn hit_test_pointer(
             let over = page_rect.contains(pos);
             let cursor_mm = if over {
                 let s = dims.page_scale(page_rect);
-                let x_mm = (pos.x - page_rect.min.x) / s.scale_x - s.offset_mm;
-                let y_mm = (pos.y - page_rect.min.y) / s.scale_y - s.offset_mm;
+                let x_mm = (pos.x - page_rect.min.x) / s.scale_x - s.offset_x_mm;
+                let y_mm = (pos.y - page_rect.min.y) / s.scale_y - s.offset_y_mm;
                 (x_mm, y_mm)
             } else {
                 (0.0, 0.0)

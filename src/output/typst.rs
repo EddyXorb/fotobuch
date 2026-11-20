@@ -6,6 +6,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use tracing::debug;
 
+use crate::models::{BookConfig, PageSide};
+
 pub use crate::output::render::{rasterize_page, render_pages_with_world};
 pub use crate::output::typst_world::TypstWorld;
 /// A rasterized page ready for display (e.g. in egui).
@@ -50,12 +52,77 @@ pub fn compile(template_path: &Path, output_path: &Path) -> Result<()> {
         .with_context(|| format!("Failed to write PDF: {}", output_path.display()))
 }
 
-/// Sets TrimBox and BleedBox in a PDF to mark the printable area vs. bleed zone.
+/// Bleed of every PDF page, used to place the TrimBox inside the MediaBox.
 ///
-/// The PDF page (MediaBox) must already be sized as `TrimSize + 2 × bleed_mm` on each side.
+/// Inner pages carry `bleed_inside_mm` on the inside (spine) edge and
+/// `bleed_mm` on the other three edges; the side of each page follows
+/// [`PageSide`]. The cover (PDF page 0 when `has_cover`) uses `bleed_mm` on
+/// all sides.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct BleedSpec {
+    pub bleed_mm: f64,
+    pub bleed_inside_mm: f64,
+    pub has_cover: bool,
+    /// Side of the first inner page.
+    pub first_page_side: PageSide,
+    /// Trim width of inner pages; used to detect templates that do not
+    /// render `bleed_inside_mm`.
+    pub inner_trim_width_mm: f64,
+}
+
+/// Bleed per edge of one page in mm.
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct EdgeBleed {
+    left: f64,
+    right: f64,
+    top: f64,
+    bottom: f64,
+}
+
+impl BleedSpec {
+    /// Builds the spec from the book configuration.
+    pub fn from_book(book: &BookConfig) -> Self {
+        Self {
+            bleed_mm: book.bleed_mm,
+            bleed_inside_mm: book.effective_bleed_inside_mm(),
+            has_cover: book.cover.active,
+            first_page_side: book.first_page_side,
+            inner_trim_width_mm: book.page_width_mm,
+        }
+    }
+
+    fn has_bleed(&self) -> bool {
+        self.bleed_mm > 0.0 || self.bleed_inside_mm > 0.0
+    }
+
+    fn is_symmetric(&self) -> bool {
+        self.bleed_mm == self.bleed_inside_mm
+    }
+
+    /// Bleed per edge of the PDF page with 0-based index `pdf_page`.
+    /// Pages after the layout (e.g. the appendix) continue the parity.
+    fn edges(&self, pdf_page: usize) -> EdgeBleed {
+        let b = self.bleed_mm;
+        let (left, right) = match PageSide::for_page(pdf_page, self.has_cover, self.first_page_side)
+        {
+            Some(side) => side.to_left_right(self.bleed_inside_mm, b),
+            None => (b, b),
+        };
+        EdgeBleed {
+            left,
+            right,
+            top: b,
+            bottom: b,
+        }
+    }
+}
+
+/// Sets TrimBox and BleedBox on every page of a PDF to mark the printable area vs. bleed zone.
+///
+/// The PDF page (MediaBox) must already be sized as `TrimSize + bleed` per edge (see [`BleedSpec`]).
 /// After this call:
 /// - `BleedBox` = full page (identical to MediaBox)
-/// - `TrimBox`  = page inset by `bleed_mm` on every side
+/// - `TrimBox`  = page inset by the bleed of each edge
 // PDF box hierarchy:
 //
 //  ╔════════════════════════════════════╗← MediaBox (full page, includes bleed, most times same as BleedBox)
@@ -67,21 +134,23 @@ pub fn compile(template_path: &Path, output_path: &Path) -> Result<()> {
 //  ║  ║  │  (Content Area)        │  ║  ║
 //  ║  ║  │                        │  ║  ║
 //  ║  ║  │     Trimbox            │← ║  ║  TrimBox (actual page size to cut)
-//  ║  ║  └────────────────────────┘  ║  ║  Inset from MediaBox by bleed_mm
-//  ║  ║     BleedBox                 ║  ║
+//  ║  ║  └────────────────────────┘  ║  ║  Inset from MediaBox by the bleed of each edge
+//  ║  ║     BleedBox                 ║  ║  (inner pages: bleed_inside_mm on the spine edge)
 //  ║  └──────────────────────────────┘  ║
 //  ║       MediaBox                     ║
 //  └────────────────────────────────────┘
 //
-fn add_pdf_boxes(pdf_bytes: &[u8], bleed_mm: f64) -> Result<Vec<u8>> {
+fn add_pdf_boxes(pdf_bytes: &[u8], spec: &BleedSpec) -> Result<Vec<u8>> {
     const MM_TO_PT: f32 = 72.0 / 25.4;
-    let bleed_pt = bleed_mm as f32 * MM_TO_PT;
+    const WIDTH_TOLERANCE_MM: f64 = 0.5;
+    let pt = |mm: f64| mm as f32 * MM_TO_PT;
 
     let mut doc = Document::load_mem(pdf_bytes)
         .map_err(|e| anyhow::anyhow!("Failed to parse PDF for box annotations: {e}"))?;
 
+    // `get_pages` is keyed by 1-based page number, so values are in document order.
     let page_ids: Vec<_> = doc.get_pages().values().copied().collect();
-    for page_id in page_ids {
+    for (pdf_page, page_id) in page_ids.into_iter().enumerate() {
         let media_box: Vec<Object> = {
             let page = doc
                 .get_object(page_id)
@@ -104,11 +173,26 @@ fn add_pdf_boxes(pdf_bytes: &[u8], bleed_mm: f64) -> Result<Vec<u8>> {
             .as_float()
             .map_err(|e| anyhow::anyhow!("MediaBox y1 invalid: {e}"))?;
 
+        let edges = spec.edges(pdf_page);
+        let is_cover = spec.has_cover && pdf_page == 0;
+        if !spec.is_symmetric() && !is_cover {
+            let media_width_mm = f64::from(x1 - x0) / f64::from(MM_TO_PT);
+            let expected_mm = spec.inner_trim_width_mm + edges.left + edges.right;
+            anyhow::ensure!(
+                (media_width_mm - expected_mm).abs() < WIDTH_TOLERANCE_MM,
+                "PDF page {pdf_page} is {media_width_mm:.1} mm wide, expected {expected_mm:.1} mm \
+                 for bleed_inside_mm = {}. The project template does not render \
+                 bleed_inside_mm; update the .typ template from the current fotobuch version.",
+                spec.bleed_inside_mm
+            );
+        }
+
+        // PDF y axis points up: bottom edge is y0, top edge is y1.
         let trim_box = vec![
-            Object::Real(x0 + bleed_pt),
-            Object::Real(y0 + bleed_pt),
-            Object::Real(x1 - bleed_pt),
-            Object::Real(y1 - bleed_pt),
+            Object::Real(x0 + pt(edges.left)),
+            Object::Real(y0 + pt(edges.bottom)),
+            Object::Real(x1 - pt(edges.right)),
+            Object::Real(y1 - pt(edges.top)),
         ];
         let bleed_box = vec![
             Object::Real(x0),
@@ -131,25 +215,33 @@ fn add_pdf_boxes(pdf_bytes: &[u8], bleed_mm: f64) -> Result<Vec<u8>> {
         .map_err(|e| anyhow::anyhow!("Failed to write PDF with boxes: {e}"))?;
 
     debug!(
-        "Added TrimBox and BleedBox with bleed of {:.1} mm ({:.2} pt)",
-        bleed_mm, bleed_pt
+        "Added TrimBox and BleedBox with bleed {:.1} mm, inside bleed {:.1} mm",
+        spec.bleed_mm, spec.bleed_inside_mm
     );
 
     Ok(output)
 }
 
+/// Adds the PDF boxes if the spec has any bleed.
+fn with_pdf_boxes(pdf_bytes: Vec<u8>, spec: &BleedSpec) -> Result<Vec<u8>> {
+    if spec.has_bleed() {
+        add_pdf_boxes(&pdf_bytes, spec)
+    } else {
+        Ok(pdf_bytes)
+    }
+}
+
 /// Compiles the preview PDF with bleed and sets TrimBox/BleedBox in the output PDF.
 /// Template: `{project_root}/{name}.typ` → Output: `{project_root}/{name}.pdf`
-pub fn compile_preview(project_root: &Path, project_name: &str, bleed_mm: f64) -> Result<PathBuf> {
+pub fn compile_preview(
+    project_root: &Path,
+    project_name: &str,
+    bleed: &BleedSpec,
+) -> Result<PathBuf> {
     let template = project_root.join(format!("{project_name}.typ"));
     let output = project_root.join(format!("{project_name}.pdf"));
 
-    let pdf_bytes = compile_to_pdf_bytes(&template)?;
-    let pdf_bytes = if bleed_mm > 0.0 {
-        add_pdf_boxes(&pdf_bytes, bleed_mm)?
-    } else {
-        pdf_bytes
-    };
+    let pdf_bytes = with_pdf_boxes(compile_to_pdf_bytes(&template)?, bleed)?;
     fs::write(&output, pdf_bytes)
         .with_context(|| format!("Failed to write PDF: {}", output.display()))?;
     Ok(output)
@@ -159,20 +251,18 @@ pub fn compile_preview(project_root: &Path, project_name: &str, bleed_mm: f64) -
 ///
 /// Generates `final.typ` from `{name}.typ` with `is_final = true`.
 /// Template: `{project_root}/final.typ` → Output: `{project_root}/{name}_final.pdf`
-pub fn compile_final(project_root: &Path, project_name: &str, bleed_mm: f64) -> Result<PathBuf> {
+pub fn compile_final(
+    project_root: &Path,
+    project_name: &str,
+    bleed: &BleedSpec,
+) -> Result<PathBuf> {
     let source_template = project_root.join(format!("{project_name}.typ"));
     let final_template = project_root.join("final.typ");
     let output = project_root.join(format!("{}_final.pdf", project_name));
 
     generate_final_template(&source_template, &final_template)?;
 
-    let pdf_bytes = compile_to_pdf_bytes(&final_template)?;
-
-    let pdf_bytes = if bleed_mm > 0.0 {
-        add_pdf_boxes(&pdf_bytes, bleed_mm)?
-    } else {
-        pdf_bytes
-    };
+    let pdf_bytes = with_pdf_boxes(compile_to_pdf_bytes(&final_template)?, bleed)?;
 
     fs::write(&output, pdf_bytes)
         .with_context(|| format!("Failed to write PDF: {}", output.display()))?;
@@ -244,7 +334,7 @@ mod tests {
 
         fs::write(&template, "= My Book\n\nPreview content.").unwrap();
 
-        let result = compile_preview(temp.path(), "mybook", 0.0);
+        let result = compile_preview(temp.path(), "mybook", &BleedSpec::uniform_for_test(0.0));
 
         assert!(result.is_ok());
         let pdf_path = result.unwrap();
@@ -263,7 +353,7 @@ mod tests {
         )
         .unwrap();
 
-        let result = compile_final(temp.path(), "mybook", 0.0);
+        let result = compile_final(temp.path(), "mybook", &BleedSpec::uniform_for_test(0.0));
 
         assert!(result.is_ok(), "compile_final failed: {:?}", result.err());
         let pdf_path = result.unwrap();
@@ -277,6 +367,120 @@ mod tests {
         assert!(!content.contains("#let is_final = false"));
     }
 
+    impl BleedSpec {
+        fn uniform_for_test(bleed_mm: f64) -> Self {
+            Self {
+                bleed_mm,
+                bleed_inside_mm: bleed_mm,
+                has_cover: false,
+                first_page_side: PageSide::Right,
+                inner_trim_width_mm: 0.0,
+            }
+        }
+    }
+
+    const PT_PER_MM: f32 = 72.0 / 25.4;
+
+    fn boxes_mm(doc: &Document, page_id: lopdf::ObjectId, key: &[u8]) -> [f32; 4] {
+        let page = doc.get_object(page_id).unwrap().as_dict().unwrap();
+        let arr = page.get(key).unwrap().as_array().unwrap();
+        std::array::from_fn(|i| arr[i].as_float().unwrap() / PT_PER_MM)
+    }
+
+    fn assert_box_mm(actual: [f32; 4], expected: [f32; 4]) {
+        for (a, e) in actual.iter().zip(expected) {
+            assert!((a - e).abs() < 0.01, "box {actual:?} != {expected:?}");
+        }
+    }
+
+    /// Compiles `pages` pages of the given size (mm) and adds boxes.
+    fn facing_pdf(sizes_mm: &[(f64, f64)], spec: &BleedSpec) -> Document {
+        let temp = TempDir::new().unwrap();
+        let template = temp.path().join("facing.typ");
+        let src: String = sizes_mm
+            .iter()
+            .map(|(w, h)| format!("#page(width: {w}mm, height: {h}mm)[x]\n"))
+            .collect();
+        fs::write(&template, src).unwrap();
+        let pdf_bytes = compile_to_pdf_bytes(&template).unwrap();
+        Document::load_mem(&add_pdf_boxes(&pdf_bytes, spec).unwrap()).unwrap()
+    }
+
+    fn cewe_spec(has_cover: bool) -> BleedSpec {
+        BleedSpec {
+            bleed_mm: 3.0,
+            bleed_inside_mm: 0.0,
+            has_cover,
+            first_page_side: PageSide::Right,
+            inner_trim_width_mm: 290.0,
+        }
+    }
+
+    #[test]
+    fn inside_bleed_boxes_pages_1_2_3_without_cover() {
+        let doc = facing_pdf(&[(293.0, 296.0); 3], &cewe_spec(false));
+        let ids: Vec<_> = doc.get_pages().values().copied().collect();
+        // Page 1 (right-hand): spine left → no bleed on the left.
+        // Page 2 (left-hand): spine right → no bleed on the right.
+        let expected_trim = [
+            [0.0, 3.0, 290.0, 293.0],
+            [3.0, 3.0, 293.0, 293.0],
+            [0.0, 3.0, 290.0, 293.0],
+        ];
+        for (id, trim) in ids.iter().zip(expected_trim) {
+            assert_box_mm(boxes_mm(&doc, *id, b"MediaBox"), [0.0, 0.0, 293.0, 296.0]);
+            assert_box_mm(boxes_mm(&doc, *id, b"BleedBox"), [0.0, 0.0, 293.0, 296.0]);
+            assert_box_mm(boxes_mm(&doc, *id, b"TrimBox"), trim);
+        }
+    }
+
+    #[test]
+    fn inside_bleed_boxes_first_page_left() {
+        let spec = BleedSpec {
+            first_page_side: PageSide::Left,
+            ..cewe_spec(false)
+        };
+        let doc = facing_pdf(&[(293.0, 296.0); 3], &spec);
+        let ids: Vec<_> = doc.get_pages().values().copied().collect();
+        // Page 1 (left-hand): spine right. Page 2 (right-hand): spine left.
+        let expected_trim = [
+            [3.0, 3.0, 293.0, 293.0],
+            [0.0, 3.0, 290.0, 293.0],
+            [3.0, 3.0, 293.0, 293.0],
+        ];
+        for (id, trim) in ids.iter().zip(expected_trim) {
+            assert_box_mm(boxes_mm(&doc, *id, b"TrimBox"), trim);
+        }
+    }
+
+    #[test]
+    fn inside_bleed_boxes_with_cover_keep_cover_uniform() {
+        let doc = facing_pdf(
+            &[
+                (500.0, 306.0),
+                (293.0, 296.0),
+                (293.0, 296.0),
+                (293.0, 296.0),
+            ],
+            &cewe_spec(true),
+        );
+        let ids: Vec<_> = doc.get_pages().values().copied().collect();
+        assert_box_mm(boxes_mm(&doc, ids[0], b"TrimBox"), [3.0, 3.0, 497.0, 303.0]);
+        assert_box_mm(boxes_mm(&doc, ids[1], b"TrimBox"), [0.0, 3.0, 290.0, 293.0]);
+        assert_box_mm(boxes_mm(&doc, ids[2], b"TrimBox"), [3.0, 3.0, 293.0, 293.0]);
+        assert_box_mm(boxes_mm(&doc, ids[3], b"TrimBox"), [0.0, 3.0, 290.0, 293.0]);
+    }
+
+    #[test]
+    fn inside_bleed_rejects_template_without_inside_bleed() {
+        let temp = TempDir::new().unwrap();
+        let template = temp.path().join("old.typ");
+        fs::write(&template, "#set page(width: 296mm, height: 296mm)\nx").unwrap();
+        let pdf_bytes = compile_to_pdf_bytes(&template).unwrap();
+        let err = add_pdf_boxes(&pdf_bytes, &cewe_spec(false)).unwrap_err();
+        assert!(err.to_string().contains("bleed_inside_mm"));
+    }
+
     #[test]
     fn test_add_pdf_boxes_sets_trim_and_bleed_box() {
         let temp = TempDir::new().unwrap();
@@ -285,7 +489,7 @@ mod tests {
         let pdf_bytes = compile_to_pdf_bytes(&template).unwrap();
 
         let bleed_mm = 3.0_f64;
-        let result = add_pdf_boxes(&pdf_bytes, bleed_mm);
+        let result = add_pdf_boxes(&pdf_bytes, &BleedSpec::uniform_for_test(bleed_mm));
         assert!(result.is_ok(), "add_pdf_boxes failed: {:?}", result.err());
         let annotated = result.unwrap();
 
