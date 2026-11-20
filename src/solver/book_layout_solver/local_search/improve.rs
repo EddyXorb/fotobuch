@@ -300,6 +300,7 @@ mod tests {
         BookLayoutSolverConfig {
             photos_per_page_min: 4,
             photos_per_page_max: 10,
+            photos_per_page_exclude: Vec::new(),
             page_min: 1,
             page_max: 5,
             page_target: 3,

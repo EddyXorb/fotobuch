@@ -23,6 +23,10 @@ pub struct BookLayoutSolverConfig {
     /// Maximum photos per page (p_max).
     #[serde(default = "default_photos_per_page_max")]
     pub photos_per_page_max: usize,
+    /// Page sizes (photo counts) that must never be used, e.g. `[1, 3]` to only
+    /// allow 2 or 4+ photos per page. Applied on top of `photos_per_page_min/max`.
+    #[serde(default)]
+    pub photos_per_page_exclude: Vec<usize>,
     /// Maximum number of groups per page (g_max).
     #[serde(default = "default_group_max_per_page")]
     pub group_max_per_page: usize,
@@ -131,6 +135,14 @@ pub enum ValidationError {
         group_min_photos: usize,
     },
 
+    #[error(
+        "photos_per_page_exclude removes every page size in [{photos_per_page_min}, {photos_per_page_max}]"
+    )]
+    PhotosPerPageAllExcluded {
+        photos_per_page_min: usize,
+        photos_per_page_max: usize,
+    },
+
     #[error("group_max_per_page must be at least 1")]
     GroupMaxPerPageZero,
 
@@ -156,6 +168,15 @@ pub enum ValidationError {
     },
 }
 
+impl BookLayoutSolverConfig {
+    /// Whether a page with `size` photos is allowed by min/max and the exclude list.
+    pub fn is_page_size_allowed(&self, size: usize) -> bool {
+        size >= self.photos_per_page_min
+            && size <= self.photos_per_page_max
+            && !self.photos_per_page_exclude.contains(&size)
+    }
+}
+
 impl Default for BookLayoutSolverConfig {
     fn default() -> Self {
         Self {
@@ -164,6 +185,7 @@ impl Default for BookLayoutSolverConfig {
             page_max: default_page_max(),
             photos_per_page_min: default_photos_per_page_min(),
             photos_per_page_max: default_photos_per_page_max(),
+            photos_per_page_exclude: Vec::new(),
             group_max_per_page: default_group_max_per_page(),
             group_min_photos: default_group_min_photos(),
             weight_even: default_weight_even(),
