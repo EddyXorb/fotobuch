@@ -50,12 +50,46 @@ pub fn compile(template_path: &Path, output_path: &Path) -> Result<()> {
         .with_context(|| format!("Failed to write PDF: {}", output_path.display()))
 }
 
+/// Bleed per page of the book, in millimetres.
+///
+/// The cover (page 0, when active) may have a different bleed than the inner pages.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct PageBleed {
+    /// Bleed of the cover page; `None` when the book has no active cover.
+    pub cover_mm: Option<f64>,
+    /// Bleed of every inner page.
+    pub inner_mm: f64,
+}
+
+impl PageBleed {
+    /// Same bleed on every page (no separate cover bleed).
+    pub fn uniform(bleed_mm: f64) -> Self {
+        Self {
+            cover_mm: None,
+            inner_mm: bleed_mm,
+        }
+    }
+
+    /// Bleed of the page at the 0-based `page` index.
+    pub fn for_page(&self, page: usize) -> f64 {
+        match (page, self.cover_mm) {
+            (0, Some(cover_mm)) => cover_mm,
+            _ => self.inner_mm,
+        }
+    }
+
+    /// True if at least one page has a positive bleed.
+    pub fn any_positive(&self) -> bool {
+        self.inner_mm > 0.0 || self.cover_mm.is_some_and(|c| c > 0.0)
+    }
+}
+
 /// Sets TrimBox and BleedBox in a PDF to mark the printable area vs. bleed zone.
 ///
-/// The PDF page (MediaBox) must already be sized as `TrimSize + 2 × bleed_mm` on each side.
+/// Each PDF page (MediaBox) must already be sized as `TrimSize + 2 × bleed` of that page.
 /// After this call:
 /// - `BleedBox` = full page (identical to MediaBox)
-/// - `TrimBox`  = page inset by `bleed_mm` on every side
+/// - `TrimBox`  = page inset by the page's bleed (see [`PageBleed::for_page`]) on every side
 // PDF box hierarchy:
 //
 //  ╔════════════════════════════════════╗← MediaBox (full page, includes bleed, most times same as BleedBox)
@@ -73,15 +107,17 @@ pub fn compile(template_path: &Path, output_path: &Path) -> Result<()> {
 //  ║       MediaBox                     ║
 //  └────────────────────────────────────┘
 //
-fn add_pdf_boxes(pdf_bytes: &[u8], bleed_mm: f64) -> Result<Vec<u8>> {
+fn add_pdf_boxes(pdf_bytes: &[u8], bleed: PageBleed) -> Result<Vec<u8>> {
     const MM_TO_PT: f32 = 72.0 / 25.4;
-    let bleed_pt = bleed_mm as f32 * MM_TO_PT;
 
     let mut doc = Document::load_mem(pdf_bytes)
         .map_err(|e| anyhow::anyhow!("Failed to parse PDF for box annotations: {e}"))?;
 
+    // `get_pages` is a BTreeMap keyed by page number, so values are in page order.
     let page_ids: Vec<_> = doc.get_pages().values().copied().collect();
-    for page_id in page_ids {
+    for (page_index, page_id) in page_ids.into_iter().enumerate() {
+        let bleed_mm = bleed.for_page(page_index);
+        let bleed_pt = bleed_mm as f32 * MM_TO_PT;
         let media_box: Vec<Object> = {
             let page = doc
                 .get_object(page_id)
@@ -124,29 +160,30 @@ fn add_pdf_boxes(pdf_bytes: &[u8], bleed_mm: f64) -> Result<Vec<u8>> {
             .map_err(|e| anyhow::anyhow!("Page is not a dict: {e}"))?;
         page.set(b"TrimBox", Object::Array(trim_box));
         page.set(b"BleedBox", Object::Array(bleed_box));
+
+        debug!("Page {page_index}: TrimBox inset by {bleed_mm:.1} mm ({bleed_pt:.2} pt)");
     }
 
     let mut output = Vec::new();
     doc.save_to(&mut output)
         .map_err(|e| anyhow::anyhow!("Failed to write PDF with boxes: {e}"))?;
 
-    debug!(
-        "Added TrimBox and BleedBox with bleed of {:.1} mm ({:.2} pt)",
-        bleed_mm, bleed_pt
-    );
-
     Ok(output)
 }
 
 /// Compiles the preview PDF with bleed and sets TrimBox/BleedBox in the output PDF.
 /// Template: `{project_root}/{name}.typ` → Output: `{project_root}/{name}.pdf`
-pub fn compile_preview(project_root: &Path, project_name: &str, bleed_mm: f64) -> Result<PathBuf> {
+pub fn compile_preview(
+    project_root: &Path,
+    project_name: &str,
+    bleed: PageBleed,
+) -> Result<PathBuf> {
     let template = project_root.join(format!("{project_name}.typ"));
     let output = project_root.join(format!("{project_name}.pdf"));
 
     let pdf_bytes = compile_to_pdf_bytes(&template)?;
-    let pdf_bytes = if bleed_mm > 0.0 {
-        add_pdf_boxes(&pdf_bytes, bleed_mm)?
+    let pdf_bytes = if bleed.any_positive() {
+        add_pdf_boxes(&pdf_bytes, bleed)?
     } else {
         pdf_bytes
     };
@@ -159,7 +196,7 @@ pub fn compile_preview(project_root: &Path, project_name: &str, bleed_mm: f64) -
 ///
 /// Generates `final.typ` from `{name}.typ` with `is_final = true`.
 /// Template: `{project_root}/final.typ` → Output: `{project_root}/{name}_final.pdf`
-pub fn compile_final(project_root: &Path, project_name: &str, bleed_mm: f64) -> Result<PathBuf> {
+pub fn compile_final(project_root: &Path, project_name: &str, bleed: PageBleed) -> Result<PathBuf> {
     let source_template = project_root.join(format!("{project_name}.typ"));
     let final_template = project_root.join("final.typ");
     let output = project_root.join(format!("{}_final.pdf", project_name));
@@ -168,8 +205,8 @@ pub fn compile_final(project_root: &Path, project_name: &str, bleed_mm: f64) -> 
 
     let pdf_bytes = compile_to_pdf_bytes(&final_template)?;
 
-    let pdf_bytes = if bleed_mm > 0.0 {
-        add_pdf_boxes(&pdf_bytes, bleed_mm)?
+    let pdf_bytes = if bleed.any_positive() {
+        add_pdf_boxes(&pdf_bytes, bleed)?
     } else {
         pdf_bytes
     };
@@ -244,7 +281,7 @@ mod tests {
 
         fs::write(&template, "= My Book\n\nPreview content.").unwrap();
 
-        let result = compile_preview(temp.path(), "mybook", 0.0);
+        let result = compile_preview(temp.path(), "mybook", PageBleed::uniform(0.0));
 
         assert!(result.is_ok());
         let pdf_path = result.unwrap();
@@ -263,7 +300,7 @@ mod tests {
         )
         .unwrap();
 
-        let result = compile_final(temp.path(), "mybook", 0.0);
+        let result = compile_final(temp.path(), "mybook", PageBleed::uniform(0.0));
 
         assert!(result.is_ok(), "compile_final failed: {:?}", result.err());
         let pdf_path = result.unwrap();
@@ -285,7 +322,7 @@ mod tests {
         let pdf_bytes = compile_to_pdf_bytes(&template).unwrap();
 
         let bleed_mm = 3.0_f64;
-        let result = add_pdf_boxes(&pdf_bytes, bleed_mm);
+        let result = add_pdf_boxes(&pdf_bytes, PageBleed::uniform(bleed_mm));
         assert!(result.is_ok(), "add_pdf_boxes failed: {:?}", result.err());
         let annotated = result.unwrap();
 
@@ -318,6 +355,93 @@ mod tests {
         assert!((ty0 - (my0 + bleed_pt)).abs() < 0.01);
         assert!((tx1 - (mx1 - bleed_pt)).abs() < 0.01);
         assert!((ty1 - (my1 - bleed_pt)).abs() < 0.01);
+    }
+
+    /// Returns `(MediaBox, TrimBox)` of every page as `[x0, y0, x1, y1]` in pt.
+    fn media_and_trim_boxes(pdf: &[u8]) -> Vec<([f32; 4], [f32; 4])> {
+        let doc = Document::load_mem(pdf).unwrap();
+        let read_box = |page: &lopdf::Dictionary, key: &[u8]| -> [f32; 4] {
+            let arr = page.get(key).unwrap().as_array().unwrap();
+            std::array::from_fn(|i| arr[i].as_float().unwrap())
+        };
+        doc.get_pages()
+            .values()
+            .map(|&id| {
+                let page = doc.get_object(id).unwrap().as_dict().unwrap();
+                (read_box(page, b"MediaBox"), read_box(page, b"TrimBox"))
+            })
+            .collect()
+    }
+
+    fn assert_trim_inset(media: [f32; 4], trim: [f32; 4], bleed_mm: f64) {
+        let inset = bleed_mm as f32 * (72.0 / 25.4);
+        let expected = [
+            media[0] + inset,
+            media[1] + inset,
+            media[2] - inset,
+            media[3] - inset,
+        ];
+        for (t, e) in trim.iter().zip(expected) {
+            assert!(
+                (t - e).abs() < 0.01,
+                "TrimBox {trim:?} != expected {expected:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_add_pdf_boxes_uses_cover_bleed_for_first_page() {
+        let temp = TempDir::new().unwrap();
+        let template = temp.path().join("cover_bleed_test.typ");
+        fs::write(
+            &template,
+            "#set page(width: 420mm, height: 270mm)\nCover\n\
+             #page(width: 206mm, height: 256mm)[Inner]",
+        )
+        .unwrap();
+        let pdf_bytes = compile_to_pdf_bytes(&template).unwrap();
+
+        let bleed = PageBleed {
+            cover_mm: Some(10.0),
+            inner_mm: 3.0,
+        };
+        let annotated = add_pdf_boxes(&pdf_bytes, bleed).unwrap();
+
+        let boxes = media_and_trim_boxes(&annotated);
+        assert_eq!(boxes.len(), 2, "expected cover + one inner page");
+        assert_trim_inset(boxes[0].0, boxes[0].1, 10.0);
+        assert_trim_inset(boxes[1].0, boxes[1].1, 3.0);
+    }
+
+    #[test]
+    fn test_page_bleed_for_page() {
+        let with_cover = PageBleed {
+            cover_mm: Some(10.0),
+            inner_mm: 3.0,
+        };
+        assert_eq!(with_cover.for_page(0), 10.0);
+        assert_eq!(with_cover.for_page(1), 3.0);
+        assert_eq!(with_cover.for_page(7), 3.0);
+
+        let no_cover = PageBleed::uniform(3.0);
+        assert_eq!(no_cover.for_page(0), 3.0);
+        assert_eq!(no_cover.for_page(1), 3.0);
+    }
+
+    #[test]
+    fn test_page_bleed_any_positive() {
+        assert!(!PageBleed::uniform(0.0).any_positive());
+        assert!(PageBleed::uniform(3.0).any_positive());
+        let cover_only = PageBleed {
+            cover_mm: Some(5.0),
+            inner_mm: 0.0,
+        };
+        assert!(cover_only.any_positive());
+        let zero_cover = PageBleed {
+            cover_mm: Some(0.0),
+            inner_mm: 0.0,
+        };
+        assert!(!zero_cover.any_positive());
     }
 
     #[test]
