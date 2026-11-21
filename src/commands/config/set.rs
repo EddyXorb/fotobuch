@@ -50,44 +50,71 @@ pub fn config_set(
 }
 
 /// Set `key` (dot-notation) to `value` on the config view, returning the old value.
+///
+/// Optional fields that are currently unset (and therefore absent from the
+/// serialized config, e.g. `book.cover.spine_text`) can be set as well; a key
+/// is only accepted if it survives a deserialize/serialize round trip.
+/// If the auto-detected type (number, bool) is rejected, the raw string is
+/// tried, so e.g. `book.title 2024` stores the string `"2024"`.
 fn set_config_key(s: &mut WriteConfigState, key: &str, value: &str) -> Result<String> {
-    let mut config_value =
+    let config_value =
         serde_yaml::to_value(s.config()).map_err(|e| anyhow!("Failed to serialize config: {e}"))?;
 
     let parts: Vec<&str> = key.split('.').collect();
-    let (head, last_key) = parts.split_at(parts.len() - 1);
+    let (head, last) = parts.split_at(parts.len() - 1);
+    let last_key = last[0];
 
-    // Navigate to the parent mapping
-    let mut current = &mut config_value;
-    for part in head {
-        current = current
-            .get_mut(*part)
-            .ok_or_else(|| anyhow!("Unknown config key: '{key}'"))?;
+    let parent =
+        lookup(&config_value, head).ok_or_else(|| anyhow!("Unknown config key: '{key}'"))?;
+    if !parent.is_mapping() {
+        return Err(anyhow!("Cannot set '{key}': parent is not a mapping"));
     }
 
-    let last_key = last_key[0];
-
-    // Remember old value
-    let old_value = current
+    // Absent keys are unset optional fields or typos; the round trip decides.
+    let old_value = parent
         .get(last_key)
-        .map(value_to_string)
-        .ok_or_else(|| anyhow!("Unknown config key: '{key}'"))?;
+        .map_or_else(|| "null".to_string(), value_to_string);
 
-    // Set new value
-    let new_yaml = parse_yaml_value(value);
-    match current {
-        Value::Mapping(map) => {
-            map.insert(Value::String(last_key.to_string()), new_yaml);
+    let typed = parse_yaml_value(value);
+    let new_config = match apply_value(&config_value, &parts, typed.clone()) {
+        Err(e) if !typed.is_string() => {
+            apply_value(&config_value, &parts, Value::String(value.to_string())).map_err(|_| e)
         }
-        _ => return Err(anyhow!("Cannot set '{key}': parent is not a mapping")),
+        other => other,
     }
+    .map_err(|e| anyhow!("Cannot set '{key}' to '{value}': {e}"))?;
 
-    // Deserialize back — validates types and enum variants
-    let new_config: ProjectConfig = serde_yaml::from_value(config_value)
-        .map_err(|e| anyhow!("Cannot set '{key}' to '{value}': {e}"))?;
+    // serde silently drops unknown fields — reject keys that did not survive.
+    let round_trip = serde_yaml::to_value(&new_config)
+        .map_err(|e| anyhow!("Failed to serialize config: {e}"))?;
+    if lookup(&round_trip, &parts).is_none() {
+        return Err(anyhow!("Unknown config key: '{key}'"));
+    }
 
     *s.config_mut() = new_config;
     Ok(old_value)
+}
+
+/// Insert `new` at the dot-path `parts` into a copy of `root` and deserialize it.
+fn apply_value(root: &Value, parts: &[&str], new: Value) -> Result<ProjectConfig> {
+    let mut root = root.clone();
+    let (head, last) = parts.split_at(parts.len() - 1);
+    let mut current = &mut root;
+    for part in head {
+        current = current
+            .get_mut(*part)
+            .ok_or_else(|| anyhow!("missing parent '{part}'"))?;
+    }
+    current
+        .as_mapping_mut()
+        .ok_or_else(|| anyhow!("parent is not a mapping"))?
+        .insert(Value::String(last[0].to_string()), new);
+    Ok(serde_yaml::from_value(root)?)
+}
+
+/// Follow the dot-path `parts` in `root`.
+fn lookup<'a>(root: &'a Value, parts: &[&str]) -> Option<&'a Value> {
+    parts.iter().try_fold(root, |v, p| v.get(*p))
 }
 
 /// Auto-detect the YAML type from a string value.
@@ -176,6 +203,60 @@ mod tests {
         let mgr = StateManager::open(&root).unwrap();
         assert_eq!(mgr.state.config.book.title, "Mein Buch");
         mgr.finish("noop").unwrap();
+    }
+
+    #[test]
+    fn test_set_title_numeric_string() {
+        let (_tmp, root) = open_tmp();
+        let res = config_set(&root, "book.title", "2024").unwrap();
+        assert_eq!(res.result.new_value, "2024");
+
+        let mgr = StateManager::open(&root).unwrap();
+        assert_eq!(mgr.state.config.book.title, "2024");
+        mgr.finish("noop").unwrap();
+    }
+
+    #[test]
+    fn test_set_unset_spine_text_numeric_string() {
+        let (_tmp, root) = open_tmp();
+        let res = config_set(&root, "book.cover.spine_text", "2024").unwrap();
+        assert_eq!(res.result.old_value, "null");
+
+        let mgr = StateManager::open(&root).unwrap();
+        assert_eq!(
+            mgr.state.config.book.cover.spine_text.as_deref(),
+            Some("2024")
+        );
+        mgr.finish("noop").unwrap();
+    }
+
+    #[test]
+    fn test_overwrite_spine_text_reports_old_value() {
+        let (_tmp, root) = open_tmp();
+        config_set(&root, "book.cover.spine_text", "Urlaub").unwrap();
+        let res = config_set(&root, "book.cover.spine_text", "Sommer 2024").unwrap();
+        assert_eq!(res.result.old_value, "Urlaub");
+
+        let mgr = StateManager::open(&root).unwrap();
+        assert_eq!(
+            mgr.state.config.book.cover.spine_text.as_deref(),
+            Some("Sommer 2024")
+        );
+        mgr.finish("noop").unwrap();
+    }
+
+    #[test]
+    fn test_unknown_nested_key_errors() {
+        let (_tmp, root) = open_tmp();
+        let err = config_set(&root, "book.cover.spine_txt", "x").unwrap_err();
+        assert!(err.to_string().contains("Unknown config key"));
+    }
+
+    #[test]
+    fn test_numeric_field_still_rejects_text() {
+        let (_tmp, root) = open_tmp();
+        let err = config_set(&root, "book.gap_mm", "true").unwrap_err();
+        assert!(err.to_string().contains("Cannot set"));
     }
 
     #[test]
