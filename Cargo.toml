@@ -106,7 +106,7 @@ optional = true
 # egui 0.37 nothing enables wayland-sys's "dlopen" anymore, so keeping that
 # feature would require libwayland-client at build and link time.
 [dependencies.rfd]
-version = "0.17"
+version = "0.18"
 optional = true
 default-features = false
 features = ["xdg-portal"]
