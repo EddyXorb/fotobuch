@@ -65,13 +65,13 @@ fn python_tooling_manifest_still_lives_where_dependabot_looks() {
 }
 
 #[test]
-fn every_ecosystem_is_updated_weekly() {
+fn every_ecosystem_is_updated_monthly() {
     let config = dependabot_config();
     for entry in updates(&config) {
         assert_eq!(
             entry["schedule"]["interval"].as_str(),
-            Some("weekly"),
-            "ecosystem {:?} is not scheduled weekly",
+            Some("monthly"),
+            "ecosystem {:?} is not scheduled monthly",
             entry["package-ecosystem"]
         );
     }
@@ -95,7 +95,7 @@ fn cargo_updates_include_transitive_dependencies() {
     );
 }
 
-/// Grouped PRs keep the weekly noise down; ungrouped updates would open a
+/// Grouped PRs keep the monthly noise down; ungrouped updates would open a
 /// separate pull request per crate.
 #[test]
 fn updates_are_grouped() {

@@ -1,4 +1,4 @@
-# Wöchentliche Abhängigkeits-Updates.
+# Monatliche Abhängigkeits-Updates (jeweils am 1. des Monats).
 #
 # Ziel: Sicherheitslücken, die `cargo audit` (Workflow "Security Audit")
 # meldet, werden automatisch als PR vorgeschlagen, statt den Audit-Job
@@ -20,8 +20,7 @@ updates:
   - package-ecosystem: cargo
     directory: "/"
     schedule:
-      interval: weekly
-      day: monday
+      interval: monthly
       time: "06:00"
       timezone: Europe/Berlin
     # `cargo audit` prüft die komplette Cargo.lock. Viele Advisories
@@ -70,8 +69,7 @@ updates:
   - package-ecosystem: uv
     directory: /tests/tools
     schedule:
-      interval: weekly
-      day: monday
+      interval: monthly
       time: "06:00"
       timezone: Europe/Berlin
     open-pull-requests-limit: 5
@@ -90,8 +88,7 @@ updates:
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
-      interval: weekly
-      day: monday
+      interval: monthly
       time: "06:00"
       timezone: Europe/Berlin
     open-pull-requests-limit: 5
