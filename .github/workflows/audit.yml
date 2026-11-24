@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
   schedule:
-    - cron: "29 5 * * *"
+    - cron: "29 5 1 * *"
 
 jobs:
   audit:
