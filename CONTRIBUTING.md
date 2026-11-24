@@ -9,24 +9,27 @@ subject to.
 
 This policy applies to external contributors.
 
-Using AI (i.e., LLMs) as a tool for coding is welcome. However, a high bar is
+Using AI (i.e., LLMs) as a tool for coding is welcome. However, a relative high bar is
 held for all contributions: you remain responsible for any code you submit, and
 the maintainer remains responsible for any code that is merged and released.
 
-- **You must understand every change you submit.** You are expected to be able
+- **You must understand most of the change you submit.** You are expected to be able
   to explain the proposed changes in your own words — in the pull request body
   and when answering questions. Pull requests containing LLM-generated work the
-  author does not understand will be closed.
-- **Comments must be written by humans.** Do not use AI to generate pull
-  request descriptions, review replies or issue comments, and do not copy AI
-  responses when answering questions from the maintainer. Comments believed to
-  be AI-generated may be hidden without notice.
+  author does not understand at all will be closed. This does not mean that you
+  need to understand each and every line, but in this case be open about it. 
+- **Comments must be written by humans.** Do not use AI to generate review replies or issue comments,
+  and do not simply copy AI responses when answering questions from the maintainer. Comments believed to
+  be AI-generated may be hidden without notice. 
 - **No autonomous agents.** A human in the loop is required. Pull requests that
-  appear to be created autonomously will be closed, possibly without notice.
+  appear to be maintained by autonomously will be closed, possibly without notice.
 - **Disclose AI context.** If you want to share context from an interaction
   with an AI, put the relevant part in a quote block (`>`), mark it as
   AI-generated, and add your own commentary on why it is relevant. Do not share
   long snippets.
+- **MR descriptions are fine** You can use AI to generate an MR description, 
+  as long as you understand every part of it fully 
+  and consider it concise enough and NOT bloated.
 - **Translations are fine.** If you use AI to translate your comments, write in
   your native language and include the AI translation in a quote block
   beneath it.
