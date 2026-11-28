@@ -11,10 +11,8 @@ use fotobuch::state_manager::StateManager;
 use std::path::PathBuf;
 use tempfile::TempDir;
 
-/// Helper to create a test project with photos
-fn create_test_project_with_photos(temp_dir: &TempDir) -> Result<PathBuf> {
-    // Create project
-    let config = NewConfig {
+fn default_new_config() -> NewConfig {
+    NewConfig {
         name: "testbuild".to_string(),
         width_mm: 200.0,
         height_mm: 250.0,
@@ -26,8 +24,17 @@ fn create_test_project_with_photos(temp_dir: &TempDir) -> Result<PathBuf> {
         spine_mm: None,
         margin_mm: 0.0,
         base_config: None,
-    };
-    let result = new(temp_dir.path(), &config)?;
+    }
+}
+
+/// Helper to create a test project with photos
+fn create_test_project_with_photos(temp_dir: &TempDir) -> Result<PathBuf> {
+    create_test_project_with_photos_from(temp_dir, &default_new_config())
+}
+
+/// Helper to create a test project with photos from a custom `NewConfig`
+fn create_test_project_with_photos_from(temp_dir: &TempDir, config: &NewConfig) -> Result<PathBuf> {
+    let result = new(temp_dir.path(), config)?;
     let project_root = result.result.project_root;
 
     let mut mgr = StateManager::open(&project_root)?;
@@ -885,6 +892,95 @@ fn build_does_not_write_pdf_when_write_pdf_disabled() -> Result<()> {
         !result.result.pdf_path.exists(),
         "PDF must not be written when preview.write_pdf is false"
     );
+
+    Ok(())
+}
+
+/// Returns `(MediaBox, TrimBox)` of every page as `[x0, y0, x1, y1]` in pt.
+fn media_and_trim_boxes(pdf_path: &std::path::Path) -> Result<Vec<([f32; 4], [f32; 4])>> {
+    let doc = lopdf::Document::load(pdf_path)?;
+    let read_box = |page: &lopdf::Dictionary, key: &[u8]| -> Result<[f32; 4]> {
+        let arr = page.get(key)?.as_array()?;
+        Ok([
+            arr[0].as_float()?,
+            arr[1].as_float()?,
+            arr[2].as_float()?,
+            arr[3].as_float()?,
+        ])
+    };
+    doc.get_pages()
+        .values()
+        .map(|&id| {
+            let page = doc.get_object(id)?.as_dict()?;
+            Ok((read_box(page, b"MediaBox")?, read_box(page, b"TrimBox")?))
+        })
+        .collect()
+}
+
+fn trim_inset_pt(media: [f32; 4], trim: [f32; 4]) -> [f32; 4] {
+    [
+        trim[0] - media[0],
+        trim[1] - media[1],
+        media[2] - trim[2],
+        media[3] - trim[3],
+    ]
+}
+
+#[test]
+fn release_pdf_uses_cover_bleed_for_cover_trim_box() -> Result<()> {
+    common::init_tests();
+    const MM_TO_PT: f32 = 72.0 / 25.4;
+
+    let temp_dir = TempDir::new()?;
+    let config = NewConfig {
+        with_cover: true,
+        spine_mm: Some(10.0),
+        ..default_new_config()
+    };
+    let project_root = create_test_project_with_photos_from(&temp_dir, &config)?;
+
+    let mut mgr = StateManager::open(&project_root)?;
+    mgr.state.config.book.cover.bleed_mm = 10.0;
+    mgr.finish("test: set cover bleed")?;
+
+    build(
+        &project_root,
+        &BuildConfig {
+            plan: BuildPlan::Auto { pages: None },
+            skip_pdf: true,
+            skip_cache_update: true,
+        },
+    )?;
+    let result = build(
+        &project_root,
+        &BuildConfig {
+            plan: BuildPlan::Release { force: false },
+            skip_pdf: false,
+            skip_cache_update: false,
+        },
+    )?;
+
+    let boxes = media_and_trim_boxes(&result.result.pdf_path)?;
+    assert!(
+        boxes.len() >= 2,
+        "expected cover and at least one inner page"
+    );
+
+    let (cover_bleed, inner_bleed) = (10.0 * MM_TO_PT, 3.0 * MM_TO_PT);
+    for inset in trim_inset_pt(boxes[0].0, boxes[0].1) {
+        assert!(
+            (inset - cover_bleed).abs() < 0.01,
+            "cover TrimBox inset {inset} pt, expected {cover_bleed} pt"
+        );
+    }
+    for (page, (media, trim)) in boxes.iter().enumerate().skip(1) {
+        for inset in trim_inset_pt(*media, *trim) {
+            assert!(
+                (inset - inner_bleed).abs() < 0.01,
+                "page {page} TrimBox inset {inset} pt, expected {inner_bleed} pt"
+            );
+        }
+    }
 
     Ok(())
 }

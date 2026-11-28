@@ -2,14 +2,15 @@ use anyhow::Result;
 use std::path::PathBuf;
 use tracing::info;
 
-use crate::output::typst;
+use crate::models::BookConfig;
+use crate::output::typst::{self, PageBleed};
 use crate::state_manager::StateManager;
 
 /// Data captured from `StateManager` before it is consumed by `finish`/`finish_always`.
 pub struct RenderContext {
     pub project_root: PathBuf,
     pub project_name: String,
-    pub bleed_mm: f64,
+    pub bleed: PageBleed,
 }
 
 impl RenderContext {
@@ -17,8 +18,16 @@ impl RenderContext {
         Self {
             project_root: mgr.project_root().to_owned(),
             project_name: mgr.project_name().to_string(),
-            bleed_mm: mgr.state.config.book.bleed_mm,
+            bleed: page_bleed(&mgr.state.config.book),
         }
+    }
+}
+
+/// Cover bleed applies to page 0 only when the cover is active.
+fn page_bleed(book: &BookConfig) -> PageBleed {
+    PageBleed {
+        cover_mm: book.cover.active.then_some(book.cover.bleed_mm),
+        inner_mm: book.bleed_mm,
     }
 }
 
@@ -31,7 +40,7 @@ pub enum PdfTarget {
 pub fn render_pdf(ctx: &RenderContext, target: PdfTarget, skip_pdf: bool) -> Result<PathBuf> {
     let root = &ctx.project_root;
     let name = &ctx.project_name;
-    let bleed = ctx.bleed_mm;
+    let bleed = ctx.bleed;
     if skip_pdf {
         return Ok(root.join(format!("{name}.pdf")));
     }
