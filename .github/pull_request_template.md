@@ -12,4 +12,4 @@
 
 <!-- Required. Pull requests without this confirmation cannot be merged. -->
 
-- [ ] I have read and agree to the [Contribution Terms (version 1.0)](https://github.com/EddyXorb/fotobuch/blob/main/CONTRIBUTING.md#contribution-terms) for this contribution.
+- [ ] I have read and agree to the [Contribution Terms](https://github.com/EddyXorb/fotobuch/blob/main/CONTRIBUTING.md#contribution-terms) for this contribution.

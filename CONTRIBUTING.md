@@ -17,19 +17,18 @@ the maintainer remains responsible for any code that is merged and released.
   to explain the proposed changes in your own words — in the pull request body
   and when answering questions. Pull requests containing LLM-generated work the
   author does not understand at all will be closed. This does not mean that you
-  need to understand each and every line, but in this case be open about it. 
+  need to understand each and every line, but in this case be open about it.
 - **Comments must be written by humans.** Do not use AI to generate review replies or issue comments,
   and do not simply copy AI responses when answering questions from the maintainer. Comments believed to
-  be AI-generated may be hidden without notice. 
+  be AI-generated may be hidden without notice.
 - **No autonomous agents.** A human in the loop is required. Pull requests that
-  appear to be maintained by autonomously will be closed, possibly without notice.
+  appear to be maintained autonomously will be closed, possibly without notice.
 - **Disclose AI context.** If you want to share context from an interaction
   with an AI, put the relevant part in a quote block (`>`), mark it as
   AI-generated, and add your own commentary on why it is relevant. Do not share
   long snippets.
-- **MR descriptions are fine** You can use AI to generate an MR description, 
-  as long as you understand every part of it fully 
-  and consider it concise enough and NOT bloated.
+- **PR descriptions are fine** You can use AI to generate an PR description,
+  as long as you understand every part of it fully and consider it concise enough and NOT bloated.
 - **Translations are fine.** If you use AI to translate your comments, write in
   your native language and include the AI translation in a quote block
   beneath it.
@@ -57,8 +56,6 @@ This policy was adapted from
   `cargo deny check licenses` verifies this in CI.
 
 ## Contribution Terms
-
-*Version 1.0*
 
 By submitting a contribution to this project (a pull request, patch, or any
 other material, hereinafter "Contribution"), you agree to the following terms:
