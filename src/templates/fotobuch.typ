@@ -53,17 +53,35 @@
   ".fotobuch/cache/" + project_name + "/preview/"
 }
 
-// Page size and margins from YAML (including bleed)
-#let bleed = data.config.book.bleed_mm * 1mm
-#let margin = data.config.book.margin_mm * 1mm
-#set page(
-  width: data.config.book.page_width_mm * 1mm + 2 * bleed,
-  height: data.config.book.page_height_mm * 1mm + 2 * bleed,
-  margin: bleed + margin,
-)
-
 #let cover_or_none = data.config.book.at("cover", default: none)
 #let has_cover = cover_or_none != none and cover_or_none.at("active", default: false)
+
+// Page size and margins from YAML (including bleed)
+// Inner pages are facing pages of a left-bound book. The first inner page is
+// on side `first_page_side` (default: right, inside/spine edge left), then the
+// sides alternate. The inside edge gets `bleed_inside_mm` (default: bleed_mm).
+// Typst's `binding: left` puts the inside on the left of odd physical pages,
+// and physical pages include the cover, so the binding depends on both.
+#let first_page_right = data.config.book.at("first_page_side", default: "right") != "left"
+#let bleed = data.config.book.bleed_mm * 1mm
+#let bleed_inside = {
+  let bi = data.config.book.at("bleed_inside_mm", default: none)
+  if bi == none { bleed } else { bi * 1mm }
+}
+#let margin = data.config.book.margin_mm * 1mm
+#set page(
+  width: data.config.book.page_width_mm * 1mm + bleed + bleed_inside,
+  height: data.config.book.page_height_mm * 1mm + 2 * bleed,
+  margin: (inside: bleed_inside + margin, outside: bleed + margin, y: bleed + margin),
+  binding: if (not has_cover) == first_page_right { left } else { right },
+)
+
+// Returns (left, right) bleed of the inner page with layout index `page_index`
+#let inner_bleed_lr(page_index) = {
+  let inner_idx = if has_cover { page_index - 1 } else { page_index }
+  let is_right_hand = calc.even(inner_idx) == first_page_right
+  if is_right_hand { (bleed_inside, bleed) } else { (bleed, bleed_inside) }
+}
 
 // ── Utility functions ────────────────────────────────────────────────
 
@@ -146,14 +164,16 @@
 // ── Page rendering blocks ────────────────────────────────────────────
 
 // Draws red bleed border and blue margin border as overlays (w_mm/h_mm = content size without bleed)
-// b = bleed length value, m = margin length value
-#let draw_borders(w_mm, h_mm, b, m) = [
-  #place(top + left, dx: -(b / 2 + m), dy: -(b / 2 + m), rect(
-    width: w_mm * 1mm + b,
-    height: h_mm * 1mm + b,
-    stroke: red + b,
-    fill: none,
-  ))
+// b = top/bottom bleed, bl/br = left/right bleed, m = margin (length values)
+#let draw_borders(w_mm, h_mm, b, m, bl: auto, br: auto) = [
+  #let bl = if bl == auto { b } else { bl }
+  #let br = if br == auto { b } else { br }
+  #let w = w_mm * 1mm
+  #let h = h_mm * 1mm
+  #place(top + left, dx: -m - bl, dy: -m - b, rect(width: w + bl + br, height: b, fill: red))
+  #place(top + left, dx: -m - bl, dy: -m + h, rect(width: w + bl + br, height: b, fill: red))
+  #place(top + left, dx: -m - bl, dy: -m, rect(width: bl, height: h, fill: red))
+  #place(top + left, dx: -m + w, dy: -m, rect(width: br, height: h, fill: red))
   #place(top + left, dx: -m / 2, dy: -m / 2, rect(
     width: w_mm * 1mm - m,
     height: h_mm * 1mm - m,
@@ -370,11 +390,14 @@
 
 #for page_index in range(layout_start, data.layout.len()) [
   #let page_data = data.layout.at(page_index)
+  #let (bleed_l, bleed_r) = inner_bleed_lr(page_index)
   #if show_borders_on_preview [#draw_borders(
     data.config.book.page_width_mm,
     data.config.book.page_height_mm,
     bleed,
     margin,
+    bl: bleed_l,
+    br: bleed_r,
   )]
 
   #for (i, slot) in page_data.slots.enumerate() [

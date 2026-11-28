@@ -1,4 +1,4 @@
-use fotobuch::models::{LayoutPage, Slot};
+use fotobuch::models::{LayoutPage, ProjectState, Slot};
 
 /// Fallback aspect ratio (height/width) used when no texture size is available. Approximates A4 (√2).
 pub const A4_ASPECT: f32 = std::f32::consts::SQRT_2;
@@ -9,7 +9,12 @@ pub const A4_ASPECT: f32 = std::f32::consts::SQRT_2;
 pub struct PageDimensions {
     pub width_mm: f64,
     pub height_mm: f64,
+    /// Bleed on the top and bottom edge.
     pub bleed_mm: f64,
+    /// Bleed on the left edge (differs from `bleed_mm` on the spine edge of inner pages).
+    pub bleed_left_mm: f64,
+    /// Bleed on the right edge (differs from `bleed_mm` on the spine edge of inner pages).
+    pub bleed_right_mm: f64,
     pub margin_mm: f64,
 }
 
@@ -17,19 +22,59 @@ pub struct PageDimensions {
 pub struct PageScale {
     pub scale_x: f32,
     pub scale_y: f32,
-    /// Distance in mm (converted to screen pixels via scale) from the physical page corner to the
-    /// content-area origin: `bleed + margin`.
-    pub offset_mm: f32,
+    /// Horizontal distance in mm from the physical page corner to the content-area origin:
+    /// `bleed_left + margin`.
+    pub offset_x_mm: f32,
+    /// Vertical distance in mm from the physical page corner to the content-area origin:
+    /// `bleed + margin`.
+    pub offset_y_mm: f32,
 }
 
 impl PageDimensions {
+    /// Dimensions of the page with layout index `page_idx`, including per-side bleed.
+    pub fn for_page(project: &ProjectState, page_idx: usize) -> Self {
+        let (width_mm, height_mm) = project.page_dimensions_mm(page_idx);
+        let (bleed_mm, margin_mm) = project.page_bleed_margin_mm(page_idx);
+        let (bleed_left_mm, bleed_right_mm) = project.page_bleed_left_right_mm(page_idx);
+        Self {
+            width_mm,
+            height_mm,
+            bleed_mm,
+            bleed_left_mm,
+            bleed_right_mm,
+            margin_mm,
+        }
+    }
+
+    /// Same bleed on all four sides.
+    #[cfg(test)]
+    pub fn uniform(width_mm: f64, height_mm: f64, bleed_mm: f64, margin_mm: f64) -> Self {
+        Self {
+            width_mm,
+            height_mm,
+            bleed_mm,
+            bleed_left_mm: bleed_mm,
+            bleed_right_mm: bleed_mm,
+            margin_mm,
+        }
+    }
+
+    /// Width of the rendered page image in mm (trim width plus left and right bleed).
+    pub fn full_width_mm(self) -> f64 {
+        self.width_mm + self.bleed_left_mm + self.bleed_right_mm
+    }
+
+    /// Height of the rendered page image in mm (trim height plus top and bottom bleed).
+    pub fn full_height_mm(self) -> f64 {
+        self.height_mm + 2.0 * self.bleed_mm
+    }
+
     pub fn page_scale(self, page_rect: egui::Rect) -> PageScale {
-        let full_w = (self.width_mm + 2.0 * self.bleed_mm) as f32;
-        let full_h = (self.height_mm + 2.0 * self.bleed_mm) as f32;
         PageScale {
-            scale_x: page_rect.width() / full_w,
-            scale_y: page_rect.height() / full_h,
-            offset_mm: (self.bleed_mm + self.margin_mm) as f32,
+            scale_x: page_rect.width() / self.full_width_mm() as f32,
+            scale_y: page_rect.height() / self.full_height_mm() as f32,
+            offset_x_mm: (self.bleed_left_mm + self.margin_mm) as f32,
+            offset_y_mm: (self.bleed_mm + self.margin_mm) as f32,
         }
     }
 }
@@ -45,14 +90,14 @@ pub fn slot_ratio_similar(ratio_a: f64, ratio_b: f64) -> bool {
 /// Maps a slot's mm coordinates to screen pixels, given the already-scaled page rect.
 ///
 /// `page_rect` is the egui rect the page image occupies (zoom already applied).
-/// The image covers `page_width + 2*bleed` × `page_height + 2*bleed` mm.
+/// The image covers `page_width + bleed_left + bleed_right` × `page_height + 2*bleed` mm.
 /// Slot coordinates are in the Typst content area (offset by `bleed + margin` from the
-/// physical page corner).
+/// physical page corner, `bleed_left + margin` horizontally).
 pub fn slot_rect_on_screen(page_rect: egui::Rect, dims: PageDimensions, slot: &Slot) -> egui::Rect {
     let s = dims.page_scale(page_rect);
     let min = egui::pos2(
-        page_rect.min.x + (s.offset_mm + slot.x_mm as f32) * s.scale_x,
-        page_rect.min.y + (s.offset_mm + slot.y_mm as f32) * s.scale_y,
+        page_rect.min.x + (s.offset_x_mm + slot.x_mm as f32) * s.scale_x,
+        page_rect.min.y + (s.offset_y_mm + slot.y_mm as f32) * s.scale_y,
     );
     let max = egui::pos2(
         min.x + slot.width_mm as f32 * s.scale_x,
@@ -118,12 +163,7 @@ mod tests {
             width_mm: 50.0,
             height_mm: 25.0,
         };
-        let dims = PageDimensions {
-            width_mm: 200.0,
-            height_mm: 100.0,
-            bleed_mm: 0.0,
-            margin_mm: 0.0,
-        };
+        let dims = PageDimensions::uniform(200.0, 100.0, 0.0, 0.0);
         let rect = slot_rect_on_screen(page_rect(), dims, &slot);
         assert_eq!(rect.min, page_rect().min);
     }
@@ -141,12 +181,7 @@ mod tests {
             height_mm: 1.0,
         };
         let pr = page_rect(); // 200×100 px
-        let dims = PageDimensions {
-            width_mm: 200.0,
-            height_mm: 100.0,
-            bleed_mm: 5.0,
-            margin_mm: 10.0,
-        };
+        let dims = PageDimensions::uniform(200.0, 100.0, 5.0, 10.0);
         let rect = slot_rect_on_screen(pr, dims, &slot);
         let expected_x = pr.min.x + 15.0 * (200.0 / 210.0);
         let expected_y = pr.min.y + 15.0 * (100.0 / 110.0);
@@ -167,12 +202,7 @@ mod tests {
     #[test]
     fn hit_test_outside_page_returns_none() {
         let lp = layout_page(vec![full_slot(200.0, 100.0)]);
-        let dims = PageDimensions {
-            width_mm: 200.0,
-            height_mm: 100.0,
-            bleed_mm: 0.0,
-            margin_mm: 0.0,
-        };
+        let dims = PageDimensions::uniform(200.0, 100.0, 0.0, 0.0);
         let result = hit_test_slot(
             egui::pos2(0.0, 0.0), // far outside page_rect which starts at (10, 20)
             page_rect(),
@@ -187,12 +217,7 @@ mod tests {
         // Two slots that both cover the full page (no bleed/margin) — second (idx 1) should win
         let lp = layout_page(vec![full_slot(200.0, 100.0), full_slot(200.0, 100.0)]);
         let center = page_rect().center();
-        let dims = PageDimensions {
-            width_mm: 200.0,
-            height_mm: 100.0,
-            bleed_mm: 0.0,
-            margin_mm: 0.0,
-        };
+        let dims = PageDimensions::uniform(200.0, 100.0, 0.0, 0.0);
         let result = hit_test_slot(center, page_rect(), &lp, dims);
         assert_eq!(result, Some(1));
     }
@@ -215,13 +240,23 @@ mod tests {
         let lp = layout_page(vec![left, right]);
         // Center of page is at x=110 (page_rect x: 10..210, center=110), y=70
         let center = page_rect().center();
-        let dims = PageDimensions {
-            width_mm: 200.0,
-            height_mm: 100.0,
-            bleed_mm: 0.0,
-            margin_mm: 0.0,
-        };
+        let dims = PageDimensions::uniform(200.0, 100.0, 0.0, 0.0);
         let result = hit_test_slot(center, page_rect(), &lp, dims);
         assert!(result.is_none());
+    }
+
+    #[test]
+    fn slot_offset_uses_left_bleed_on_inside_edge() {
+        // Right-hand inner page: spine (left) bleed 0, outside bleed 3mm.
+        // Rendered image is 203×106mm, displayed 203×106 px → 1 px/mm.
+        let pr = egui::Rect::from_min_size(egui::pos2(0.0, 0.0), egui::vec2(203.0, 106.0));
+        let dims = PageDimensions {
+            bleed_left_mm: 0.0,
+            ..PageDimensions::uniform(200.0, 100.0, 3.0, 0.0)
+        };
+        let rect = slot_rect_on_screen(pr, dims, &full_slot(10.0, 10.0));
+        assert!((rect.min.x - 0.0).abs() < 0.01, "x: {}", rect.min.x);
+        assert!((rect.min.y - 3.0).abs() < 0.01, "y: {}", rect.min.y);
+        assert!((rect.max.x - 10.0).abs() < 0.01, "max x: {}", rect.max.x);
     }
 }

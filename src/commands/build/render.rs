@@ -2,14 +2,14 @@ use anyhow::Result;
 use std::path::PathBuf;
 use tracing::info;
 
-use crate::output::typst;
+use crate::output::typst::{self, BleedSpec};
 use crate::state_manager::StateManager;
 
 /// Data captured from `StateManager` before it is consumed by `finish`/`finish_always`.
 pub struct RenderContext {
     pub project_root: PathBuf,
     pub project_name: String,
-    pub bleed_mm: f64,
+    pub bleed: BleedSpec,
 }
 
 impl RenderContext {
@@ -17,7 +17,7 @@ impl RenderContext {
         Self {
             project_root: mgr.project_root().to_owned(),
             project_name: mgr.project_name().to_string(),
-            bleed_mm: mgr.state.config.book.bleed_mm,
+            bleed: BleedSpec::from_book(&mgr.state.config.book),
         }
     }
 }
@@ -31,7 +31,7 @@ pub enum PdfTarget {
 pub fn render_pdf(ctx: &RenderContext, target: PdfTarget, skip_pdf: bool) -> Result<PathBuf> {
     let root = &ctx.project_root;
     let name = &ctx.project_name;
-    let bleed = ctx.bleed_mm;
+    let bleed = &ctx.bleed;
     if skip_pdf {
         return Ok(root.join(format!("{name}.pdf")));
     }

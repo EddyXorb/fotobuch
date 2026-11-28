@@ -92,6 +92,9 @@ fn set_config_key(s: &mut WriteConfigState, key: &str, value: &str) -> Result<St
 
 /// Auto-detect the YAML type from a string value.
 fn parse_yaml_value(s: &str) -> Value {
+    if s == "null" || s == "~" {
+        return Value::Null;
+    }
     if s == "true" {
         return Value::Bool(true);
     }
@@ -213,5 +216,25 @@ mod tests {
         let mgr = StateManager::open(&root).unwrap();
         assert_eq!(mgr.state.config.book.dpi, 72.0);
         mgr.finish("noop").unwrap();
+    }
+
+    #[test]
+    fn test_set_bleed_inside_and_reset() {
+        let (_tmp, root) = open_tmp();
+        let res = config_set(&root, "book.bleed_inside_mm", "0").unwrap();
+        assert_eq!(res.result.old_value, "null");
+        let mgr = StateManager::open(&root).unwrap();
+        assert_eq!(mgr.state.config.book.bleed_inside_mm, Some(0.0));
+        drop(mgr);
+
+        config_set(&root, "book.bleed_inside_mm", "null").unwrap();
+        let mgr = StateManager::open(&root).unwrap();
+        assert_eq!(mgr.state.config.book.bleed_inside_mm, None);
+    }
+
+    #[test]
+    fn test_parse_null() {
+        assert_eq!(parse_yaml_value("null"), Value::Null);
+        assert_eq!(parse_yaml_value("~"), Value::Null);
     }
 }

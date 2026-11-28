@@ -6,6 +6,10 @@ pub struct NewProjectDialogState {
     pub width_mm: String,
     pub height_mm: String,
     pub bleed_mm: String,
+    /// Inside (spine) bleed; empty = same as `bleed_mm`
+    pub bleed_inside_mm: String,
+    /// Side of the first inner page
+    pub first_page_side: fotobuch::models::PageSide,
     pub margin_mm: String,
     pub with_cover: bool,
     /// Spine mode: false = auto (mm per 10 pages), true = fixed mm

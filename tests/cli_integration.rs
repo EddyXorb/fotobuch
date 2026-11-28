@@ -119,6 +119,101 @@ fn status_outside_project_fails() {
         .failure();
 }
 
+/// Reads the project YAML (`<project>/<name>.yaml`).
+fn project_yaml(project: &std::path::Path, name: &str) -> String {
+    std::fs::read_to_string(project.join(format!("{name}.yaml"))).unwrap()
+}
+
+#[test]
+fn project_new_with_bleed_inside_writes_config() {
+    let dir = TempDir::new().unwrap();
+    cmd()
+        .current_dir(dir.path())
+        .args([
+            "project",
+            "new",
+            "cewe",
+            "--width",
+            "290",
+            "--height",
+            "290",
+            "--bleed",
+            "3",
+            "--bleed-inside",
+            "0",
+            "--quiet",
+        ])
+        .assert()
+        .success();
+    let yaml = project_yaml(&dir.path().join("cewe"), "cewe");
+    assert!(yaml.contains("bleed_inside_mm: 0"), "{yaml}");
+}
+
+#[test]
+fn project_new_with_first_page_side_left() {
+    let dir = TempDir::new().unwrap();
+    cmd()
+        .current_dir(dir.path())
+        .args([
+            "project",
+            "new",
+            "lf",
+            "--width",
+            "290",
+            "--height",
+            "290",
+            "--bleed-inside",
+            "0",
+            "--first-page-side",
+            "left",
+            "--quiet",
+        ])
+        .assert()
+        .success();
+    let yaml = project_yaml(&dir.path().join("lf"), "lf");
+    assert!(yaml.contains("first_page_side: left"), "{yaml}");
+}
+
+#[test]
+fn project_new_rejects_invalid_first_page_side() {
+    let dir = TempDir::new().unwrap();
+    cmd()
+        .current_dir(dir.path())
+        .args([
+            "project",
+            "new",
+            "x",
+            "--width",
+            "290",
+            "--height",
+            "290",
+            "--first-page-side",
+            "up",
+        ])
+        .assert()
+        .failure();
+}
+
+#[test]
+fn config_set_first_page_side() {
+    let dir = TempDir::new().unwrap();
+    let project = create_project(&dir, "my-book");
+    assert!(project_yaml(&project, "my-book").contains("first_page_side: right"));
+    cmd()
+        .current_dir(&project)
+        .args(["config", "set", "book.first_page_side", "left"])
+        .assert()
+        .success();
+    assert!(project_yaml(&project, "my-book").contains("first_page_side: left"));
+}
+
+#[test]
+fn project_new_without_bleed_inside_writes_null() {
+    let dir = TempDir::new().unwrap();
+    let project = create_project(&dir, "my-book");
+    assert!(project_yaml(&project, "my-book").contains("bleed_inside_mm: null"));
+}
+
 // ── config ───────────────────────────────────────────────────────────────────
 
 #[test]
@@ -130,6 +225,24 @@ fn config_in_project_succeeds() {
         .args(["config", "show"])
         .assert()
         .success();
+}
+
+#[test]
+fn config_set_bleed_inside_and_reset() {
+    let dir = TempDir::new().unwrap();
+    let project = create_project(&dir, "my-book");
+    cmd()
+        .current_dir(&project)
+        .args(["config", "set", "book.bleed_inside_mm", "0"])
+        .assert()
+        .success();
+    assert!(project_yaml(&project, "my-book").contains("bleed_inside_mm: 0"));
+    cmd()
+        .current_dir(&project)
+        .args(["config", "set", "book.bleed_inside_mm", "null"])
+        .assert()
+        .success();
+    assert!(project_yaml(&project, "my-book").contains("bleed_inside_mm: null"));
 }
 
 // ── history ──────────────────────────────────────────────────────────────────

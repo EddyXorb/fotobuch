@@ -131,8 +131,8 @@ fn calc_primary_ghost_rect(
     let w = slot.width_mm as f32 * scale.scale_x;
     let h = slot.height_mm as f32 * scale.scale_y;
     let slot_top_left = egui::pos2(
-        page_rect.min.x + (scale.offset_mm + slot.x_mm as f32) * scale.scale_x,
-        page_rect.min.y + (scale.offset_mm + slot.y_mm as f32) * scale.scale_y,
+        page_rect.min.x + (scale.offset_x_mm + slot.x_mm as f32) * scale.scale_x,
+        page_rect.min.y + (scale.offset_y_mm + slot.y_mm as f32) * scale.scale_y,
     );
     let grab = cursor_at_drag_start - slot_top_left;
     egui::Rect::from_min_size(cursor - grab, vec2(w, h))

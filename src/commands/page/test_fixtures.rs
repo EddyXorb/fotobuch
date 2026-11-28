@@ -33,6 +33,8 @@ pub fn make_state_with_layout(pages: Vec<Vec<&str>>) -> ProjectState {
                 page_width_mm: 420.0,
                 page_height_mm: 297.0,
                 bleed_mm: 3.0,
+                bleed_inside_mm: None,
+                first_page_side: Default::default(),
                 margin_mm: 10.0,
                 gap_mm: 5.0,
                 bleed_threshold_mm: 3.0,
