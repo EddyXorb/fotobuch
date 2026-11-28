@@ -94,6 +94,7 @@ impl<'a> PageProblem<'a> {
         let p_min = self.params.photos_per_page_min;
         let p_max = self.params.photos_per_page_max.min(self.n - i);
         (p_min..=p_max)
+            .filter(|&p| !self.params.photos_per_page_exclude.contains(&p))
             .filter(|&p| self.interval_feasible(i, i + p))
             .collect()
     }

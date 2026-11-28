@@ -205,6 +205,7 @@ mod tests {
             page_max: 5,
             photos_per_page_min: 3,
             photos_per_page_max: 10,
+            photos_per_page_exclude: Vec::new(),
             group_max_per_page: 3,
             group_min_photos: 3,
             weight_even: 1.0,
@@ -253,5 +254,36 @@ mod tests {
             .unwrap();
 
         assert_eq!(assignment.total_photos(), 6);
+    }
+    #[test]
+    fn test_excluded_page_size_is_never_used() {
+        // 44 photos over exactly 15 pages with sizes in [2,4]: without the exclusion
+        // the evenness cost favours 3 photos per page; with 3 excluded only 2 and 4 remain.
+        let photos: Vec<Photo> = (0..44)
+            .map(|i| Photo::new(format!("p{i}"), 1.5, 1.0, "g".to_string()))
+            .collect();
+        let groups = GroupInfo::from_photos(&photos);
+        let params = BookLayoutSolverConfig {
+            page_target: 15,
+            page_min: 15,
+            page_max: 15,
+            photos_per_page_min: 2,
+            photos_per_page_max: 4,
+            photos_per_page_exclude: vec![3],
+            group_max_per_page: 5,
+            group_min_photos: 1,
+            enable_local_search: false,
+            ..default_params()
+        };
+
+        let assignment = PageAssignmentSolver::new(params)
+            .solve(&groups, &photos)
+            .unwrap();
+
+        assert_eq!(assignment.num_pages(), 15);
+        let sizes: Vec<usize> = (0..15).map(|i| assignment.page_size(i)).collect();
+        assert!(sizes.iter().all(|&s| s == 2 || s == 4), "sizes: {sizes:?}");
+        assert_eq!(sizes.iter().filter(|&&s| s == 2).count(), 8);
+        assert_eq!(sizes.iter().filter(|&&s| s == 4).count(), 7);
     }
 }
